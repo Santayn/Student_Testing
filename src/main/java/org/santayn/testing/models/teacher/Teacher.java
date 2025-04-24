@@ -3,6 +3,7 @@ package org.santayn.testing.models.teacher;
 import jakarta.persistence.*;
 import org.santayn.testing.models.faculty.Faculty_Teacher;
 import org.santayn.testing.models.user.User;
+import org.springframework.boot.autoconfigure.web.WebProperties;
 
 import java.util.List;
 
@@ -10,6 +11,7 @@ import java.util.List;
 @Entity
 public class Teacher {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")

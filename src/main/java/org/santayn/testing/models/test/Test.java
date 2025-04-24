@@ -3,22 +3,30 @@ package org.santayn.testing.models.test;
 import jakarta.persistence.*;
 import org.santayn.testing.models.question.Question_In_Test;
 import org.santayn.testing.models.question.Question_Test_Answer;
-import org.santayn.testing.models.subject.Subject_Lecture;
 
 import java.util.List;
 
+@Entity
 @Table
-@Entity 
 public class Test {
     @Id
-    Integer id;
-    Integer item_id;
-    Integer question_id;
-    String topic;
-    @OneToOne(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Test_Lecture test_lecture;
-    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Question_In_Test> question_in_test;
+    private Integer id;
+    private Integer item_id;
+    private Integer question_id;
+    private String topic;
+
     @OneToOne(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
     private Question_Test_Answer question_test_answer;
+
+    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Question_In_Test> question_in_test;
+
+    // Геттеры и сеттеры
+    public List<Question_In_Test> getQuestion_in_test() {
+        return question_in_test;
+    }
+
+    public void setQuestion_in_test(List<Question_In_Test> question_in_test) {
+        this.question_in_test = question_in_test;
+    }
 }

@@ -9,3 +9,5 @@ spring:
         ddl-auto: update
     database: postgresql
     show-sql: true
+server:
+  port: 8080
