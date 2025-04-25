@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Вопросы теста</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .question-container {
+            margin-bottom: 20px;
+        }
+        .question-text {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .options {
+            margin-top: 10px;
+        }
+        .options label {
+            display: block;
+            margin: 5px 0;
+        }
+        .navigation {
+            margin-top: 20px;
+        }
+        .navigation button {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<h1>Тест ID: <span th:text="${testId}"></span></h1>
+
+<div th:if="${errorMessage != null}">
+    <p th:text="${errorMessage}"></p>
+</div>
+
+<div th:unless="${questions == null || questions.empty}">
+    <div class="question-container" th:each="question, iterStat : ${questions}">
+        <div class="question-text">
+            Вопрос #<span th:text="${iterStat.index + 1}"></span>:
+            <span th:text="${question.content}"></span>
+        </div>
+        <div class="options">
+            <label th:each="option : ${question.question_answer}">
+                <input type="radio" name="answer" th:value="${option.id}" disabled />
+                <span th:text="${option.text}"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <button id="prevButton">Предыдущий</button>
+        <button id="nextButton">Следующий</button>
+    </div>
+</div>
+
+<script>
+    const questions = document.querySelectorAll('.question-container');
+    let currentQuestionIndex = 0;
+
+    function showQuestion(index) {
+        questions.forEach((question, i) => {
+            question.style.display = i === index ? 'block' : 'none';
+        });
+    }
+
+    document.getElementById('prevButton').addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            showQuestion(currentQuestionIndex);
+        }
+    });
+
+    document.getElementById('nextButton').addEventListener('click', () => {
+        if (currentQuestionIndex < questions.length - 1) {
+            currentQuestionIndex++;
+            showQuestion(currentQuestionIndex);
+        }
+    });
+
+    showQuestion(currentQuestionIndex);
+</script>
+</body>
+</html>
