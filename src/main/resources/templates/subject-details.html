@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Детали предмета</title>
+</head>
+<body>
+<h1>Детали предмета</h1>
+
+<p><strong>ID предмета:</strong> <span th:text="${selectedSubject.id}"></span></p>
+<p><strong>Название:</strong> <span th:text="${selectedSubject.title}"></span></p>
+<p><strong>Описание:</strong> <span th:text="${selectedSubject.description}"></span></p>
+
+<!-- Ссылка на лекции -->
+<p>
+    <a th:href="@{/subject/{subjectId}/lectures(subjectId=${selectedSubject.id})}">
+        Перейти к лекциям
+    </a>
+</p>
+
+<!-- Ссылка "Назад" -->
+<a th:href="@{/facultys/{facultyId}/subjects(facultyId=${facultyId})}">Вернуться к списку предметов</a>
+</body>
+</html>

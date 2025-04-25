@@ -19,6 +19,8 @@ public class Faculty {
     private List<Faculty_Teacher> faculty_teacher;
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Subject_Faculty> subject_faculty;
-
+    public Integer getId() {
+        return id;
+    }
 
 }
