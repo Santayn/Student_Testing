@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Детали лекции</title>
+</head>
+<body>
+<h1>Детали лекции</h1>
+
+<p><strong>ID лекции:</strong> <span th:text="${selectedLecture.id}"></span></p>
+<p><strong>Описание:</strong> <span th:text="${selectedLecture.description}"></span></p>
+<p><strong>Содержание:</strong> <span th:text="${selectedLecture.content}"></span></p>
+
+<a th:href="@{/subject/{subjectId}/lectures(subjectId=${subjectId})}">Вернуться к списку лекций</a>
+<a th:href="@{/tests/{testId}/questions(testId=${selectedLecture.test_id})}">Перейти к тесту</a>
+</body>
+</html>

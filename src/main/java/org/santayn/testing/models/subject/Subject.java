@@ -19,6 +19,8 @@ public class Subject {
 
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Teacher_Subject> teacherSubjects;
-
+    public Integer getId() {
+        return id;
+    }
 
 }

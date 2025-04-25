@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Список лекций</title>
+</head>
+<body>
+<h1>Лекции по предмету ID: <span th:text="${subjectId}"></span></h1>
+
+<!-- Сообщение об ошибке -->
+<div th:if="${error}" style="color: red;">
+    <p th:text="${error}"></p>
+</div>
+
+<ul>
+    <li th:each="lecture : ${lectures}">
+        <a th:href="@{/subject/{subjectId}/lecture/{lectureId}(subjectId=${subjectId}, lectureId=${lecture.id})}"
+           th:text="${lecture.description}">
+        </a>
+    </li>
+</ul>
+
+<a href="/">Вернуться к списку предметов</a>
+</body>
+</html>
