@@ -1,12 +1,15 @@
 package org.santayn.testing.models.question;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.santayn.testing.models.answer.Answer;
 
 @Entity
 @Table(name = "question_answers")
+@Data
 public class Question_Answer {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @ManyToOne

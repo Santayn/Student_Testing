@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Список студентов</title>
+</head>
+<body>
+<h1>Список студентов группы с ID: <span th:text="${groupId}"></span></h1>
+
+<!-- Проверка на наличие ошибок -->
+<div th:if="${error}" style="color: red;">
+    Ошибка: <span th:text="${error}"></span>
+</div>
+
+<!-- Проверка на пустой список -->
+<div th:if="${students.isEmpty()}">
+    <p>В этой группе нет студентов.</p>
+</div>
+
+<!-- Список студентов -->
+<ul th:unless="${students.isEmpty()}">
+    <li th:each="student : ${students}">
+        <a th:href="@{/group/{groupId}/students/{studentId}(groupId=${groupId}, studentId=${student.id})}"
+           th:text="${student.user.firstName + ' ' + student.user.lastName}">Имя студента</a>
+    </li>
+</ul>
+
+<!-- Кнопка "Назад" -->
+<a th:href="@{/groups}">Назад к списку групп</a>
+</body>
+</html>

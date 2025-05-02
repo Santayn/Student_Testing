@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали студента</title>
+</head>
+<body>
+<h1>Детали студента</h1>
+
+<!-- Проверка на наличие ошибок -->
+<div th:if="${error}" style="color: red;">
+    Ошибка: <span th:text="${error}"></span>
+</div>
+
+<!-- Информация о студенте -->
+<div th:if="${selectedStudent != null}">
+    <p><strong>ID:</strong> <span th:text="${selectedStudent.id}"></span></p>
+    <p><strong>Имя:</strong>
+        <span th:text="${selectedStudent.user.firstName + ' ' + selectedStudent.user.lastName}"></span>
+    </p>
+    <p><strong>Курс:</strong> <span th:text="${selectedStudent.courseCode}"></span></p>
+    <p><strong>Факультет:</strong> <span th:text="${selectedStudent.instituteFaculty}"></span></p>
+</div>
+
+<!-- Кнопка "Назад" -->
+<a th:href="@{/group/{groupId}/students(groupId=${groupId})}">Назад к списку студентов</a>
+</body>
+</html>

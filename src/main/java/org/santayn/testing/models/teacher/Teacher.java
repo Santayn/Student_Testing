@@ -1,6 +1,7 @@
 package org.santayn.testing.models.teacher;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.santayn.testing.models.faculty.Faculty_Teacher;
 import org.santayn.testing.models.user.User;
 import org.springframework.boot.autoconfigure.web.WebProperties;
@@ -9,6 +10,7 @@ import java.util.List;
 
 @Table
 @Entity
+@Data
 public class Teacher {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

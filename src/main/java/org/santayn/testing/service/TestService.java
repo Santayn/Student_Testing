@@ -35,7 +35,7 @@ public class TestService {
         }
 
         Optional<Question> specificQuestion = questions.stream()
-                .filter(question -> question.getId().equals(questionId))
+                .filter(question -> questionId.equals(question.getId())) // Используем getId()
                 .findFirst();
 
         return specificQuestion.orElseThrow(() -> new RuntimeException(

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали группы</title>
+</head>
+<body>
+<h1>Детали группы</h1>
+
+<!-- Проверка на наличие ошибок -->
+<div th:if="${error}" style="color: red;">
+    Ошибка: <span th:text="${error}"></span>
+</div>
+
+<!-- Информация о группе -->
+<div th:if="${selectedGroup != null}">
+    <p><strong>ID:</strong> <span th:text="${selectedGroup.id}"></span></p>
+    <p><strong>Имя:</strong> <span th:text="${selectedGroup.name}"></span></p>
+    <!-- Добавьте другие поля группы, если они есть -->
+</div>
+
+<!-- Кнопка "Назад" -->
+<a th:href="@{/group/All}">Назад к списку групп</a>
+</body>
+</html>

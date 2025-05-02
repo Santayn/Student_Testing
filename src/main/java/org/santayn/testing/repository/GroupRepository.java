@@ -1,5 +1,6 @@
 package org.santayn.testing.repository;
 
+import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.test.Test;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,7 +10,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface LectureRepository extends JpaRepository<Lecture, Integer> {
-    @Query("SELECT sl.lecture FROM Subject_Lecture sl WHERE sl.subject.id = :subject_id")
-    List<Lecture> findLectureBySubjectId(@Param("subject_id") Integer subject_id);
+public interface GroupRepository extends JpaRepository<Group, Integer> {
+    @Query("SELECT g FROM Group g")
+    List<Group> findAllGroups();
+    @Query("SELECT g FROM Group g WHERE g.name = :group_name")
+    List<Group> findGroupByName(@Param("group_name") String group_name);
 }

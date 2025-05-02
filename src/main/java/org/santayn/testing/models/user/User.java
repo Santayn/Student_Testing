@@ -13,6 +13,7 @@ import org.santayn.testing.models.teacher.Teacher;
 @Table(name = "app_user")
 public class User {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
     String password;

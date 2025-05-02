@@ -1,16 +1,18 @@
 package org.santayn.testing.models.answer;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.santayn.testing.models.question.Question_Answer;
 
 import java.util.List;
 
 @Table
 @Entity
-
+@Data
 public class
 Answer {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
     Integer question_id;
     Integer student_id;

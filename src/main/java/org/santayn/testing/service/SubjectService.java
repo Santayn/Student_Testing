@@ -1,12 +1,8 @@
 
 package org.santayn.testing.service;
 
-import org.santayn.testing.models.lecture.Lecture;
-import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.subject.Subject;
-import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.SubjectRepository;
-import org.santayn.testing.repository.TestRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;

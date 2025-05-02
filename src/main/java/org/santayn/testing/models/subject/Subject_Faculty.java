@@ -1,13 +1,16 @@
 package org.santayn.testing.models.subject;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.santayn.testing.models.faculty.Faculty;
-import org.santayn.testing.models.teacher.Teacher;
+
 
 @Table
 @Entity
+@Data
 public class Subject_Faculty {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
     @ManyToOne
     @JoinColumn(name = "faculty_id", referencedColumnName = "id") // Внешний ключ на таблицу Faculty
