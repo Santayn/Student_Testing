@@ -25,13 +25,14 @@ public class GroupService {
 
 
     public Group getSpecificGroupByGroupName(String name) {
-
         List<Group> groups = groupRepository.findGroupByName(name);
+        if (groups.isEmpty()) {
+            throw new RuntimeException("Группа с именем " + name + " не найдена.");
+        }
         Optional<Group> specificGroup = groups.stream()
                 .filter(group -> group.getName().equals(name))
                 .findFirst();
-
         return specificGroup.orElseThrow(() -> new RuntimeException(
-                "Question with ID " + name + " not found in Test with ID "));
+                "Группа с именем " + name + " не найдена."));
     }
 }

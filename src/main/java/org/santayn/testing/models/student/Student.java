@@ -32,4 +32,11 @@ public class Student {
 
     @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Group_Student> groupStudents;
+
+    public String getName() {
+        if (user == null) {
+            return "Unknown";
+        }
+        return user.getFirstName() + " " + user.getLastName();
+    }
 }

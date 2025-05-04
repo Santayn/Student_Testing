@@ -2,8 +2,10 @@ package org.santayn.testing.models.group;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.santayn.testing.models.faculty.Faculty;
 import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.teacher.Teacher_Group;
+import org.santayn.testing.models.user.User;
 
 import java.util.List;
 
@@ -14,16 +16,18 @@ public class Group {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
-    Integer facultet;
+    String facultet;
     Integer course_code;
+    @Column(unique = true)
     String name;
     String title;
 
     // Связь OneToMany с Student через промежуточную таблицу
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Group_Student> group_students;
-
-    // Связь OneToMany с Teacher_Group
+    @ManyToOne
+    @JoinColumn(name = "faculty_id", referencedColumnName = "id")
+    private Faculty faculty;
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Teacher_Group> teacherGroups;
 

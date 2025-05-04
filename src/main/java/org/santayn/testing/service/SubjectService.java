@@ -1,6 +1,4 @@
-
 package org.santayn.testing.service;
-
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.repository.SubjectRepository;
 import org.springframework.stereotype.Service;
@@ -22,7 +20,6 @@ public class SubjectService {
         }
         return subjectRepository.findSubjectByFacultyId(facultyId);
     }
-
 
     public Subject getSpecificSubjectByFacultyIdAndSubjectId(Integer facultyId, Integer subjectId) {
 

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/group") // Базовый путь для групп
+@RequestMapping("/groups") // Базовый путь для групп
 public class GroupController {
 
     private final GroupService groupService;
@@ -22,7 +22,6 @@ public class GroupController {
         this.groupService = groupService;
     }
 
-    // Отображение списка студентов по groupId
     @GetMapping("/All")
     public String getAllGroups(Model model) {
         System.out.println("Fetching all groups"); // Логирование
@@ -34,17 +33,15 @@ public class GroupController {
         return "groups";
     }
 
-    // Отображение деталей конкретного студента
-    @GetMapping("/{groupName}/")
-    public String getGroupByName(@PathVariable String name,
-                                    Model model) {
+    @GetMapping("/{name}/")
+    public String getGroupByName(@PathVariable String name, Model model) {
         try {
             Group selectedGroup = groupService.getSpecificGroupByGroupName(name);
             model.addAttribute("selectedGroup", selectedGroup);
-            return "group-details"; // Имя шаблона Thymeleaf для отображения деталей студента
+            return "group-details"; // Имя шаблона Thymeleaf для отображения деталей группы
         } catch (RuntimeException e) {
             model.addAttribute("error", e.getMessage());
-            return "redirect:/groups"; // Перенаправляем обратно к списку студентов
+            return "redirect:/groups/All"; // Перенаправляем обратно к списку групп
         }
     }
 }

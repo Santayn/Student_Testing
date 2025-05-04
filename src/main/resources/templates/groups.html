@@ -3,29 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>Список групп</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
 </head>
 <body>
-<h1>Список всех групп</h1>
+<div class="container mt-5">
+    <h1>Список групп</h1>
 
-<!-- Проверка на наличие ошибок -->
-<div th:if="${error}" style="color: red;">
-    Ошибка: <span th:text="${error}"></span>
+    <!-- Вывод сообщения об ошибке -->
+    <div th:if="${error}" class="alert alert-danger">
+        <span th:text="${error}">Ошибка</span>
+    </div>
+
+    <!-- Список групп -->
+    <ul class="list-group">
+        <li class="list-group-item" th:each="group : ${groups}">
+            <a th:href="@{/groups/{name}/(name=${group.name})}" th:text="${group.name}"></a>
+        </li>
+    </ul>
 </div>
-
-<!-- Проверка на пустой список -->
-<div th:if="${groups.isEmpty()}">
-    <p>Нет доступных групп.</p>
-</div>
-
-<!-- Список групп -->
-<ul th:unless="${groups.isEmpty()}">
-    <li th:each="group : ${groups}">
-        <a th:href="@{/group/{groupName}(groupName=${group.name})}"
-           th:text="${group.name}">Имя группы</a>
-    </li>
-</ul>
-
-<!-- Кнопка "На главную" -->
-<a href="/">На главную</a>
 </body>
 </html>
