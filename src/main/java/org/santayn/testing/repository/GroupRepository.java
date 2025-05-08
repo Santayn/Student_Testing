@@ -1,5 +1,6 @@
 package org.santayn.testing.repository;
 
+import java.util.Optional;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.test.Test;
@@ -15,4 +16,6 @@ public interface GroupRepository extends JpaRepository<Group, Integer> {
     List<Group> findAllGroups();
     @Query("SELECT g FROM Group g WHERE g.name = :group_name")
     List<Group> findGroupByName(@Param("group_name") String group_name);
+    @Query("SELECT g FROM Group g WHERE g.id = :groupId")
+    Optional<Group> findGroupById(@Param("groupId") Integer groupId);
 }
