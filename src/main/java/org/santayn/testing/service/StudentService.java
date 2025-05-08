@@ -50,4 +50,12 @@ public class StudentService {
                 .orElseThrow(() -> new RuntimeException(
                         "Студент с ID " + studentId + " не найден в группе с ID " + groupId));
     }
+    public List<Student> findFreeStudents(Integer groupId) {
+        List<Student> allStudents = findAll();
+        List<Student> studentsInGroup = getStudentsByGroupID(groupId);
+
+        return allStudents.stream()
+                .filter(student -> !studentsInGroup.contains(student))
+                .toList();
+    }
 }

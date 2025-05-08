@@ -1,5 +1,7 @@
 package org.santayn.testing.controller;
 
+import org.santayn.testing.models.group.Group;
+import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.user.User;
 import org.santayn.testing.service.GroupService;
 import org.santayn.testing.service.StudentService;
@@ -21,7 +23,7 @@ public class UserController {
     private final StudentService studentService;
     private final GroupService groupService;
 
-    public UserController(UserRegisterService userRegisterService, GroupService groupService,StudentService studentService) {
+    public UserController(UserRegisterService userRegisterService, GroupService groupService, StudentService studentService) {
         this.userRegisterService = userRegisterService;
         this.groupService = groupService;
         this.studentService = studentService;
@@ -32,60 +34,49 @@ public class UserController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String currentLogin = auth.getName(); // Получаем логин текущего пользователя
         User selectUser = userRegisterService.findUserByLogin(currentLogin);
+        List<Group> allGroups = groupService.getAllGroup();
+
         model.addAttribute("selectUser", selectUser);
+        model.addAttribute("groups", allGroups);
         return "profile"; // Имя Thymeleaf шаблона
     }
 
     /**
-     * Отображение страницы для выбора группы и студентов
+     * Открытие страницы управления студентами в группе
      */
-    @GetMapping("create-group")
-    public String showAddStudentsToGroupForm(Model model) {
-        model.addAttribute("groups", groupService.getAllGroup());
-        model.addAttribute("students", studentService.findAll());
-        return "select-group-and-students";
+    @GetMapping("students")
+    public String getGroupStudentsPage(
+            @PathVariable Integer groupId,
+            Model model) {
+        Group group = groupService.getGroupById(groupId);
+        List<Student> studentsInGroup = studentService.getStudentsByGroupID(groupId);
+        List<Student> freeStudents = studentService.findFreeStudents(groupId);
+
+        model.addAttribute("group", group);
+        model.addAttribute("studentsInGroup", studentsInGroup);
+        model.addAttribute("freeStudents", freeStudents);
+        return "group_students"; // Шаблон Thymeleaf: group_students.html
     }
 
     /**
-     * Обработка POST-запроса — добавление студентов в группу
+     * Добавить студентов в группу
      */
-    @PostMapping("create-group")
+    @PostMapping("add-students")
     public String addStudentsToGroup(
-            @RequestParam("groupId") Integer groupId,
+            @PathVariable Integer groupId,
             @RequestParam("studentIds") List<Integer> studentIds) {
-
-        // Вызываем метод через экземпляр сервиса
         groupService.addStudentsToGroup(groupId, studentIds);
-
-        // Перенаправляем на профиль
-        return "redirect:/kubstuTest/profile/me";
-    }
-    @GetMapping("remove-students")
-    public String showRemoveStudentsFromGroupForm(Model model) {
-        model.addAttribute("groups", groupService.getAllGroup());
-        model.addAttribute("students", studentService.findAll());
-        return "remove-group-and-students"; // Нужно создать этот шаблон
+        return "redirect:/kubstuTest/group/" + groupId + "/students";
     }
 
     /**
-     * Обработка POST-запроса — удаление студентов из группы
+     * Удалить студентов из группы
      */
     @PostMapping("remove-students")
     public String removeStudentsFromGroup(
-            @RequestParam("groupId") Integer groupId,
+            @PathVariable Integer groupId,
             @RequestParam("studentIds") List<Integer> studentIds) {
-
-        try {
-            // Вызываем метод через экземпляр сервиса
-            groupService.deleteStudentsFromGroup(groupId, studentIds);
-
-            // Перенаправляем на профиль
-            return "redirect:/kubstuTest/profile/me";
-        } catch (Exception e) {
-            // Логируем ошибку
-            e.printStackTrace();
-            // Перенаправляем на страницу с ошибкой
-            return "redirect:/error?message=" + e.getMessage();
-        }
+        groupService.deleteStudentsFromGroup(groupId, studentIds);
+        return "redirect:/kubstuTest/group/" + groupId + "/students";
     }
 }
