@@ -15,7 +15,7 @@
 <ul>
     <li th:each="subject : ${subjects}">
         <a th:href="@{/facultys/{facultyId}/subject/{subjectId}(facultyId=${facultyId}, subjectId=${subject.id})}"
-           th:text="${subject.title}">
+           th:text="${subject.name}">
         </a>
     </li>
 </ul>

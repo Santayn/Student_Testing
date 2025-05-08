@@ -11,15 +11,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/facultys") // Базовый путь для предметов
 public class SubjectController {
 
     private final SubjectService subjectService;
-
     public SubjectController(SubjectService subjectService) {
         this.subjectService = subjectService;
     }
-
     // Отображение списка лекций по subjectId
     @GetMapping("/{facultyId}/subjects")
     public String getSubjectByFaculty(@PathVariable Integer facultyId, Model model) {

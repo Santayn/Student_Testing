@@ -7,6 +7,7 @@ import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.teacher.Teacher_Group;
 import org.santayn.testing.models.user.User;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Table(name = "app_group")
@@ -30,5 +31,15 @@ public class Group {
     private Faculty faculty;
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Teacher_Group> teacherGroups;
+    @ManyToMany(cascade = CascadeType.ALL)
+    @JoinTable(
+            name = "group_students",
+            joinColumns = @JoinColumn(name = "group_id"),
+            inverseJoinColumns = @JoinColumn(name = "student_id")
+    )
+    private List<Student> students = new ArrayList<>();
 
+    public void addStudent(Student student) {
+        students.add(student);
+    }
 }

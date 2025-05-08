@@ -2,7 +2,7 @@ package org.santayn.testing.controller;
 
 import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.user.User;
-import org.santayn.testing.service.UserService;
+import org.santayn.testing.service.UserRegisterService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class AuthController {
 
     @Autowired
-    private UserService userService;
+    private UserRegisterService userRegisterService;
 
     @GetMapping("/register")
     public String showRegistrationForm(Model model) {
@@ -34,7 +34,7 @@ public class AuthController {
         role.setName(roleName);
 
         // Регистрируем пользователя
-        userService.registerUser(login, password, firstName, lastName, phoneNumber);
+        userRegisterService.registerUser(login, password, firstName, lastName, phoneNumber);
         return "redirect:/login"; // Перенаправляем на страницу входа
     }
 

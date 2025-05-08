@@ -14,7 +14,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/register", "/login","/kubstuTest","/about").permitAll() // Разрешаем доступ к регистрации и логину
+                        .requestMatchers("/register", "/login","/kubstuTest","/kubstuTest/about").permitAll() // Разрешаем доступ к регистрации и логину
                         .anyRequest().authenticated() // Все остальные страницы требуют аутентификации
                 )
                 .formLogin(form -> form

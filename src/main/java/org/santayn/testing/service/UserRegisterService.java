@@ -1,6 +1,7 @@
 package org.santayn.testing.service;
 
 import org.santayn.testing.models.role.Role;
+import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.user.User;
 import org.santayn.testing.repository.RoleRepository;
 import org.santayn.testing.repository.UserRepository;
@@ -11,8 +12,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
-public class UserService implements UserDetailsService {
+public class UserRegisterService implements UserDetailsService {
 
     @Autowired
     private UserRepository userRepository;
@@ -43,5 +46,10 @@ public class UserService implements UserDetailsService {
                 user.getPassword(),
                 java.util.Collections.emptyList()
         );
+    }
+
+    public User findUserByLogin(String login) {
+        return userRepository.findByLogin(login)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with login: " + login));
     }
 }

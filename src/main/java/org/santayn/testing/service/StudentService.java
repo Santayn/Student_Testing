@@ -19,7 +19,13 @@ public class StudentService {
     public StudentService(StudentRepository studentRepository) {
         this.studentRepository = studentRepository;
     }
+    public List<Student> findAll() {
+        return studentRepository.findAll();
+    }
 
+    public Optional<Student> findById(Integer id) {
+        return studentRepository.findById(id);
+    }
     // Получение списка студентов по ID группы
     public List<Student> getStudentsByGroupID(Integer groupId) {
         if (groupId == null) {
