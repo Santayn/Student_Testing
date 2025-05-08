@@ -34,49 +34,31 @@ public class UserController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String currentLogin = auth.getName(); // Получаем логин текущего пользователя
         User selectUser = userRegisterService.findUserByLogin(currentLogin);
-        List<Group> allGroups = groupService.getAllGroup();
-
         model.addAttribute("selectUser", selectUser);
-        model.addAttribute("groups", allGroups);
         return "profile"; // Имя Thymeleaf шаблона
     }
 
     /**
-     * Открытие страницы управления студентами в группе
+     * Отображает страницу с формой добавления студентов в группу
      */
-    @GetMapping("students")
-    public String getGroupStudentsPage(
-            @PathVariable Integer groupId,
-            Model model) {
-        Group group = groupService.getGroupById(groupId);
-        List<Student> studentsInGroup = studentService.getStudentsByGroupID(groupId);
-        List<Student> freeStudents = studentService.findFreeStudents(groupId);
+    @GetMapping("add-students-to-group")
+    public String showAddStudentsPage(Model model) {
+        List<Group> groups = groupService.getAllGroup(); // Получаем список всех групп
+        List<Student> allStudents = studentService.findAll(); // Получаем список всех студентов
 
-        model.addAttribute("group", group);
-        model.addAttribute("studentsInGroup", studentsInGroup);
-        model.addAttribute("freeStudents", freeStudents);
-        return "group_students"; // Шаблон Thymeleaf: group_students.html
+        model.addAttribute("groups", groups);
+        model.addAttribute("students", allStudents);
+        return "add_students_to_group"; // Шаблон Thymeleaf
     }
 
     /**
-     * Добавить студентов в группу
+     * Обрабатывает POST-запрос: добавляет выбранных студентов в выбранную группу
      */
-    @PostMapping("add-students")
+    @PostMapping("add-students-to-group")
     public String addStudentsToGroup(
-            @PathVariable Integer groupId,
-            @RequestParam("studentIds") List<Integer> studentIds) {
-        groupService.addStudentsToGroup(groupId, studentIds);
-        return "redirect:/kubstuTest/group/" + groupId + "/students";
-    }
-
-    /**
-     * Удалить студентов из группы
-     */
-    @PostMapping("remove-students")
-    public String removeStudentsFromGroup(
-            @PathVariable Integer groupId,
-            @RequestParam("studentIds") List<Integer> studentIds) {
-        groupService.deleteStudentsFromGroup(groupId, studentIds);
-        return "redirect:/kubstuTest/group/" + groupId + "/students";
+            @RequestParam Integer groupId,
+            @RequestParam List<Integer> selectedStudentIds) {
+        groupService.addStudentsToGroup(groupId, selectedStudentIds); // Вызов сервиса
+        return "redirect:/kubstuTest/add-students-to-group"; // Перезагрузка страницы
     }
 }
