@@ -18,11 +18,11 @@ public class StudentService {
     }
 
     public List<Student> findAll() {
-        return studentRepository.findAll();
+        return studentRepository.findAllStudents();
     }
 
     public Optional<Student> findById(Integer id) {
-        return studentRepository.findById(id);
+        return studentRepository.findStudentById(id);
     }
 
     // Получение списка студентов по ID группы
@@ -50,12 +50,7 @@ public class StudentService {
     }
 
     // Получение свободных студентов (не входящих в указанную группу)
-    public List<Student> findFreeStudents(Integer groupId) {
-        List<Student> allStudents = findAll();
-        List<Student> studentsInGroup = getStudentsByGroupID(groupId);
-
-        return allStudents.stream()
-                .filter(student -> !studentsInGroup.contains(student))
-                .collect(Collectors.toList());
+    public List<Student> findFreeStudents() {
+        return studentRepository.findStudentsNotInAnyGroup();
     }
 }
