@@ -39,16 +39,16 @@ public class UserController {
     }
 
     /**
-     * Отображает страницу с формой добавления студентов в группу
+     * Отображает страницу с выбором группы и действий над студентами
      */
-    @GetMapping("add-students-to-group")
-    public String showAddStudentsPage(Model model) {
-        List<Group> groups = groupService.getAllGroup(); // Получаем список всех групп
-        List<Student> allStudents = studentService.findAll(); // Получаем список всех студентов
+    @GetMapping("manage-students")
+    public String showManageStudentsPage(Model model) {
+        List<Group> groups = groupService.getAllGroup();
+        List<Student> allStudents = studentService.findAll();
 
         model.addAttribute("groups", groups);
-        model.addAttribute("students", allStudents);
-        return "add_students_to_group"; // Шаблон Thymeleaf
+        model.addAttribute("allStudents", allStudents);
+        return "manage_students"; // Имя Thymeleaf шаблона
     }
 
     /**
@@ -59,6 +59,35 @@ public class UserController {
             @RequestParam Integer groupId,
             @RequestParam List<Integer> selectedStudentIds) {
         groupService.addStudentsToGroup(groupId, selectedStudentIds); // Вызов сервиса
-        return "redirect:/kubstuTest/add-students-to-group"; // Перезагрузка страницы
+        return "redirect:/kubstuTest/manage-students"; // Перезагрузка страницы
+    }
+
+    /**
+     * Обрабатывает POST-запрос: удаляет выбранных студентов из группы
+     */
+    @PostMapping("remove-students-from-group")
+    public String removeStudentsFromGroup(
+            @RequestParam Integer groupId,
+            @RequestParam List<Integer> selectedStudentIds) {
+        groupService.deleteStudentsFromGroup(groupId, selectedStudentIds); // Вызов сервиса
+        return "redirect:/kubstuTest/manage-students"; // Перезагрузка страницы
+    }
+
+    /**
+     * AJAX-эндпоинт для получения студентов в указанной группе
+     */
+    @GetMapping("students-in-group/{groupId}")
+    @ResponseBody
+    public List<Student> getStudentsInGroup(@PathVariable Integer groupId) {
+        return studentService.getStudentsByGroupID(groupId);
+    }
+
+    /**
+     * AJAX-эндпоинт для получения свободных студентов (не входящих в группу)
+     */
+    @GetMapping("free-students/{groupId}")
+    @ResponseBody
+    public List<Student> getFreeStudents(@PathVariable Integer groupId) {
+        return studentService.findFreeStudents(groupId);
     }
 }

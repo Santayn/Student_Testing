@@ -29,8 +29,8 @@ public class User {
 
     // Связь OneToOne с Student
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Student student;
+    Student student;
     // Связь OneToOne с Student
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Teacher teacher;
+    Teacher teacher;
 }

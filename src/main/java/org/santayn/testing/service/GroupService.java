@@ -3,8 +3,6 @@ package org.santayn.testing.service;
 
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.group.Group_Student;
-import org.santayn.testing.models.lecture.Lecture;
-import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.student.Student;
 import org.santayn.testing.repository.*;
 import org.springframework.stereotype.Service;

@@ -2,18 +2,17 @@ package org.santayn.testing.models.group;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.santayn.testing.models.group.Group;
+import lombok.EqualsAndHashCode;
 import org.santayn.testing.models.student.Student;
-import org.santayn.testing.models.teacher.Teacher;
-
-import java.util.List;
 
 @Entity
 @Data
 @Table(name = "group_student")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Group_Student {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include  // Используем только id
     private Integer id;
 
     @ManyToOne

@@ -14,12 +14,6 @@ public class SubjectService {
         this.subjectRepository = subjectRepository;
     }
 
-    public List<Subject> getSubjectByID(Integer facultyId) {
-        if (facultyId == null) {
-            throw new IllegalArgumentException("Test ID cannot be null");
-        }
-        return subjectRepository.findSubjectByFacultyId(facultyId);
-    }
 
     public Subject getSpecificSubjectByFacultyIdAndSubjectId(Integer facultyId, Integer subjectId) {
 
@@ -31,5 +25,20 @@ public class SubjectService {
 
         return specificSubject.orElseThrow(() -> new RuntimeException(
                 "Question with ID " + subjectId + " not found in Test with ID " + facultyId));
+    }
+    public List<Subject> getSubjectsByFacultyId(Integer facultyId) {
+        return subjectRepository.findSubjectByFacultyId(facultyId);
+    }
+
+    // Получение конкретного предмета по ID факультета и ID предмета
+    public Subject findSubjectByIdAndFacultyId(Integer facultyId, Integer subjectId) {
+        List<Subject> subjects = subjectRepository.findSubjectByFacultyId(facultyId);
+
+        Optional<Subject> specificSubject = subjects.stream()
+                .filter(subject -> subject.getId().equals(subjectId))
+                .findFirst();
+
+        return specificSubject.orElseThrow(() -> new RuntimeException(
+                "Subject with ID " + subjectId + " not found for Faculty with ID " + facultyId));
     }
 }

@@ -50,6 +50,6 @@ public class UserRegisterService implements UserDetailsService {
 
     public User findUserByLogin(String login) {
         return userRepository.findByLogin(login)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with login: " + login));
+                .orElseThrow(() -> new RuntimeException("Пользователь с логином " + login + " не найден"));
     }
 }
