@@ -7,11 +7,15 @@ import org.santayn.testing.service.GroupService;
 import org.santayn.testing.service.StudentService;
 import org.santayn.testing.service.UserRegisterService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Controller
@@ -41,12 +45,23 @@ public class UserController {
      * Отображает страницу с выбором группы и действий над студентами
      */
     @GetMapping("manage-students")
-    public String showManageStudentsPage(Model model) {
+    public String showManageStudentsPage(
+            @RequestParam(required = false) Integer groupId,
+            Model model) {
+        // Получаем все группы
         List<Group> groups = groupService.getAllGroup();
-        List<Student> allStudents = studentService.findAll();
-
         model.addAttribute("groups", groups);
-        model.addAttribute("allStudents", allStudents);
+
+        if (groupId != null) {
+            // Если выбрана группа, получаем студентов в группе и доступных студентов
+            List<Student> groupStudents = studentService.getStudentsByGroupID(groupId);
+            List<Student> freeStudents = studentService.findFreeStudents();
+
+            model.addAttribute("groupId", groupId);
+            model.addAttribute("groupStudents", groupStudents);
+            model.addAttribute("freeStudents", freeStudents);
+        }
+
         return "manage_students"; // Имя Thymeleaf шаблона
     }
 
@@ -68,6 +83,9 @@ public class UserController {
     public String removeStudentsFromGroup(
             @RequestParam Integer groupId,
             @RequestParam List<Integer> selectedStudentIds) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("Current user roles: " + Arrays.toString(auth.getAuthorities().toArray()));
+
         groupService.deleteStudentsFromGroup(groupId, selectedStudentIds); // Вызов сервиса
         return "redirect:/kubstuTest/manage-students"; // Перезагрузка страницы
     }

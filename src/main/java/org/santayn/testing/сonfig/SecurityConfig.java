@@ -3,19 +3,25 @@ package org.santayn.testing.сonfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/register", "/login","/kubstuTest","/kubstuTest/about").permitAll() // Разрешаем доступ к регистрации и логину
-                        .anyRequest().authenticated() // Все остальные страницы требуют аутентификации
+                        // Разрешаем доступ к регистрации, логину и другим общедоступным страницам
+                        .requestMatchers("/register", "/login", "/kubstuTest", "/kubstuTest/about").permitAll()
+                        // Разрешаем доступ к удалению студентов для всех пользователей
+                        .requestMatchers("/kubstuTest/remove-students-from-group").permitAll()
+                        // Все остальные запросы требуют аутентификации
+                        .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/login") // Страница входа
