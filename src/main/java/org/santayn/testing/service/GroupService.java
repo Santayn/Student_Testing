@@ -46,6 +46,22 @@ public class GroupService {
         return groupRepository.findGroupById(groupId)
                 .orElseThrow(() -> new RuntimeException("Группа не найдена"));
     }
+    // Получение свободных group
+    public List<Group> findFreeGroups() {
+        List<Group> group = groupRepository.findGroupsNotInAnyTeachers();
+        System.out.println("Free Students found: " + group.size());
+        return group;
+    }
+    // Получение списка студентов по ID группы
+    public List<Group> getGroupsByTecherID(Integer teacherId) {
+        if (teacherId == null) {
+            throw new IllegalArgumentException("teacherId cannot be null");
+        }
+        System.out.println("Fetching Group for group ID: " + teacherId); // Логирование
+        List<Group> groups = groupRepository.findGroupByTeacherId(teacherId);
+        System.out.println("Group found: " + groups.size()); // Проверка количества найденных студентов
+        return groups;
+    }
     public Group addStudentsToGroup(Integer groupId, List<Integer> studentIds) {
         // 1. Получаем группу
         Group group = getGroupById(groupId);
