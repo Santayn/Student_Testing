@@ -51,6 +51,8 @@ public class StudentService {
 
     // Получение свободных студентов (не входящих в указанную группу)
     public List<Student> findFreeStudents() {
-        return studentRepository.findStudentsNotInAnyGroup();
+        List<Student> student = studentRepository.findStudentsNotInAnyGroup();
+        System.out.println("Free Students found: " + student.size());
+        return student;
     }
 }
