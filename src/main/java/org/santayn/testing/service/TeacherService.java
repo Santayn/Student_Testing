@@ -1,37 +1,27 @@
 package org.santayn.testing.service;
-
 import org.santayn.testing.models.group.Group;
-import org.santayn.testing.models.group.Group_Student;
-import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.models.teacher.Teacher_Group;
 import org.santayn.testing.repository.GroupRepository;
-import org.santayn.testing.repository.StudentRepository;
 import org.santayn.testing.repository.TeacherRepository;
 import org.santayn.testing.repository.Teacher_GroupRepository;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class TeacherService {
-
     private final TeacherRepository teacherRepository;
     private final GroupRepository groupRepository;
     private final Teacher_GroupRepository teacherGroupRepository;
-
     public TeacherService(TeacherRepository teacherRepository,GroupRepository groupRepository,Teacher_GroupRepository teacherGroupRepository) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.teacherGroupRepository = teacherGroupRepository;
     }
-
     public List<Teacher> findAll() {
         return teacherRepository.findAllTeachers();
     }
-
     public Optional<Teacher> findById(Integer id) {
         return teacherRepository.findTeacherById(id);
     }
@@ -48,7 +38,6 @@ public class TeacherService {
         System.out.println("teachers found: " + teachers.size()); // Проверка количества найденных студентов
         return teachers;
     }
-
     // Получение конкретного студента по ID группы и ID студента
     /*public Teacher getSpecificStudentByGroupIdAndStudentId(Integer groupId, Integer studentId) {
         if (groupId == null || studentId == null) {
@@ -61,7 +50,6 @@ public class TeacherService {
                 .orElseThrow(() -> new RuntimeException(
                         "Студент с ID " + studentId + " не найден в группе с ID " + groupId));
     }*/
-
     // Получение свободных teacher (не входящих в указанную группу)
     public List<Teacher> findFreeTeacherss() {
         List<Teacher> teacher = teacherRepository.findTeachersNotInAnyGroup();
@@ -75,13 +63,11 @@ public class TeacherService {
     public Teacher addGroupsToTeacher(Integer teacherId, List<Integer> groupIds) {
         // 1. Получаем группу
         Teacher teacher = getTeacherById(teacherId);
-
         // 2. Получаем список Group
         List<Group> groups = groupRepository.findAllById(groupIds);
         if (groups.size() != groupIds.size()) {
             throw new RuntimeException("Не все group найдены");
         }
-
         // 3. Создаём связи между group и teacher
         for (Group group : groups) {
             Teacher_Group groupTeacher = new Teacher_Group();
@@ -97,22 +83,18 @@ public class TeacherService {
     public Teacher deleteGroupsFromTeacher(Integer teacherId, List<Integer> groupIds) {
         // 1. Получаем teacher
         Teacher teacher = getTeacherById(teacherId);
-
         // 2. Получаем список group
         List<Group> groups = groupRepository.findGroupByTeacherId(teacherId);
         if (groups.size() != groupIds.size()) {
             throw new RuntimeException("Не все groups найдены");
         }
-
         for (Group group : groups) {
             // Находим конкретную связь "Teacher_Group"
             Teacher_Group existingLink = teacherGroupRepository.findByTeacherIdAndGroupId(teacherId, group.getId())
                     .orElseThrow(() -> new RuntimeException("Связь между группой и студентом не найдена"));
-
             // Удаляем эту связь
             teacherGroupRepository.delete(existingLink);
         }
-
         // 4. Опционально: можно вернуть обновлённую группу (если нужно)
         return teacher;
     }

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Пользователи</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .sidebar a {
+            display: block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .sidebar a:hover {
+            color: #007BFF;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            background-color: #fff;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .role-filter {
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f5f5f5;
+        }
+
+        form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        select {
+            padding: 5px;
+        }
+
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        a.button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+
+        a.button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<!-- === Боковая панель навигации === -->
+<div class="sidebar">
+    <!-- Кнопка "О пользователе" -->
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+
+    <!-- Ссылки на другие разделы профиля -->
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+
+    <!-- Управление студентами и учителями -->
+    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
+    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
+
+
+</div>
+
+<!-- === Основное содержимое === -->
+<div class="content">
+    <h1>Пользователи</h1>
+
+    <!-- Форма выбора роли -->
+    <div class="role-filter">
+        <form th:action="@{/kubstuTest/users/role}" method="get">
+            <label for="roleId">Выберите роль:</label>
+            <select id="roleId" name="roleId" onchange="this.form.submit()">
+                <option value="">-- Выберите роль --</option>
+                <option th:each="roleOption : ${ {1, 2, 3, 4} }"
+                        th:value="${roleOption}"
+                        th:selected="${selectedRoleId == roleOption}"
+                        th:text="${roleOption == 1 ? 'USER' : roleOption == 2 ? 'STUDENT' : roleOption == 3 ? 'TEACHER' : 'ADMIN'}">
+                </option>
+            </select>
+        </form>
+    </div>
+
+    <!-- Таблица пользователей -->
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Логин</th>
+            <th>Текущая роль</th>
+            <th>Изменить роль</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="user : ${users}">
+            <td th:text="${user.id}">ID</td>
+            <td th:text="${user.login}">Логин</td>
+            <td th:text="${user.role.name}">Роль</td>
+            <td>
+                <form th:action="@{/kubstuTest/users/update-role}" method="post">
+                    <input type="hidden" name="userId" th:value="${user.id}" />
+                    <select name="newRoleId">
+                        <option value="1">USER</option>
+                        <option value="2">STUDENT</option>
+                        <option value="3">TEACHER</option>
+                        <option value="4">ADMIN</option>
+                    </select>
+                    <button type="submit">Сохранить</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+
+    <a href="/kubstuTest/profile/me" class="button">Назад к профилю</a>
+</div>
+
+<!-- JS для скрытия/показа информации о пользователе -->
+<script>
+    function toggleInfo() {
+        const info = document.getElementById('user-info');
+        if (info) {
+            info.style.display = info.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+</script>
+
+</body>
+</html>

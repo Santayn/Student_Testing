@@ -1,13 +1,18 @@
 package org.santayn.testing.controller;
 
+import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.student.Student;
+import org.santayn.testing.service.GroupService;
 import org.santayn.testing.service.LectureService;
 import org.santayn.testing.service.StudentService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Controller
@@ -15,9 +20,11 @@ import java.util.List;
 public class StudentController {
 
     private final StudentService studentService;
+    private final GroupService groupService;
 
-    public StudentController(StudentService studentService) {
+    public StudentController(StudentService studentService, GroupService groupService) {
         this.studentService = studentService;
+        this.groupService = groupService;
     }
 
     // Отображение списка студентов по groupId

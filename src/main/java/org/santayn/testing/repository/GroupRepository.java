@@ -1,17 +1,11 @@
 package org.santayn.testing.repository;
-
 import java.util.Optional;
 import org.santayn.testing.models.group.Group;
-import org.santayn.testing.models.lecture.Lecture;
-import org.santayn.testing.models.student.Student;
-import org.santayn.testing.models.teacher.Teacher;
-import org.santayn.testing.models.test.Test;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
-
 @Repository
 public interface GroupRepository extends JpaRepository<Group, Integer> {
     @Query("SELECT g FROM Group g")

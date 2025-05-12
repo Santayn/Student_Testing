@@ -1,13 +1,11 @@
 package org.santayn.testing.controller;
 
 import org.santayn.testing.models.group.Group;
+import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.models.user.User;
-import org.santayn.testing.service.GroupService;
-import org.santayn.testing.service.StudentService;
-import org.santayn.testing.service.TeacherService;
-import org.santayn.testing.service.UserRegisterService;
+import org.santayn.testing.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -28,14 +26,18 @@ public class UserController {
     private final StudentService studentService;
     private final GroupService groupService;
     private final TeacherService teacherService;
+    private final UserService userService;
+    private final RoleService roleService;
 
-    public UserController(UserRegisterService userRegisterService, GroupService groupService, StudentService studentService,TeacherService teacherService) {
+    public UserController(UserRegisterService userRegisterService, GroupService groupService, StudentService studentService,
+                          TeacherService teacherService,UserService userService,RoleService roleService) {
         this.userRegisterService = userRegisterService;
         this.groupService = groupService;
         this.studentService = studentService;
         this.teacherService = teacherService;
+        this.userService = userService;
+        this.roleService = roleService;
     }
-
     @GetMapping("profile/me")
     public String getUserProfile(Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -44,6 +46,46 @@ public class UserController {
         model.addAttribute("selectUser", selectUser);
         return "profile"; // Имя Thymeleaf шаблона
     }
+    // === Страница пользователей по умолчанию (USER) ===
+    @GetMapping("/users/role/user")
+    public String showUsersWithUserRole(Model model) {
+        List<User> users = userService.findUsers(1); // USER
+        model.addAttribute("users", users);
+        model.addAttribute("selectedRoleId", 1);
+        return "users";
+    }
+
+    // === Универсальный метод: показать пользователей по roleId ===
+    @GetMapping("/users/role")
+    public String showUsersByRole(@RequestParam(name = "roleId", required = false) Integer roleId, Model model) {
+        if (roleId == null) {
+            model.addAttribute("users", new ArrayList<>());
+            model.addAttribute("selectedRoleId", null);
+        } else {
+            List<User> users = userService.findUsers(roleId);
+            model.addAttribute("users", users);
+            model.addAttribute("selectedRoleId", roleId);
+        }
+        return "users"; // Thymeleaf шаблон
+    }
+
+    // === Обновление роли пользователя ===
+    @PostMapping("/users/update-role")
+    public String updateUserRole(
+            @RequestParam("userId") Integer userId,
+            @RequestParam("newRoleId") Integer newRoleId) {
+
+        User user = userService.getUserById(userId);
+        Role role = roleService.getRoleById(newRoleId);
+
+        user.setRole(role);
+        userService.save(user);
+
+        return "redirect:/kubstuTest/users/role?roleId=" + newRoleId;
+    }
+
+
+
     @GetMapping("manage-teachers")
     public String showManageTeachersPage(
             @RequestParam(required = false) Integer teacherId,

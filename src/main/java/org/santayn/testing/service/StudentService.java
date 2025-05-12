@@ -1,30 +1,21 @@
 package org.santayn.testing.service;
-
 import org.santayn.testing.models.student.Student;
 import org.santayn.testing.repository.StudentRepository;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
 @Service
 public class StudentService {
-
     private final StudentRepository studentRepository;
-
     public StudentService(StudentRepository studentRepository) {
         this.studentRepository = studentRepository;
     }
-
     public List<Student> findAll() {
         return studentRepository.findAllStudents();
     }
-
     public Optional<Student> findById(Integer id) {
         return studentRepository.findStudentById(id);
     }
-
     // Получение списка студентов по ID группы
     public List<Student> getStudentsByGroupID(Integer groupId) {
         if (groupId == null) {
@@ -35,7 +26,6 @@ public class StudentService {
         System.out.println("Students found: " + students.size()); // Проверка количества найденных студентов
         return students;
     }
-
     // Получение конкретного студента по ID группы и ID студента
     public Student getSpecificStudentByGroupIdAndStudentId(Integer groupId, Integer studentId) {
         if (groupId == null || studentId == null) {
@@ -48,7 +38,6 @@ public class StudentService {
                 .orElseThrow(() -> new RuntimeException(
                         "Студент с ID " + studentId + " не найден в группе с ID " + groupId));
     }
-
     // Получение свободных студентов (не входящих в указанную группу)
     public List<Student> findFreeStudents() {
         List<Student> student = studentRepository.findStudentsNotInAnyGroup();

@@ -19,23 +19,17 @@ public class Group {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include  // Используем только id для equals/hashCode
     private Integer id;
-
     private String facultet;
     private Integer course_code;
-
     @Column(unique = true)
     private String name;
-
     private String title;
-
     // Связь OneToMany с Student через промежуточную таблицу
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Group_Student> groupStudents = new ArrayList<>();
-
     @ManyToOne
     @JoinColumn(name = "faculty_id", referencedColumnName = "id")
     private Faculty faculty;
-
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Teacher_Group> teacherGroups = new ArrayList<>();
 

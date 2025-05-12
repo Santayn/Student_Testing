@@ -3,6 +3,7 @@ package org.santayn.testing.models.user;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.teacher.Teacher;
@@ -19,6 +20,7 @@ public class User {
     String password;
     String login;
 
+    @Setter
     @ManyToOne // Связь "многие к одному" (много пользователей могут иметь одну роль)
     @JoinColumn(name = "role_id") // Создаст внешний ключ ID_Role в таблице users
     Role role;
