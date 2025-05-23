@@ -42,6 +42,25 @@ public class Group {
         Group_Student groupStudent = new Group_Student();
         groupStudent.setGroup(this);
         groupStudent.setStudent(student);
+
+        // Устанавливаем группу у студента
+        student.setGroup(this);
+
         groupStudents.add(groupStudent);
+    }
+    public void removeStudent(Student student) {
+        Group_Student toRemove = null;
+        for (Group_Student gs : groupStudents) {
+            if (gs.getStudent().getId().equals(student.getId())) {
+                toRemove = gs;
+                break;
+            }
+        }
+
+        if (toRemove != null) {
+            // Очищаем поле group у студента
+            toRemove.getStudent().setGroup(null);
+            groupStudents.remove(toRemove);
+        }
     }
 }
