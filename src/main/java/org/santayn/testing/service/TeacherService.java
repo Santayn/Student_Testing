@@ -1,7 +1,9 @@
 package org.santayn.testing.service;
+import jakarta.transaction.Transactional;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.models.teacher.Teacher_Group;
+import org.santayn.testing.models.user.User;
 import org.santayn.testing.repository.GroupRepository;
 import org.santayn.testing.repository.TeacherRepository;
 import org.santayn.testing.repository.Teacher_GroupRepository;
@@ -38,18 +40,7 @@ public class TeacherService {
         System.out.println("teachers found: " + teachers.size()); // Проверка количества найденных студентов
         return teachers;
     }
-    // Получение конкретного студента по ID группы и ID студента
-    /*public Teacher getSpecificStudentByGroupIdAndStudentId(Integer groupId, Integer studentId) {
-        if (groupId == null || studentId == null) {
-            throw new IllegalArgumentException("Group ID and Student ID cannot be null");
-        }
 
-        return teacherRepository.findStudentByGroupId(groupId).stream()
-                .filter(student -> student.getId().equals(studentId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException(
-                        "Студент с ID " + studentId + " не найден в группе с ID " + groupId));
-    }*/
     // Получение свободных teacher (не входящих в указанную группу)
     public List<Teacher> findFreeTeacherss() {
         List<Teacher> teacher = teacherRepository.findTeachersNotInAnyGroup();
@@ -97,5 +88,24 @@ public class TeacherService {
         }
         // 4. Опционально: можно вернуть обновлённую группу (если нужно)
         return teacher;
+    }
+
+    @Transactional
+    public void deleteTeacherAndRelatedData(Integer teacherId, Integer userId) {
+
+        // 2. Удаляем связь студента с группами
+        teacherGroupRepository.deleteByTeacherId(teacherId);
+
+        // 3. Удаляем самого студента
+        teacherRepository.deleteByUser_Id(userId); // или по studentId, если он есть
+    }
+    public Optional<Teacher> findByUserId(Integer userId) {
+        return teacherRepository.findByUserId(userId);
+    }
+    @Transactional
+    public void createTeacherForUser(User user) {
+        Teacher teacher = new Teacher();
+        teacher.setUser(user);
+        teacherRepository.save(teacher);
     }
 }

@@ -1,6 +1,7 @@
 package org.santayn.testing.repository;
 import org.santayn.testing.models.teacher.Teacher;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -27,4 +28,13 @@ public interface TeacherRepository extends JpaRepository<Teacher, Integer> {
         )
     """)
     List<Teacher> findTeachersNotInAnyGroup();
+    @Query("SELECT t FROM Teacher t WHERE t.user.id = :userId")
+    Optional<Teacher> findTeacherByUserId(@Param("userId") Integer userId);
+
+    @Modifying
+    @Query("DELETE FROM Teacher t WHERE t.user.id = :userId")
+    void deleteByUser_Id(@Param("userId") Integer userId);
+
+    Optional<Teacher> findByUserId(Integer userId);
+
 }

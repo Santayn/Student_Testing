@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.group.Group_Student;
 import org.santayn.testing.models.question.Question_Test_Answer;
@@ -17,17 +19,17 @@ import java.util.List;
 @NoArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Student {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include  // Используем только id для equals/hashCode
     private Integer id;
-
-    private String courseCode;
     @OneToOne
     @JoinColumn(name = "id_group", referencedColumnName = "id")
     private Group group;
 
     @OneToOne
+    @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "id_user", referencedColumnName = "id")
     private User user;
 

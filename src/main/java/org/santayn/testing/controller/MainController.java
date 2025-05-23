@@ -64,7 +64,7 @@ public class MainController {
         // Получаем факультет через цепочку связей: User → Student → Group → Faculty
         Group group = user.getStudent().getGroup();
         Faculty faculty = group.getFaculty();
-
+        System.out.println("Faculty ID: " + faculty.getId()+" "+ group.getId());
         if (faculty == null || faculty.getId() == null) {
             throw new RuntimeException("Факультет не найден для группы: " + group.getName());
         }
