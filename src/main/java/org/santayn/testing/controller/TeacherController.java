@@ -22,21 +22,15 @@ import java.util.List;
 @RequestMapping("/kubstuTest/")
 public class TeacherController {
 
-    private final UserRegisterService userRegisterService;
-    private final StudentService studentService;
+
     private final GroupService groupService;
     private final TeacherService teacherService;
-    private final UserService userService;
-    private final RoleService roleService;
 
-    public TeacherController(UserRegisterService userRegisterService, GroupService groupService, StudentService studentService,
-                          TeacherService teacherService,UserService userService,RoleService roleService) {
-        this.userRegisterService = userRegisterService;
+
+    public TeacherController( GroupService groupService, TeacherService teacherService) {
+
         this.groupService = groupService;
-        this.studentService = studentService;
         this.teacherService = teacherService;
-        this.userService = userService;
-        this.roleService = roleService;
     }
 
     @GetMapping("manage-teachers")

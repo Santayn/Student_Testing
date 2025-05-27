@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Управление предметами учителя</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .sidebar {
+            width: 200px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .sidebar a {
+            display: block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .sidebar a:hover {
+            color: #007BFF;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f9f9f9;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <!-- Кнопка "О пользователе" -->
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+
+    <!-- Ссылки на другие разделы профиля -->
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+
+    <!-- 🟢 Кнопка для управления студентами -->
+    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
+
+    <!-- 🟢 Новая кнопка для управления учителями -->
+    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
+
+    <!-- 🟢 Управление ролями -->
+    <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+</div>
+
+<div class="content">
+    <h2>Управление предметами учителя</h2>
+
+    <!-- Выбор учителя -->
+    <form th:action="@{/kubstuTest/manage-teachers-subject}" method="get">
+        <div class="form-group">
+            <label for="teacherSelect">Выберите учителя:</label>
+            <select id="teacherSelect" name="teacherId" class="form-control">
+                <option value="">-- Выберите учителя --</option>
+                <option th:each="teacher : ${teachers}"
+                        th:value="${teacher.id}"
+                        th:text="${teacher.user.firstName + ' ' + teacher.user.lastName}"
+                        th:selected="${teacher.id == param.teacherId}">
+                </option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Показать предметы</button>
+    </form>
+
+    <hr/>
+
+    <!-- Предметы, преподаваемые учителем -->
+    <div th:if="${teacherGroups}">
+        <h3>Предметы, преподаваемые учителем</h3>
+        <form th:action="@{/kubstuTest/remove-subjects-from-teacher}" method="post">
+            <input type="hidden" name="teacherId" th:value="${teacherId}"/>
+            <table>
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Название предмета</th>
+                    <th>Действие</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="subject, iter : ${teacherGroups}">
+                    <td th:text="${iter.index + 1}"></td>
+                    <td th:text="${subject.name}"></td>
+                    <td>
+                        <input type="checkbox" name="selectedSubjectIds" th:value="${subject.id}" />
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-danger">Удалить выбранные</button>
+        </form>
+    </div>
+
+    <!-- Доступные предметы -->
+    <div th:if="${freeGroups}">
+        <h3>Добавить предметы к учителю</h3>
+        <form th:action="@{/kubstuTest/add-subjects-to-teacher}" method="post">
+            <input type="hidden" name="teacherId" th:value="${teacherId}"/>
+            <table>
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Название предмета</th>
+                    <th>Действие</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="subject, iter : ${freeGroups}">
+                    <td th:text="${iter.index + 1}"></td>
+                    <td th:text="${subject.name}"></td>
+                    <td>
+                        <input type="checkbox" name="selectedSubjectIds" th:value="${subject.id}" />
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-success">Добавить выбранные</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleInfo() {
+        const info = document.getElementById('user-info');
+        if (info.style.display === 'none') {
+            info.style.display = 'block';
+        } else {
+            info.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>

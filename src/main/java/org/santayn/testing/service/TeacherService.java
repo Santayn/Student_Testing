@@ -1,12 +1,12 @@
 package org.santayn.testing.service;
 import jakarta.transaction.Transactional;
 import org.santayn.testing.models.group.Group;
+import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.models.teacher.Teacher_Group;
+import org.santayn.testing.models.teacher.Teacher_Subject;
 import org.santayn.testing.models.user.User;
-import org.santayn.testing.repository.GroupRepository;
-import org.santayn.testing.repository.TeacherRepository;
-import org.santayn.testing.repository.Teacher_GroupRepository;
+import org.santayn.testing.repository.*;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
@@ -16,17 +16,18 @@ public class TeacherService {
     private final TeacherRepository teacherRepository;
     private final GroupRepository groupRepository;
     private final Teacher_GroupRepository teacherGroupRepository;
-    public TeacherService(TeacherRepository teacherRepository,GroupRepository groupRepository,Teacher_GroupRepository teacherGroupRepository) {
+    private final SubjectRepository subjectRepository;
+    private final Teacher_SubjectRepository teacherSubjectRepository;
+    public TeacherService(SubjectRepository subjectRepository,Teacher_SubjectRepository teacherSubjectRepository,TeacherRepository teacherRepository, GroupRepository groupRepository, Teacher_GroupRepository teacherGroupRepository) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.teacherGroupRepository = teacherGroupRepository;
+        this.subjectRepository = subjectRepository;
+        this.teacherSubjectRepository = teacherSubjectRepository;
     }
-    public List<Teacher> findAll() {
-        return teacherRepository.findAllTeachers();
-    }
-    public Optional<Teacher> findById(Integer id) {
-        return teacherRepository.findTeacherById(id);
-    }
+
+
+
     public List<Teacher> getAllTeacher() {
         return teacherRepository.findAllTeachers();
     }
@@ -89,6 +90,52 @@ public class TeacherService {
         // 4. Опционально: можно вернуть обновлённую группу (если нужно)
         return teacher;
     }
+
+
+
+    public Teacher addSubjectsToTeacher(Integer teacherId, List<Integer> subjectIds) {
+
+        Teacher teacher = getTeacherById(teacherId);
+        // 2. Получаем список Group
+        List<Subject> subjects = subjectRepository.findAllById(subjectIds);
+        if (subjects.size() != subjectIds.size()) {
+            throw new RuntimeException("Не все subject найдены");
+        }
+        // 3. Создаём связи между group и teacher
+        for (Subject subject : subjects) {
+            Teacher_Subject subjectTeacher = new Teacher_Subject();
+            subjectTeacher.setTeacher(teacher);
+            subjectTeacher.setSubject(subject);
+
+            // ❗ Сохраняем связь НАПРЯМУЮ в БД
+            teacherSubjectRepository.save(subjectTeacher);
+        }
+        // 4. Опционально: можно вернуть обновлённую teacher (если нужно)
+        return teacher;
+    }
+    public Teacher deleteSubjectsFromTeacher(Integer teacherId, List<Integer> subjectIds) {
+        // 1. Получаем teacher
+        Teacher teacher = getTeacherById(teacherId);
+        // 2. Получаем список subjects
+        List<Subject> subjects = subjectRepository.findSubjectByTeacherId(teacherId);
+        if (subjects.size() != subjectIds.size()) {
+            throw new RuntimeException("Не все subjects найдены");
+        }
+        for (Subject subject : subjects) {
+            // Находим конкретную связь "Teacher_Subject"
+            Teacher_Subject existingLink = teacherSubjectRepository.findByTeacherIdAndSubjectId(teacherId, subject.getId())
+                    .orElseThrow(() -> new RuntimeException("Связь между группой и студентом не найдена"));
+            // Удаляем эту связь
+            teacherSubjectRepository.delete(existingLink);
+        }
+        // 4. Опционально: можно вернуть обновлённую группу (если нужно)
+        return teacher;
+    }
+
+
+
+
+
 
     @Transactional
     public void deleteTeacherAndRelatedData(Integer teacherId, Integer userId) {

@@ -15,11 +15,15 @@ public class Subject {
     private Integer id;
     private String name;
     private String description;
+    private String teacher_id;
 
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Subject_Faculty> subjectFaculties;
 
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Teacher_Subject> teacherSubjects;
+
+    @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Subject_Lecture> subjectlecture;
 
 }

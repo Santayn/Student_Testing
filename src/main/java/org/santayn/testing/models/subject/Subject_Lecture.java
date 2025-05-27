@@ -2,21 +2,26 @@ package org.santayn.testing.models.subject;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.santayn.testing.models.faculty.Faculty;
 import org.santayn.testing.models.lecture.Lecture;
-import org.santayn.testing.models.teacher.Teacher;
+import org.santayn.testing.models.subject.Subject;
 
-@Table
 @Entity
+@Table(name = "subject_lecture") // Указываем явное имя таблицы в БД (по желанию)
 @Data
 public class Subject_Lecture {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Integer id;
+    private Integer id;
+
+    // Связь с Subject
     @OneToOne
-    @JoinColumn(name = "subject_id", referencedColumnName = "id") // Внешний ключ на таблицу app_user
+    @JoinColumn(name = "subject_id", referencedColumnName = "id")
     private Subject subject;
+
+    // Связь с Lecture
     @OneToOne
-    @JoinColumn(name = "lecture_id", referencedColumnName = "id") // Внешний ключ на таблицу app_user
+    @JoinColumn(name = "lecture_id", referencedColumnName = "id")
     private Lecture lecture;
+
 }

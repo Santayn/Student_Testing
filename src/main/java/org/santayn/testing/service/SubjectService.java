@@ -1,4 +1,5 @@
 package org.santayn.testing.service;
+import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.repository.SubjectRepository;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,27 @@ public class SubjectService {
     public SubjectService(SubjectRepository subjectRepository) {
         this.subjectRepository = subjectRepository;
     }
+
+
+
+
+    public List<Subject> findFreeSubjects() {
+        List<Subject> subjects = subjectRepository.findSubjectsNotInAnyTeachers();
+        System.out.println("Free subjects found: " + subjects.size());
+        return subjects;
+    }
+
+    public List<Subject> getSubjectsByTecherID(Integer teacherId) {
+        if (teacherId == null) {
+            throw new IllegalArgumentException("teacherId не может быть null");
+        }
+        System.out.println("Fetching Subject for teacher ID: " + teacherId);
+        List<Subject> subjects = subjectRepository.findSubjectByTeacherId(teacherId);
+        System.out.println("Groups found: " + subjects.size());
+        return subjects;
+    }
+
+
 
 
     public Subject getSpecificSubjectByFacultyIdAndSubjectId(Integer facultyId, Integer subjectId) {
