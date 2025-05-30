@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Управление лекциями</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .sidebar {
+            width: 200px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .sidebar a {
+            display: block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .sidebar a:hover {
+            color: #007BFF;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <!-- Кнопка "О пользователе" -->
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+
+    <!-- Ссылки на другие разделы профиля -->
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+
+    <!-- 🟢 Кнопка для управления студентами -->
+    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
+
+    <!-- 🟢 Новая кнопка для управления учителями -->
+    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
+
+    <!-- 🟢 Управление ролями -->
+    <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+
+    <!-- 🟢 Управление предметами -->
+    <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
+
+    <!-- 🟢 Добавляем кнопку для управления лекциями (только для учителей) -->
+        <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
+</div>
+
+<div class="content">
+    <h1>Управление лекциями</h1>
+
+    <!-- Выбор предмета -->
+    <form th:action="@{/kubstuTest/manage-lectures-subject}" method="get">
+        <label for="subjectId">Выберите предмет:</label>
+        <select id="subjectId" name="subjectId" onchange="this.form.submit()">
+            <option value="">-- Выберите предмет --</option>
+            <option th:each="subject : ${subjects}"
+                    th:value="${subject.id}"
+                    th:text="${subject.name}"></option>
+        </select>
+    </form>
+
+    <!-- Список лекций -->
+    <div th:if="${lectures != null}">
+        <h2>Лекции для предмета</h2>
+        <ul>
+            <li th:each="lecture : ${lectures}">
+                <span th:text="${lecture.title}"></span>
+                <form th:action="@{/kubstuTest/remove-lecture-from-subject}" method="post" style="display:inline;">
+                    <input type="hidden" name="subjectId" th:value="${subjectId}">
+                    <input type="hidden" name="lectureId" th:value="${lecture.id}">
+                    <button type="submit">Удалить</button>
+                </form>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Форма добавления лекции -->
+    <div th:if="${subjectId != null}">
+        <h2>Добавить новую лекцию</h2>
+        <form th:action="@{/kubstuTest/add-lecture-to-subject}" method="post">
+            <input type="hidden" name="subjectId" th:value="${subjectId}">
+            <label for="title">Заголовок:</label>
+            <input type="text" id="title" name="title" required><br>
+
+            <label for="content">Содержание:</label>
+            <textarea id="content" name="content" required></textarea><br>
+
+            <label for="description">Описание:</label>
+            <textarea id="description" name="description" required></textarea><br>
+
+            <button type="submit">Добавить лекцию</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleInfo() {
+        const info = document.getElementById('user-info');
+        if (info.style.display === 'none') {
+            info.style.display = 'block';
+        } else {
+            info.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>

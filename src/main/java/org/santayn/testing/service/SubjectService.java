@@ -63,4 +63,9 @@ public class SubjectService {
         return specificSubject.orElseThrow(() -> new RuntimeException(
                 "Subject with ID " + subjectId + " not found for Faculty with ID " + facultyId));
     }
+
+
+    public List<Subject> getAllSubjects() {
+        return subjectRepository.findAll();
+    }
 }

@@ -36,5 +36,6 @@ public interface TeacherRepository extends JpaRepository<Teacher, Integer> {
     void deleteByUser_Id(@Param("userId") Integer userId);
 
     Optional<Teacher> findByUserId(Integer userId);
-
+    @Query("SELECT t FROM Teacher t JOIN t.user u WHERE u.login = :login")
+    Optional<Teacher> findByLogin(@Param("login") String login);
 }

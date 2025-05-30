@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Детали лекции</title>
+    <title>Lecture Details</title>
 </head>
 <body>
-<h1>Детали лекции</h1>
+<h1>Lecture Details</h1>
 
-<p><strong>ID лекции:</strong> <span th:text="${selectedLecture.id}"></span></p>
-<p><strong>Описание:</strong> <span th:text="${selectedLecture.description}"></span></p>
-<p><strong>Содержание:</strong> <span th:text="${selectedLecture.content}"></span></p>
+<div th:if="${error}">
+    <p style="color: red;" th:text="${error}"></p>
+</div>
 
-<a th:href="@{/subject/{subjectId}/lectures(subjectId=${subjectId})}">Вернуться к списку лекций</a>
-<a th:href="@{/tests/{testId}/questions(testId=${selectedLecture.test_id})}">Перейти к тесту</a>
+<p><strong>Title:</strong> <span th:text="${selectedLecture.content}"></span></p>
+<p><strong>Description:</strong> <span th:text="${selectedLecture.description}"></span></p>
+
+<a th:href="@{/kubstuTest/subject/{subjectId}/lectures(subjectId=${subjectId})}">Back to Lectures</a>
 </body>
 </html>

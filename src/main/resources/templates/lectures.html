@@ -1,24 +1,23 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Список лекций</title>
+    <title>Lectures</title>
 </head>
 <body>
-<h1>Лекции по предмету ID: <span th:text="${subjectId}"></span></h1>
+<h1>Lectures for Subject ID: <span th:text="${subjectId}"></span></h1>
 
-<!-- Сообщение об ошибке -->
-<div th:if="${error}" style="color: red;">
-    <p th:text="${error}"></p>
+<div th:if="${error}">
+    <p style="color: red;" th:text="${error}"></p>
 </div>
 
 <ul>
     <li th:each="lecture : ${lectures}">
-        <a th:href="@{/subject/{subjectId}/lecture/{lectureId}(subjectId=${subjectId}, lectureId=${lecture.id})}"
-           th:text="${lecture.description}">
+        <a th:href="@{/kubstuTest/subject/{subjectId}/lecture/{lectureId}(subjectId=${subjectId}, lectureId=${lecture.id})}">
+            <span th:text="${lecture.content}"></span>
         </a>
     </li>
 </ul>
 
-<a href="/">Вернуться к списку предметов</a>
+<a th:href="@{/kubstuTest/subject/{subjectId}/add-lecture(subjectId=${subjectId})}">Add New Lecture</a>
 </body>
 </html>
