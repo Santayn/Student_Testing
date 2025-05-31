@@ -55,14 +55,14 @@ public class LectureService {
      * Добавить новую лекцию для предмета
      */
     public Lecture addLecture(Integer subjectId, String title, String content, String description) {
-        // 1. Находим предмет по ID
+        // Находим предмет по ID
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
 
-        // 2. Получаем текущего учителя
+        // Получаем текущего учителя
         Teacher currentTeacher = getCurrentTeacher();
 
-        // 3. Проверяем, что предмет принадлежит учителю
+        // Проверяем, что предмет принадлежит учителю
         boolean isSubjectBelongsToTeacher = currentTeacher.getTeacherSubjects().stream()
                 .anyMatch(ts -> ts.getSubject().getId().equals(subjectId));
 
@@ -70,14 +70,14 @@ public class LectureService {
             throw new RuntimeException("Teacher does not have access to this subject");
         }
 
-        // 4. Создаем новую лекцию
+        // Создаем новую лекцию
         Lecture lecture = new Lecture();
         lecture.setSubject(subject);
         lecture.setTitle(title);
         lecture.setContent(content);
         lecture.setDescription(description);
 
-        // 5. Сохраняем лекцию
+        // Сохраняем лекцию
         return lectureRepository.save(lecture);
     }
 
@@ -95,7 +95,7 @@ public class LectureService {
     /**
      * Получить текущего учителя
      */
-    private Teacher getCurrentTeacher() {
+    public Teacher getCurrentTeacher() {
         // Получаем объект Authentication из SecurityContext
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -110,5 +110,11 @@ public class LectureService {
         // Ищем учителя по логину в базе данных
         return teacherRepository.findByLogin(username)
                 .orElseThrow(() -> new RuntimeException("Teacher not found for user: " + username));
+    }
+    public List<Lecture> getLectureByID(Integer subjectId) {
+        if (subjectId == null) {
+            throw new IllegalArgumentException("Test ID cannot be null");
+        }
+        return lectureRepository.findLectureBySubjectId(subjectId);
     }
 }

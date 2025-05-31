@@ -1,6 +1,7 @@
 package org.santayn.testing.service;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.subject.Subject;
+import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.repository.SubjectRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -67,5 +68,8 @@ public class SubjectService {
 
     public List<Subject> getAllSubjects() {
         return subjectRepository.findAll();
+    }
+    public List<Subject> getSubjectsByTeacher(Teacher teacher) {
+        return subjectRepository.findSubjectByTeacherId(teacher.getId());
     }
 }

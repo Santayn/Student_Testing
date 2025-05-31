@@ -75,17 +75,15 @@ public class TeacherService {
     public Teacher deleteGroupsFromTeacher(Integer teacherId, List<Integer> groupIds) {
         // 1. Получаем teacher
         Teacher teacher = getTeacherById(teacherId);
-        // 2. Получаем список group
-        List<Group> groups = groupRepository.findGroupByTeacherId(teacherId);
-        if (groups.size() != groupIds.size()) {
-            throw new RuntimeException("Не все groups найдены");
-        }
-        for (Group group : groups) {
-            // Находим конкретную связь "Teacher_Group"
-            Teacher_Group existingLink = teacherGroupRepository.findByTeacherIdAndGroupId(teacherId, group.getId())
-                    .orElseThrow(() -> new RuntimeException("Связь между группой и студентом не найдена"));
+
+        for (Integer groupId : groupIds) {
+            // Находим конкретную связь "Teacher_Subject"
+            Teacher_Group existingLink = teacherGroupRepository.findByTeacherIdAndGroupId(teacherId, groupId)
+                    .orElseThrow(() -> new RuntimeException("Связь между предметом и преподавателем не найдена"));
+
             // Удаляем эту связь
             teacherGroupRepository.delete(existingLink);
+
         }
         // 4. Опционально: можно вернуть обновлённую группу (если нужно)
         return teacher;
@@ -114,21 +112,20 @@ public class TeacherService {
         return teacher;
     }
     public Teacher deleteSubjectsFromTeacher(Integer teacherId, List<Integer> subjectIds) {
-        // 1. Получаем teacher
+        // 1. Получаем преподавателя
         Teacher teacher = getTeacherById(teacherId);
-        // 2. Получаем список subjects
-        List<Subject> subjects = subjectRepository.findSubjectByTeacherId(teacherId);
-        if (subjects.size() != subjectIds.size()) {
-            throw new RuntimeException("Не все subjects найдены");
-        }
-        for (Subject subject : subjects) {
+
+        // 2. Для каждого subjectId находим связь "Teacher_Subject" и удаляем её
+        for (Integer subjectId : subjectIds) {
             // Находим конкретную связь "Teacher_Subject"
-            Teacher_Subject existingLink = teacherSubjectRepository.findByTeacherIdAndSubjectId(teacherId, subject.getId())
-                    .orElseThrow(() -> new RuntimeException("Связь между группой и студентом не найдена"));
+            Teacher_Subject existingLink = teacherSubjectRepository.findByTeacherIdAndSubjectId(teacherId, subjectId)
+                    .orElseThrow(() -> new RuntimeException("Связь между предметом и преподавателем не найдена"));
+
             // Удаляем эту связь
             teacherSubjectRepository.delete(existingLink);
         }
-        // 4. Опционально: можно вернуть обновлённую группу (если нужно)
+
+        // 3. Возвращаем обновлённого преподавателя
         return teacher;
     }
 
@@ -143,8 +140,12 @@ public class TeacherService {
         // 2. Удаляем связь студента с группами
         teacherGroupRepository.deleteByTeacherId(teacherId);
 
+        teacherSubjectRepository.deleteByTeacherId(teacherId);
+
         // 3. Удаляем самого студента
         teacherRepository.deleteByUser_Id(userId); // или по studentId, если он есть
+
+
     }
     public Optional<Teacher> findByUserId(Integer userId) {
         return teacherRepository.findByUserId(userId);
