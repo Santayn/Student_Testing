@@ -11,7 +11,7 @@ import java.util.Optional;
 
 @Repository
 public interface LectureRepository extends JpaRepository<Lecture, Integer> {
-    @Query("SELECT sl.lecture FROM Subject_Lecture sl WHERE sl.subject.id = :subject_id")
+    @Query(value = "SELECT * FROM Lecture WHERE subject_id = :subject_id", nativeQuery = true)
     List<Lecture> findLectureBySubjectId(@Param("subject_id") Integer subject_id);
     Optional<Lecture> findBySubjectIdAndId(Integer subjectId, Integer lectureId);
 }

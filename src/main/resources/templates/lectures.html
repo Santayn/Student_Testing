@@ -1,23 +1,60 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Lectures</title>
+    <title>Список лекций</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        a {
+            text-decoration: none;
+            color: #007BFF;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .error {
+            color: red;
+            margin-bottom: 20px;
+        }
+        .back-link {
+            margin-top: 20px;
+            display: inline-block;
+        }
+    </style>
 </head>
 <body>
-<h1>Lectures for Subject ID: <span th:text="${subjectId}"></span></h1>
+<h1>Лекции по предмету ID: <span th:text="${subjectId}"></span></h1>
 
-<div th:if="${error}">
-    <p style="color: red;" th:text="${error}"></p>
+<!-- Сообщение об ошибке -->
+<div class="error" th:if="${error}">
+    <p th:text="${error}"></p>
 </div>
 
+<!-- Список лекций -->
+<!-- Список лекций -->
 <ul>
     <li th:each="lecture : ${lectures}">
-        <a th:href="@{/kubstuTest/subject/{subjectId}/lecture/{lectureId}(subjectId=${subjectId}, lectureId=${lecture.id})}">
-            <span th:text="${lecture.content}"></span>
+        <a th:href="@{/kubstuTest/{subjectId}/lecture/{lectureId}(subjectId=${subjectId}, lectureId=${lecture.id})}">
+            <strong th:text="${lecture.title}"></strong>
         </a>
     </li>
 </ul>
 
-<a th:href="@{/kubstuTest/subject/{subjectId}/add-lecture(subjectId=${subjectId})}">Add New Lecture</a>
+<!-- Ссылка для возврата -->
+<div class="back-link">
+    <a href="/kubstuTest/manage-lectures-subject">Вернуться к управлению лекциями</a>
+</div>
 </body>
 </html>
