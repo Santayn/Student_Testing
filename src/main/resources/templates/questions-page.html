@@ -10,6 +10,9 @@
         }
         .question-container {
             margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
         }
         .question-text {
             font-size: 18px;
@@ -31,34 +34,57 @@
             font-size: 16px;
             cursor: pointer;
         }
+        .submit-button {
+            margin-top: 30px;
+        }
     </style>
 </head>
 <body>
+
 <h1>Тест ID: <span th:text="${testId}"></span></h1>
 
 <div th:if="${errorMessage != null}">
-    <p th:text="${errorMessage}"></p>
+    <p th:text="${errorMessage}" style="color: red;"></p>
 </div>
 
-<div th:unless="${questions == null || questions.empty}">
-    <div class="question-container" th:each="question, iterStat : ${questions}">
-        <div class="question-text">
-            Вопрос #<span th:text="${iterStat.index + 1}"></span>:
-            <span th:text="${question.content}"></span>
-        </div>
-        <div class="options">
-            <label th:each="option : ${question.question_answer}">
-                <input type="radio" name="answer" th:value="${option.id}" disabled />
-                <span th:text="${option.text}"></span>
-            </label>
-        </div>
-    </div>
+<form th:action="@{/kubstuTest/tests/submitAnswers}" method="post">
 
-    <div class="navigation">
-        <button id="prevButton">Предыдущий</button>
-        <button id="nextButton">Следующий</button>
+    <!-- Скрытое поле для передачи testId -->
+    <input type="hidden" name="testId" th:value="${testId}" />
+
+    <div th:unless="${questions == null or questions.empty}">
+        <div class="question-container" th:each="question, iterStat : ${questions}">
+
+            <!-- Отображение вопроса -->
+            <div class="question-text">
+                Вопрос #<span th:text="${iterStat.index + 1}"></span>:
+                <span th:text="${question.content}"></span>
+            </div>
+
+            <!-- Варианты ответов -->
+            <div class="options">
+                <label th:each="option : ${question.answers}">
+                    <input type="radio"
+                           th:name="'question_' + ${question.id}"
+                           th:value="${option.id}"
+                           required />
+                    <span th:text="${option.text}"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Пагинация -->
+        <div class="navigation">
+            <button type="button" id="prevButton">Предыдущий</button>
+            <button type="button" id="nextButton">Следующий</button>
+        </div>
+
+        <!-- Кнопка завершения теста -->
+        <div class="submit-button">
+            <button type="submit">Завершить тест</button>
+        </div>
     </div>
-</div>
+</form>
 
 <script>
     const questions = document.querySelectorAll('.question-container');
@@ -86,5 +112,6 @@
 
     showQuestion(currentQuestionIndex);
 </script>
+
 </body>
 </html>

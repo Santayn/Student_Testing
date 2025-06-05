@@ -5,6 +5,7 @@ import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.service.LectureService;
 import org.santayn.testing.service.SubjectService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -100,5 +101,10 @@ public class LectureController {
             model.addAttribute("error", e.getMessage());
             return "lectures"; // Возвращаемся к списку лекций с сообщением об ошибке
         }
+    }
+    @GetMapping("/by-subject/{subjectId}")
+    public ResponseEntity<List<Lecture>> getLecturesBySubject(@PathVariable Integer subjectId) {
+        List<Lecture> lectures = lectureService.getLecturesBySubject(subjectId);
+        return ResponseEntity.ok(lectures);
     }
 }

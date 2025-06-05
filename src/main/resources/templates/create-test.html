@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Создать тест</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+        }
+        .sidebar {
+            width: 200px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+        }
+        .sidebar a {
+            display: block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+        }
+        .content {
+            margin-left: 220px;
+            padding: 20px;
+            width: 100%;
+        }
+        form {
+            max-width: 500px;
+            margin: auto;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+        .btn-add { background-color: #28a745; color: white; border: none; }
+        .btn-delete { background-color: #dc3545; color: white; border: none; }
+        .btn-save { background-color: #007BFF; color: white; border: none; }
+        ul.topic-list {
+            list-style: none;
+            padding: 0;
+        }
+        ul.topic-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            border-bottom: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Боковое меню -->
+<div class="sidebar">
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+
+    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
+    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
+    <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+    <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
+    <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
+    <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
+</div>
+
+<!-- Основной контент -->
+<div class="content">
+    <h2 style="text-align: center;">Создать тест</h2>
+
+    <!-- Выбор предмета -->
+    <label for="subjectId">Выберите предмет:</label>
+    <select id="subjectId" name="subjectId" onchange="loadTopicsAndLectures(this.value)">
+        <option value="">-- Выберите предмет --</option>
+        <option th:each="subject : ${subjects}"
+                th:value="${subject.id}"
+                th:text="${subject.name}">
+        </option>
+    </select>
+
+    <!-- Управление темами -->
+    <div style="max-width: 500px; margin: 30px auto;">
+        <h3>Управление темами</h3>
+        <div class="topic-actions">
+            <input type="text" id="newTopicName" placeholder="Название новой темы" required />
+            <button class="btn-add" onclick="addTopic()">Добавить тему</button>
+        </div>
+        <ul id="topicList"></ul>
+    </div>
+
+    <hr style="margin: 40px 0;" />
+
+    <!-- Форма создания теста -->
+    <form th:action="@{/kubstuTest/tests/create-test}" method="post">
+        <label for="topicId">Выберите тему:</label>
+        <select id="topicId" name="topicId" required>
+            <option value="">-- Выберите тему --</option>
+        </select>
+
+        <label for="lectureId">Выберите лекцию:</label>
+        <select id="lectureId" name="lectureId" required>
+            <option value="">-- Выберите лекцию --</option>
+        </select>
+
+        <label for="questionCount">Количество вопросов:</label>
+        <input type="number"
+               id="questionCount"
+               name="questionCount"
+               min="1"
+               max="50"
+               required />
+
+        <button type="submit" class="btn-save">Создать тест</button>
+    </form>
+</div>
+
+<script>
+    const subjectSelect = document.getElementById('subjectId');
+    const topicSelect = document.getElementById('topicId');
+    const lectureSelect = document.getElementById('lectureId');
+    const topicList = document.getElementById('topicList');
+    const newTopicInput = document.getElementById('newTopicName');
+
+    async function loadTopicsAndLectures(subjectId) {
+        if (!subjectId) {
+            topicSelect.innerHTML = '<option value="">-- Выберите тему --</option>';
+            lectureSelect.innerHTML = '<option value="">-- Выберите лекцию --</option>';
+            topicList.innerHTML = '';
+            return;
+        }
+
+        // Загрузка тем
+        const resTopics = await fetch(`/kubstuTest/tests/topics/by-subject/${subjectId}`);
+        const topics = await resTopics.json();
+
+        topicSelect.innerHTML = '<option value="">-- Выберите тему --</option>';
+        topics.forEach(topic => {
+            const option = document.createElement('option');
+            option.value = topic.id;
+            option.textContent = topic.name;
+            topicSelect.appendChild(option);
+        });
+
+        // Загрузка лекций
+        const resLectures = await fetch(`/kubstuTest/tests/lectures/by-subject/${subjectId}`);
+        const lectures = await resLectures.json();
+
+        lectureSelect.innerHTML = '<option value="">-- Выберите лекцию --</option>';
+        lectures.forEach(lecture => {
+            const option = document.createElement('option');
+            option.value = lecture.id;
+            option.textContent = lecture.title;
+            lectureSelect.appendChild(option);
+        });
+
+        // Обновляем список тем для удаления
+        topicList.innerHTML = '';
+        topics.forEach(topic => {
+            const li = document.createElement('li');
+            li.textContent = topic.name;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Удалить';
+            deleteBtn.className = 'btn-delete';
+            deleteBtn.onclick = () => deleteTopic(topic.id);
+
+            li.appendChild(deleteBtn);
+            topicList.appendChild(li);
+        });
+    }
+
+    async function addTopic() {
+        const subjectId = subjectSelect.value;
+        const name = newTopicInput.value.trim();
+
+        if (!subjectId || !name) {
+            alert("Выберите предмет и введите название темы");
+            return;
+        }
+
+        const response = await fetch('/kubstuTest/tests/topics/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `name=${encodeURIComponent(name)}&subjectId=${encodeURIComponent(subjectId)}`
+        });
+
+        if (response.ok) {
+            newTopicInput.value = '';
+            await loadTopicsAndLectures(subjectId);
+        } else {
+            alert("Ошибка при добавлении темы");
+        }
+    }
+
+    async function deleteTopic(id) {
+        const confirmed = confirm("Вы уверены?");
+        if (!confirmed) return;
+
+        const response = await fetch(`/kubstuTest/tests/topics/delete/${id}`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            await loadTopicsAndLectures(subjectSelect.value);
+        } else {
+            alert("Ошибка при удалении темы");
+        }
+    }
+
+    window.onload = () => {
+        subjectSelect.addEventListener('change', function () {
+            loadTopicsAndLectures(this.value);
+        });
+    };
+</script>
+
+</body>
+</html>

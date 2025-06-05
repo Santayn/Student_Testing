@@ -117,4 +117,7 @@ public class LectureService {
         }
         return lectureRepository.findLectureBySubjectId(subjectId);
     }
+    public List<Lecture> getLecturesBySubject(Integer subjectId) {
+        return lectureRepository.findBySubjectId(subjectId);
+    }
 }

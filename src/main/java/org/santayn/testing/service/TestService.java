@@ -1,44 +1,74 @@
 package org.santayn.testing.service;
 
+import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.question.Question;
+import org.santayn.testing.models.question.Question_In_Test;
+import org.santayn.testing.models.test.Test;
+import org.santayn.testing.models.topic.Topic;
+import org.santayn.testing.repository.QuestionInTestRepository;
+import org.santayn.testing.repository.QuestionRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class TestService {
 
     private final TestRepository testRepository;
+    private final QuestionRepository questionRepository;
+    private final QuestionInTestRepository questionInTestRepository;
 
-    public TestService(TestRepository testRepository) {
-        this.testRepository = testRepository;
+    public Test save(Test test) {
+        return testRepository.save(test);
     }
 
-    public List<Question> getQuestionsByTestId(Integer testId) {
-        if (testId == null) {
-            throw new IllegalArgumentException("Test ID cannot be null");
-        }
-        return testRepository.findQuestionsByTestId(testId);
+    public Test getTestById(Integer testId) {
+        return testRepository.findById(testId)
+                .orElseThrow(() -> new RuntimeException("Тест с ID " + testId + " не найден"));
     }
 
+    public List<Question> generateQuestionsForTest(Integer testId) {
+        Test test = getTestById(testId);
+        List<Question> questions = questionRepository.findByTopic(test.getTopic());
 
-    public Question getSpecificQuestionByTestIdAndQuestionId(Integer testId, Integer questionId) {
-        if (testId == null || questionId == null) {
-            throw new IllegalArgumentException("Test ID and Question ID cannot be null");
+        Collections.shuffle(questions);
+
+        return questions.stream()
+                .limit(test.getQuestionCount())
+                .toList();
+    }
+
+    // Новая функция — создаёт тест и добавляет в него вопросы
+    public Test createTestWithRandomQuestions(Topic topic, int questionCount) {
+        List<Question> allQuestions = questionRepository.findByTopic(topic);
+
+        if (allQuestions.size() < questionCount) {
+            throw new IllegalArgumentException("Недостаточно вопросов для создания теста");
         }
 
-        List<Question> questions = testRepository.findQuestionsByTestId(testId);
+        Collections.shuffle(allQuestions);
+        List<Question> selectedQuestions = allQuestions.stream()
+                .limit(questionCount)
+                .toList();
 
-        if (questions == null || questions.isEmpty()) {
-            throw new RuntimeException("No questions found for Test ID: " + testId);
+        Test test = new Test();
+        test.setTopic(topic);
+        test.setQuestionCount(questionCount);
+        test.setDescription("Автосгенерированный тест");
+
+        test = testRepository.save(test); // Сохраняем тест
+
+        for (Question question : selectedQuestions) {
+            Question_In_Test qit = new Question_In_Test();
+            qit.setTest(test);
+            qit.setQuestion(question);
+            questionInTestRepository.save(qit);
         }
 
-        Optional<Question> specificQuestion = questions.stream()
-                .filter(question -> questionId.equals(question.getId())) // Используем getId()
-                .findFirst();
-
-        return specificQuestion.orElseThrow(() -> new RuntimeException(
-                "Question with ID " + questionId + " not found in Test with ID " + testId));
+        return test;
     }
 }

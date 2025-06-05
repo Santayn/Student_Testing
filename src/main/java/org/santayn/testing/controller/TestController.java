@@ -1,50 +1,110 @@
 package org.santayn.testing.controller;
 
-import org.santayn.testing.models.question.Question;
+import org.santayn.testing.models.teacher.Teacher;
+import org.santayn.testing.models.topic.Topic;
+import org.santayn.testing.models.test.Test;
+import org.santayn.testing.models.test.Test_Lecture;
+import org.santayn.testing.models.lecture.Lecture;
+import org.santayn.testing.models.subject.Subject;
+import org.santayn.testing.models.teacher.Teacher_Subject;
+import org.santayn.testing.repository.*;
+import org.santayn.testing.service.TestLectureService;
 import org.santayn.testing.service.TestService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @Controller
-@RequestMapping("/tests")
+@RequestMapping("/kubstuTest/tests")
 public class TestController {
 
     private final TestService testService;
+    private final TopicRepository topicRepository;
+    private final LectureRepository lectureRepository;
+    private final SubjectRepository subjectRepository;
+    private final TestLectureService testLectureService;
+    private final Teacher_SubjectRepository teacher_subjectRepository;
+    private final TeacherRepository teacherRepository; // Добавили зависимость
 
-    public TestController(TestService testService) {
+    public TestController(
+            TestService testService,
+            TopicRepository topicRepository,
+            LectureRepository lectureRepository,
+            SubjectRepository subjectRepository,
+            TestLectureService testLectureService,
+            Teacher_SubjectRepository teacher_subjectRepository,
+            TeacherRepository teacherRepository) { // Инжектируем TeacherRepository
         this.testService = testService;
+        this.topicRepository = topicRepository;
+        this.lectureRepository = lectureRepository;
+        this.subjectRepository = subjectRepository;
+        this.testLectureService = testLectureService;
+        this.teacher_subjectRepository = teacher_subjectRepository;
+        this.teacherRepository = teacherRepository;
     }
 
+    // 🟢 Форма создания теста
+    @GetMapping("/create-test")
+    public String showCreateTestForm(Model model, Principal principal) {
+        Teacher currentTeacher = getCurrentTeacher(); // Теперь используем новый метод
 
-     // Отобразить страницу с вопросами теста.
+        List<Subject> subjects = teacher_subjectRepository.findByTeacherId(currentTeacher.getId()).stream()
+                .map(Teacher_Subject::getSubject)
+                .toList();
 
-    @GetMapping("/{testId}/questions")
-    public String showQuestionsPage(@PathVariable Integer testId, Model model) {
-        List<Question> questions = testService.getQuestionsByTestId(testId);
+        model.addAttribute("subjects", subjects);
+        return "create-test";
+    }
 
-        if (questions == null || questions.isEmpty()) {
-            model.addAttribute("errorMessage", "Нет доступных вопросов для этого теста.");
-            return "error-page"; // Вернуть страницу ошибки
+    // 🟢 Логика сохранения теста
+    @PostMapping("/create-test")
+    public String createTest(@RequestParam Integer topicId,
+                             @RequestParam Integer lectureId,
+                             @RequestParam int questionCount,
+                             Model model) {
+        Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new RuntimeException("Тема не найдена"));
+
+        Test test = new Test();
+        test.setTopic(topic);
+        test.setQuestionCount(questionCount);
+
+        test = testService.save(test);
+
+        Lecture lecture = lectureRepository.findById(lectureId)
+                .orElseThrow(() -> new RuntimeException("Лекция не найдена"));
+
+        Test_Lecture testLecture = new Test_Lecture();
+        testLecture.setLecture(lecture);
+        testLecture.setTest(test);
+
+        testLectureService.save(testLecture);
+
+        return "redirect:/kubstuTest/lecture/" + lectureId;
+    }
+
+    // ✅ Получить текущего учителя из SecurityContext
+    private Teacher getCurrentTeacher() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User is not authenticated");
         }
 
-        model.addAttribute("questions", questions);
-        model.addAttribute("testId", testId);
+        String username;
+        if (authentication.getPrincipal() instanceof UserDetails userDetails) {
+            username = userDetails.getUsername();
+        } else {
+            username = authentication.getName();
+        }
 
-        return "questions-page";
-    }
-
-
-    //Получить конкретный вопрос теста (JSON).
-
-    @GetMapping("/{testId}/questions/{questionId}")
-    public Question getSpecificQuestion(
-            @PathVariable Integer testId,
-            @PathVariable Integer questionId) {
-        return testService.getSpecificQuestionByTestIdAndQuestionId(testId, questionId);
+        return teacherRepository.findByLogin(username)
+                .orElseThrow(() -> new RuntimeException("Teacher not found for user: " + username));
     }
 }

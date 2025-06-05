@@ -156,4 +156,7 @@ public class TeacherService {
         teacher.setUser(user);
         teacherRepository.save(teacher);
     }
+    public List<Teacher_Subject> getSubjectsByTeacherId(Integer teacherId) {
+        return teacherSubjectRepository.findByTeacherId(teacherId);
+    }
 }
