@@ -1,5 +1,6 @@
 package org.santayn.testing.models.faculty;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.santayn.testing.models.group.Group;
@@ -23,6 +24,7 @@ public class Faculty {
     private List<Faculty_Teacher> faculty_teacher;
 
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Subject_Faculty> subject_faculty;
 
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)

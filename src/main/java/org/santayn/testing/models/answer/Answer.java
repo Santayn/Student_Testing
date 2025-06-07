@@ -3,7 +3,6 @@ package org.santayn.testing.models.answer;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.santayn.testing.models.question.Question;
-import org.santayn.testing.models.subject.Subject;
 
 @Entity
 @Table(name = "answer")
@@ -15,6 +14,7 @@ public class Answer {
     private Integer id;
 
     private String text;
+
     private boolean isCorrect;
 
     @ManyToOne

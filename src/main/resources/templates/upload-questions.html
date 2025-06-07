@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Создание теста</title>
+    <title>Загрузка вопросов</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,10 +12,13 @@
         }
 
         .sidebar {
-            width: 200px;
+            width: 250px;
             background-color: #f4f4f4;
             padding: 20px;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            position: fixed;
+            height: 100%;
+            overflow-y: auto;
         }
 
         .sidebar a {
@@ -31,73 +34,86 @@
         }
 
         .content {
-            flex-grow: 1;
+            margin-left: 270px;
             padding: 20px;
-        }
-
-        h1 {
-            margin-top: 0;
+            width: 100%;
         }
 
         form {
-            background-color: #fff;
+            max-width: 600px;
+            background: #fff;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            max-width: 500px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
 
         label {
             display: block;
-            margin-top: 10px;
+            margin-top: 15px;
             font-weight: bold;
         }
 
-        select, input[type="number"] {
+        select, input[type="file"] {
             width: 100%;
             padding: 8px;
             margin-top: 5px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
+            box-sizing: border-box;
         }
 
         button {
             margin-top: 20px;
-            background-color: #007bff;
+            padding: 10px 15px;
+            background-color: #4CAF50;
             color: white;
-            padding: 10px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
         }
 
         button:hover {
-            background-color: #0056b3;
+            background-color: #45a049;
+        }
+
+        .message {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
         }
     </style>
 </head>
 <body>
 
+<!-- Боковая панель -->
 <div class="sidebar">
-    <!-- Навигация -->
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
     <a th:href="@{/kubstuTest}">Главная</a>
     <a th:href="@{/kubstuTest/subjects}">Предметы</a>
     <a th:href="@{/kubstuTest/about}">О платформе</a>
     <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
     <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
     <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+    <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
     <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
     <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
     <a th:href="@{/kubstuTest/manage-topics-subject}" class="btn btn-warning w-100">Управление темами</a>
+    <a th:href="@{/kubstuTest/questions/upload-form}" class="btn btn-info w-100">Загрузить вопросы</a>
 </div>
 
+<!-- Основной контент -->
 <div class="content">
-    <h1>Создание теста</h1>
+    <h2>Загрузка вопросов</h2>
 
-    <!-- Форма для выбора предмета -->
-    <form th:action="@{/kubstuTest/tests/create-test}" method="get">
-        <label for="subjectId">Выберите предмет:</label>
-        <select id="subjectId" name="selectedSubjectId" onchange="this.form.submit()" required>
+    <!-- Форма выбора предмета -->
+    <form method="get" action="/kubstuTest/questions/upload-form">
+        <label for="subject">Выберите предмет:</label>
+        <select id="subject" name="subjectId" onchange="this.form.submit()">
             <option value="">-- Выберите предмет --</option>
             <option th:each="subject : ${subjects}"
                     th:value="${subject.id}"
@@ -107,39 +123,37 @@
         </select>
     </form>
 
-    <!-- Форма для создания теста -->
-    <form th:action="@{/kubstuTest/tests/create-test}" method="post">
-        <!-- Скрытый параметр для subjectId -->
-        <input type="hidden" name="subjectId" th:value="${selectedSubjectId}" />
+    <!-- Форма загрузки файла -->
+    <form method="post" action="/kubstuTest/questions/upload" enctype="multipart/form-data">
+        <!-- ✅ Добавлен скрытый CSRF токен -->
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
-        <!-- Выбор темы -->
-        <label for="topicId">Выберите тему:</label>
-        <select id="topicId" name="topicId" required>
+        <label for="topic">Выберите тему:</label>
+        <select id="topic" name="topicId" required>
             <option value="">-- Выберите тему --</option>
+            <option th:if="${#lists.isEmpty(topics)}" disabled>Нет доступных тем</option>
             <option th:each="topic : ${topics}"
                     th:value="${topic.id}"
                     th:text="${topic.name}">
             </option>
         </select>
 
-        <!-- Выбор лекции -->
-        <label for="lectureId">Выберите лекцию:</label>
-        <select id="lectureId" name="lectureId" required>
-            <option value="">-- Выберите лекцию --</option>
-            <option th:each="lecture : ${lectures}"
-                    th:value="${lecture.id}"
-                    th:text="${lecture.title}">
-            </option>
-        </select>
+        <label for="file">Файл с вопросами (.csv / .docx):</label>
+        <input type="file" id="file" name="file" accept=".csv,.docx" required />
 
-        <!-- Количество вопросов -->
-        <label for="questionCount">Количество вопросов:</label>
-        <input type="number" id="questionCount" name="questionCount" min="1" max="50" value="5" required />
+        <button type="submit">Загрузить вопросы</button>
 
-        <!-- Кнопка отправки формы -->
-        <button type="submit">Создать тест</button>
+        <div class="message" th:if="${success}" th:text="${success}" th:classappend="'success'"></div>
+        <div class="message" th:if="${error}" th:text="${error}" th:classappend="'error'"></div>
     </form>
 </div>
+
+<script>
+    function toggleInfo() {
+        const info = document.getElementById('user-info');
+        info.style.display = info.style.display === 'none' ? 'block' : 'none';
+    }
+</script>
 
 </body>
 </html>

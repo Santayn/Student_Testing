@@ -2,7 +2,6 @@ package org.santayn.testing.models.lecture;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.santayn.testing.models.subject.Subject_Lecture;
 import org.santayn.testing.models.test.Test_Lecture;
 import org.santayn.testing.models.subject.Subject;
 
@@ -19,14 +18,12 @@ public class Lecture {
 
     @ManyToOne
     @JoinColumn(name = "subject_id", referencedColumnName = "id")
+
     private Subject subject;
 
     private String content;
     private String title;
     private String description;
-
-    @OneToMany(mappedBy = "lecture", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Subject_Lecture> subjectLectureList;
 
     @OneToOne(mappedBy = "lecture", cascade = CascadeType.ALL, orphanRemoval = true)
     private Test_Lecture testLecture;

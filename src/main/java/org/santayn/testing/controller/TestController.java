@@ -18,6 +18,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.Collections;
 import java.util.List;
 
 @Controller
@@ -49,44 +50,66 @@ public class TestController {
         this.teacherRepository = teacherRepository;
     }
 
-    // 🟢 Форма создания теста
     @GetMapping("/create-test")
-    public String showCreateTestForm(Model model, Principal principal) {
-        Teacher currentTeacher = getCurrentTeacher(); // Теперь используем новый метод
+    public String showCreateTestForm(
+            @RequestParam(required = false) Integer selectedSubjectId,
+            Model model,
+            Principal principal) {
 
-        List<Subject> subjects = teacher_subjectRepository.findByTeacherId(currentTeacher.getId()).stream()
+        Teacher teacher = getCurrentTeacher();
+
+        // Получаем все предметы, связанные с учителем
+        List<Subject> subjects = teacher_subjectRepository.findByTeacherId(teacher.getId()).stream()
                 .map(Teacher_Subject::getSubject)
                 .toList();
 
+        // Если выбран предмет — используем его ID, иначе берём первый
+        Integer subjectId = selectedSubjectId != null ? selectedSubjectId :
+                (!subjects.isEmpty() ? subjects.get(0).getId() : null);
+
+        // Получаем темы и лекции для выбранного предмета
+        List<Topic> topics = (subjectId != null)
+                ? topicRepository.findBySubjectId(subjectId)
+                : Collections.emptyList();
+
+        List<Lecture> lectures = (subjectId != null)
+                ? lectureRepository.findLectureBySubjectId(subjectId)
+                : Collections.emptyList();
+
         model.addAttribute("subjects", subjects);
+        model.addAttribute("topics", topics);
+        model.addAttribute("lectures", lectures);
+        model.addAttribute("selectedSubjectId", subjectId); // Передаём выбранный предмет
+
         return "create-test";
     }
 
-    // 🟢 Логика сохранения теста
     @PostMapping("/create-test")
-    public String createTest(@RequestParam Integer topicId,
+    public String createTest(@RequestParam(required = false) Integer subjectId,
+                             @RequestParam Integer topicId,
                              @RequestParam Integer lectureId,
                              @RequestParam int questionCount,
-                             Model model) {
+                             Model model,
+                             Principal principal) {
+
+        // Сохраняем тест и связь с лекцией
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Тема не найдена"));
+        Lecture lecture = lectureRepository.findById(lectureId)
+                .orElseThrow(() -> new RuntimeException("Лекция не найдена"));
 
         Test test = new Test();
         test.setTopic(topic);
         test.setQuestionCount(questionCount);
-
         test = testService.save(test);
-
-        Lecture lecture = lectureRepository.findById(lectureId)
-                .orElseThrow(() -> new RuntimeException("Лекция не найдена"));
 
         Test_Lecture testLecture = new Test_Lecture();
         testLecture.setLecture(lecture);
         testLecture.setTest(test);
-
         testLectureService.save(testLecture);
 
-        return "redirect:/kubstuTest/lecture/" + lectureId;
+        // Вместо редиректа на /lecture — обновляем текущую форму
+        return showCreateTestForm(subjectId, model, principal);
     }
 
     // ✅ Получить текущего учителя из SecurityContext
@@ -106,5 +129,28 @@ public class TestController {
 
         return teacherRepository.findByLogin(username)
                 .orElseThrow(() -> new RuntimeException("Teacher not found for user: " + username));
+    }
+    @GetMapping("/subjects-by-teacher")
+    @ResponseBody
+    public List<Subject> getSubjectsByTeacher(Principal principal) {
+        Teacher teacher = getCurrentTeacher();
+        return teacher_subjectRepository.findByTeacherId(teacher.getId()).stream()
+                .map(Teacher_Subject::getSubject)
+                .toList();
+    }
+
+    @GetMapping("/topics-by-subject")
+    @ResponseBody
+    public List<Topic> getTopicsBySubject(@RequestParam Integer subjectId) {
+        return topicRepository.findBySubjectId(subjectId);
+    }
+
+    @GetMapping("/lectures-by-subject")
+    @ResponseBody
+    public List<Lecture> getLecturesBySubject(@RequestParam Integer subjectId) {
+        List<Lecture> lectures = lectureRepository.findLectureBySubjectId(subjectId);
+        System.out.println("Найдено лекций: " + lectures.size());
+        lectures.forEach(l -> System.out.println("Лекция: " + l.getId() + " - " + l.getTitle()));
+        return lectures;
     }
 }

@@ -17,14 +17,11 @@ public class Test {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // Тема, из которой будут браться вопросы
     @ManyToOne
     @JoinColumn(name = "topic_id", referencedColumnName = "id")
     private Topic topic;
 
-    // Количество вопросов в тесте
-    private int questionCount;
 
-    // Описание теста (необязательно)
+    private int questionCount;
     private String description;
 }

@@ -23,7 +23,5 @@ public class Subject {
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Teacher_Subject> teacherSubjects;
 
-    @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Subject_Lecture> subjectlecture;
 
 }

@@ -1,7 +1,10 @@
 package org.santayn.testing.repository;
 
 import org.santayn.testing.models.lecture.Lecture;
+import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.test.Test;
+import org.santayn.testing.models.topic.Topic;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,8 +14,8 @@ import java.util.Optional;
 
 @Repository
 public interface LectureRepository extends JpaRepository<Lecture, Integer> {
-    @Query(value = "SELECT * FROM Lecture WHERE subject_id = :subject_id", nativeQuery = true)
-    List<Lecture> findLectureBySubjectId(@Param("subject_id") Integer subject_id);
+    @EntityGraph(attributePaths = {"subject"})
+    List<Lecture> findLectureBySubjectId(Integer subjectId);
     Optional<Lecture> findBySubjectIdAndId(Integer subjectId, Integer lectureId);
-    List<Lecture> findBySubjectId(Integer subjectId);
+
 }

@@ -29,7 +29,7 @@ public interface SubjectRepository extends JpaRepository<Subject, Integer> {
     @Query("""
         SELECT s 
         FROM Subject s 
-        WHERE s.id NOT IN (
+        WHERE s.id NOT IN ( 
             SELECT ts.subject.id 
             FROM Teacher_Subject ts
         )

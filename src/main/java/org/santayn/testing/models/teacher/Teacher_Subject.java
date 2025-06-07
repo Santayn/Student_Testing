@@ -1,5 +1,6 @@
 package org.santayn.testing.models.teacher;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.santayn.testing.models.subject.Subject;
@@ -17,5 +18,6 @@ public class Teacher_Subject {
 
     @ManyToOne
     @JoinColumn(name = "subject_id", referencedColumnName = "id")
+    @JsonIgnore
     private Subject subject;
 }
