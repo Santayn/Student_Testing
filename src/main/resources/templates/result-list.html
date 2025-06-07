@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Личный кабинет</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          display: flex;
+          height: 100vh;
+          margin: 0;
+        }
+        .sidebar {
+          width: 200px;
+          background-color: #f4f4f4;
+          padding: 20px;
+          box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        .sidebar a {
+          display: block;
+          margin-bottom: 15px;
+          text-decoration: none;
+          color: #333;
+          font-size: 16px;
+        }
+        .sidebar a:hover {
+          color: #007BFF;
+        }
+        .content {
+          flex-grow: 1;
+          padding: 20px;
+          overflow-y: auto;
+        }
+        h1, h2 {
+          margin-top: 0;
+        }
+        p {
+          margin: 5px 0;
+        }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          margin-top: 20px;
+        }
+        th, td {
+          padding: .5em;
+          border: 1px solid #888;
+        }
+        .right { background: #dfd; }
+        .wrong { background: #fdd; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+    <a th:href="@{/kubstuTest/manage-students}">Управление студентами</a>
+    <a th:href="@{/kubstuTest/manage-teachers}">Управление учителями</a>
+    <a th:href="@{/kubstuTest/users/role/user}">Управление ролями</a>
+    <a th:href="@{/kubstuTest/manage-teachers-subject}">Управление предметами</a>
+    <a th:href="@{/kubstuTest/manage-lectures-subject}">Управление лекциями</a>
+    <a th:href="@{/kubstuTest/tests/create-test}">Создать тест</a>
+    <a th:href="@{/kubstuTest/manage-topics-subject}">Управление темами</a>
+    <a th:href="@{/kubstuTest/questions/upload-form}">Загрузить вопросы</a>
+    <!-- Новая ссылка в меню -->
+    <a th:href="@{/kubstuTest/results}" style="font-weight:bold;">Результаты тестов</a>
+</div>
+
+<div class="content">
+
+    <script>
+        function toggleInfo() {
+          const info = document.getElementById('user-info');
+          info.style.display = info.style.display === 'none' ? 'block' : 'none';
+        }
+    </script>
+
+    <!-- Блок с результатами -->
+    <h2>Результаты тестов</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>#</th>
+            <th>Test ID</th>
+            <th>Question ID</th>
+            <th>Вопрос (обрезка)</th>
+            <th>Ваш ответ</th>
+            <th>Правильный</th>
+            <th>Статус</th>
+            <th th:if="${isTeacher}">Student ID</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="res, stat : ${results}"
+            th:classappend="${res.correct} ? 'right' : 'wrong'">
+            <td th:text="${stat.count}">1</td>
+            <td th:text="${res.testId}">TID</td>
+            <td th:text="${res.questionId}">QID</td>
+            <!-- Здесь исправлено: метод abbreviate только с двумя аргументами -->
+            <td th:text="${#strings.abbreviate(res.questionText, 50)}">Вопрос…</td>
+            <td th:text="${res.userAnswer}">Your</td>
+            <td th:text="${res.correctAnswer}">Correct</td>
+            <td th:text="${res.correct} ? '✔' : '✘'">?</td>
+            <td th:if="${isTeacher}" th:text="${res.studentId}">SID</td>
+        </tr>
+        </tbody>
+    </table>
+
+</div>
+</body>
+</html>
