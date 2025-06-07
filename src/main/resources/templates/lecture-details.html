@@ -1,70 +1,46 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Lecture Details</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .lecture-info {
-            border: 1px solid #ccc;
-            padding: 20px;
-            max-width: 600px;
-            background-color: #f9f9f9;
-        }
-        .lecture-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .lecture-description {
-            margin-bottom: 20px;
-        }
-        .test-link {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-        }
-        .test-link:hover {
-            background-color: #0056b3;
-        }
-        .error {
-            color: red;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <title>Детали лекции</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
 <body>
-
 <h1>Детали лекции</h1>
 
-<div th:if="${error}" class="error">
-    <p th:text="${error}"></p>
+<!-- Ссылка "Назад" -->
+<a th:href="@{/kubstuTest/lectures}">Назад</a>
+
+<!-- Информация о лекции -->
+<h2 th:text="${selectedLecture.title}"></h2>
+<p><strong>Описание:</strong> <span th:text="${selectedLecture.description}"></span></p>
+<p><strong>Содержание:</strong></p>
+<div th:utext="${selectedLecture.content}"></div>
+
+<!-- Прикрепленные тесты -->
+<h3>Тесты</h3>
+<div th:if="${selectedLecture.tests != null and not selectedLecture.tests.isEmpty()}">
+    <ul>
+        <li th:each="test : ${selectedLecture.tests}">
+            <!-- Описание теста -->
+            <p><strong>Тест:</strong> <span th:text="${test.description}"></span></p>
+            <p>Количество вопросов: <span th:text="${test.questionCount}"></span></p>
+            <p>Тема: <span th:text="${test.topic.name}"></span></p>
+
+            <!-- Кнопка для перехода к тесту -->
+            <form th:action="@{/kubstuTest/test/{testId}(testId=${test.id})}" method="get">
+                <button type="submit">Перейти к тесту</button>
+            </form>
+        </li>
+    </ul>
+</div>
+<div th:if="${selectedLecture.tests == null or selectedLecture.tests.isEmpty()}">
+    <p>Нет прикрепленных тестов.</p>
 </div>
 
-<div class="lecture-info" th:if="${selectedLecture}">
-    <div class="lecture-title" th:text="${selectedLecture.title}">Заголовок лекции</div>
-    <div class="lecture-description" th:text="${selectedLecture.content}">Содержание лекции...</div>
-
-    <!-- Проверяем, есть ли прикреплённый тест -->
-    <div th:if="${selectedLecture.testLecture != null and selectedLecture.testLecture.test != null}">
-        <a th:href="@{/kubstuTest/tests/{testId}/questions(testId=${selectedLecture.testLecture.test.id})}"
-           class="test-link">
-            Пройти тест
-        </a>
-    </div>
-    <div th:else>
-        <p><em>К этой лекции пока не прикреплён тест.</em></p>
-    </div>
+<!-- Обработка ошибок -->
+<div th:if="${error != null}">
+    <p style="color: red;" th:text="${error}"></p>
 </div>
-
-<a th:href="@{/kubstuTest/subject/{subjectId}/lectures(subjectId=${subjectId})}" style="display: inline-block; margin-top: 20px;">
-    Назад к лекциям
-</a>
-
 </body>
 </html>

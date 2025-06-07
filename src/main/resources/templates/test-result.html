@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Результаты теста</title>
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: .5em; border: 1px solid #888; }
+        .right { background: #dfd; }
+        .wrong { background: #fdd; }
+    </style>
+</head>
+<body>
+<h1>Результаты теста</h1>
+<p>Test ID: <strong th:text="${testId}"></strong>,
+    Student ID: <strong th:text="${studentId}"></strong></p>
+<p>Правильных ответов: <strong th:text="${correctCnt}"></strong>
+    из <strong th:text="${totalCnt}"></strong></p>
+
+<table>
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>Question ID</th>
+        <th>Вопрос</th>
+        <th>Ваш ответ</th>
+        <th>Правильный</th>
+        <th>Статус</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="res,stat : ${results}"
+        th:classappend="${res.correct} ? 'right' : 'wrong'">
+        <td th:text="${stat.count}"></td>
+        <td th:text="${res.questionId}"></td>
+        <td th:text="${res.questionText}"></td>
+        <td th:text="${res.userAnswer}"></td>
+        <td th:text="${res.correctAnswer}"></td>
+        <td th:text="${res.correct} ? '✔' : '✘'"></td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

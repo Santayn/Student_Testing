@@ -5,6 +5,7 @@ import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.user.User;
 import org.santayn.testing.repository.Group_StudentRepository;
 import org.santayn.testing.repository.StudentRepository;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +23,18 @@ public class StudentService {
     }
     public Optional<Student> findById(Integer id) {
         return studentRepository.findStudentById(id);
+    }
+
+
+    /**
+     * Ищет студента по логину пользователя.
+     * Если пользователь не найден — кидает UsernameNotFoundException.
+     */
+    public Student findByLogin(String login) {
+        return studentRepository.findByUserLogin(login)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("Студент с логином '" + login + "' не найден")
+                );
     }
     // Получение списка студентов по ID группы
     public List<Student> getStudentsByGroupID(Integer groupId) {
