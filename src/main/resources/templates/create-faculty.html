@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление факультетами</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .sidebar a {
+            display: block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .sidebar a:hover {
+            color: #007BFF;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Боковая панель -->
+<div class="sidebar">
+    <!-- Кнопка "О пользователе" -->
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+
+    <!-- Ссылки на другие разделы профиля -->
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+
+    <!-- Управление студентами -->
+    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
+
+    <!-- Управление учителями -->
+    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
+
+    <!-- Управление ролями -->
+    <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+
+    <!-- Управление предметами -->
+    <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
+
+    <!-- Управление лекциями -->
+    <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
+
+    <!-- Создать тест -->
+    <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
+
+    <!-- Управление темами -->
+    <a th:href="@{/kubstuTest/manage-topics-subject}" class="btn btn-warning w-100">Управление темами</a>
+
+    <!-- Загрузить вопросы -->
+    <a th:href="@{/kubstuTest/questions/upload-form}" class="btn btn-info w-100">Загрузить вопросы</a>
+
+    <!-- Результаты тестов -->
+    <a th:href="@{/kubstuTest/results}" style="font-weight:bold;">Результаты тестов</a>
+
+    <!-- Создать группу -->
+    <a th:href="@{/kubstuTest/group/create}" style="font-weight:bold;">Создать группу</a>
+
+    <!-- Создать факультет -->
+    <a th:href="@{/kubstuTest/faculty/create}" style="font-weight:bold;">Создать факультет</a>
+</div>
+
+<!-- Основной контент -->
+<div class="content">
+    <h2>Создать новый факультет</h2>
+
+    <!-- Форма создания факультета -->
+    <form th:action="@{/kubstuTest/faculty/create}" method="post">
+        <div style="flex: 1; min-width: 250px;">
+            <label for="name">Название факультета:</label>
+            <input type="text" id="name" name="name" required />
+        </div>
+
+        <div style="align-self: flex-end;">
+            <button type="submit">Создать факультет</button>
+        </div>
+    </form>
+
+    <!-- Список факультетов -->
+    <h3>Список факультетов</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Название</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="faculty : ${faculties}">
+            <td th:text="${faculty.id}"></td>
+            <td th:text="${faculty.name}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>
