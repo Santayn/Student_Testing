@@ -20,34 +20,35 @@ public class CreateFacultyController {
     private final CreateFacultyService createFacultyService;
     private final FacultyService facultyService;
 
-    public CreateFacultyController(GroupService groupService,  CreateFacultyService createFacultyService,FacultyService facultyService) {
+    public CreateFacultyController(GroupService groupService, CreateFacultyService createFacultyService, FacultyService facultyService) {
         this.groupService = groupService;
         this.createFacultyService = createFacultyService;
         this.facultyService = facultyService;
     }
 
-    // === Показать форму создания группы ===
+    // === Показать форму создания факультета ===
     @GetMapping("/faculty/create")
     public String showCreateFacultyForm(Model model) {
         List<Faculty> faculties = facultyService.getAllFaculty();
-
-        model.addAttribute("faculties", new Faculty());
         model.addAttribute("faculties", faculties);
-
-
         return "create-faculty"; // Шаблон Thymeleaf
     }
 
     // === Обработать отправку формы ===
     @PostMapping("/faculty/create")
-    public String createFaculty(
-            @RequestParam String name) {
-
+    public String createFaculty(@RequestParam String name) {
         createFacultyService.addFaculty(name);
         return "redirect:/kubstuTest/faculty/list";
     }
 
-    // === Показать список групп (опционально) ===
+    // === Удалить факультет ===
+    @PostMapping("/faculty/delete")
+    public String deleteFaculty(@RequestParam Integer facultyId) {
+        createFacultyService.deleteFaculty(facultyId);
+        return "redirect:/kubstuTest/faculty/list";
+    }
+
+    // === Показать список факультетов ===
     @GetMapping("/faculty/list")
     public String listFacultys(Model model) {
         List<Faculty> faculties = facultyService.getAllFaculty();

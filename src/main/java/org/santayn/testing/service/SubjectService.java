@@ -72,4 +72,8 @@ public class SubjectService {
     public List<Subject> getSubjectsByTeacher(Teacher teacher) {
         return subjectRepository.findSubjectByTeacherId(teacher.getId());
     }
+    public Subject findById(Integer id) {
+        return subjectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Subject not found with id: " + id));
+    }
 }

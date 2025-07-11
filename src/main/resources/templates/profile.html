@@ -55,34 +55,31 @@
   <a th:href="@{/kubstuTest/subjects}">Предметы</a>
   <a th:href="@{/kubstuTest/about}">О платформе</a>
 
-  <!-- 🟢 Кнопка для управления студентами -->
+  <!-- Управление пользователями -->
   <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
-
-  <!-- 🟢 Новая кнопка для управления учителями -->
   <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
-
-  <!-- 🟢 Управление ролями -->
   <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
 
-  <!-- 🟢 Управление предметами -->
+  <!-- Управление учебными материалами -->
   <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
-
-  <!-- 🟢 Добавляем кнопку для управления лекциями (только для учителей) -->
-    <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
-  <!-- 🟢 Создание теста -->
-  <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
-
+  <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
   <a th:href="@{/kubstuTest/manage-topics-subject}" class="btn btn-warning w-100">Управление темами</a>
   <a th:href="@{/kubstuTest/questions/upload-form}" class="btn btn-info w-100">Загрузить вопросы</a>
+
+  <!-- Тестирование -->
+  <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
   <a th:href="@{/kubstuTest/results}" style="font-weight:bold;">Результаты тестов</a>
+
+  <!-- Управление группами и факультетами -->
   <a th:href="@{/kubstuTest/group/create}" style="font-weight:bold;">Создать группу</a>
   <a th:href="@{/kubstuTest/faculty/create}" style="font-weight:bold;">Создать факультет</a>
+  <a th:href="@{/kubstuTest/manage-subject-faculty}" class="btn btn-primary w-100">Управление связями</a>
 </div>
 
 <div class="content">
   <h1>Личный кабинет</h1>
 
-  <div id="user-info">
+  <div id="user-info" style="display: none;">
     <!-- Отображение информации о пользователе -->
     <p><strong>Имя:</strong> <span th:text="${selectUser.firstName}"></span></p>
     <p><strong>Фамилия:</strong> <span th:text="${selectUser.lastName}"></span></p>

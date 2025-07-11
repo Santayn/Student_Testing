@@ -43,8 +43,16 @@ public class CreateGroupService {
         groupRepository.save(group);
     }
 
-    public void deleteGroup(Integer groupId) {
-        groupRepository.deleteById(groupId);
+    public void deleteGroup(Integer GroupId) {
+        Optional<Group> group = groupRepository.findById(GroupId);
+        if (group.isPresent()) {
+            groupRepository.deleteGroupStudentByGroupId(GroupId);
+            groupRepository.clearGroup_IdFromStudent(GroupId);
+            groupRepository.deleteTeacherGroupByGroupId(GroupId);
+            groupRepository.deleteGroupById(GroupId);
+        } else {
+            throw new RuntimeException("Group с ID " + GroupId + " не найден.");
+        }
     }
     public List<Group> getAllGroups() {
         return groupRepository.findAll();

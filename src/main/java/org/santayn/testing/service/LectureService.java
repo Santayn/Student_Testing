@@ -1,29 +1,23 @@
 package org.santayn.testing.service;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.teacher.Teacher;
-import org.santayn.testing.models.teacher.Teacher_Subject;
 import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.SubjectRepository;
-import org.santayn.testing.repository.TeacherRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class LectureService {
 
     private final LectureRepository lectureRepository;
     private final SubjectRepository subjectRepository;
-    private final TeacherRepository teacherRepository;
+    private final UserSearch userSearch;
 
-    public LectureService(LectureRepository lectureRepository, SubjectRepository subjectRepository, TeacherRepository teacherRepository) {
+    public LectureService(LectureRepository lectureRepository, SubjectRepository subjectRepository, UserSearch userSearch) {
         this.lectureRepository = lectureRepository;
         this.subjectRepository = subjectRepository;
-        this.teacherRepository = teacherRepository;
+        this.userSearch = userSearch;
     }
 
     /**
@@ -60,11 +54,11 @@ public class LectureService {
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
 
         // Получаем текущего учителя
-        Teacher currentTeacher = getCurrentTeacher();
+        Teacher currentTeacher = userSearch.getCurrentTeacher();
 
         // Проверяем, что предмет принадлежит учителю
         boolean isSubjectBelongsToTeacher = currentTeacher.getTeacherSubjects().stream()
-                .anyMatch(ts -> ts.getSubject().getId().equals(subjectId));
+                .anyMatch(ts -> ts.getSubject(  ).getId().equals(subjectId));
 
         if (!isSubjectBelongsToTeacher) {
             throw new RuntimeException("Teacher does not have access to this subject");
@@ -95,22 +89,7 @@ public class LectureService {
     /**
      * Получить текущего учителя
      */
-    public Teacher getCurrentTeacher() {
-        // Получаем объект Authentication из SecurityContext
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // Проверяем, что пользователь аутентифицирован
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("User is not authenticated");
-        }
-
-        // Получаем имя пользователя (логин)
-        String username = ((UserDetails) authentication.getPrincipal()).getUsername();
-
-        // Ищем учителя по логину в базе данных
-        return teacherRepository.findByLogin(username)
-                .orElseThrow(() -> new RuntimeException("Teacher not found for user: " + username));
-    }
     public List<Lecture> getLectureByID(Integer subjectId) {
         if (subjectId == null) {
             throw new IllegalArgumentException("Test ID cannot be null");

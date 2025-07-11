@@ -25,10 +25,6 @@ public class TopicService {
         this.teacherRepository = teacherRepository;
     }
 
-    public Teacher getCurrentTeacher() {
-        // Здесь должна быть логика получения текущего пользователя
-        return teacherRepository.findById(1).orElseThrow();
-    }
 
     public List<Topic> getTopicsBySubjectId(Integer subjectId) {
         return topicRepository.findBySubjectId(subjectId);

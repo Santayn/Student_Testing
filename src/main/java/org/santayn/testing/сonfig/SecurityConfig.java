@@ -18,8 +18,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Разрешаем доступ к регистрации, логину и другим общедоступным страницам
                         .requestMatchers("/register", "/login", "/kubstuTest", "/kubstuTest/about").permitAll()
-                        // Разрешаем доступ к удалению студентов для всех пользователей
-                        .requestMatchers("/kubstuTest/remove-students-from-group").permitAll()
+                        //.requestMatchers("").hasRole("STUDENT")
                         // Все остальные запросы требуют аутентификации
                         .anyRequest().authenticated()
                 )

@@ -15,6 +15,8 @@ import java.util.Optional;
 public interface SubjectRepository extends JpaRepository<Subject, Integer> {
 
     @Query("SELECT sf.subject FROM Subject_Faculty sf WHERE sf.faculty.id = :faculty_id")
+    List<Subject> findSubjectsNotInAnyFaculty (@Param("faculty_id") Integer faculty_id);
+    @Query("SELECT sf.subject FROM Subject_Faculty sf WHERE sf.faculty.id = :faculty_id")
     List<Subject> findSubjectByFacultyId(@Param("faculty_id") Integer faculty_id);
 
     @Query("SELECT s FROM Subject s")

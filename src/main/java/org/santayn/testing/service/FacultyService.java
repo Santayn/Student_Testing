@@ -22,4 +22,8 @@ public class FacultyService {
     public List<Faculty> getAllFaculty() {
         return facultyRepository.findAllFacultys();
     }
+    public Faculty findById(Integer id) {
+        return facultyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Faculty not found with id: " + id));
+    }
 }

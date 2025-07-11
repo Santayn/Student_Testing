@@ -32,7 +32,14 @@ public class CreateFacultyService {
     }
 
     public void deleteFaculty(Integer facultyId) {
-        facultyRepository.deleteById(facultyId);
+        Optional<Faculty> faculty = facultyRepository.findById(facultyId);
+        if (faculty.isPresent()) {
+            facultyRepository.clearFacultyIdFromAppGroup(facultyId); // Очищаем faculty_id в app_group
+            facultyRepository.deleteSubjectFacultyByFacultyId(facultyId); // Удаляем записи из subject_faculty
+            facultyRepository.deleteFacultyById(facultyId); // Удаляем сам факультет
+        } else {
+            throw new RuntimeException("Факультет с ID " + facultyId + " не найден.");
+        }
     }
     public List<Faculty> getAllFacultys() {
         return facultyRepository.findAll();

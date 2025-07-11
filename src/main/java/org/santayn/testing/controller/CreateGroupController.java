@@ -48,11 +48,10 @@ public class CreateGroupController {
         return "redirect:/kubstuTest/group/list";
     }
 
-    // === Показать список групп (опционально) ===
-    @GetMapping("/group/list")
-    public String listGroups(Model model) {
-        List<Group> groups = groupService.getAllGroup();
-        model.addAttribute("groups", groups);
-        return "group-list"; // Шаблон Thymeleaf
+    // === Удалить факультет ===
+    @PostMapping("/group/delete")
+    public String deleteGroup(@RequestParam Integer GroupId) {
+        createGroupService.deleteGroup(GroupId);
+        return "redirect:/kubstuTest/group/list";
     }
 }

@@ -5,6 +5,7 @@ import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.models.topic.Topic;
 import org.santayn.testing.service.SubjectService;
 import org.santayn.testing.service.TopicService;
+import org.santayn.testing.service.UserSearch;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,10 +19,12 @@ public class TopicController {
 
     private final TopicService topicService;
     private final SubjectService subjectService;
+    private final UserSearch userSearch;
 
-    public TopicController(TopicService topicService, SubjectService subjectService) {
+    public TopicController(TopicService topicService, SubjectService subjectService,UserSearch userSearch) {
         this.topicService = topicService;
         this.subjectService = subjectService;
+        this.userSearch = userSearch;
     }
 
     /**
@@ -33,7 +36,7 @@ public class TopicController {
             Model model) {
 
         // Получаем текущего учителя
-        Teacher currentTeacher = topicService.getCurrentTeacher();
+        Teacher currentTeacher = userSearch.getCurrentTeacher();
 
         // Получаем все предметы, которые принадлежат текущему учителю
         List<Subject> teacherSubjects = subjectService.getSubjectsByTeacher(currentTeacher);

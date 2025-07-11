@@ -96,6 +96,20 @@
         th {
             background-color: #f2f2f2;
         }
+
+        .delete-btn {
+            background-color: #dc3545; /* Красный цвет для кнопки удаления */
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333; /* Темно-красный при наведении */
+        }
     </style>
 </head>
 <body>
@@ -167,12 +181,20 @@
         <tr>
             <th>ID</th>
             <th>Название</th>
+            <th>Действия</th> <!-- Новый столбец для кнопки удаления -->
         </tr>
         </thead>
         <tbody>
         <tr th:each="faculty : ${faculties}">
             <td th:text="${faculty.id}"></td>
             <td th:text="${faculty.name}"></td>
+            <td>
+                <!-- Форма для удаления факультета -->
+                <form th:action="@{/kubstuTest/faculty/delete}" method="post" style="display:inline;">
+                    <input type="hidden" name="facultyId" th:value="${faculty.id}" />
+                    <button type="submit" class="delete-btn">Удалить</button>
+                </form>
+            </td>
         </tr>
         </tbody>
     </table>
