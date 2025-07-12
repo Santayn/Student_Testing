@@ -5,9 +5,12 @@ import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.teacher.Teacher_Subject; // Добавлен импорт
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -40,4 +43,26 @@ public interface SubjectRepository extends JpaRepository<Subject, Integer> {
 
     @Query("SELECT ts.subject FROM Teacher_Subject ts WHERE ts.teacher.id = :teacher_id")
     List<Subject> findSubjectByTeacherId(@Param("teacher_id") Integer teacher_id);
+
+
+
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE lecture SET subject_id = NULL WHERE subject_id = :subjectId", nativeQuery = true)
+    void clearSubject_IdFromLecture(@Param("subjectId") Integer subjectId);
+
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM subject_faculty WHERE subject_id = :subjectId", nativeQuery = true)
+    void deleteSubjectFacultyBySubjectId(@Param("subjectId") Integer subjectId);
+
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM teacher_subject WHERE subject_id = :subjectId", nativeQuery = true)
+    void deleteTeacherSubjectBySubjectId(@Param("subjectId") Integer subjectId);
+
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM subject WHERE id = :subjectId", nativeQuery = true)
+    void deleteSubjectById(@Param("subjectId") Integer subjectId);
 }

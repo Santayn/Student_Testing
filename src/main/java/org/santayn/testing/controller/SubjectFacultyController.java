@@ -37,22 +37,20 @@ public class SubjectFacultyController {
     public String showManageSubjectFacultyPage(
             @RequestParam(required = false) Integer facultyId,
             Model model) {
-        // Получаем все группы
+
         List<Faculty> facultys = facultyService.getAllFaculty();
-        System.out.println("Number of faculties: " + facultys.size());
         model.addAttribute("facultys", facultys);
 
         if (facultyId != null) {
-            // Если выбрана группа, получаем студентов в группе и доступных студентов
             List<Subject> subjectsFaculty = subjectService.getSubjectsByFacultyId(facultyId);
             List<Subject> freeSubjects = subjectService.findFreeSubjects();
 
             model.addAttribute("facultyId", facultyId);
-            model.addAttribute("subjectFaculty", subjectsFaculty);
+            model.addAttribute("assignedSubjects", subjectsFaculty); // ← добавлено
             model.addAttribute("freeSubjects", freeSubjects);
         }
 
-        return "manage-subject-faculty"; // Имя Thymeleaf шаблона
+        return "manage-subject-faculty";
     }
     /**
      * Обрабатывает POST-запрос: добавляет выбранных студентов в выбранную группу

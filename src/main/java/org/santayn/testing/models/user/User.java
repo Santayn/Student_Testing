@@ -35,4 +35,8 @@ public class User {
     // Связь OneToOne с Student
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     Teacher teacher;
+
+    public void setUsername(String teacher) {
+
+    }
 }
