@@ -29,6 +29,7 @@ public class DataLoader implements CommandLineRunner {
     public void run(String... args) throws Exception {
         System.out.println("Загружаем тестовые данные...");
 
+        createRoleIfNotExists("USER");
         createRoleIfNotExists("STUDENT");
         createRoleIfNotExists("TEACHER");
         createRoleIfNotExists("ADMIN");
@@ -48,8 +49,6 @@ public class DataLoader implements CommandLineRunner {
             user.setRole(studentRole);
             userRepository.save(user); // после save() появится ID
         }
-
-        // 2. Привязываем Student к созданному User
         User studentUser = userRepository.findByLogin("student").orElseThrow();
         if (studentUser.getStudent() == null) {
             Student student = new Student();
@@ -60,7 +59,7 @@ public class DataLoader implements CommandLineRunner {
             userRepository.save(studentUser);
         }
 
-        // 3. Создаём преподавателя (User)
+        // 2. Создаём преподавателя
         if (userRepository.findByLogin("teacher").isEmpty()) {
             User user = new User();
             user.setLogin("teacher");
@@ -71,8 +70,6 @@ public class DataLoader implements CommandLineRunner {
             user.setRole(teacherRole);
             userRepository.save(user);
         }
-
-        // 4. Привязываем Teacher к созданному User
         User teacherUser = userRepository.findByLogin("teacher").orElseThrow();
         if (teacherUser.getTeacher() == null) {
             Teacher teacher = new Teacher();
@@ -82,7 +79,7 @@ public class DataLoader implements CommandLineRunner {
             userRepository.save(teacherUser);
         }
 
-        // 3. Создаём преподавателя (User)
+        // 3. Создаём admin
         if (userRepository.findByLogin("admin").isEmpty()) {
             User user = new User();
             user.setLogin("admin");
@@ -90,7 +87,7 @@ public class DataLoader implements CommandLineRunner {
             user.setFirstName("admin");
             user.setLastName("admin");
             user.setPhoneNumber("98348938");
-            user.setRole(teacherRole);
+            user.setRole(adminRole);
             userRepository.save(user);
         }
 
