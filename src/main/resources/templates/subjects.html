@@ -16,8 +16,8 @@
     </div>
 
     <!-- Список предметов -->
-    <ul class="list-group">
-        <li th:each="subject : ${subjects}" class="list-group-item">
+    <ul class="list-subject">
+        <li th:each="subject : ${subjects}" class="list-subject-item">
             <a th:href="@{/kubstuTest/subjects/{facultyId}/{subjectId}(facultyId=${facultyId}, subjectId=${subject.id})}"
                th:text="${subject.name}"></a>
         </li>

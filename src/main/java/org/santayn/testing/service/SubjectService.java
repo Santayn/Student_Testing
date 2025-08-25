@@ -39,15 +39,14 @@ public class SubjectService {
 
 
     public Subject getSpecificSubjectByFacultyIdAndSubjectId(Integer facultyId, Integer subjectId) {
-
         List<Subject> subjects = subjectRepository.findSubjectByFacultyId(facultyId);
 
         Optional<Subject> specificSubject = subjects.stream()
-                .filter(subject -> subject.getId().equals(facultyId))
+                .filter(subject -> subject.getId().equals(subjectId))  // ← исправлено: сравниваем с subjectId
                 .findFirst();
 
         return specificSubject.orElseThrow(() -> new RuntimeException(
-                "Question with ID " + subjectId + " not found in Test with ID " + facultyId));
+                "Subject with ID " + subjectId + " not found for Faculty with ID " + facultyId));
     }
     public List<Subject> getSubjectsByFacultyId(Integer facultyId) {
         return subjectRepository.findSubjectByFacultyId(facultyId);

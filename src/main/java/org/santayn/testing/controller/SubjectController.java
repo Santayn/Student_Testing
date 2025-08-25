@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.SynchronousQueue;
 
 @Controller
 @RequestMapping("/kubstuTest")
@@ -102,15 +103,18 @@ public class SubjectController {
         return "subjects"; // Имя шаблона Thymeleaf
     }
 
+
     // Отображение деталей конкретного предмета
     @GetMapping("/subjects/{facultyId}/{subjectId}")
     public String getSubjectDetails(@PathVariable Integer facultyId,
                                     @PathVariable Integer subjectId,
                                     Model model) {
+
         try {
             Subject selectedSubject = subjectService.getSpecificSubjectByFacultyIdAndSubjectId(facultyId, subjectId);
             model.addAttribute("selectedSubject", selectedSubject);
             model.addAttribute("facultyId", facultyId); // Передаем facultyId для ссылки "Назад"
+
             return "subject-details"; // Имя шаблона Thymeleaf для отображения деталей предмета
         } catch (RuntimeException e) {
             model.addAttribute("error", e.getMessage());

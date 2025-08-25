@@ -17,6 +17,7 @@ public class Test {
     @JoinColumn(name = "topic_id", referencedColumnName = "id")
     private Topic topic;
 
+    private String name;
     private int questionCount;
     private String description;
 }

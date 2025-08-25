@@ -1,6 +1,8 @@
 package org.santayn.testing.controller;
 
+import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.teacher.Teacher;
+import org.santayn.testing.models.teacher.Teacher_Group;
 import org.santayn.testing.models.topic.Topic;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.test.Test_Lecture;
@@ -31,7 +33,8 @@ public class TestController {
     private final SubjectRepository subjectRepository;
     private final TestLectureService testLectureService;
     private final Teacher_SubjectRepository teacher_subjectRepository;
-    private final TeacherRepository teacherRepository; // Добавили зависимость
+    private final Teacher_GroupRepository teacher_groupRepository;
+    private final TeacherRepository teacherRepository;
 
     public TestController(
             TestService testService,
@@ -40,34 +43,38 @@ public class TestController {
             SubjectRepository subjectRepository,
             TestLectureService testLectureService,
             Teacher_SubjectRepository teacher_subjectRepository,
-            TeacherRepository teacherRepository) { // Инжектируем TeacherRepository
+            Teacher_GroupRepository teacher_groupRepository,
+            TeacherRepository teacherRepository) {
         this.testService = testService;
         this.topicRepository = topicRepository;
         this.lectureRepository = lectureRepository;
         this.subjectRepository = subjectRepository;
         this.testLectureService = testLectureService;
         this.teacher_subjectRepository = teacher_subjectRepository;
+        this.teacher_groupRepository = teacher_groupRepository;
         this.teacherRepository = teacherRepository;
     }
 
     @GetMapping("/create-test")
     public String showCreateTestForm(
             @RequestParam(required = false) Integer selectedSubjectId,
+            @RequestParam(required = false) List<Integer> selectedGroupIds, // ← может быть null
             Model model,
             Principal principal) {
 
         Teacher teacher = getCurrentTeacher();
 
-        // Получаем все предметы, связанные с учителем
         List<Subject> subjects = teacher_subjectRepository.findByTeacherId(teacher.getId()).stream()
                 .map(Teacher_Subject::getSubject)
                 .toList();
 
-        // Если выбран предмет — используем его ID, иначе берём первый
+        List<Group> groups = teacher_groupRepository.findByTeacherId(teacher.getId()).stream()
+                .map(Teacher_Group::getGroup)
+                .toList();
+
         Integer subjectId = selectedSubjectId != null ? selectedSubjectId :
                 (!subjects.isEmpty() ? subjects.get(0).getId() : null);
 
-        // Получаем темы и лекции для выбранного предмета
         List<Topic> topics = (subjectId != null)
                 ? topicRepository.findBySubjectId(subjectId)
                 : Collections.emptyList();
@@ -76,23 +83,34 @@ public class TestController {
                 ? lectureRepository.findLectureBySubjectId(subjectId)
                 : Collections.emptyList();
 
+        // ✅ Гарантируем, что selectedGroupIds не null
+        if (selectedGroupIds == null) {
+            selectedGroupIds = Collections.emptyList();
+        }
+
         model.addAttribute("subjects", subjects);
+        model.addAttribute("groups", groups);
         model.addAttribute("topics", topics);
         model.addAttribute("lectures", lectures);
-        model.addAttribute("selectedSubjectId", subjectId); // Передаём выбранный предмет
+        model.addAttribute("selectedSubjectId", subjectId);
+        model.addAttribute("selectedGroupIds", selectedGroupIds); // ← теперь всегда List
 
         return "create-test";
     }
 
     @PostMapping("/create-test")
-    public String createTest(@RequestParam(required = false) Integer subjectId,
-                             @RequestParam Integer topicId,
-                             @RequestParam Integer lectureId,
-                             @RequestParam int questionCount,
-                             Model model,
-                             Principal principal) {
+    public String createTest(
+            @RequestParam(required = false) Integer subjectId,
+            @RequestParam(required = false) List<Integer> selectedGroupIds, // Добавлено: множественный выбор
+            @RequestParam Integer topicId,
+            @RequestParam Integer lectureId,
+            @RequestParam String name,
+            @RequestParam String description,
+            @RequestParam int questionCount,
+            Model model,
+            Principal principal) {
 
-        // Сохраняем тест и связь с лекцией
+        // Сохраняем тест
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Тема не найдена"));
         Lecture lecture = lectureRepository.findById(lectureId)
@@ -100,16 +118,19 @@ public class TestController {
 
         Test test = new Test();
         test.setTopic(topic);
+        test.setDescription(description);
+        test.setName(name);
         test.setQuestionCount(questionCount);
         test = testService.save(test);
 
+        // Связываем тест с лекцией
         Test_Lecture testLecture = new Test_Lecture();
         testLecture.setLecture(lecture);
         testLecture.setTest(test);
         testLectureService.save(testLecture);
 
-        // Вместо редиректа на /lecture — обновляем текущую форму
-        return showCreateTestForm(subjectId, model, principal);
+        // Возвращаем форму с сохранёнными выборами
+        return showCreateTestForm(subjectId, selectedGroupIds, model, principal);
     }
 
     // ✅ Получить текущего учителя из SecurityContext
@@ -130,12 +151,21 @@ public class TestController {
         return teacherRepository.findByLogin(username)
                 .orElseThrow(() -> new RuntimeException("Teacher not found for user: " + username));
     }
+
     @GetMapping("/subjects-by-teacher")
     @ResponseBody
     public List<Subject> getSubjectsByTeacher(Principal principal) {
         Teacher teacher = getCurrentTeacher();
         return teacher_subjectRepository.findByTeacherId(teacher.getId()).stream()
                 .map(Teacher_Subject::getSubject)
+                .toList();
+    }
+    @GetMapping("/groups-by-teacher")
+    @ResponseBody
+    public List<Group> getGroupsByTeacher(Principal principal) {
+        Teacher teacher = getCurrentTeacher();
+        return teacher_groupRepository.findByTeacherId(teacher.getId()).stream()
+                .map(Teacher_Group::getGroup)
                 .toList();
     }
 

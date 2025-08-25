@@ -1,5 +1,6 @@
 package org.santayn.testing.models.teacher;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.santayn.testing.models.group.Group;
@@ -20,6 +21,7 @@ public class Teacher_Group {
 
     @ManyToOne
     @JoinColumn(name = "group_id", referencedColumnName = "id")
+    @JsonIgnore
     private Group group;
 
 }

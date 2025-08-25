@@ -9,66 +9,81 @@
             display: flex;
             height: 100vh;
             margin: 0;
+            background-color: #f8f9fa;
         }
 
         .sidebar {
-            width: 200px;
-            background-color: #f4f4f4;
+            width: 220px;
+            background-color: #343a40;
+            color: white;
             padding: 20px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
         }
 
         .sidebar a {
             display: block;
             margin-bottom: 15px;
             text-decoration: none;
-            color: #333;
-            font-size: 16px;
+            color: #ddd;
+            font-size: 14px;
+            padding: 8px 10px;
+            border-radius: 5px;
         }
 
-        .sidebar a:hover {
-            color: #007BFF;
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #007BFF;
+            color: white;
         }
 
         .content {
             flex-grow: 1;
-            padding: 20px;
+            padding: 30px;
         }
 
         h1 {
             margin-top: 0;
+            color: #333;
+            font-size: 24px;
         }
 
-        form {
+        .form-container {
             background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            max-width: 500px;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 600px;
         }
 
         label {
             display: block;
-            margin-top: 10px;
+            margin-top: 15px;
             font-weight: bold;
+            color: #555;
         }
 
-        select, input[type="number"] {
+        select, input[type="text"], input[type="number"] {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             margin-top: 5px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        select[multiple] {
+            min-height: 120px;
         }
 
         button {
-            margin-top: 20px;
+            margin-top: 25px;
             background-color: #007bff;
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 16px;
+            width: 100%;
         }
 
         button:hover {
@@ -79,66 +94,86 @@
 <body>
 
 <div class="sidebar">
-    <!-- Навигация -->
+    <h3>Меню</h3>
     <a th:href="@{/kubstuTest}">Главная</a>
     <a th:href="@{/kubstuTest/subjects}">Предметы</a>
     <a th:href="@{/kubstuTest/about}">О платформе</a>
-    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
-    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
-    <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
-    <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
-    <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
-    <a th:href="@{/kubstuTest/manage-topics-subject}" class="btn btn-warning w-100">Управление темами</a>
+    <a th:href="@{/kubstuTest/manage-students}">Управление студентами</a>
+    <a th:href="@{/kubstuTest/manage-teachers}">Управление учителями</a>
+    <a th:href="@{/kubstuTest/users/role/user}">Управление ролями</a>
+    <a th:href="@{/kubstuTest/manage-lectures-subject}">Управление лекциями</a>
+    <a th:href="@{/kubstuTest/tests/create-test}" class="active">Создать тест</a>
+    <a th:href="@{/kubstuTest/manage-topics-subject}">Управление темами</a>
 </div>
 
 <div class="content">
     <h1>Создание теста</h1>
 
-    <!-- Форма для выбора предмета -->
-    <form th:action="@{/kubstuTest/tests/create-test}" method="get">
-        <label for="subjectId">Выберите предмет:</label>
-        <select id="subjectId" name="selectedSubjectId" onchange="this.form.submit()" required>
-            <option value="">-- Выберите предмет --</option>
-            <option th:each="subject : ${subjects}"
-                    th:value="${subject.id}"
-                    th:text="${subject.name}"
-                    th:selected="${subject.id == selectedSubjectId}">
-            </option>
-        </select>
-    </form>
+    <div class="form-container">
+        <!-- Форма выбора предмета -->
+        <form th:action="@{/kubstuTest/tests/create-test}" method="get">
+            <label for="subjectSelect">Выберите предмет:</label>
+            <select id="subjectSelect" name="selectedSubjectId" onchange="this.form.submit()">
+                <option value="">-- Выберите предмет --</option>
+                <option th:each="subject : ${subjects}"
+                        th:value="${subject.id}"
+                        th:text="${subject.name}"
+                        th:selected="${subject.id == selectedSubjectId}">
+                </option>
+            </select>
+        </form>
 
-    <!-- Форма для создания теста -->
-    <form th:action="@{/kubstuTest/tests/create-test}" method="post">
-        <!-- Скрытый параметр для subjectId -->
-        <input type="hidden" name="subjectId" th:value="${selectedSubjectId}" />
+        <!-- Форма создания теста -->
+        <form th:action="@{/kubstuTest/tests/create-test}" method="post">
+            <!-- Скрытый: ID предмета -->
+            <input type="hidden" name="subjectId" th:value="${selectedSubjectId}" />
 
-        <!-- Выбор темы -->
-        <label for="topicId">Выберите тему:</label>
-        <select id="topicId" name="topicId" required>
-            <option value="">-- Выберите тему --</option>
-            <option th:each="topic : ${topics}"
-                    th:value="${topic.id}"
-                    th:text="${topic.name}">
-            </option>
-        </select>
+            <!-- Группы (множественный выбор) -->
+            <label for="groupSelect">Выберите группы:</label>
+            <select id="groupSelect" name="selectedGroupIds" multiple="multiple" size="5">
+                <option value="">-- Выберите группы --</option>
+                <option th:each="group : ${groups}"
+                        th:value="${group.id}"
+                        th:text="${group.name}"
+                        th:selected="${selectedGroupIds != null && #lists.contains(selectedGroupIds, group.id)}">
+                </option>
+            </select>
 
-        <!-- Выбор лекции -->
-        <label for="lectureId">Выберите лекцию:</label>
-        <select id="lectureId" name="lectureId" required>
-            <option value="">-- Выберите лекцию --</option>
-            <option th:each="lecture : ${lectures}"
-                    th:value="${lecture.id}"
-                    th:text="${lecture.title}">
-            </option>
-        </select>
+            <!-- Тема -->
+            <label for="topicSelect">Тема:</label>
+            <select id="topicSelect" name="topicId" required>
+                <option value="">-- Выберите тему --</option>
+                <option th:each="topic : ${topics}"
+                        th:value="${topic.id}"
+                        th:text="${topic.name}">
+                </option>
+            </select>
 
-        <!-- Количество вопросов -->
-        <label for="questionCount">Количество вопросов:</label>
-        <input type="number" id="questionCount" name="questionCount" min="1" max="50" value="5" required />
+            <!-- Лекция -->
+            <label for="lectureSelect">Лекция:</label>
+            <select id="lectureSelect" name="lectureId" required>
+                <option value="">-- Выберите лекцию --</option>
+                <option th:each="lecture : ${lectures}"
+                        th:value="${lecture.id}"
+                        th:text="${lecture.title}">
+                </option>
+            </select>
 
-        <!-- Кнопка отправки формы -->
-        <button type="submit">Создать тест</button>
-    </form>
+            <!-- Название теста -->
+            <label for="nameInput">Название теста:</label>
+            <input type="text" id="nameInput" name="name" required />
+
+            <!-- Описание -->
+            <label for="descriptionInput">Описание:</label>
+            <input type="text" id="descriptionInput" name="description" required />
+
+            <!-- Количество вопросов -->
+            <label for="questionCountInput">Количество вопросов (1–50):</label>
+            <input type="number" id="questionCountInput" name="questionCount" min="1" max="50" value="5" required />
+
+            <button type="submit">Создать тест</button>
+        </form>
+    </div>
 </div>
 
 </body>

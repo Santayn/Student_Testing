@@ -3,6 +3,7 @@ package org.santayn.testing.models.subject;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 import org.santayn.testing.models.faculty.Faculty;
 
 @Entity
@@ -20,5 +21,6 @@ public class Subject_Faculty {
     @ManyToOne
     @JoinColumn(name = "subject_id", referencedColumnName = "id")
     @JsonBackReference("subject-subjectFaculty")
+    @ToString.Exclude
     private Subject subject;
 }
