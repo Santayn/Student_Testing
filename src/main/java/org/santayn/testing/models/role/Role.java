@@ -12,5 +12,4 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
     String name;
-
 }

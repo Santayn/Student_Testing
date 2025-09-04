@@ -39,5 +39,4 @@
         // Связь OneToMany с Teacher_Subject
         @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true)
         private List<Teacher_Subject> teacherSubjects;
-
     }

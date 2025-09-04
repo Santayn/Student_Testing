@@ -9,6 +9,7 @@ import org.santayn.testing.models.test.Test_Lecture;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.teacher.Teacher_Subject;
+import org.santayn.testing.models.test.Test_Group;
 import org.santayn.testing.repository.*;
 import org.santayn.testing.service.TestLectureService;
 import org.santayn.testing.service.TestService;
@@ -20,8 +21,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/kubstuTest/tests")
@@ -35,6 +36,8 @@ public class TestController {
     private final Teacher_SubjectRepository teacher_subjectRepository;
     private final Teacher_GroupRepository teacher_groupRepository;
     private final TeacherRepository teacherRepository;
+    private final GroupRepository groupRepository;
+    private final TestGroupRepository testGroupRepository;
 
     public TestController(
             TestService testService,
@@ -44,7 +47,9 @@ public class TestController {
             TestLectureService testLectureService,
             Teacher_SubjectRepository teacher_subjectRepository,
             Teacher_GroupRepository teacher_groupRepository,
-            TeacherRepository teacherRepository) {
+            TeacherRepository teacherRepository,
+            GroupRepository groupRepository,
+            TestGroupRepository testGroupRepository) {
         this.testService = testService;
         this.topicRepository = topicRepository;
         this.lectureRepository = lectureRepository;
@@ -53,17 +58,25 @@ public class TestController {
         this.teacher_subjectRepository = teacher_subjectRepository;
         this.teacher_groupRepository = teacher_groupRepository;
         this.teacherRepository = teacherRepository;
+        this.groupRepository = groupRepository;
+        this.testGroupRepository = testGroupRepository;
     }
 
+    /**
+     * Отображение формы создания теста.
+     * Поддерживает параметры: selectedSubjectId, selectedGroupIds, success.
+     */
     @GetMapping("/create-test")
     public String showCreateTestForm(
             @RequestParam(required = false) Integer selectedSubjectId,
-            @RequestParam(required = false) List<Integer> selectedGroupIds, // ← может быть null
+            @RequestParam(required = false) List<Integer> selectedGroupIds,
+            @RequestParam(required = false) Boolean success,
             Model model,
             Principal principal) {
 
         Teacher teacher = getCurrentTeacher();
 
+        // Получаем предметы и группы, доступные учителю
         List<Subject> subjects = teacher_subjectRepository.findByTeacherId(teacher.getId()).stream()
                 .map(Teacher_Subject::getSubject)
                 .toList();
@@ -72,9 +85,12 @@ public class TestController {
                 .map(Teacher_Group::getGroup)
                 .toList();
 
-        Integer subjectId = selectedSubjectId != null ? selectedSubjectId :
-                (!subjects.isEmpty() ? subjects.get(0).getId() : null);
+        // Определяем активный предмет
+        Integer subjectId = selectedSubjectId != null
+                ? selectedSubjectId
+                : (subjects.isEmpty() ? null : subjects.get(0).getId());
 
+        // Загружаем темы и лекции по предмету
         List<Topic> topics = (subjectId != null)
                 ? topicRepository.findBySubjectId(subjectId)
                 : Collections.emptyList();
@@ -83,25 +99,30 @@ public class TestController {
                 ? lectureRepository.findLectureBySubjectId(subjectId)
                 : Collections.emptyList();
 
-        // ✅ Гарантируем, что selectedGroupIds не null
+        // Гарантируем, что selectedGroupIds не null
         if (selectedGroupIds == null) {
             selectedGroupIds = Collections.emptyList();
         }
 
+        // Передаём данные в модель
         model.addAttribute("subjects", subjects);
         model.addAttribute("groups", groups);
         model.addAttribute("topics", topics);
         model.addAttribute("lectures", lectures);
         model.addAttribute("selectedSubjectId", subjectId);
-        model.addAttribute("selectedGroupIds", selectedGroupIds); // ← теперь всегда List
+        model.addAttribute("selectedGroupIds", selectedGroupIds);
+        model.addAttribute("success", Boolean.TRUE.equals(success)); // true, если ?success=true
 
         return "create-test";
     }
 
+    /**
+     * Обработка создания теста.
+     */
     @PostMapping("/create-test")
     public String createTest(
             @RequestParam(required = false) Integer subjectId,
-            @RequestParam(required = false) List<Integer> selectedGroupIds, // Добавлено: множественный выбор
+            @RequestParam(required = false) List<Integer> selectedGroupIds,
             @RequestParam Integer topicId,
             @RequestParam Integer lectureId,
             @RequestParam String name,
@@ -110,47 +131,75 @@ public class TestController {
             Model model,
             Principal principal) {
 
-        // Сохраняем тест
+        // 1. Получаем связанные сущности
         Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new RuntimeException("Тема не найдена"));
+                .orElseThrow(() -> new IllegalArgumentException("Тема не найдена"));
         Lecture lecture = lectureRepository.findById(lectureId)
-                .orElseThrow(() -> new RuntimeException("Лекция не найдена"));
+                .orElseThrow(() -> new IllegalArgumentException("Лекция не найдена"));
 
+        // 2. Создаём и сохраняем тест
         Test test = new Test();
         test.setTopic(topic);
-        test.setDescription(description);
         test.setName(name);
+        test.setDescription(description);
         test.setQuestionCount(questionCount);
         test = testService.save(test);
 
-        // Связываем тест с лекцией
+        // 3. Связываем тест с лекцией
         Test_Lecture testLecture = new Test_Lecture();
-        testLecture.setLecture(lecture);
         testLecture.setTest(test);
+        testLecture.setLecture(lecture);
         testLectureService.save(testLecture);
 
-        // Возвращаем форму с сохранёнными выборами
-        return showCreateTestForm(subjectId, selectedGroupIds, model, principal);
+        // 4. Связываем тест с группами (если выбраны)
+        if (selectedGroupIds != null && !selectedGroupIds.isEmpty()) {
+            List<Group> groups = groupRepository.findAllById(selectedGroupIds);
+            for (Group group : groups) {
+                Test_Group testGroup = new Test_Group();
+                testGroup.setTest(test);
+                testGroup.setGroup(group);
+                testGroupRepository.save(testGroup);
+            }
+        }
+
+        // 5. Редирект на форму с параметрами
+        StringBuilder redirectUrl = new StringBuilder("/kubstuTest/tests/create-test");
+        if (subjectId != null) {
+            redirectUrl.append("?selectedSubjectId=").append(subjectId);
+        } else {
+            redirectUrl.append("?selectedSubjectId=");
+        }
+
+        // Добавляем выбранные группы
+        if (selectedGroupIds != null && !selectedGroupIds.isEmpty()) {
+            redirectUrl.append("&selectedGroupIds=").append(
+                    selectedGroupIds.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.joining(","))
+            );
+        }
+
+        redirectUrl.append("&success=true");
+
+        return "redirect:" + redirectUrl;
     }
 
-    // ✅ Получить текущего учителя из SecurityContext
+    // ✅ Получить текущего учителя
     private Teacher getCurrentTeacher() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("User is not authenticated");
+            throw new RuntimeException("Пользователь не авторизован");
         }
 
-        String username;
-        if (authentication.getPrincipal() instanceof UserDetails userDetails) {
-            username = userDetails.getUsername();
-        } else {
-            username = authentication.getName();
-        }
+        String username = authentication.getPrincipal() instanceof UserDetails userDetails
+                ? userDetails.getUsername()
+                : authentication.getName();
 
         return teacherRepository.findByLogin(username)
-                .orElseThrow(() -> new RuntimeException("Teacher not found for user: " + username));
+                .orElseThrow(() -> new RuntimeException("Преподаватель не найден: " + username));
     }
+
+    // 🔽 API-эндпоинты
 
     @GetMapping("/subjects-by-teacher")
     @ResponseBody
@@ -160,6 +209,7 @@ public class TestController {
                 .map(Teacher_Subject::getSubject)
                 .toList();
     }
+
     @GetMapping("/groups-by-teacher")
     @ResponseBody
     public List<Group> getGroupsByTeacher(Principal principal) {
