@@ -103,4 +103,7 @@ public class StudentService {
         student.setUser(user);
         studentRepository.save(student);
     }
+    public List<Student> getStudentsByGroupId(Integer groupId) {
+        return studentRepository.findByGroup_Id(groupId);
+    }
 }

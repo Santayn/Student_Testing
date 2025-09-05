@@ -54,33 +54,31 @@
 </head>
 <body>
 
-<div class="sidebar">
-    <a href="#" onclick="toggleInfo()">О пользователе</a>
-    <a th:href="@{/kubstuTest}">Главная</a>
-    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
-    <a th:href="@{/kubstuTest/about}">О платформе</a>
-    <a th:href="@{/kubstuTest/manage-students}">Управление студентами</a>
-    <a th:href="@{/kubstuTest/manage-teachers}">Управление учителями</a>
-    <a th:href="@{/kubstuTest/users/role/user}">Управление ролями</a>
-    <a th:href="@{/kubstuTest/manage-teachers-subject}">Управление предметами</a>
-    <a th:href="@{/kubstuTest/manage-lectures-subject}">Управление лекциями</a>
-    <a th:href="@{/kubstuTest/tests/create-test}">Создать тест</a>
-    <a th:href="@{/kubstuTest/manage-topics-subject}">Управление темами</a>
-    <a th:href="@{/kubstuTest/questions/upload-form}">Загрузить вопросы</a>
-    <a th:href="@{/kubstuTest/results}" style="font-weight:bold;">Результаты тестов</a>
-</div>
+<!-- ... твой <head> и стили ... -->
 
 <div class="content">
-
     <script>
         function toggleInfo() {
           const info = document.getElementById('user-info');
           if (!info) return;
           info.style.display = (info.style.display === 'none' || !info.style.display) ? 'block' : 'none';
         }
+        function onGroupChange() {
+          // при смене группы сбрасываем студента/тест
+          document.getElementById('studentId').value = '';
+          document.getElementById('testId').value = '';
+          document.getElementById('filtersForm').submit();
+        }
+        function onStudentChange() {
+          document.getElementById('testId').value = '';
+          document.getElementById('filtersForm').submit();
+        }
+        function onTestChange() {
+          document.getElementById('filtersForm').submit();
+        }
     </script>
 
-    <!-- Инфо о пользователе (по клику) -->
+    <!-- Инфо -->
     <div id="user-info" style="display:none; margin-bottom: 10px;">
         <div class="muted">
             <span>Пользователь: </span>
@@ -94,6 +92,46 @@
 
     <div th:if="${errorMessage}" class="error" th:text="${errorMessage}">Ошибка</div>
 
+    <!-- ФИЛЬТРЫ ТОЛЬКО ДЛЯ ПРЕПОДА -->
+    <form th:if="${isTeacher}" id="filtersForm" method="get" th:action="@{/kubstuTest/results}">
+        <label>
+            Группа:
+            <select name="groupId" onchange="onGroupChange()">
+                <option th:value="" th:selected="${selectedGroupId == null}">— выберите группу —</option>
+                <option th:each="g : ${groups}"
+                        th:value="${g.id}"
+                        th:text="${g.name}"
+                        th:selected="${selectedGroupId == g.id}">
+                </option>
+            </select>
+        </label>
+
+        <label th:if="${selectedGroupId != null}" style="margin-left: 10px;">
+            Студент:
+            <select id="studentId" name="studentId" onchange="onStudentChange()">
+                <option th:value="" th:selected="${selectedStudentId == null}">— все —</option>
+                <option th:each="s : ${students}"
+                        th:value="${s.id}"
+                        th:text="${s.name}"
+                        th:selected="${selectedStudentId == s.id}">
+                </option>
+            </select>
+        </label>
+
+        <label th:if="${selectedGroupId != null}" style="margin-left: 10px;">
+            Test ID:
+            <input id="testId" type="number" name="testId"
+                   th:value="${selectedTestId}" placeholder="опционально"
+                   onblur="onTestChange()" />
+        </label>
+
+        <button type="submit" style="margin-left: 10px;">Показать</button>
+
+        <!-- Быстрый JSON -->
+        <a th:href="@{/kubstuTest/results(format='json', groupId=${selectedGroupId}, studentId=${selectedStudentId}, testId=${selectedTestId})}"
+           style="margin-left: 10px;">JSON</a>
+    </form>
+
     <table>
         <thead>
         <tr>
@@ -101,8 +139,8 @@
             <th>Test ID</th>
             <th>Question ID</th>
             <th>Вопрос (обрезка)</th>
-            <th>Ваш ответ</th>
-            <th>Правильный ответ</th>
+            <th>Ответ</th>
+            <th>Правильный</th>
             <th>Статус</th>
             <th th:if="${isTeacher}">Student ID</th>
         </tr>
@@ -113,7 +151,6 @@
             <td th:text="${stat.count}">1</td>
             <td th:text="${res.testId}">TID</td>
             <td th:text="${res.questionId}">QID</td>
-            <!-- Безопасная аббревиатура (если questionText == null) -->
             <td th:text="${#strings.abbreviate(res.questionText ?: '', 50)}">Вопрос…</td>
             <td th:text="${res.userAnswer}">Your</td>
             <td th:text="${res.correctAnswer}">Correct</td>
@@ -125,7 +162,4 @@
         </tr>
         </tbody>
     </table>
-
 </div>
-</body>
-</html>
