@@ -65,4 +65,11 @@ public interface SubjectRepository extends JpaRepository<Subject, Integer> {
     @Transactional
     @Query(value = "DELETE FROM subject WHERE id = :subjectId", nativeQuery = true)
     void deleteSubjectById(@Param("subjectId") Integer subjectId);
+
+    @Query("""
+        select sf.subject
+        from Subject_Faculty sf
+        where sf.faculty.id = :facultyId
+        """)
+    List<Subject> findByFacultyId(@Param("facultyId") Integer facultyId);
 }

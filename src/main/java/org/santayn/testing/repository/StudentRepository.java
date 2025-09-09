@@ -51,4 +51,5 @@ public interface StudentRepository extends JpaRepository<Student, Integer> {
     @Query("DELETE FROM Student s WHERE s.user.id = :userId")
     void deleteByUser_Id(@Param("userId") Integer userId);
     List<Student> findByGroup_Id(Integer groupId);
+
 }

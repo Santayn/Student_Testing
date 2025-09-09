@@ -1,136 +1,137 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
 <head>
     <meta charset="UTF-8"/>
-    <title>Личный кабинет</title>
+    <title>Личный кабинет — Результаты тестов</title>
     <style>
-        body {
-          font-family: Arial, sans-serif;
-          display: flex;
-          height: 100vh;
-          margin: 0;
-        }
-        .sidebar {
-          width: 200px;
-          background-color: #f4f4f4;
-          padding: 20px;
-          box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-        }
-        .sidebar a {
-          display: block;
-          margin-bottom: 15px;
-          text-decoration: none;
-          color: #333;
-          font-size: 16px;
-        }
-        .sidebar a:hover {
-          color: #007BFF;
-        }
-        .content {
-          flex-grow: 1;
-          padding: 20px;
-          overflow-y: auto;
-        }
-        h1, h2 {
-          margin-top: 0;
-        }
-        p {
-          margin: 5px 0;
-        }
-        table {
-          border-collapse: collapse;
-          width: 100%;
-          margin-top: 20px;
-        }
-        th, td {
-          padding: .5em;
-          border: 1px solid #888;
-        }
+        body { font-family: Arial, sans-serif; display: flex; height: 100vh; margin: 0; }
+        .sidebar { width: 200px; background-color: #f4f4f4; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        .sidebar a { display: block; margin-bottom: 15px; text-decoration: none; color: #333; font-size: 16px; }
+        .sidebar a:hover { color: #007BFF; }
+        .content { flex-grow: 1; padding: 20px; overflow-y: auto; }
+        h1, h2 { margin-top: 0; }
+        p { margin: 5px 0; }
+
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { padding: .5em; border: 1px solid #888; }
         .right { background: #dfd; }
         .wrong { background: #fdd; }
         .muted { color: #666; font-size: 14px; }
         .error { background: #ffeaea; border: 1px solid #ffb3b3; padding: 10px; margin-top: 10px; }
+
+        .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .filters label { display: flex; gap: 6px; align-items: center; }
+        .stats { margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<!-- ... твой <head> и стили ... -->
+<div class="sidebar">
+    <a href="#" onclick="toggleInfo()">О пользователе</a>
+
+    <a th:href="@{/kubstuTest}">Главная</a>
+    <a th:href="@{/kubstuTest/subjects}">Предметы</a>
+    <a th:href="@{/kubstuTest/about}">О платформе</a>
+
+    <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
+    <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
+    <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+
+    <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
+    <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
+    <a th:href="@{/kubstuTest/manage-topics-subject}" class="btn btn-warning w-100">Управление темами</a>
+    <a th:href="@{/kubstuTest/questions/upload-form}" class="btn btn-info w-100">Загрузить вопросы</a>
+
+    <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
+    <a th:href="@{/kubstuTest/results}" style="font-weight:bold;">Результаты тестов</a>
+
+    <a th:href="@{/kubstuTest/group/create}" style="font-weight:bold;">Создать группу</a>
+    <a th:href="@{/kubstuTest/faculty/create}" style="font-weight:bold;">Создать факультет</a>
+    <a th:href="@{/kubstuTest/manage-subject-faculty}" class="btn btn-primary w-100">Управление связями</a>
+    <a th:href="@{/kubstuTest/subject/create}" style="font-weight:bold;">Создание предмета</a>
+</div>
 
 <div class="content">
-    <script>
-        function toggleInfo() {
-          const info = document.getElementById('user-info');
-          if (!info) return;
-          info.style.display = (info.style.display === 'none' || !info.style.display) ? 'block' : 'none';
-        }
-        function onGroupChange() {
-          // при смене группы сбрасываем студента/тест
-          document.getElementById('studentId').value = '';
-          document.getElementById('testId').value = '';
-          document.getElementById('filtersForm').submit();
-        }
-        function onStudentChange() {
-          document.getElementById('testId').value = '';
-          document.getElementById('filtersForm').submit();
-        }
-        function onTestChange() {
-          document.getElementById('filtersForm').submit();
-        }
-    </script>
+    <h1>Личный кабинет</h1>
 
-    <!-- Инфо -->
-    <div id="user-info" style="display:none; margin-bottom: 10px;">
-        <div class="muted">
-            <span>Пользователь: </span>
-            <strong th:text="${username} ?: 'unknown'">username</strong>
-            <span th:if="${isTeacher}"> — роль: Преподаватель</span>
-            <span th:if="${!isTeacher}"> — роль: Студент</span>
-        </div>
-    </div>
+    <div id="user-info" style="display:none; margin-bottom: 10px;"></div>
 
     <h2>Результаты тестов</h2>
 
     <div th:if="${errorMessage}" class="error" th:text="${errorMessage}">Ошибка</div>
 
-    <!-- ФИЛЬТРЫ ТОЛЬКО ДЛЯ ПРЕПОДА -->
+    <!-- Имя выбранного студента -->
+    <div th:if="${selectedStudentName}" class="muted" style="margin-bottom:8px;">
+        Студент: <strong th:text="${selectedStudentName}">Имя Фамилия</strong>
+    </div>
+
+    <!-- Предмет → Лекция → Тест → Группа → (Студент) -->
     <form th:if="${isTeacher}" id="filtersForm" method="get" th:action="@{/kubstuTest/results}">
-        <label>
-            Группа:
-            <select name="groupId" onchange="onGroupChange()">
-                <option th:value="" th:selected="${selectedGroupId == null}">— выберите группу —</option>
-                <option th:each="g : ${groups}"
-                        th:value="${g.id}"
-                        th:text="${g.name}"
-                        th:selected="${selectedGroupId == g.id}">
-                </option>
-            </select>
-        </label>
+        <div class="filters">
+            <label>
+                Предмет:
+                <select name="subjectId" onchange="onSubjectChange()">
+                    <option value="" th:selected="${selectedSubjectId == null}">— выберите предмет —</option>
+                    <option th:each="subj : ${subjects}"
+                            th:value="${subj.id}"
+                            th:text="${subj.name}"
+                            th:selected="${selectedSubjectId == subj.id}"></option>
+                </select>
+            </label>
 
-        <label th:if="${selectedGroupId != null}" style="margin-left: 10px;">
-            Студент:
-            <select id="studentId" name="studentId" onchange="onStudentChange()">
-                <option th:value="" th:selected="${selectedStudentId == null}">— все —</option>
-                <option th:each="s : ${students}"
-                        th:value="${s.id}"
-                        th:text="${s.name}"
-                        th:selected="${selectedStudentId == s.id}">
-                </option>
-            </select>
-        </label>
+            <label th:if="${selectedSubjectId != null}">
+                Лекция:
+                <select name="lectureId" onchange="onLectureChange()">
+                    <option value="" th:selected="${selectedLectureId == null}">— выберите лекцию —</option>
+                    <option th:each="lec : ${lectures}"
+                            th:value="${lec.id}"
+                            th:text="${lec.title}"
+                            th:selected="${selectedLectureId == lec.id}"></option>
+                </select>
+            </label>
 
-        <label th:if="${selectedGroupId != null}" style="margin-left: 10px;">
-            Test ID:
-            <input id="testId" type="number" name="testId"
-                   th:value="${selectedTestId}" placeholder="опционально"
-                   onblur="onTestChange()" />
-        </label>
+            <label th:if="${selectedLectureId != null}">
+                Тест:
+                <select name="testId" onchange="onTestChange()">
+                    <option value="" th:selected="${selectedTestId == null}">— выберите тест —</option>
+                    <option th:each="t : ${tests}"
+                            th:value="${t.id}"
+                            th:text="${t.name + ' (ID: ' + t.id + ')'}"
+                            th:selected="${selectedTestId == t.id}"></option>
+                </select>
+            </label>
 
-        <button type="submit" style="margin-left: 10px;">Показать</button>
+            <label th:if="${selectedTestId != null}">
+                Группа:
+                <select name="groupId" onchange="onGroupChange()">
+                    <option value="" th:selected="${selectedGroupId == null}">— выберите группу —</option>
+                    <option th:each="g : ${groups}"
+                            th:value="${g.id}"
+                            th:text="${g.name}"
+                            th:selected="${selectedGroupId == g.id}"></option>
+                </select>
+            </label>
 
-        <!-- Быстрый JSON -->
-        <a th:href="@{/kubstuTest/results(format='json', groupId=${selectedGroupId}, studentId=${selectedStudentId}, testId=${selectedTestId})}"
-           style="margin-left: 10px;">JSON</a>
+            <label th:if="${selectedGroupId != null}">
+                Студент:
+                <select id="studentId" name="studentId" onchange="onStudentChange()">
+                    <option value="" th:selected="${selectedStudentId == null}">— все —</option>
+                    <option th:each="s : ${students}"
+                            th:value="${s.id}"
+                            th:text="${s.name}"
+                            th:selected="${selectedStudentId == s.id}"></option>
+                </select>
+            </label>
+
+            <button type="submit">Показать</button>
+        </div>
     </form>
+
+    <div class="stats" th:if="${statsTotal > 0}">
+        Правильных: <span th:text="${statsRight}">0</span> из
+        <span th:text="${statsTotal}">0</span>
+        (<span th:text="${statsPercent}">0</span>%)
+    </div>
 
     <table>
         <thead>
@@ -151,9 +152,9 @@
             <td th:text="${stat.count}">1</td>
             <td th:text="${res.testId}">TID</td>
             <td th:text="${res.questionId}">QID</td>
-            <td th:text="${#strings.abbreviate(res.questionText ?: '', 50)}">Вопрос…</td>
-            <td th:text="${res.userAnswer}">Your</td>
-            <td th:text="${res.correctAnswer}">Correct</td>
+            <td th:text="${#strings.abbreviate(res.questionText == null ? '' : res.questionText, 50)}">Вопрос…</td>
+            <td th:text="${res.userAnswer}">Ваш ответ</td>
+            <td th:text="${res.correctAnswer}">Правильный</td>
             <td th:text="${res.correct} ? '✔️' : '✘'">?</td>
             <td th:if="${isTeacher}" th:text="${res.studentId}">SID</td>
         </tr>
@@ -162,4 +163,20 @@
         </tr>
         </tbody>
     </table>
+
+    <script>
+        function toggleInfo() {
+          const info = document.getElementById('user-info');
+          info.style.display = (info.style.display === 'none') ? 'block' : 'none';
+        }
+        function submitForm() { document.getElementById('filtersForm').submit(); }
+        function onSubjectChange(){ submitForm(); }
+        function onLectureChange(){ submitForm(); }
+        function onTestChange(){ submitForm(); }
+        function onGroupChange(){ submitForm(); }
+        function onStudentChange(){ submitForm(); }
+    </script>
 </div>
+
+</body>
+</html>

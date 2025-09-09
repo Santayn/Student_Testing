@@ -9,8 +9,10 @@ import java.util.List;
 
 public interface AnswerResultRepository extends JpaRepository<AnswerResult, Long> {
 
+
     List<AnswerResult> findByTestId(Integer testId);
     List<AnswerResult> findByStudentId(Integer studentId);
+
 
     @Query("""
         SELECT ar 
