@@ -106,4 +106,34 @@ public class StudentService {
     public List<Student> getStudentsByGroupId(Integer groupId) {
         return studentRepository.findByGroup_Id(groupId);
     }
+    // === УДОБНЫЕ "обязательные" геттеры — ДОБАВИТЬ В КЛАСС ===
+
+    /** Вернёт студента по id или бросит UsernameNotFoundException. */
+    public Student getById(Integer id) {
+        return studentRepository.findStudentById(id)
+                .orElseThrow(() -> new UsernameNotFoundException("Студент не найден: id=" + id));
+    }
+
+    /** Вернёт студента по userId или бросит UsernameNotFoundException. */
+    public Student getByUserIdOrThrow(Integer userId) {
+        return studentRepository.findStudentByUserId(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Студент не найден по userId=" + userId));
+    }
+
+    /** Удобный метод: студент по группе и id, сразу с исключением если нет. */
+    public Student getByGroupIdAndStudentIdOrThrow(Integer groupId, Integer studentId) {
+        if (groupId == null || studentId == null) {
+            throw new IllegalArgumentException("Group ID and Student ID cannot be null");
+        }
+        return studentRepository.findStudentByGroupId(groupId).stream()
+                .filter(st -> st.getId().equals(studentId))
+                .findFirst()
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Студент с ID " + studentId + " не найден в группе " + groupId));
+    }
+    // === УДОБНЫЕ "обязательные" геттеры — ДОБАВИТЬ В КЛАСС ===
+
+
+
+
 }

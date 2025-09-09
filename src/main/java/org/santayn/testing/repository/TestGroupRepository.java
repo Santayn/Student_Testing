@@ -12,4 +12,5 @@ public interface TestGroupRepository extends JpaRepository<Test_Group, Integer>
 {
     @Query("select tg.group from Test_Group tg where tg.test.id = :testId")
     List<Group> findGroupsByTestId(@Param("testId") Integer testId);
+    List<Test_Group> findByTestId(Integer testId);
 }

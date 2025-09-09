@@ -16,4 +16,5 @@ public interface Group_StudentRepository extends JpaRepository<Group_Student, Lo
     @Query(value = "DELETE FROM group_student WHERE student_id = :studentId", nativeQuery = true)
     void deleteByStudentId(@Param("studentId") Integer studentId);
 
+
 }

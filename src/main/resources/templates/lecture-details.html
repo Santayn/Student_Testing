@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>Детали лекции</title>
@@ -8,39 +8,38 @@
 <body>
 <h1>Детали лекции</h1>
 
-<!-- Ссылка "Назад" -->
-<a th:href="@{/kubstuTest/lectures}">Назад</a>
+<!-- Ссылка "Назад" на список лекций предмета -->
+<a th:href="@{/kubstuTest/{subjectId}/lectures(subjectId=${subjectId})}">Назад</a>
 
 <!-- Информация о лекции -->
-<h2 th:text="${selectedLecture.title}"></h2>
-<p><strong>Описание:</strong> <span th:text="${selectedLecture.description}"></span></p>
+<h2 th:text="${selectedLecture.title}">Название лекции</h2>
+<p><strong>Описание:</strong> <span th:text="${selectedLecture.description}">Описание…</span></p>
 <p><strong>Содержание:</strong></p>
 <div th:utext="${selectedLecture.content}"></div>
 
-<!-- Прикрепленные тесты -->
+<!-- Прикреплённые тесты (уже отфильтрованные в контроллере) -->
 <h3>Тесты</h3>
-<div th:if="${selectedLecture.tests != null and not selectedLecture.tests.isEmpty()}">
+<div th:if="${tests != null and !#lists.isEmpty(tests)}">
     <ul>
-        <li th:each="test : ${selectedLecture.tests}">
-            <!-- Описание теста -->
-            <p><strong>Тест:</strong> <span th:text="${test.description}"></span></p>
-            <p>Количество вопросов: <span th:text="${test.questionCount}"></span></p>
-            <p>Тема: <span th:text="${test.topic.name}"></span></p>
+        <li th:each="test : ${tests}">
+            <p><strong>Тест:</strong> <span th:text="${test.description}">Описание теста</span></p>
+            <p>Количество вопросов: <span th:text="${test.questionCount}">0</span></p>
+            <p>Тема: <span th:text="${test.topic.name}">Тема</span></p>
 
-            <!-- Кнопка для перехода к тесту -->
             <form th:action="@{/kubstuTest/test/{testId}(testId=${test.id})}" method="get">
                 <button type="submit">Перейти к тесту</button>
             </form>
+            <hr/>
         </li>
     </ul>
 </div>
-<div th:if="${selectedLecture.tests == null or selectedLecture.tests.isEmpty()}">
-    <p>Нет прикрепленных тестов.</p>
+<div th:if="${tests == null or #lists.isEmpty(tests)}">
+    <p>Нет доступных тестов.</p>
 </div>
 
 <!-- Обработка ошибок -->
 <div th:if="${error != null}">
-    <p style="color: red;" th:text="${error}"></p>
+    <p style="color: red;" th:text="${error}">Ошибка</p>
 </div>
 </body>
 </html>

@@ -10,6 +10,8 @@ import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.teacher.Teacher_Subject;
 import org.santayn.testing.models.test.Test_Group;
+import org.santayn.testing.models.answer.AnswerResult;
+import org.santayn.testing.models.student.Student;
 import org.santayn.testing.repository.*;
 import org.santayn.testing.service.TestLectureService;
 import org.santayn.testing.service.TestService;
@@ -39,6 +41,10 @@ public class TestController {
     private final GroupRepository groupRepository;
     private final TestGroupRepository testGroupRepository;
 
+    // ▼ добавлено для группированного отчёта
+    private final AnswerResultRepository answerResultRepository;
+    private final StudentRepository studentRepository;
+
     public TestController(
             TestService testService,
             TopicRepository topicRepository,
@@ -49,7 +55,9 @@ public class TestController {
             Teacher_GroupRepository teacher_groupRepository,
             TeacherRepository teacherRepository,
             GroupRepository groupRepository,
-            TestGroupRepository testGroupRepository) {
+            TestGroupRepository testGroupRepository,
+            AnswerResultRepository answerResultRepository,
+            StudentRepository studentRepository) {
         this.testService = testService;
         this.topicRepository = topicRepository;
         this.lectureRepository = lectureRepository;
@@ -60,12 +68,12 @@ public class TestController {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.testGroupRepository = testGroupRepository;
+        this.answerResultRepository = answerResultRepository;
+        this.studentRepository = studentRepository;
     }
 
-    /**
-     * Отображение формы создания теста.
-     * Поддерживает параметры: selectedSubjectId, selectedGroupIds, success.
-     */
+    // ---------- СТАРЫЕ МЕТОДЫ СОЗДАНИЯ ТЕСТА (как у вас) ----------
+
     @GetMapping("/create-test")
     public String showCreateTestForm(
             @RequestParam(required = false) Integer selectedSubjectId,
@@ -76,7 +84,6 @@ public class TestController {
 
         Teacher teacher = getCurrentTeacher();
 
-        // Получаем предметы и группы, доступные учителю
         List<Subject> subjects = teacher_subjectRepository.findByTeacherId(teacher.getId()).stream()
                 .map(Teacher_Subject::getSubject)
                 .toList();
@@ -85,12 +92,10 @@ public class TestController {
                 .map(Teacher_Group::getGroup)
                 .toList();
 
-        // Определяем активный предмет
         Integer subjectId = selectedSubjectId != null
                 ? selectedSubjectId
                 : (subjects.isEmpty() ? null : subjects.get(0).getId());
 
-        // Загружаем темы и лекции по предмету
         List<Topic> topics = (subjectId != null)
                 ? topicRepository.findBySubjectId(subjectId)
                 : Collections.emptyList();
@@ -99,26 +104,21 @@ public class TestController {
                 ? lectureRepository.findLectureBySubjectId(subjectId)
                 : Collections.emptyList();
 
-        // Гарантируем, что selectedGroupIds не null
         if (selectedGroupIds == null) {
             selectedGroupIds = Collections.emptyList();
         }
 
-        // Передаём данные в модель
         model.addAttribute("subjects", subjects);
         model.addAttribute("groups", groups);
         model.addAttribute("topics", topics);
         model.addAttribute("lectures", lectures);
         model.addAttribute("selectedSubjectId", subjectId);
         model.addAttribute("selectedGroupIds", selectedGroupIds);
-        model.addAttribute("success", Boolean.TRUE.equals(success)); // true, если ?success=true
+        model.addAttribute("success", Boolean.TRUE.equals(success));
 
         return "create-test";
     }
 
-    /**
-     * Обработка создания теста.
-     */
     @PostMapping("/create-test")
     public String createTest(
             @RequestParam(required = false) Integer subjectId,
@@ -131,13 +131,11 @@ public class TestController {
             Model model,
             Principal principal) {
 
-        // 1. Получаем связанные сущности
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new IllegalArgumentException("Тема не найдена"));
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Лекция не найдена"));
 
-        // 2. Создаём и сохраняем тест
         Test test = new Test();
         test.setTopic(topic);
         test.setName(name);
@@ -145,13 +143,11 @@ public class TestController {
         test.setQuestionCount(questionCount);
         test = testService.save(test);
 
-        // 3. Связываем тест с лекцией
         Test_Lecture testLecture = new Test_Lecture();
         testLecture.setTest(test);
         testLecture.setLecture(lecture);
         testLectureService.save(testLecture);
 
-        // 4. Связываем тест с группами (если выбраны)
         if (selectedGroupIds != null && !selectedGroupIds.isEmpty()) {
             List<Group> groups = groupRepository.findAllById(selectedGroupIds);
             for (Group group : groups) {
@@ -162,7 +158,6 @@ public class TestController {
             }
         }
 
-        // 5. Редирект на форму с параметрами
         StringBuilder redirectUrl = new StringBuilder("/kubstuTest/tests/create-test");
         if (subjectId != null) {
             redirectUrl.append("?selectedSubjectId=").append(subjectId);
@@ -170,7 +165,6 @@ public class TestController {
             redirectUrl.append("?selectedSubjectId=");
         }
 
-        // Добавляем выбранные группы
         if (selectedGroupIds != null && !selectedGroupIds.isEmpty()) {
             redirectUrl.append("&selectedGroupIds=").append(
                     selectedGroupIds.stream()
@@ -178,28 +172,25 @@ public class TestController {
                             .collect(Collectors.joining(","))
             );
         }
-
         redirectUrl.append("&success=true");
 
         return "redirect:" + redirectUrl;
     }
 
-    // ✅ Получить текущего учителя
     private Teacher getCurrentTeacher() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("Пользователь не авторизован");
         }
-
-        String username = authentication.getPrincipal() instanceof UserDetails userDetails
-                ? userDetails.getUsername()
+        String username = (authentication.getPrincipal() instanceof UserDetails ud)
+                ? ud.getUsername()
                 : authentication.getName();
 
         return teacherRepository.findByLogin(username)
                 .orElseThrow(() -> new RuntimeException("Преподаватель не найден: " + username));
     }
 
-    // 🔽 API-эндпоинты
+    // ---------- Вспомогательные API (как у вас) ----------
 
     @GetMapping("/subjects-by-teacher")
     @ResponseBody
@@ -232,5 +223,75 @@ public class TestController {
         System.out.println("Найдено лекций: " + lectures.size());
         lectures.forEach(l -> System.out.println("Лекция: " + l.getId() + " - " + l.getTitle()));
         return lectures;
+    }
+
+    // ==================== НОВОЕ: группированный просмотр результатов ====================
+
+    /**
+     * URL: /kubstuTest/tests/{testId}/results
+     * Отображает для преподавателя:
+     *  - Название группы
+     *    - Фамилия студента
+     *      - его ответы + краткая статистика
+     */
+    @GetMapping("/{testId}/results")
+    public String viewResultsGrouped(@PathVariable Integer testId, Model model) {
+        Teacher teacher = getCurrentTeacher();
+
+        // группы, к которым у преподавателя есть доступ
+        Set<Integer> allowedGroupIds = teacher_groupRepository.findByTeacherId(teacher.getId()).stream()
+                .map(tg -> tg.getGroup().getId())
+                .collect(Collectors.toSet());
+
+        // группы, к которым прикреплён тест (пересечение с allowedGroupIds)
+        List<Test_Group> links = testGroupRepository.findByTestId(testId);
+        List<Group> groups = links.stream()
+                .map(Test_Group::getGroup)
+                .filter(g -> allowedGroupIds.contains(g.getId()))
+                .toList();
+
+        // grouped: Group -> List<Map: student, results, right, total, percent>
+        Map<Group, List<Map<String, Object>>> grouped = new LinkedHashMap<>();
+
+        for (Group g : groups) {
+            List<Student> students = studentRepository.findByGroup_Id(g.getId());
+
+            // sort by lastName if possible, fallback to Student.getName()
+            students = students.stream()
+                    .sorted(Comparator.comparing(s ->
+                            Optional.ofNullable(s.getUser())
+                                    .map(u -> u.getLastName() == null ? "" : u.getLastName())
+                                    .orElse(s.getName() == null ? "" : s.getName())
+                    ))
+                    .toList();
+
+            List<Map<String, Object>> perGroup = new ArrayList<>();
+
+            for (Student s : students) {
+                List<AnswerResult> answers =
+                        answerResultRepository.findByGroupStudentAndTest(g.getId(), s.getId(), testId);
+
+                int total = answers.size();
+                int right = (int) answers.stream().filter(AnswerResult::isCorrect).count();
+                int percent = total == 0 ? 0 : (int) Math.round(right * 100.0 / total);
+
+                Map<String, Object> row = new HashMap<>();
+                row.put("student", s);
+                row.put("results", answers);
+                row.put("right", right);
+                row.put("total", total);
+                row.put("percent", percent);
+
+                perGroup.add(row);
+            }
+
+            grouped.put(g, perGroup);
+        }
+
+        model.addAttribute("grouped", grouped);
+        model.addAttribute("groupsOrder", grouped.keySet().stream().toList());
+        model.addAttribute("testId", testId);
+
+        return "test-result";
     }
 }
