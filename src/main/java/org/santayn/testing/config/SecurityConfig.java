@@ -44,7 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/register").permitAll()
 
                         // Всё остальное — только после аутентификации
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
