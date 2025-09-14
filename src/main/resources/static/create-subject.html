@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Предметы</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
+        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333;font-size:16px}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px;overflow:auto}
+        h2{margin-top:0}
+        form{display:flex;flex-wrap:wrap;gap:15px;margin-bottom:30px;background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1)}
+        label{font-weight:bold}
+        input{width:100%;padding:8px;margin-top:5px}
+        button{padding:10px 20px;background:#28a745;color:#fff;border:0;cursor:pointer;font-size:16px;border-radius:4px}
+        button:hover{background:#218838}
+        table{width:100%;border-collapse:collapse;margin-top:10px}
+        th,td{border:1px solid #ddd;padding:10px;text-align:left}
+        th{background:#f2f2f2}
+        .delete-btn{background:#dc3545;color:#fff;border:0;padding:6px 10px;cursor:pointer;font-size:14px;border-radius:4px}
+        .delete-btn:hover{background:#c82333}
+        .error{margin-top:8px;color:#b00020}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/subjects.html" style="font-weight:bold;">Предметы</a>
+    <a href="/faculties.html">Факультеты</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/subject-faculty.html">Связи факультет↔предмет</a>
+</div>
+
+<div class="content">
+    <h2>Создать новый предмет</h2>
+
+    <form onsubmit="event.preventDefault(); createSubject();">
+        <div style="flex:1;min-width:250px;">
+            <label for="name">Название предмета:</label>
+            <input id="name" required />
+        </div>
+        <div style="flex:2;min-width:300px;">
+            <label for="description">Описание предмета:</label>
+            <input id="description" />
+        </div>
+        <div style="align-self:flex-end;">
+            <button type="submit">Создать предмет</button>
+        </div>
+        <div id="err" class="error"></div>
+    </form>
+
+    <h3>Список предметов</h3>
+    <table>
+        <thead>
+        <tr><th>ID</th><th>Название</th><th>Описание</th><th>Действия</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+</div>
+
+<script>
+    const API = '/api/v1';
+
+    async function fetchJSON(url, opt={}) {
+      const res = await fetch(url, { headers: { 'Accept':'application/json', ...(opt.headers||{}) }, ...opt });
+      const txt = await res.text(); let data=null; try{ data = txt? JSON.parse(txt): null }catch{}
+      if (!res.ok) throw new Error(data?.message || data?.error || (res.status+' '+res.statusText));
+      return data;
+    }
+
+    async function loadSubjects() {
+      const list = await fetchJSON(`${API}/subjects`);
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = list.map(s => `
+        <tr>
+          <td>${s.id}</td>
+          <td>${s.name ?? ''}</td>
+          <td>${s.description ?? '-'}</td>
+          <td>
+            <button class="delete-btn" data-id="${s.id}">Удалить</button>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('.delete-btn').forEach(b => b.onclick = async () => {
+        if (!confirm('Удалить предмет #' + b.dataset.id + '?')) return;
+        await fetchJSON(`${API}/subjects/${b.dataset.id}`, { method:'DELETE' });
+        await loadSubjects();
+      });
+    }
+
+    async function createSubject() {
+      const name = document.getElementById('name').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const err = document.getElementById('err'); err.textContent = '';
+      if (!name) { err.textContent = 'Введите название'; return; }
+
+      await fetchJSON(`${API}/subjects`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, description: description || null })
+      });
+
+      document.getElementById('name').value = '';
+      document.getElementById('description').value = '';
+      await loadSubjects();
+    }
+
+    loadSubjects();
+</script>
+</body>
+</html>
