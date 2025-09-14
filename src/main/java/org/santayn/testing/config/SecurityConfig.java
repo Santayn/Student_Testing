@@ -25,16 +25,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2) // Статика и прочее
+    @Order(2) // MVC/статика/форма логина
     public SecurityFilterChain mvc(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // стандартные статические ресурсы: /static, /public, /resources, /META-INF/resources
+                        // Общие статические ресурсы Spring Boot (/static, /public, /resources, /META-INF/resources)
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                        // явные HTML-страницы, лежащие в /static
-                        .requestMatchers("/", "/index.html", "/groups.html", "/group-details.html").permitAll()
-                        // если у тебя есть свои каталоги со статикой — тоже открой
+                        // Явные HTML-страницы, лежащие в /static
+                        .requestMatchers("/", "/index.html", "/groups.html", "/group-details.html", "/faculties.html").permitAll()
+
+                        // Статика по папкам
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**", "/favicon.ico").permitAll()
+                        // Страницы аутентификации тоже откроем
+                        .requestMatchers("/login", "/register").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
@@ -42,7 +45,11 @@ public class SecurityConfig {
                         .defaultSuccessUrl("/kubstuTest", true)
                         .permitAll()
                 )
-                .logout(logout -> logout.logoutUrl("/logout").logoutSuccessUrl("/login").permitAll());
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login")
+                        .permitAll()
+                );
         return http.build();
     }
 

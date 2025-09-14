@@ -1,105 +1,75 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="ru">
 <head>
   <meta charset="UTF-8"/>
   <title>Личный кабинет</title>
   <style>
-    body {
-        font-family: Arial, sans-serif;
-        display: flex;
-        height: 100vh;
-        margin: 0;
-    }
-
-    .sidebar {
-        width: 200px;
-        background-color: #f4f4f4;
-        padding: 20px;
-        box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    }
-
-    .sidebar a {
-        display: block;
-        margin-bottom: 15px;
-        text-decoration: none;
-        color: #333;
-        font-size: 16px;
-    }
-
-    .sidebar a:hover {
-        color: #007BFF;
-    }
-
-    .content {
-        flex-grow: 1;
-        padding: 20px;
-    }
-
-    h1 {
-        margin-top: 0;
-    }
-
-    p {
-        margin: 5px 0;
-    }
+    body { font-family: Arial, sans-serif; display:flex; height:100vh; margin:0; }
+    .sidebar { width:200px; background:#f4f4f4; padding:20px; box-shadow:2px 0 5px rgba(0,0,0,.1); }
+    .sidebar a { display:block; margin-bottom:15px; text-decoration:none; color:#333; font-size:16px; }
+    .sidebar a:hover { color:#007BFF; }
+    .content { flex-grow:1; padding:20px; }
+    h1 { margin-top:0; }
+    p { margin:5px 0; }
   </style>
 </head>
 <body>
 
 <div class="sidebar">
-  <!-- Кнопка "О пользователе" -->
+  <!-- О пользователе -->
   <a href="#" onclick="toggleInfo()">О пользователе</a>
 
-  <!-- Ссылки на другие разделы профиля -->
-  <a th:href="@{/kubstuTest}">Главная</a>
-  <a th:href="@{/kubstuTest/subjects}">Предметы</a>
-  <a th:href="@{/kubstuTest/about}">О платформе</a>
+  <!-- Разделы -->
+  <a href="/main.html">Главная</a>
+  <a href="/subjects.html">Предметы</a>
+  <a href="/about.html">О платформе</a>
 
-  <!-- Управление пользователями -->
-  <a th:href="@{/kubstuTest/manage-students}" class="btn btn-primary w-100">Управление студентами</a>
-  <a th:href="@{/kubstuTest/manage-teachers}" class="btn btn-primary w-100">Управление учителями</a>
-  <a th:href="@{/kubstuTest/users/role/user}" class="btn btn-primary w-100">Управление ролями</a>
+  <!-- Пользователи -->
+  <a href="/manage_students.html">Управление студентами</a>
+  <a href="/manage-teachers.html">Управление учителями</a>
+  <a href="/users-roles.html">Управление ролями</a>
 
-  <!-- Управление учебными материалами -->
-  <a th:href="@{/kubstuTest/manage-teachers-subject}" class="btn btn-primary w-100">Управление предметами</a>
-  <a th:href="@{/kubstuTest/manage-lectures-subject}" class="btn btn-primary w-100">Управление лекциями</a>
-  <a th:href="@{/kubstuTest/manage-topics-subject}" class="btn btn-warning w-100">Управление темами</a>
-  <a th:href="@{/kubstuTest/questions/upload-form}" class="btn btn-info w-100">Загрузить вопросы</a>
+  <!-- Учебные материалы -->
+  <a href="/manage-teachers-subject.html">Управление предметами</a>
+  <a href="/manage-lectures-subject.html">Управление лекциями</a>
+  <a href="/manage-topics-subject.html">Управление темами</a>
+  <a href="/questions-page.html">Загрузить вопросы</a>
 
-  <!-- Тестирование -->
-  <a th:href="@{/kubstuTest/tests/create-test}" class="btn btn-success w-100">Создать тест</a>
-  <a th:href="@{/kubstuTest/results}" style="font-weight:bold;">Результаты тестов</a>
+  <!-- Тесты -->
+  <a href="/create-test.html">Создать тест</a>
+  <a href="/result-list.html" style="font-weight:bold;">Результаты тестов</a>
 
-  <!-- Управление группами и факультетами -->
-  <a th:href="@{/kubstuTest/group/create}" style="font-weight:bold;">Создать группу</a>
-  <a th:href="@{/kubstuTest/faculty/create}" style="font-weight:bold;">Создать факультет</a>
-  <a th:href="@{/kubstuTest/manage-subject-faculty}" class="btn btn-primary w-100">Управление связями</a>
-  <a th:href="@{/kubstuTest/subject/create}" style="font-weight:bold;">Создание предмета</a>
+  <!-- Группы / факультеты -->
+  <a href="/groups.html" style="font-weight:bold;">Создать группу</a>
+  <a href="/create-faculty.html" style="font-weight:bold;">Создать факультет</a>
+  <a href="/manage-subject-faculty.html">Управление связями</a>
+  <a href="/create-subject.html" style="font-weight:bold;">Создание предмета</a>
 </div>
 
 <div class="content">
   <h1>Личный кабинет</h1>
 
-  <div id="user-info" style="display: none;">
-    <!-- Отображение информации о пользователе -->
-    <p><strong>Имя:</strong> <span th:text="${selectUser.firstName}"></span></p>
-    <p><strong>Фамилия:</strong> <span th:text="${selectUser.lastName}"></span></p>
-    <p><strong>Логин:</strong> <span th:text="${selectUser.login}"></span></p>
-    <p><strong>Телефон:</strong> <span th:text="${selectUser.phoneNumber}"></span></p>
-    <p><strong>Роль:</strong> <span th:text="'ROLE_' + ${selectUser.role.name}"></span></p>
+  <div id="user-info" style="display:none;">
+    <p><strong>Имя:</strong> <span id="firstName"></span></p>
+    <p><strong>Фамилия:</strong> <span id="lastName"></span></p>
+    <p><strong>Логин:</strong> <span id="login"></span></p>
+    <p><strong>Телефон:</strong> <span id="phoneNumber"></span></p>
+    <p><strong>Роль:</strong> <span id="role"></span></p>
   </div>
-
-  <script>
-    function toggleInfo() {
-        const info = document.getElementById('user-info');
-        if (info.style.display === 'none') {
-            info.style.display = 'block';
-        } else {
-            info.style.display = 'none';
-        }
-    }
-  </script>
 </div>
+
+<script>
+  function toggleInfo() {
+    const el = document.getElementById('user-info');
+    el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+  }
+  // Заглушка – позже подтащим из /api/v1/users/me
+  document.getElementById('firstName').textContent = 'Иван';
+  document.getElementById('lastName').textContent  = 'Иванов';
+  document.getElementById('login').textContent     = 'ivanov123';
+  document.getElementById('phoneNumber').textContent = '+7 (999) 123-45-67';
+  document.getElementById('role').textContent      = 'ROLE_STUDENT';
+</script>
 
 </body>
 </html>
