@@ -17,8 +17,16 @@ import java.util.Optional;
 @Repository
 public interface SubjectRepository extends JpaRepository<Subject, Integer> {
 
-    @Query("SELECT sf.subject FROM Subject_Faculty sf WHERE sf.faculty.id = :faculty_id")
-    List<Subject> findSubjectsNotInAnyFaculty (@Param("faculty_id") Integer faculty_id);
+    @Query("""
+    SELECT s
+    FROM Subject s
+    WHERE s.id NOT IN (
+        SELECT sf.subject.id
+        FROM Subject_Faculty sf
+    )
+""")
+    List<Subject> findSubjectsNotInAnyFaculty();
+
     @Query("SELECT sf.subject FROM Subject_Faculty sf WHERE sf.faculty.id = :faculty_id")
     List<Subject> findSubjectByFacultyId(@Param("faculty_id") Integer faculty_id);
 
@@ -72,4 +80,6 @@ public interface SubjectRepository extends JpaRepository<Subject, Integer> {
         where sf.faculty.id = :facultyId
         """)
     List<Subject> findByFacultyId(@Param("facultyId") Integer facultyId);
+
+
 }

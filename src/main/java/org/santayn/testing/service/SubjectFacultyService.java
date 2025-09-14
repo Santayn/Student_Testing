@@ -60,11 +60,12 @@ public class SubjectFacultyService {
 
     // Получение свободных студентов (не входящих в указанную группу)
     @Transactional
-    public List<Subject> findFreeSubjects() {
-        List<Subject> subject = subjectFacultyRepository.findSubjectsNotInAnyFaculty();
-        System.out.println("Free subjects found: " + subject.size());
-        return subject;
+    public List<Subject> findFreeSubjectsFromFaculty() {
+        List<Subject> subjects = subjectRepository.findSubjectsNotInAnyFaculty();
+        System.out.println("Free subjects found: " + subjects.size());
+        return subjects;
     }
+
     public Faculty deleteSubjectsFromFaculty(Integer facultyId, List<Integer> subjectIds) {
         // 1. Получаем преподавателя
         Faculty faculty = getFacultyById(facultyId);

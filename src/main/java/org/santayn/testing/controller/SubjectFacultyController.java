@@ -43,7 +43,7 @@ public class SubjectFacultyController {
 
         if (facultyId != null) {
             List<Subject> subjectsFaculty = subjectService.getSubjectsByFacultyId(facultyId);
-            List<Subject> freeSubjects = subjectService.findFreeSubjects();
+            List<Subject> freeSubjects = subjectFacultyService.findFreeSubjectsFromFaculty();
 
             model.addAttribute("facultyId", facultyId);
             model.addAttribute("assignedSubjects", subjectsFaculty); // ← добавлено
@@ -88,7 +88,7 @@ public class SubjectFacultyController {
      */
     @GetMapping("free-subjects/{subjectId}")
     @ResponseBody
-    public List<Subject> getFreeSubjects() {
-        return subjectFacultyService.findFreeSubjects();
+    public List<Subject> findFreeSubjectsFromFaculty() {
+        return subjectFacultyService.findFreeSubjectsFromFaculty();
     }
 }
