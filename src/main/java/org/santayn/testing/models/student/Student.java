@@ -23,18 +23,23 @@
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         @EqualsAndHashCode.Include  // Используем только id для equals/hashCode
         private Integer id;
-        @OneToOne
+
+        @ManyToOne
         @JoinColumn(name = "id_group", referencedColumnName = "id")
         private Group group;
+
         @OneToOne
         @OnDelete(action = OnDeleteAction.CASCADE)
         @JoinColumn(name = "id_user", referencedColumnName = "id")
         private User user;
+
         @OneToOne
         @JoinColumn(name = "id_question_test_answer", referencedColumnName = "id")
         private Question_Test_Answer questionTestAnswer;
+
         @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
         private List<Group_Student> groupStudents = new ArrayList<>();
+
         public String getName() {
             if (user == null) {
                 return "Unknown";
