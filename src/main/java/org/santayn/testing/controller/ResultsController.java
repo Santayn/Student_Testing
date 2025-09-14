@@ -31,8 +31,8 @@ public class ResultsController {
             Model model,
             @RequestParam(value = "subjectId", required = false) Integer subjectId,
             @RequestParam(value = "lectureId", required = false) Integer lectureId,
-            @RequestParam(value = "testId", required = false) Integer testId,
-            @RequestParam(value = "groupId", required = false) Integer groupId,
+            @RequestParam(value = "testId",    required = false) Integer testId,
+            @RequestParam(value = "groupId",   required = false) Integer groupId,
             @RequestParam(value = "studentId", required = false) Integer studentId
     ) {
         if (auth == null || !auth.isAuthenticated()) {
@@ -41,7 +41,6 @@ public class ResultsController {
         final String login = auth.getName();
         model.addAttribute("username", login);
 
-        // Проверяем, что это преподаватель, и кладём флаг в модель
         boolean isTeacher;
         try {
             userSearch.getCurrentTeacher();
@@ -52,45 +51,44 @@ public class ResultsController {
         model.addAttribute("isTeacher", isTeacher);
 
         if (!isTeacher) {
-            // Фильтры скрыты, показываем сообщение и пустые данные — чтобы шаблон не ломался
             model.addAttribute("errorMessage", "Доступ к фильтрам результатов только для преподавателей.");
             model.addAttribute("results", Collections.emptyList());
             model.addAttribute("statsTotal", 0);
             model.addAttribute("statsRight", 0);
             model.addAttribute("statsPercent", 0);
-
-            // на всякий случай — чтобы th:each не падали, если кто-то оставил блоки без th:if
             model.addAttribute("subjects", Collections.emptyList());
             model.addAttribute("lectures", Collections.emptyList());
             model.addAttribute("tests", Collections.emptyList());
             model.addAttribute("groups", Collections.emptyList());
             model.addAttribute("students", Collections.emptyList());
+            // выбранные id нужно тоже положить (чтоб не было NPE в шаблоне)
+            model.addAttribute("selectedSubjectId", null);
+            model.addAttribute("selectedLectureId", null);
+            model.addAttribute("selectedTestId", null);
+            model.addAttribute("selectedGroupId", null);
+            model.addAttribute("selectedStudentId", null);
             return "result-list";
         }
 
-        // ===== Преподаватель: загружаем каскад =====
-
-        // 1) Предметы
+        // Каскад фильтров
         List<Subject> subjects = service.allSubjects();
         model.addAttribute("subjects", subjects);
 
-        // 2) Лекции по выбранному предмету
         List<Lecture> lectures = service.lecturesBySubject(subjectId);
         model.addAttribute("lectures", lectures);
 
-        // 3) Тесты по выбранной лекции
         List<Test> tests = service.testsByLecture(lectureId);
         model.addAttribute("tests", tests);
 
-        // 4) Группы, имеющие доступ к выбранному тесту (с учётом преподавателя)
         List<Group> groups = service.groupsByTest(testId, login);
         model.addAttribute("groups", groups);
 
-        // 5) Студенты выбранной группы
         List<Student> students = service.studentsByGroup(groupId);
         model.addAttribute("students", students);
 
-        // Имя выбранного студента (для вывода над фильтрами)
+        // Подписи для шапки
+        model.addAttribute("selectedTestName", service.testName(testId));
+        model.addAttribute("selectedGroupName", service.groupName(groupId));
         model.addAttribute("selectedStudentName", service.studentName(studentId));
 
         // Результаты и статистика
@@ -104,7 +102,10 @@ public class ResultsController {
         model.addAttribute("statsRight", right);
         model.addAttribute("statsPercent", percent);
 
-        // Сохраняем выбранные значения (чтобы селекты знали, что выбрано)
+        // Мапа id -> имя студента (для колонки "Студент")
+        model.addAttribute("studentNames", service.studentNamesMap(results));
+
+        // Выбранные id (чтоб селекты корректно отмечали текущее состояние)
         model.addAttribute("selectedSubjectId", subjectId);
         model.addAttribute("selectedLectureId", lectureId);
         model.addAttribute("selectedTestId", testId);
