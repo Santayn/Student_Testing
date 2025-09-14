@@ -86,7 +86,9 @@ public class GroupService {
 
         return group;
     }
-
+    public void deleteGroupById(Integer id) {
+        groupRepository.deleteById(id);
+    }
     @Transactional
     public Group deleteStudentsFromGroup(Integer groupId, List<Integer> studentIds) {
         Group group = getGroupById(groupId);

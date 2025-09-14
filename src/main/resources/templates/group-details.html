@@ -1,27 +1,17 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Детали группы</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
-</head>
-<body>
-<div class="container mt-5">
-    <h1>Детали группы</h1>
-
-    <!-- Вывод информации о группе -->
-    <div th:if="${selectedGroup}">
-        <p><strong>Название группы:</strong> <span th:text="${selectedGroup.name}"></span></p>
-        <!-- Здесь можно добавить дополнительные поля группы, если они есть -->
-    </div>
-
-    <!-- Вывод сообщения об ошибке -->
-    <div th:if="${error}" class="alert alert-danger">
-        <span th:text="${error}">Ошибка</span>
-    </div>
-
-    <!-- Кнопка возврата к списку групп -->
-    <a href="/groups/All" class="btn btn-primary mt-3">Вернуться к списку групп</a>
-</div>
-</body>
-</html>
+<!doctype html><meta charset="utf-8"><title>Детали группы</title>
+<div id="root"></div>
+<p><a href="/groups.html">Вернуться к списку групп</a></p>
+<script>
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    (async ()=>{
+      try{
+        const g = await (await fetch('/api/v1/groups/'+id)).json();
+        root.innerHTML = `
+          <h1>Детали группы</h1>
+          <p><b>Название:</b> ${g.name ?? ''}</p>
+          <p><b>Факультет:</b> ${g.facultyId ?? '-'}</p>
+        `;
+      }catch{ root.textContent = 'Группа не найдена'; }
+    })();
+</script>

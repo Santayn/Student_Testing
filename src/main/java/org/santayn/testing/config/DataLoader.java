@@ -1,4 +1,4 @@
-package org.santayn.testing.сonfig;
+package org.santayn.testing.config;
 
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.role.Role;
