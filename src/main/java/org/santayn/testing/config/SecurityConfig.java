@@ -14,30 +14,36 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    @Order(1) // API — stateless
+    @Order(1) // API — stateless и полностью открыто для разработки
     public SecurityFilterChain api(HttpSecurity http) throws Exception {
         http
                 .securityMatcher("/api/**")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()); // позже закроем JWT
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         return http.build();
     }
 
     @Bean
-    @Order(2) // MVC/статика/форма логина
+    @Order(2) // MVC / HTML / форма логина
     public SecurityFilterChain mvc(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // Общие статические ресурсы Spring Boot (/static, /public, /resources, /META-INF/resources)
+                        // Статические ресурсы Spring Boot (/static, /public, /resources, /META-INF/resources)
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                        // Явные HTML-страницы, лежащие в /static
-                        .requestMatchers("/", "/index.html", "/groups.html", "/group-details.html", "/faculties.html").permitAll()
 
-                        // Статика по папкам
+                        // HTML-страницы, которые доступны без входа
+                        .requestMatchers("/", "/index.html",
+                                "/groups.html", "/group-details.html",
+                                "/faculties.html", "/subject-faculty.html").permitAll()
+
+                        // Папки со статикой
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**", "/favicon.ico").permitAll()
-                        // Страницы аутентификации тоже откроем
+
+                        // Страницы логина и регистрации
                         .requestMatchers("/login", "/register").permitAll()
+
+                        // Всё остальное — только после аутентификации
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Связи факультет ↔ предмет</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
+        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333;font-size:16px}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px;overflow:auto}
+        h2{margin-top:0}
+        form,.section{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:25px}
+        label{font-weight:bold;display:block;margin-bottom:5px}
+        select{width:100%;padding:6px;margin-top:5px}
+        select[multiple]{height:160px}
+        button{padding:10px 20px;border:0;border-radius:4px;cursor:pointer;font-size:15px}
+        .btn-add{background:#28a745;color:#fff}
+        .btn-add:hover{background:#218838}
+        .btn-del{background:#dc3545;color:#fff}
+        .btn-del:hover{background:#c82333}
+        .btn-blue{background:#007BFF;color:#fff}
+        .btn-blue:hover{background:#0056b3}
+        .err{margin-top:10px;color:#b00020}
+        .muted{opacity:.6;pointer-events:none}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/faculties.html">Факультеты</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/subject-faculty.html" style="font-weight:bold;">Связи факультет↔предмет</a>
+</div>
+
+<div class="content">
+    <h2>Управление связями факультет ↔ предмет</h2>
+
+    <!-- выбор факультета -->
+    <form onsubmit="event.preventDefault(); loadFacultySubjects();">
+        <label for="faculty-select">Выберите факультет:</label>
+        <select id="faculty-select" required>
+            <option value="">-- Выберите факультет --</option>
+        </select>
+        <br><br>
+        <button id="btn-show" type="submit" class="btn-blue">Показать предметы</button>
+        <div id="err0" class="err"></div>
+    </form>
+
+    <!-- добавление -->
+    <div class="section" id="section-add" style="display:none;">
+        <h3>Добавить предметы к факультету</h3>
+        <form onsubmit="event.preventDefault(); addSubjects();">
+            <label for="free-subjects">Свободные предметы:</label>
+            <select id="free-subjects" multiple required></select>
+            <br><br>
+            <button id="btn-add" type="submit" class="btn-add">Добавить выбранные</button>
+            <div id="errAdd" class="err"></div>
+        </form>
+    </div>
+
+    <!-- список -->
+    <div class="section" id="section-list" style="display:none;">
+        <h3>Предметы факультета</h3>
+        <select id="assigned-subjects-list" multiple></select>
+    </div>
+
+    <!-- удаление -->
+    <div class="section" id="section-del" style="display:none;">
+        <h3>Удалить предметы из факультета</h3>
+        <form onsubmit="event.preventDefault(); removeSubjects();">
+            <label for="assigned-subjects">Текущие предметы факультета:</label>
+            <select id="assigned-subjects" multiple required></select>
+            <br><br>
+            <button id="btn-del" type="submit" class="btn-del">Удалить выбранные</button>
+            <div id="errDel" class="err"></div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API = '/api/v1';
+    const ERR = (id,msg) => document.getElementById(id).textContent = msg || '';
+
+    async function fetchJSON(url, opt = {}) {
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json', ...(opt.headers || {}) },
+        ...opt
+      });
+      const txt = await res.text();
+      let data = null;
+      try { data = txt ? JSON.parse(txt) : null; } catch {}
+      if (!res.ok) throw new Error((data && (data.message || data.error)) || res.status + ' ' + res.statusText);
+      return data;
+    }
+
+    // загрузка списка факультетов (из твоего FacultyRestController: GET /api/v1/faculties)
+    async function loadFaculties() {
+      try {
+        ERR('err0','');
+        const faculties = await fetchJSON(`${API}/faculties`);
+        const sel = document.getElementById('faculty-select');
+        sel.innerHTML = '<option value="">-- Выберите факультет --</option>' +
+          faculties.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+      } catch (e) {
+        ERR('err0', e.message);
+      }
+    }
+
+    let currentFacultyId = null;
+
+    async function loadFacultySubjects() {
+      const id = document.getElementById('faculty-select').value;
+      if (!id) return;
+      currentFacultyId = id;
+
+      // дизейблим кнопку на время загрузки
+      const btn = document.getElementById('btn-show');
+      btn.classList.add('muted');
+
+      try {
+        // НОВЫЕ эндпоинты:
+        //  - предметы факультета: GET /api/v1/faculty-subjects/{facultyId}
+        //  - свободные предметы:  GET /api/v1/faculty-subjects/free?facultyId={id}
+        const assigned = await fetchJSON(`${API}/faculty-subjects/${id}`);
+        const free = await fetchJSON(`${API}/faculty-subjects/free?facultyId=${id}`);
+
+        document.getElementById('assigned-subjects-list').innerHTML =
+          assigned.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        document.getElementById('assigned-subjects').innerHTML =
+          assigned.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        document.getElementById('free-subjects').innerHTML =
+          free.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+        document.getElementById('section-add').style.display = 'block';
+        document.getElementById('section-list').style.display = 'block';
+        document.getElementById('section-del').style.display = 'block';
+        ERR('err0','');
+      } catch (e) {
+        ERR('err0', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    async function addSubjects() {
+      const selected = [...document.getElementById('free-subjects').selectedOptions].map(o => Number(o.value));
+      if (!selected.length) return;
+
+      const btn = document.getElementById('btn-add');
+      btn.classList.add('muted');
+
+      try {
+        // НОВЫЙ эндпоинт: POST /api/v1/faculty-subjects/{facultyId}
+        await fetchJSON(`${API}/faculty-subjects/${currentFacultyId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(selected)
+        });
+        ERR('errAdd','');
+        await loadFacultySubjects();
+      } catch (e) {
+        ERR('errAdd', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    async function removeSubjects() {
+      const selected = [...document.getElementById('assigned-subjects').selectedOptions].map(o => Number(o.value));
+      if (!selected.length) return;
+
+      const btn = document.getElementById('btn-del');
+      btn.classList.add('muted');
+
+      try {
+        // НОВЫЙ эндпоинт: DELETE /api/v1/faculty-subjects/{facultyId}
+        await fetchJSON(`${API}/faculty-subjects/${currentFacultyId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(selected)
+        });
+        ERR('errDel','');
+        await loadFacultySubjects();
+      } catch (e) {
+        ERR('errDel', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    loadFaculties();
+</script>
+</body>
+</html>
