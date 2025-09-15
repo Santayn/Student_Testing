@@ -1,3 +1,4 @@
+// src/main/java/org/santayn/testing/web/controller/rest/GroupRestController.java
 package org.santayn.testing.web.controller.rest;
 
 import jakarta.validation.Valid;
@@ -7,6 +8,7 @@ import org.santayn.testing.service.FacultyService;
 import org.santayn.testing.service.GroupService;
 import org.santayn.testing.web.dto.group.GroupCreateRequest;
 import org.santayn.testing.web.dto.group.GroupResponse;
+import org.santayn.testing.web.dto.group.GroupShortDto;
 import org.santayn.testing.web.dto.group.GroupUpdateRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,72 +28,79 @@ public class GroupRestController {
         this.facultyService = facultyService;
     }
 
+    /** Полный список групп */
     @GetMapping
     public List<GroupResponse> list() {
-        return groupService.getAllGroup().stream().map(this::toResponse).toList();
+        return groupService.getAllGroup()
+                .stream()
+                .map(GroupResponse::from)
+                .toList();
     }
 
+    /** Короткий список (для селектов) */
+    @GetMapping("/short")
+    public List<GroupShortDto> listShort() {
+        return groupService.getAllGroup()
+                .stream()
+                .map(GroupShortDto::from)
+                .toList();
+    }
+
+    /** Получить одну группу */
     @GetMapping("/{id}")
     public GroupResponse get(@PathVariable Integer id) {
         Group g = groupService.getGroupById(id);
-        return toResponse(g);
+        return GroupResponse.from(g);
     }
 
+    /** Создать группу (courseCode игнорируем по твоему требованию) */
     @PostMapping
     public ResponseEntity<GroupResponse> create(@Valid @RequestBody GroupCreateRequest req) {
         Group g = new Group();
         g.setName(req.name());
         g.setTitle(req.title());
-        g.setCourse_code(req.courseCode());
+        // req.courseCode() — не используем
 
         if (req.facultyId() != null) {
             Faculty f = facultyService.findById(req.facultyId());
             g.setFaculty(f);
         }
 
-        // service.save(...) ничего не возвращает
         groupService.save(g);
 
-        // после save у JPA обычно уже выставлен g.getId()
         Integer id = g.getId();
         if (id == null) {
-            // на всякий случай, если провайдер не проставил id — достаём по name
+            // fallback, если провайдер не проставил id сразу
             g = groupService.getSpecificGroupByGroupName(req.name());
             id = g.getId();
         }
 
         return ResponseEntity
                 .created(URI.create("/api/v1/groups/" + id))
-                .body(toResponse(g));
+                .body(GroupResponse.from(g));
     }
 
+    /** Частичное обновление (courseCode игнорируем) */
     @PatchMapping("/{id}")
     public GroupResponse update(@PathVariable Integer id, @RequestBody GroupUpdateRequest req) {
         Group g = groupService.getGroupById(id);
 
-        if (req.name() != null) g.setName(req.name());
+        if (req.name() != null)  g.setName(req.name());
         if (req.title() != null) g.setTitle(req.title());
-        if (req.courseCode() != null) g.setCourse_code(req.courseCode());
+        // req.courseCode() — не используем
         if (req.facultyId() != null) {
             Faculty f = facultyService.findById(req.facultyId());
             g.setFaculty(f);
         }
 
-        // сохраняем изменения, метод void
         groupService.save(g);
-
-        // возвращаем уже обновлённый объект (g имеет актуальные поля)
-        return toResponse(g);
+        return GroupResponse.from(g);
     }
 
+    /** Удалить группу */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
-        groupService.deleteGroupById(id); // добавь этот метод, если ещё нет
+        groupService.deleteGroupById(id);
         return ResponseEntity.noContent().build();
-    }
-
-    private GroupResponse toResponse(Group g) {
-        Integer facultyId = g.getFaculty() != null ? g.getFaculty().getId() : null;
-        return new GroupResponse(g.getId(), g.getName(), g.getTitle(), g.getCourse_code(), facultyId);
     }
 }

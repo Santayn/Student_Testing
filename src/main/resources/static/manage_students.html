@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Связи группа ↔ студенты</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1)}
+        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px}
+        form,.section{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:25px}
+        label{font-weight:bold;display:block;margin-bottom:5px}
+        select{width:100%;padding:6px;margin-top:5px}
+        select[multiple]{height:160px}
+        button{padding:10px 20px;border:0;border-radius:4px;cursor:pointer;font-size:15px}
+        .btn-add{background:#28a745;color:#fff}.btn-add:hover{background:#218838}
+        .btn-del{background:#dc3545;color:#fff}.btn-del:hover{background:#c82333}
+        .btn-blue{background:#007BFF;color:#fff}.btn-blue:hover{background:#0056b3}
+        .err{margin-top:10px;color:#b00020}
+        .muted{opacity:.6;pointer-events:none}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/group-student.html" style="font-weight:bold;">Группа↔студенты</a>
+</div>
+
+<div class="content">
+    <h2>Управление связями группа ↔ студенты</h2>
+
+    <form onsubmit="event.preventDefault(); loadGroupStudents();">
+        <label for="group-select">Выберите группу:</label>
+        <select id="group-select" required>
+            <option value="">-- Выберите группу --</option>
+        </select>
+        <br><br>
+        <button id="btn-show" class="btn-blue">Показать студентов</button>
+        <div id="err0" class="err"></div>
+    </form>
+
+    <div class="section" id="section-add" style="display:none;">
+        <h3>Добавить студентов в группу</h3>
+        <form onsubmit="event.preventDefault(); addStudents();">
+            <label for="free-students">Свободные студенты:</label>
+            <select id="free-students" multiple required></select>
+            <br><br>
+            <button id="btn-add" class="btn-add">Добавить выбранных</button>
+            <div id="errAdd" class="err"></div>
+        </form>
+    </div>
+
+    <div class="section" id="section-list" style="display:none;">
+        <h3>Студенты группы</h3>
+        <select id="assigned-students-list" multiple></select>
+    </div>
+
+    <div class="section" id="section-del" style="display:none;">
+        <h3>Удалить студентов из группы</h3>
+        <form onsubmit="event.preventDefault(); removeStudents();">
+            <label for="assigned-students">Текущие студенты группы:</label>
+            <select id="assigned-students" multiple required></select>
+            <br><br>
+            <button id="btn-del" class="btn-del">Удалить выбранных</button>
+            <div id="errDel" class="err"></div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API = '/api/v1';
+    const ERR = (id,msg) => document.getElementById(id).textContent = msg || '';
+
+    async function fetchJSON(url, opt = {}) {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json', ...(opt.headers||{}) }, ...opt });
+      const txt = await res.text();
+      let data = null;
+      try { data = txt ? JSON.parse(txt) : null; } catch {}
+      if (!res.ok) throw new Error((data && (data.message || data.error)) || (res.status + ' ' + res.statusText));
+      return data;
+    }
+
+    async function loadGroups() {
+      try {
+        ERR('err0','');
+        const groups = await fetchJSON(`${API}/groups`);
+        const sel = document.getElementById('group-select');
+        sel.innerHTML = '<option value="">-- Выберите группу --</option>' +
+          groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+      } catch(e){ ERR('err0', e.message); }
+    }
+
+    let currentGroupId = null;
+
+    async function loadGroupStudents() {
+      const id = document.getElementById('group-select').value;
+      if (!id) return;
+      currentGroupId = id;
+      document.getElementById('btn-show').classList.add('muted');
+
+      try {
+        const assigned = await fetchJSON(`${API}/group-students/${id}`);
+        const free     = await fetchJSON(`${API}/group-students/free`);
+
+        const toOpt = s => `<option value="${s.id}">${s.fullName}</option>`;
+
+        document.getElementById('assigned-students-list').innerHTML = assigned.map(toOpt).join('');
+        document.getElementById('assigned-students').innerHTML      = assigned.map(toOpt).join('');
+        document.getElementById('free-students').innerHTML          = free.map(toOpt).join('');
+
+        document.getElementById('section-add').style.display  = 'block';
+        document.getElementById('section-list').style.display = 'block';
+        document.getElementById('section-del').style.display  = 'block';
+        ERR('err0','');
+      } catch(e){ ERR('err0', e.message); }
+      finally { document.getElementById('btn-show').classList.remove('muted'); }
+    }
+
+    async function addStudents() {
+      const ids = [...document.getElementById('free-students').selectedOptions].map(o => Number(o.value));
+      if (!ids.length) return;
+      const btn = document.getElementById('btn-add'); btn.classList.add('muted');
+      try {
+        await fetchJSON(`${API}/group-students/${currentGroupId}`, {
+          method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(ids)
+        });
+        ERR('errAdd',''); await loadGroupStudents();
+      } catch(e){ ERR('errAdd', e.message); }
+      finally { btn.classList.remove('muted'); }
+    }
+
+    async function removeStudents() {
+      const ids = [...document.getElementById('assigned-students').selectedOptions].map(o => Number(o.value));
+      if (!ids.length) return;
+      const btn = document.getElementById('btn-del'); btn.classList.add('muted');
+      try {
+        await fetchJSON(`${API}/group-students/${currentGroupId}`, {
+          method: 'DELETE', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(ids)
+        });
+        ERR('errDel',''); await loadGroupStudents();
+      } catch(e){ ERR('errDel', e.message); }
+      finally { btn.classList.remove('muted'); }
+    }
+
+    loadGroups();
+</script>
+</body>
+</html>
