@@ -1,0 +1,108 @@
+<!-- src/main/resources/static/question-upload.html -->
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Загрузка вопросов</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
+        .sidebar a{display:block;margin-bottom:12px;text-decoration:none;color:#333}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px;overflow:auto}
+        form{background:#fff;padding:16px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);max-width:560px}
+        label{font-weight:bold;display:block;margin:10px 0 6px}
+        select,input[type=file]{width:100%;padding:8px}
+        button{margin-top:14px;padding:10px 16px;border:0;border-radius:4px;background:#28a745;color:#fff;cursor:pointer}
+        button:hover{background:#218838}
+        .err{margin-top:10px;color:#b00020}
+        .ok{margin-top:10px;color:#0a7a28}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/teacher-subject.html">Учитель↔предмет</a>
+    <a href="/teacher-lecture.html">Лекции</a>
+    <a href="/question-upload.html" style="font-weight:bold">Загрузка вопросов</a>
+</div>
+
+<div class="content">
+    <h2>Загрузка вопросов</h2>
+    <form onsubmit="event.preventDefault(); upload();">
+        <label for="subject">Предмет</label>
+        <select id="subject" required onchange="loadTopics()">
+            <option value="">-- выберите предмет --</option>
+        </select>
+
+        <label for="topic">Тема</label>
+        <select id="topic" required>
+            <option value="">-- выберите тему --</option>
+        </select>
+
+        <label for="file">Файл (.docx или .csv)</label>
+        <input id="file" type="file" accept=".docx,.csv" required>
+
+        <button id="btn" type="submit">Загрузить</button>
+        <div id="msg" class=""></div>
+    </form>
+</div>
+
+<script>
+    const API = '/api/v1';
+    const q = s => document.querySelector(s);
+    function show(ok, text){
+      const el = q('#msg'); el.className = ok ? 'ok':'err'; el.textContent = text || '';
+    }
+
+    async function fetchJSON(url, opt={}){
+      const res = await fetch(url, opt);
+      const text = await res.text();
+      let data = null; try{ data = text ? JSON.parse(text) : null }catch{}
+      if (!res.ok) throw new Error((data && (data.message||data.error)) || (res.status+' '+res.statusText));
+      return data;
+    }
+
+    async function loadSubjects(){
+      try{
+        const subs = await fetchJSON(`${API}/teacher-subjects/me`);
+        q('#subject').innerHTML = '<option value="">-- выберите предмет --</option>' +
+          subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      }catch(e){ show(false, e.message); }
+    }
+
+    async function loadTopics(){
+      const sid = q('#subject').value;
+      if(!sid){ q('#topic').innerHTML = '<option value="">-- выберите тему --</option>'; return; }
+      try{
+        const topics = await fetchJSON(`${API}/questions/topics?subjectId=${sid}`);
+        q('#topic').innerHTML = '<option value="">-- выберите тему --</option>' +
+          topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        show(true, '');
+      }catch(e){ show(false, e.message); }
+    }
+
+    async function upload(){
+      const topicId = q('#topic').value;
+      const file = q('#file').files[0];
+      if(!topicId || !file){ return; }
+
+      const btn = q('#btn'); btn.disabled = true;
+      try{
+        const fd = new FormData();
+        fd.append('topicId', Number(topicId));
+        fd.append('file', file);
+        const res = await fetchJSON(`${API}/questions/upload`, { method:'POST', body: fd });
+        show(true, `Успешно загружено: ${res.saved}`);
+        q('#file').value = '';
+      }catch(e){ show(false, e.message); }
+      finally{ btn.disabled = false; }
+    }
+
+    loadSubjects();
+</script>
+</body>
+</html>
