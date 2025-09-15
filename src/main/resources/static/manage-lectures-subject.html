@@ -1,0 +1,185 @@
+<!-- src/main/resources/static/teacher-lecture.html -->
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Лекции (управление)</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
+        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px;overflow:auto}
+        form,.card{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:20px}
+        label{font-weight:bold;display:block;margin:8px 0 4px}
+        input[type="text"],textarea,select{width:100%;padding:8px}
+        textarea{min-height:120px}
+        button{padding:10px 16px;border:0;border-radius:4px;cursor:pointer}
+        .btn{background:#007BFF;color:#fff}
+        .btn:hover{background:#0056b3}
+        .btn-danger{background:#dc3545}
+        .btn-danger:hover{background:#c82333}
+        .muted{opacity:.6;pointer-events:none}
+        ul{list-style:none}
+        li{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}
+        .err{margin-top:8px;color:#b00020}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/teacher-subject.html">Связи учитель↔предмет</a>
+    <a href="/teacher-lecture.html" style="font-weight:bold">Лекции</a>
+</div>
+
+<div class="content">
+    <h2>Управление лекциями</h2>
+
+    <!-- выбор предмета -->
+    <form onsubmit="event.preventDefault(); loadLectures();">
+        <label for="subject-select">Предмет:</label>
+        <select id="subject-select" required>
+            <option value="">-- выберите предмет --</option>
+        </select>
+        <br><br>
+        <button id="btn-show" class="btn" type="submit">Показать лекции</button>
+        <div id="err0" class="err"></div>
+    </form>
+
+    <!-- список лекций -->
+    <div id="list-card" class="card" style="display:none;">
+        <h3>Лекции предмета</h3>
+        <ul id="lecture-list"></ul>
+    </div>
+
+    <!-- добавление -->
+    <div id="add-card" class="card" style="display:none;">
+        <h3>Добавить лекцию</h3>
+        <form onsubmit="event.preventDefault(); addLecture();">
+            <label for="title">Заголовок</label>
+            <input id="title" type="text" required>
+
+            <label for="content">Содержание</label>
+            <textarea id="content" required></textarea>
+
+            <label for="description">Описание</label>
+            <textarea id="description"></textarea>
+
+            <br>
+            <button id="btn-add" class="btn" type="submit">Добавить</button>
+            <div id="errAdd" class="err"></div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API = '/api/v1';
+    const q = s => document.querySelector(s);
+    const ERR = (id,msg) => (q('#'+id).textContent = msg || '');
+
+    async function fetchJSON(url, opt={}) {
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json', ...(opt.headers||{}) },
+        ...opt
+      });
+      const txt = await res.text();
+      let data = null;
+      try { data = txt ? JSON.parse(txt) : null; } catch {}
+      if (!res.ok) throw new Error((data && (data.message||data.error)) || (res.status+' '+res.statusText));
+      return data;
+    }
+
+    // загрузка предметов текущего преподавателя
+    async function loadMySubjects() {
+      try {
+        ERR('err0','');
+        // можно использовать и /api/v1/teacher-subjects/me
+        const subjects = await fetchJSON(`${API}/teacher-subjects/me`);
+        const sel = q('#subject-select');
+        sel.innerHTML = '<option value="">-- выберите предмет --</option>' +
+          subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      } catch (e) {
+        ERR('err0', e.message);
+      }
+    }
+
+    let currentSubjectId = null;
+
+    async function loadLectures() {
+      const id = q('#subject-select').value;
+      if (!id) return;
+      currentSubjectId = id;
+
+      const btn = q('#btn-show'); btn.classList.add('muted');
+      try {
+        const lectures = await fetchJSON(`${API}/lectures/by-subject/${id}`);
+        const ul = q('#lecture-list');
+        ul.innerHTML = lectures.map(l => `
+          <li>
+            <div>
+              <div><b>${escapeHtml(l.title || '')}</b></div>
+              <div style="font-size:12px;opacity:.7">${escapeHtml(l.description || '')}</div>
+            </div>
+            <button class="btn-danger" onclick="removeLecture(${l.id})">Удалить</button>
+          </li>
+        `).join('');
+        q('#list-card').style.display = 'block';
+        q('#add-card').style.display = 'block';
+        ERR('err0','');
+      } catch (e) {
+        ERR('err0', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    async function addLecture() {
+      if (!currentSubjectId) return;
+      const title = q('#title').value.trim();
+      const content = q('#content').value.trim();
+      const description = q('#description').value.trim();
+
+      if (!title || !content) return;
+
+      const btn = q('#btn-add'); btn.classList.add('muted');
+      try {
+        await fetchJSON(`${API}/lectures`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subjectId: Number(currentSubjectId),
+            title, content, description
+          })
+        });
+        ERR('errAdd','');
+        q('#title').value = '';
+        q('#content').value = '';
+        q('#description').value = '';
+        await loadLectures();
+      } catch (e) {
+        ERR('errAdd', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    async function removeLecture(lectureId) {
+      try {
+        await fetchJSON(`${API}/lectures/${lectureId}`, { method: 'DELETE' });
+        await loadLectures();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    loadMySubjects();
+</script>
+</body>
+</html>
