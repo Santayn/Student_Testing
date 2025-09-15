@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Управление темами</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:220px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
+        .sidebar a{display:block;margin-bottom:14px;text-decoration:none;color:#333}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px;overflow:auto}
+        h2{margin:0 0 16px}
+        form,.card{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:18px}
+        label{font-weight:bold;display:block;margin-bottom:6px}
+        select,input[type="text"]{width:100%;padding:8px}
+        .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .row-3{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+        button{padding:9px 16px;border:0;border-radius:4px;cursor:pointer}
+        .btn-blue{background:#007BFF;color:#fff}
+        .btn-blue:hover{background:#0063d4}
+        .btn-add{background:#28a745;color:#fff}
+        .btn-add:hover{background:#218838}
+        .btn-del{background:#dc3545;color:#fff}
+        .btn-del:hover{background:#c82333}
+        ul{list-style:none;margin-top:8px}
+        li{display:flex;justify-content:space-between;align-items:center;border:1px solid #eee;border-radius:6px;padding:10px;margin:6px 0}
+        .muted{opacity:.6;pointer-events:none}
+        .err{margin-top:8px;color:#b00020;min-height:18px}
+        .hint{font-size:12px;color:#666;margin-top:4px}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/kubstuTest">Главная</a>
+    <a href="/kubstuTest/manage-students">Управление студентами</a>
+    <a href="/kubstuTest/manage-teachers">Управление учителями</a>
+    <a href="/kubstuTest/users/role/user">Управление ролями</a>
+    <a href="/kubstuTest/manage-teachers-subject">Управление предметами</a>
+    <a href="/kubstuTest/manage-lectures-subject">Управление лекциями</a>
+    <a href="/kubstuTest/tests/create-test">Создать тест</a>
+    <a href="/kubstuTest/manage-topics-subject" style="font-weight:bold;">Управление темами</a>
+</div>
+
+<div class="content">
+    <h2>Управление темами</h2>
+
+    <!-- Только предмет (учитель — текущий) -->
+    <form id="form-pick">
+        <div class="row">
+            <div>
+                <label for="subject-select">Предмет</label>
+                <select id="subject-select" required>
+                    <option value="">Загрузка предметов…</option>
+                </select>
+                <div class="hint">Выберите предмет — ниже появится список тем.</div>
+            </div>
+        </div>
+        <div id="errPick" class="err"></div>
+    </form>
+
+    <!-- Темы выбранного предмета -->
+    <div id="card-topics" class="card" style="display:none;">
+        <h3>Темы предмета</h3>
+
+        <div class="row-3" style="margin-top:10px;">
+            <div>
+                <label for="topic-name">Название новой темы</label>
+                <input id="topic-name" type="text" placeholder="Например: Введение">
+            </div>
+            <button id="btn-add" class="btn-add" onclick="addTopic()">Добавить тему</button>
+        </div>
+        <div id="errAdd" class="err"></div>
+
+        <ul id="topics-list"></ul>
+        <div id="errList" class="err"></div>
+    </div>
+</div>
+
+<script>
+    // === настройки API ===
+    const API = '/api/v1';
+    const URL_SUBJECTS_ME = `${API}/teacher-subjects/me`; // список предметов текущего учителя
+    const topicsUrl = (subjectId) => `${API}/subjects/${subjectId}/topics`;
+    const topicUrl  = (subjectId, topicId) => `${API}/subjects/${subjectId}/topics/${topicId}`;
+
+    // === helpers ===
+    const ERR = (id, msg) => document.getElementById(id).textContent = msg || '';
+    function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+    async function fetchJSON(url,opt={}){
+      const res=await fetch(url,{headers:{'Accept':'application/json',...(opt.headers||{})},...opt});
+      const text=await res.text(); let data=null; try{data=text?JSON.parse(text):null}catch{}
+      if(!res.ok) throw new Error((data&&(data.message||data.error))||'Unexpected server error');
+      return data;
+    }
+
+    // === state ===
+    let currentSubjectId = null;
+
+    // === загрузка предметов текущего учителя ===
+    async function initSubjects(){
+      const sel=document.getElementById('subject-select');
+      try{
+        ERR('errPick','');
+        const subjects = await fetchJSON(URL_SUBJECTS_ME);
+        if(!subjects.length){
+          sel.innerHTML = '<option value="">У вас пока нет предметов</option>';
+          sel.disabled = true;
+          document.getElementById('card-topics').style.display='none';
+          return;
+        }
+        sel.innerHTML = '<option value="">-- Выберите предмет --</option>' +
+          subjects.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        sel.disabled = false;
+      }catch(e){
+        sel.innerHTML = '<option value="">Ошибка загрузки</option>';
+        ERR('errPick', e.message);
+      }
+    }
+
+    // === загрузка тем ===
+    async function loadTopics(subjectId){
+      const list = document.getElementById('topics-list');
+      list.innerHTML = '';
+      ERR('errList','');
+      document.getElementById('card-topics').style.display='block';
+      try{
+        const topics = await fetchJSON(topicsUrl(subjectId));
+        list.innerHTML = topics.length
+          ? topics.map(t=>`
+            <li>
+              <span>${escapeHtml(t.name || '(без названия)')}</span>
+              <button class="btn-del" onclick="removeTopic(${t.id})">Удалить</button>
+            </li>`).join('')
+          : '<li><em>Тем пока нет</em></li>';
+      }catch(e){
+        ERR('errList', e.message);
+      }
+    }
+
+    // === добавить тему ===
+    async function addTopic(){
+      if(!currentSubjectId) return;
+      const btn = document.getElementById('btn-add');
+      const input = document.getElementById('topic-name');
+      const name = input.value.trim();
+      if(!name){ ERR('errAdd','Введите название темы'); return; }
+
+      btn.classList.add('muted');
+      try{
+        await fetchJSON(topicsUrl(currentSubjectId),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({name})
+        });
+        input.value='';
+        ERR('errAdd','');
+        await loadTopics(currentSubjectId);
+      }catch(e){
+        ERR('errAdd', e.message);
+      }finally{
+        btn.classList.remove('muted');
+      }
+    }
+
+    // === удалить тему ===
+    async function removeTopic(topicId){
+      if(!currentSubjectId) return;
+      try{
+        await fetchJSON(topicUrl(currentSubjectId, topicId),{method:'DELETE'});
+        await loadTopics(currentSubjectId);
+      }catch(e){
+        ERR('errList', e.message);
+      }
+    }
+
+    // === события ===
+    document.getElementById('subject-select').addEventListener('change', async (e)=>{
+      currentSubjectId = e.target.value ? Number(e.target.value) : null;
+      if(currentSubjectId) await loadTopics(currentSubjectId);
+      else document.getElementById('card-topics').style.display='none';
+    });
+
+    // старт
+    initSubjects();
+</script>
+</body>
+</html>

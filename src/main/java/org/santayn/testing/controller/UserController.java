@@ -2,14 +2,11 @@ package org.santayn.testing.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.student.Student;
 import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.models.user.User;
 import org.santayn.testing.service.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -37,11 +34,15 @@ public class UserController {
     @GetMapping("profile/me")
     public String getUserProfile(Model model) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String currentLogin = auth.getName(); // Получаем логин текущего пользователя
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(String.valueOf(auth.getPrincipal()))) {
+            return "redirect:/login"; // <-- больше не кидаем 500 при anonymous
+        }
+        String currentLogin = auth.getName();
         User selectUser = userRegisterService.findUserByLogin(currentLogin);
         model.addAttribute("selectUser", selectUser);
-        return "profile"; // Имя Thymeleaf шаблона
+        return "profile";
     }
+
     // === Страница пользователей по умолчанию (USER) ===
     @GetMapping("/users/role/user")
     public String showUsersWithUserRole(Model model) {
@@ -62,50 +63,40 @@ public class UserController {
             model.addAttribute("users", users);
             model.addAttribute("selectedRoleId", roleId);
         }
-        return "users"; // Thymeleaf шаблон
+        return "users";
     }
 
     // === Обновление роли пользователя ===
     @PostMapping("/users/update-role")
-    public String updateUserRole(
-            @RequestParam("userId") Integer userId,
-            @RequestParam("newRoleId") Integer newRoleId) {
+    public String updateUserRole(@RequestParam("userId") Integer userId,
+                                 @RequestParam("newRoleId") Integer newRoleId) {
 
         User user = userService.getUserById(userId);
         Role currentRole = user.getRole();
         Role newRole = roleService.getRoleById(newRoleId);
 
-        // Удаляем данные предыдущей роли
         if (currentRole != null) {
             if ("STUDENT".equals(currentRole.getName()) && !"STUDENT".equals(newRole.getName())) {
                 Optional<Student> studentOpt = studentService.findByUserId(userId);
-                if (studentOpt.isPresent()) {
-                    Student student = studentOpt.get();
-                    studentService.deleteStudentAndRelatedData(student.getId(), userId);
-                }
+                studentOpt.ifPresent(student -> studentService.deleteStudentAndRelatedData(student.getId(), userId));
             }
 
-            if (("TEACHER".equals(currentRole.getName()) && !"TEACHER".equals(newRole.getName())) ||("ADMIN".equals(currentRole.getName()) && !"ADMIN".equals(newRole.getName())) ) {
+            if (("TEACHER".equals(currentRole.getName()) && !"TEACHER".equals(newRole.getName()))
+                    || ("ADMIN".equals(currentRole.getName()) && !"ADMIN".equals(newRole.getName()))) {
                 Optional<Teacher> teacherOpt = teacherService.findByUserId(userId);
-                if (teacherOpt.isPresent()) {
-                    Teacher teacher = teacherOpt.get();
-                    teacherService.deleteTeacherAndRelatedData(teacher.getId(), userId);
-                }
+                teacherOpt.ifPresent(teacher -> teacherService.deleteTeacherAndRelatedData(teacher.getId(), userId));
             }
         }
 
-        // Присваиваем новую роль
-            user.setRole(newRole);
-            userService.save(user);
+        user.setRole(newRole);
+        userService.save(user);
 
-            // Создаём новую запись в зависимости от роли
-            if ("STUDENT".equals(newRole.getName())) {
-                studentService.createStudentForUser(user);
-            } else if ("TEACHER".equals(newRole.getName()) || "ADMIN".equals(newRole.getName())) {
-                teacherService.createTeacherForUser(user);
-            }
+        if ("STUDENT".equals(newRole.getName())) {
+            studentService.createStudentForUser(user);
+        } else if ("TEACHER".equals(newRole.getName()) || "ADMIN".equals(newRole.getName())) {
+            teacherService.createTeacherForUser(user);
+        }
 
         return "redirect:/kubstuTest/users/role?roleId=" + newRoleId;
     }
-
 }

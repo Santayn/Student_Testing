@@ -30,16 +30,18 @@ public class TopicService {
         return topicRepository.findBySubjectId(subjectId);
     }
 
-    public void addTopic(Integer subjectId, String name) {
-        Topic topic = new Topic();
+    public Topic addTopic(Integer subjectId, String name) {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new RuntimeException("Предмет не найден"));
+        Topic topic = new Topic();
         topic.setName(name);
         topic.setSubject(subject);
-        topicRepository.save(topic);
+        return topicRepository.save(topic);
     }
+
 
     public void deleteTopic(Integer topicId) {
         topicRepository.deleteById(topicId);
     }
+
 }
