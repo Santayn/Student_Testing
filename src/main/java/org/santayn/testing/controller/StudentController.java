@@ -1,9 +1,7 @@
 package org.santayn.testing.controller;
 
 import org.santayn.testing.models.group.Group;
-import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.student.Student;
-import org.santayn.testing.models.user.User;
 import org.santayn.testing.service.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,16 +21,16 @@ public class StudentController {
     private final GroupService groupService;
     private final TeacherService teacherService;
     private final UserService userService;
-    private final RoleService roleService;
+    private final UserRoleService userRoleService;
 
     public StudentController(UserRegisterService userRegisterService, GroupService groupService, StudentService studentService,
-                             TeacherService teacherService,UserService userService,RoleService roleService) {
+                             TeacherService teacherService, UserService userService, UserRoleService userRoleService) {
         this.userRegisterService = userRegisterService;
         this.groupService = groupService;
         this.studentService = studentService;
         this.teacherService = teacherService;
         this.userService = userService;
-        this.roleService = roleService;
+        this.userRoleService = userRoleService;
     }
 
     // Отображение списка студентов по groupId

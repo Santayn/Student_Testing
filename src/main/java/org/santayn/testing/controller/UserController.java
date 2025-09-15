@@ -28,7 +28,7 @@ public class UserController {
     private final GroupService groupService;
     private final TeacherService teacherService;
     private final UserService userService;
-    private final RoleService roleService;
+    private final UserRoleService userRoleService;
 
     // === Профиль текущего пользователя ===
     @GetMapping("profile/me")
@@ -73,7 +73,7 @@ public class UserController {
 
         User user = userService.getUserById(userId);
         Role currentRole = user.getRole();
-        Role newRole = roleService.getRoleById(newRoleId);
+        Role newRole = userRoleService.getRoleById(newRoleId);
 
         if (currentRole != null) {
             if ("STUDENT".equals(currentRole.getName()) && !"STUDENT".equals(newRole.getName())) {

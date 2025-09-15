@@ -1,0 +1,107 @@
+<!-- src/main/resources/static/users-role.html -->
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Смена роли (REST)</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1)}
+        .sidebar a{display:block;margin-bottom:12px;text-decoration:none;color:#333}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px}
+        .row{margin-bottom:16px}
+        select,button{padding:8px}
+        table{width:100%;border-collapse:collapse;margin-top:10px}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left}
+        th{background:#f8f8f8}
+        .ok{color:#0a7a28}
+        .err{color:#b00020}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/users-role.html" style="font-weight:bold">Смена роли</a>
+</div>
+
+<div class="content">
+    <h2>Смена роли пользователей</h2>
+
+    <div class="row">
+        <label>Фильтр по роли:
+            <select id="roleFilter"></select>
+        </label>
+    </div>
+
+    <div id="msg"></div>
+
+    <table id="tbl">
+        <thead><tr><th>ID</th><th>Логин</th><th>Текущая роль</th><th>Новая роль</th><th></th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+    const API = '/api/v1';
+    const q = s => document.querySelector(s);
+    const byId = id => document.getElementById(id);
+    const msg = (ok, t)=>{ const el=byId('msg'); el.className= ok?'ok':'err'; el.textContent=t||''; };
+
+    async function fetchJSON(url, opt={}){
+      const res = await fetch(url, { headers:{'Accept':'application/json', ...(opt.headers||{})}, ...opt });
+      const text = await res.text(); let data=null; try{ data = text? JSON.parse(text):null }catch{}
+      if(!res.ok) throw new Error((data && (data.message||data.error)) || (res.status+' '+res.statusText));
+      return data;
+    }
+
+    let roles = [];
+
+    async function loadRoles(){
+      roles = await fetchJSON(`${API}/roles`);
+      byId('roleFilter').innerHTML = '<option value="">-- выберите роль --</option>' +
+        roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    }
+
+    async function loadUsersByRole(){
+      const rid = byId('roleFilter').value;
+      if(!rid){ byId('tbl').querySelector('tbody').innerHTML=''; return; }
+      const users = await fetchJSON(`${API}/users/by-role?roleId=${rid}`);
+      const tbody = byId('tbl').querySelector('tbody');
+      tbody.innerHTML = users.map(u => {
+        return `<tr>
+          <td>${u.id}</td>
+          <td>${u.login}</td>
+          <td>${u.roleName||''}</td>
+          <td>
+            <select data-user="${u.id}">
+              ${roles.map(r => `<option value="${r.id}" ${u.roleId===r.id?'selected':''}>${r.name}</option>`).join('')}
+            </select>
+          </td>
+          <td><button onclick="applyRole(${u.id})">Сохранить</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function applyRole(userId){
+      try{
+        const select = document.querySelector(`select[data-user="${userId}"]`);
+        const roleId = Number(select.value);
+        const updated = await fetchJSON(`${API}/users/${userId}/role`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ roleId })
+        });
+        msg(true, `Роль обновлена: ${updated.login} → ${updated.roleName}`);
+        await loadUsersByRole();
+      }catch(e){ msg(false, e.message); }
+    }
+
+    byId('roleFilter').addEventListener('change', loadUsersByRole);
+    loadRoles().then(loadUsersByRole);
+</script>
+</body>
+</html>
