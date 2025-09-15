@@ -34,4 +34,5 @@ public interface TestRepository extends JpaRepository<Test, Integer> {
     """)
     List<Test> findByLectureAndGroup(@Param("lectureId") Integer lectureId,
                                      @Param("groupId") Integer groupId);
+
 }

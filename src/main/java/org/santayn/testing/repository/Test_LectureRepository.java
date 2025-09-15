@@ -11,4 +11,5 @@ import java.util.List;
 public interface Test_LectureRepository extends JpaRepository<Test_Lecture, Integer> {
     @Query("select tl.test from Test_Lecture tl where tl.lecture.id = :lectureId")
     List<Test> findTestsByLectureId(@Param("lectureId") Integer lectureId);
+    List<Test_Lecture> findByTest_Id(Integer testId);
 }

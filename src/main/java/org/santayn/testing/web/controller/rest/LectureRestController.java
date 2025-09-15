@@ -64,7 +64,7 @@ public class LectureRestController {
                 .toList();
     }
 
-    /** Получить одну лекцию (без сложных прав — при желании можно тоже проверять владельца предмета) */
+    /** Получить одну лекцию */
     @GetMapping("/{lectureId}")
     public LectureResponse get(@PathVariable Integer lectureId) {
         Lecture l = lectureService.findById(lectureId);
@@ -81,13 +81,12 @@ public class LectureRestController {
                 .body(LectureResponse.from(l));
     }
 
-    /** Частичное обновление лекции; если меняется subjectId — тоже проверяем, что предмет принадлежит преподавателю */
+    /** Частичное обновление лекции; если меняется subjectId — проверяем доступ */
     @PatchMapping("/{lectureId}")
     public LectureResponse update(@PathVariable Integer lectureId,
                                   @RequestBody LectureUpdateRequest req) {
         Lecture l = lectureService.findById(lectureId);
 
-        // если хотят перенести лекцию на другой предмет — проверим владение
         if (req.subjectId() != null) {
             assertSubjectOwnedByCurrentTeacher(req.subjectId());
             Subject s = subjectService.findById(req.subjectId());
@@ -97,18 +96,14 @@ public class LectureRestController {
         if (req.content() != null)     l.setContent(req.content());
         if (req.description() != null) l.setDescription(req.description());
 
-        // LectureService не имеет save, но LectureRepository.save(l) внутри addLecture есть.
-        // Раз у тебя есть groupService.save, добавь аналог в lectureService при желании.
-        // Проще всего: репозиторий через сервис:
-        // сделаем маленький помощник:
-        return LectureResponse.from(lectureService.findById(lectureServiceAddLikeSave(l)));
+        // Управляемая сущность — изменения запишутся в конце запроса (OpenSessionInView).
+        return LectureResponse.from(lectureService.findById(l.getId()));
     }
 
     /** Удалить лекцию */
     @DeleteMapping("/{lectureId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer lectureId) {
-        // можно усилить: проверить, что лекция принадлежит предмету текущего преподавателя
         lectureService.deleteLecture(lectureId);
     }
 
@@ -122,16 +117,41 @@ public class LectureRestController {
             throw new RuntimeException("Нет доступа к предмету id=" + subjectId);
         }
     }
+}
 
-    /**
-     * Небольшой хак чтобы "сохранить" изменения без явного save в сервисе:
-     * берём актуальную сущность, меняем поля и пересчитываем id через findById.
-     * Если хочешь красиво — добавь в LectureService метод save(Lecture l) с репозиторием внутри.
-     */
-    private Integer lectureServiceAddLikeSave(Lecture l) {
-        // Если у тебя включён OpenSessionInView (по умолчанию true),
-        // изменения на управляемой сущности уедут в БД при завершении транзакции/запроса.
-        // Просто возвращаем id, а контроллер заново считает сущность.
-        return l.getId();
+/* =======================================================================
+   Доп.эндпоинт ИМЕННО под фронт: GET /api/v1/subjects/{subjectId}/lectures
+   Оставлен в этом же файле, класс без public-модификатора.
+   ======================================================================= */
+@RestController
+@RequestMapping("/api/v1/subjects/{subjectId}/lectures")
+class SubjectLecturesRestController {
+
+    private final LectureService lectureService;
+    private final SubjectService subjectService;
+    private final UserSearch userSearch;
+
+    public SubjectLecturesRestController(LectureService lectureService,
+                                         SubjectService subjectService,
+                                         UserSearch userSearch) {
+        this.lectureService = lectureService;
+        this.subjectService = subjectService;
+        this.userSearch = userSearch;
+    }
+
+    /** Короткий список лекций по предмету для выпадающего списка (ожидается фронтом) */
+    @GetMapping
+    public List<LectureShortDto> listShort(@PathVariable Integer subjectId) {
+        // проверка доступа преподавателя к предмету
+        Teacher t = userSearch.getCurrentTeacher();
+        boolean allowed = subjectService.getSubjectsByTeacher(t).stream()
+                .anyMatch(s -> s.getId().equals(subjectId));
+        if (!allowed) {
+            throw new RuntimeException("Учитель не имеет доступа к предмету id=" + subjectId);
+        }
+
+        return lectureService.getLecturesBySubjectId(subjectId).stream()
+                .map(LectureShortDto::from)
+                .toList();
     }
 }

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Создание теста (REST)</title>
+    <style>
+        body { font-family: Arial, sans-serif; display:flex; height:100vh; margin:0; background:#f8f9fa; }
+        .sidebar { width:220px; background:#343a40; color:white; padding:20px; box-shadow:2px 0 5px rgba(0,0,0,0.2); }
+        .sidebar a { display:block; margin-bottom:15px; text-decoration:none; color:#ddd; font-size:14px; padding:8px 10px; border-radius:5px; }
+        .sidebar a:hover, .sidebar a.active { background:#007BFF; color:white; }
+        .content { flex-grow:1; padding:30px; }
+        h1 { margin-top:0; color:#333; font-size:24px; }
+        .form-container { background:#fff; padding:25px; border-radius:10px; box-shadow:0 4px 8px rgba(0,0,0,0.1); max-width:600px; }
+        label { display:block; margin-top:15px; font-weight:bold; color:#555; }
+        select, input[type="text"], input[type="number"] { width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
+        select[multiple] { min-height:120px; }
+        button { margin-top:25px; background:#007bff; color:white; padding:12px 24px; border:none; border-radius:6px; cursor:pointer; font-size:16px; width:100%; }
+        button:hover { background:#0056b3; }
+        .alert { margin-top:20px; padding:10px; border-radius:6px; }
+        .alert-success { background:#d1e7dd; color:#0f5132; }
+        .alert-error { background:#f8d7da; color:#842029; }
+        .muted { color:#777; font-size:12px; margin-top:4px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h3>Меню</h3>
+    <a href="/kubstuTest">Главная</a>
+    <a href="/kubstuTest/subjects">Предметы</a>
+    <a href="/kubstuTest/about">О платформе</a>
+    <a href="/kubstuTest/manage-students">Управление студентами</a>
+    <a href="/kubstuTest/manage-teachers">Управление учителями</a>
+    <a href="/kubstuTest/users/role/user">Управление ролями</a>
+    <a href="/kubstuTest/manage-lectures-subject">Управление лекциями</a>
+    <a href="/kubstuTest/tests/create-test" class="active">Создать тест</a>
+    <a href="/kubstuTest/manage-topics-subject">Управление темами</a>
+</div>
+
+<div class="content">
+    <h1>Создание теста (REST)</h1>
+
+    <div class="form-container">
+        <form id="testForm">
+            <label for="subjectSelect">Предмет:</label>
+            <select id="subjectSelect" required>
+                <option value="">— выберите предмет —</option>
+            </select>
+            <div class="muted">После выбора предмета загрузятся темы и лекции.</div>
+
+            <label for="topicSelect">Тема:</label>
+            <select id="topicSelect" required disabled>
+                <option value="">— выберите тему —</option>
+            </select>
+
+            <label for="lectureSelect">Лекция:</label>
+            <select id="lectureSelect" required disabled>
+                <option value="">— выберите лекцию —</option>
+            </select>
+
+            <label for="groupSelect">Выберите группы:</label>
+            <select id="groupSelect" name="groupIds" multiple required></select>
+
+            <label for="nameInput">Название теста:</label>
+            <input type="text" id="nameInput" name="name" required />
+
+            <label for="descriptionInput">Описание:</label>
+            <input type="text" id="descriptionInput" name="description" required />
+
+            <label for="questionCountInput">Количество вопросов:</label>
+            <input type="number" id="questionCountInput" name="questionCount" min="1" value="5" required />
+
+            <button type="submit">Создать тест</button>
+        </form>
+
+        <div id="message"></div>
+    </div>
+</div>
+
+<script>
+    const URL_SUBJECTS_BY_TEACHER = "/api/v1/teacher/subjects";
+    const URL_GROUPS_BY_TEACHER   = "/api/v1/teacher/groups";
+    const URL_TOPICS_BY_SUBJECT   = (id) => `/api/v1/subjects/${id}/topics`;
+    const URL_LECTURES_BY_SUBJECT = (id) => `/api/v1/subjects/${id}/lectures`;
+    const URL_CREATE_TEST_REST    = "/api/v1/tests";
+
+    const subjectSelect = document.getElementById("subjectSelect");
+    const topicSelect   = document.getElementById("topicSelect");
+    const lectureSelect = document.getElementById("lectureSelect");
+    const groupSelect   = document.getElementById("groupSelect");
+    const msgBox        = document.getElementById("message");
+
+    function setDisabled(el, v){ el.disabled = !!v; }
+    function fillSelect(select, data, textProp, valueProp="id", keepFirst=false){
+      const first = keepFirst ? select.querySelector("option:first-child") : null;
+      select.innerHTML = "";
+      if (first) select.appendChild(first);
+      data.forEach(x=>{
+        const o=document.createElement("option");
+        o.value = x[valueProp];
+        o.textContent = x[textProp];
+        select.appendChild(o);
+      });
+    }
+    async function safeFetchJson(url){
+      const res = await fetch(url, { credentials:"same-origin" });
+      const ct = res.headers.get("content-type") || "";
+      if(!res.ok){ const t=await res.text(); throw new Error(`HTTP ${res.status}. ${t}`); }
+      if(!ct.includes("application/json")){ const t=await res.text(); throw new Error(`Ожидался JSON, пришло ${ct}. Ответ: ${t.slice(0,300)}...`); }
+      return res.json();
+    }
+
+    async function loadSubjectsAndGroups(){
+      try{
+        const [subjects, groups] = await Promise.all([
+          safeFetchJson(URL_SUBJECTS_BY_TEACHER),
+          safeFetchJson(URL_GROUPS_BY_TEACHER)
+        ]);
+        fillSelect(subjectSelect, subjects, "name", "id", true);
+        fillSelect(groupSelect, groups, "name", "id", false);
+      }catch(e){
+        msgBox.innerHTML = `<div class="alert alert-error">❌ Не удалось загрузить предметы/группы: ${e.message}</div>`;
+      }
+    }
+
+    async function reloadTopicsAndLectures(subjectId){
+      if(!subjectId){
+        fillSelect(topicSelect, [], "name","id", true);
+        fillSelect(lectureSelect, [], "title","id", true);
+        setDisabled(topicSelect,true); setDisabled(lectureSelect,true);
+        return;
+      }
+      setDisabled(topicSelect,true); setDisabled(lectureSelect,true);
+      try{
+        const [topics, lectures] = await Promise.all([
+          safeFetchJson(URL_TOPICS_BY_SUBJECT(subjectId)),
+          safeFetchJson(URL_LECTURES_BY_SUBJECT(subjectId))
+        ]);
+        fillSelect(topicSelect, topics, "name","id", true);
+        fillSelect(lectureSelect, lectures, "title","id", true);
+        setDisabled(topicSelect,false); setDisabled(lectureSelect,false);
+      }catch(e){
+        msgBox.innerHTML = `<div class="alert alert-error">❌ Не удалось загрузить темы/лекции: ${e.message}</div>`;
+      }
+    }
+
+    subjectSelect.addEventListener("change", ()=> reloadTopicsAndLectures(subjectSelect.value));
+
+    loadSubjectsAndGroups().then(()=>{
+      if(subjectSelect.options.length===2){
+        subjectSelect.selectedIndex=1;
+        reloadTopicsAndLectures(subjectSelect.value);
+      }
+    });
+
+    document.getElementById("testForm").addEventListener("submit", async (e)=>{
+      e.preventDefault(); msgBox.innerHTML="";
+      const topicId = parseInt(topicSelect.value);
+      const lectureId = parseInt(lectureSelect.value);
+      const groupIds = Array.from(groupSelect.selectedOptions).map(o=>parseInt(o.value));
+      const name = document.getElementById("nameInput").value.trim();
+      const description = document.getElementById("descriptionInput").value.trim();
+      const questionCount = parseInt(document.getElementById("questionCountInput").value);
+
+      if(!subjectSelect.value){ msgBox.innerHTML=`<div class="alert alert-error">❌ Выберите предмет</div>`; return; }
+      if(!topicId || !lectureId){ msgBox.innerHTML=`<div class="alert alert-error">❌ Укажите тему и лекцию</div>`; return; }
+      if(!groupIds.length){ msgBox.innerHTML=`<div class="alert alert-error">❌ Выберите минимум одну группу</div>`; return; }
+      if(!name || !description || !(questionCount>=1)){ msgBox.innerHTML=`<div class="alert alert-error">❌ Заполните все поля корректно</div>`; return; }
+
+      const payload = { topicId, lectureId, name, description, questionCount, groupIds };
+
+      try{
+        const res = await fetch(URL_CREATE_TEST_REST, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify(payload),
+          credentials:"same-origin"
+        });
+        if(res.ok){
+          const data = await res.json();
+          msgBox.innerHTML = `<div class="alert alert-success">✅ Тест #${data.id} создан</div>`;
+        }else{
+          let txt; try{ const j=await res.json(); txt=j.message||JSON.stringify(j); }catch{ txt=await res.text(); }
+          msgBox.innerHTML = `<div class="alert alert-error">❌ Ошибка создания: ${txt}</div>`;
+        }
+      }catch(ex){
+        msgBox.innerHTML = `<div class="alert alert-error">❌ ${ex.message}</div>`;
+      }
+    });
+</script>
+
+</body>
+</html>

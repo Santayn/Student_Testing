@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository // Добавь эту аннотацию
+@Repository
 public interface QuestionInTestRepository extends JpaRepository<Question_In_Test, Integer> {
-    List<Question_In_Test> findByTestId(Integer testId);
+    List<Question_In_Test> findByTest_Id(Integer testId);
 }

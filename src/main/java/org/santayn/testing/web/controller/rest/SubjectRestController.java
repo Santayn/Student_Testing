@@ -86,7 +86,7 @@ public class SubjectRestController {
         subjectRepository.deleteById(id);
     }
 
-    /* === Простая обработка ошибок валидации на 400 === */
+    /* === 400 для ошибок бизнес-валидации === */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
