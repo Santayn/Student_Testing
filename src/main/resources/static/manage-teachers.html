@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Связи учитель ↔ группы</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
+        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
+        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333;font-size:16px}
+        .sidebar a:hover{color:#007BFF}
+        .content{flex:1;padding:20px;overflow:auto}
+        h2{margin-top:0}
+        form,.section{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:25px}
+        label{font-weight:bold;display:block;margin-bottom:5px}
+        select{width:100%;padding:6px;margin-top:5px}
+        select[multiple]{height:160px}
+        button{padding:10px 20px;border:0;border-radius:4px;cursor:pointer;font-size:15px}
+        .btn-add{background:#28a745;color:#fff}
+        .btn-add:hover{background:#218838}
+        .btn-del{background:#dc3545;color:#fff}
+        .btn-del:hover{background:#c82333}
+        .btn-blue{background:#007BFF;color:#fff}
+        .btn-blue:hover{background:#0056b3}
+        .err{margin-top:10px;color:#b00020}
+        .muted{opacity:.6;pointer-events:none}
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <a href="/index.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/faculties.html">Факультеты</a>
+    <a href="/groups.html">Группы</a>
+    <a href="/teacher-group.html" style="font-weight:bold;">Связи учитель↔группы</a>
+</div>
+
+<div class="content">
+    <h2>Управление связями учитель ↔ группы</h2>
+
+    <!-- выбор учителя -->
+    <form onsubmit="event.preventDefault(); loadTeacherGroups();">
+        <label for="teacher-select">Выберите учителя:</label>
+        <select id="teacher-select" required>
+            <option value="">-- Выберите учителя --</option>
+        </select>
+        <br><br>
+        <button id="btn-show" type="submit" class="btn-blue">Показать группы</button>
+        <div id="err0" class="err"></div>
+    </form>
+
+    <!-- добавление -->
+    <div class="section" id="section-add" style="display:none;">
+        <h3>Добавить группы учителю</h3>
+        <form onsubmit="event.preventDefault(); addGroups();">
+            <label for="free-groups">Свободные группы:</label>
+            <select id="free-groups" multiple required></select>
+            <br><br>
+            <button id="btn-add" type="submit" class="btn-add">Добавить выбранные</button>
+            <div id="errAdd" class="err"></div>
+        </form>
+    </div>
+
+    <!-- список -->
+    <div class="section" id="section-list" style="display:none;">
+        <h3>Группы учителя</h3>
+        <select id="assigned-groups-list" multiple></select>
+    </div>
+
+    <!-- удаление -->
+    <div class="section" id="section-del" style="display:none;">
+        <h3>Удалить группы у учителя</h3>
+        <form onsubmit="event.preventDefault(); removeGroups();">
+            <label for="assigned-groups">Текущие группы учителя:</label>
+            <select id="assigned-groups" multiple required></select>
+            <br><br>
+            <button id="btn-del" type="submit" class="btn-del">Удалить выбранные</button>
+            <div id="errDel" class="err"></div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API = '/api/v1';
+    const ERR = (id,msg) => document.getElementById(id).textContent = msg || '';
+
+    async function fetchJSON(url, opt = {}) {
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json', ...(opt.headers || {}) },
+        ...opt
+      });
+      const txt = await res.text();
+      let data = null;
+      try { data = txt ? JSON.parse(txt) : null; } catch {}
+      if (!res.ok) throw new Error((data && (data.message || data.error)) || (res.status + ' ' + res.statusText));
+      return data;
+    }
+
+    // учителя
+    async function loadTeachers() {
+      try {
+        ERR('err0','');
+        const teachers = await fetchJSON(`${API}/teachers`);
+        const sel = document.getElementById('teacher-select');
+        sel.innerHTML =
+          '<option value="">-- Выберите учителя --</option>' +
+          teachers.map(t => `<option value="${t.id}">${t.fullName}</option>`).join('');
+      } catch (e) { ERR('err0', e.message); }
+    }
+
+    let currentTeacherId = null;
+
+    async function loadTeacherGroups() {
+      const id = document.getElementById('teacher-select').value;
+      if (!id) return;
+      currentTeacherId = id;
+
+      const btn = document.getElementById('btn-show');
+      btn.classList.add('muted');
+
+      try {
+        // группы учителя
+        const assigned = await fetchJSON(`${API}/teacher-groups/${id}`);
+        // свободные группы
+        const free     = await fetchJSON(`${API}/teacher-groups/free`);
+
+        document.getElementById('assigned-groups-list').innerHTML =
+          assigned.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+        document.getElementById('assigned-groups').innerHTML =
+          assigned.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+        document.getElementById('free-groups').innerHTML =
+          free.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+        document.getElementById('section-add').style.display = 'block';
+        document.getElementById('section-list').style.display = 'block';
+        document.getElementById('section-del').style.display = 'block';
+        ERR('err0','');
+      } catch (e) {
+        ERR('err0', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    async function addGroups() {
+      const selected = [...document.getElementById('free-groups').selectedOptions].map(o => Number(o.value));
+      if (!selected.length) return;
+
+      const btn = document.getElementById('btn-add');
+      btn.classList.add('muted');
+
+      try {
+        await fetchJSON(`${API}/teacher-groups/${currentTeacherId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(selected)
+        });
+        ERR('errAdd','');
+        await loadTeacherGroups();
+      } catch (e) {
+        ERR('errAdd', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    async function removeGroups() {
+      const selected = [...document.getElementById('assigned-groups').selectedOptions].map(o => Number(o.value));
+      if (!selected.length) return;
+
+      const btn = document.getElementById('btn-del');
+      btn.classList.add('muted');
+
+      try {
+        await fetchJSON(`${API}/teacher-groups/${currentTeacherId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(selected)
+        });
+        ERR('errDel','');
+        await loadTeacherGroups();
+      } catch (e) {
+        ERR('errDel', e.message);
+      } finally {
+        btn.classList.remove('muted');
+      }
+    }
+
+    loadTeachers();
+</script>
+</body>
+</html>

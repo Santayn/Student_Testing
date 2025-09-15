@@ -1,4 +1,5 @@
 package org.santayn.testing.service;
+
 import jakarta.transaction.Transactional;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.subject.Subject;
@@ -8,6 +9,7 @@ import org.santayn.testing.models.teacher.Teacher_Subject;
 import org.santayn.testing.models.user.User;
 import org.santayn.testing.repository.*;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -18,7 +20,12 @@ public class TeacherService {
     private final Teacher_GroupRepository teacherGroupRepository;
     private final SubjectRepository subjectRepository;
     private final Teacher_SubjectRepository teacherSubjectRepository;
-    public TeacherService(SubjectRepository subjectRepository,Teacher_SubjectRepository teacherSubjectRepository,TeacherRepository teacherRepository, GroupRepository groupRepository, Teacher_GroupRepository teacherGroupRepository) {
+
+    public TeacherService(SubjectRepository subjectRepository,
+                          Teacher_SubjectRepository teacherSubjectRepository,
+                          TeacherRepository teacherRepository,
+                          GroupRepository groupRepository,
+                          Teacher_GroupRepository teacherGroupRepository) {
         this.teacherRepository = teacherRepository;
         this.groupRepository = groupRepository;
         this.teacherGroupRepository = teacherGroupRepository;
@@ -26,136 +33,115 @@ public class TeacherService {
         this.teacherSubjectRepository = teacherSubjectRepository;
     }
 
-
-
     public List<Teacher> getAllTeacher() {
         return teacherRepository.findAllTeachers();
     }
-    // Получение списка студентов по ID группы
-    public List<Teacher> getGroupsByTeacherID(Integer teacherId) {
-        if (teacherId == null) {
-            throw new IllegalArgumentException("Group ID cannot be null");
-        }
-        System.out.println("Fetching groups for teachers ID: " + teacherId); // Логирование
-        List<Teacher> teachers = teacherRepository.findGroupByTeacherId(teacherId);
-        System.out.println("teachers found: " + teachers.size()); // Проверка количества найденных студентов
-        return teachers;
+
+    /** ГРУППЫ ПРЕПОДАВАТЕЛЯ (по ID) */
+    public List<Group> getGroupsByTeacherID(Integer teacherId) {
+        if (teacherId == null) throw new IllegalArgumentException("teacherId не может быть null");
+        System.out.println("Fetching Groups for teacher ID: " + teacherId);
+        List<Group> groups = groupRepository.findGroupByTeacherId(teacherId);
+        System.out.println("Groups found: " + groups.size());
+        return groups;
     }
 
-    // Получение свободных teacher (не входящих в указанную группу)
+    /** ГРУППЫ ПРЕПОДАВАТЕЛЯ (по сущности) */
+    public List<Group> getGroupsByTeacher(Teacher teacher) {
+        return getGroupsByTeacherID(teacher.getId());
+    }
+
+    /** Свободные преподаватели (пример твоего кода) */
     public List<Teacher> findFreeTeacherss() {
         List<Teacher> teacher = teacherRepository.findTeachersNotInAnyGroup();
         System.out.println("Free teachers found: " + teacher.size());
         return teacher;
     }
+
     public Teacher getTeacherById(Integer teacherId) {
         return teacherRepository.findTeacherById(teacherId)
-                .orElseThrow(() -> new RuntimeException("Группа не найдена"));
+                .orElseThrow(() -> new RuntimeException("Преподаватель не найден"));
     }
+
+    /** ПРИКРЕПИТЬ ГРУППЫ К ПРЕПОДАВАТЕЛЮ (без дублей) */
+    @Transactional
     public Teacher addGroupsToTeacher(Integer teacherId, List<Integer> groupIds) {
-        // 1. Получаем группу
         Teacher teacher = getTeacherById(teacherId);
-        // 2. Получаем список Group
+
         List<Group> groups = groupRepository.findAllById(groupIds);
-        if (groups.size() != groupIds.size()) {
-            throw new RuntimeException("Не все group найдены");
-        }
-        // 3. Создаём связи между group и teacher
+        if (groups.size() != groupIds.size()) throw new RuntimeException("Не все группы найдены");
+
         for (Group group : groups) {
-            Teacher_Group groupTeacher = new Teacher_Group();
-            groupTeacher.setTeacher(teacher);
-            groupTeacher.setGroup(group);
-
-            // ❗ Сохраняем связь НАПРЯМУЮ в БД
-            teacherGroupRepository.save(groupTeacher);
+            // избегаем дублей
+            boolean exists = teacherGroupRepository
+                    .findByTeacherIdAndGroupId(teacherId, group.getId())
+                    .isPresent();
+            if (!exists) {
+                Teacher_Group link = new Teacher_Group();
+                link.setTeacher(teacher);
+                link.setGroup(group);
+                teacherGroupRepository.save(link);
+            }
         }
-        // 4. Опционально: можно вернуть обновлённую teacher (если нужно)
         return teacher;
     }
+
+    /** ОТКРЕПИТЬ ГРУППЫ ОТ ПРЕПОДАВАТЕЛЯ (bulk) */
+    @Transactional
     public Teacher deleteGroupsFromTeacher(Integer teacherId, List<Integer> groupIds) {
-        // 1. Получаем teacher
         Teacher teacher = getTeacherById(teacherId);
+        if (groupIds == null || groupIds.isEmpty()) return teacher;
 
-        for (Integer groupId : groupIds) {
-            // Находим конкретную связь "Teacher_Subject"
-            Teacher_Group existingLink = teacherGroupRepository.findByTeacherIdAndGroupId(teacherId, groupId)
-                    .orElseThrow(() -> new RuntimeException("Связь между предметом и преподавателем не найдена"));
-
-            // Удаляем эту связь
-            teacherGroupRepository.delete(existingLink);
-
-        }
-        // 4. Опционально: можно вернуть обновлённую группу (если нужно)
+        teacherGroupRepository.deleteByTeacherIdAndGroupIdIn(teacherId, groupIds);
         return teacher;
     }
 
-
-
+    /** ПРЕДМЕТЫ — оставил твою логику, слегка подчистил тексты ошибок */
+    @Transactional
     public Teacher addSubjectsToTeacher(Integer teacherId, List<Integer> subjectIds) {
-
         Teacher teacher = getTeacherById(teacherId);
-        // 2. Получаем список Group
         List<Subject> subjects = subjectRepository.findAllById(subjectIds);
-        if (subjects.size() != subjectIds.size()) {
-            throw new RuntimeException("Не все subject найдены");
-        }
-        // 3. Создаём связи между group и teacher
+        if (subjects.size() != subjectIds.size()) throw new RuntimeException("Не все предметы найдены");
         for (Subject subject : subjects) {
-            Teacher_Subject subjectTeacher = new Teacher_Subject();
-            subjectTeacher.setTeacher(teacher);
-            subjectTeacher.setSubject(subject);
-
-            // ❗ Сохраняем связь НАПРЯМУЮ в БД
-            teacherSubjectRepository.save(subjectTeacher);
+            Teacher_Subject link = new Teacher_Subject();
+            link.setTeacher(teacher);
+            link.setSubject(subject);
+            teacherSubjectRepository.save(link);
         }
-        // 4. Опционально: можно вернуть обновлённую teacher (если нужно)
         return teacher;
     }
-    public Teacher deleteSubjectsFromTeacher(Integer teacherId, List<Integer> subjectIds) {
-        // 1. Получаем преподавателя
-        Teacher teacher = getTeacherById(teacherId);
-
-        // 2. Для каждого subjectId находим связь "Teacher_Subject" и удаляем её
-        for (Integer subjectId : subjectIds) {
-            // Находим конкретную связь "Teacher_Subject"
-            Teacher_Subject existingLink = teacherSubjectRepository.findByTeacherIdAndSubjectId(teacherId, subjectId)
-                    .orElseThrow(() -> new RuntimeException("Связь между предметом и преподавателем не найдена"));
-
-            // Удаляем эту связь
-            teacherSubjectRepository.delete(existingLink);
-        }
-
-        // 3. Возвращаем обновлённого преподавателя
-        return teacher;
-    }
-
-
-
-
-
 
     @Transactional
-    public void deleteTeacherAndRelatedData(Integer teacherId, Integer userId) {
-
-        // 2. Удаляем связь студента с группами
-        teacherGroupRepository.deleteByTeacherId(teacherId);
-
-        teacherSubjectRepository.deleteByTeacherId(teacherId);
-
-        // 3. Удаляем самого студента
-        teacherRepository.deleteByUser_Id(userId); // или по studentId, если он есть
-
-
+    public Teacher deleteSubjectsFromTeacher(Integer teacherId, List<Integer> subjectIds) {
+        Teacher teacher = getTeacherById(teacherId);
+        for (Integer subjectId : subjectIds) {
+            Teacher_Subject link = teacherSubjectRepository
+                    .findByTeacherIdAndSubjectId(teacherId, subjectId)
+                    .orElseThrow(() -> new RuntimeException("Связь преподавателя с предметом не найдена"));
+            teacherSubjectRepository.delete(link);
+        }
+        return teacher;
     }
+
+    /** Удаление препода и связей */
+    @Transactional
+    public void deleteTeacherAndRelatedData(Integer teacherId, Integer userId) {
+        teacherGroupRepository.deleteByTeacherId(teacherId);
+        teacherSubjectRepository.deleteByTeacherId(teacherId);
+        teacherRepository.deleteByUser_Id(userId);
+    }
+
     public Optional<Teacher> findByUserId(Integer userId) {
         return teacherRepository.findByUserId(userId);
     }
+
     @Transactional
     public void createTeacherForUser(User user) {
         Teacher teacher = new Teacher();
         teacher.setUser(user);
         teacherRepository.save(teacher);
     }
+
     public List<Teacher_Subject> getSubjectsByTeacherId(Integer teacherId) {
         return teacherSubjectRepository.findByTeacherId(teacherId);
     }
