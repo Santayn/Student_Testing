@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Личный кабинет</title>
+  <style>
+    body { font-family: Arial, sans-serif; display:flex; height:100vh; margin:0; }
+    .sidebar { width:200px; background:#f4f4f4; padding:20px; box-shadow:2px 0 5px rgba(0,0,0,.1); }
+    .sidebar a { display:block; margin-bottom:15px; text-decoration:none; color:#333; font-size:16px; }
+    .sidebar a:hover { color:#007BFF; }
+    .content { flex-grow:1; padding:20px; overflow:auto; }
+    h1 { margin-top:0; }
+    p { margin:5px 0; }
+    .hidden { display:none !important; }
+    .error { background:#ffeaea; border:1px solid #ffb3b3; padding:10px; margin-bottom:10px; }
+    .muted { color:#666; }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <!-- О пользователе -->
+  <a href="#" onclick="toggleInfo()">О пользователе</a>
+
+  <!-- Разделы -->
+  <a href="/main.html">Главная</a>
+  <a href="/subjects.html">Предметы</a>
+  <a href="/about.html">О платформе</a>
+
+  <!-- Пользователи (только преподавателям) -->
+  <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
+  <a class="teacher-only" href="/manage-teachers.html">Управление учителями</a>
+  <a class="teacher-only" href="/users.html">Управление ролями</a>
+
+  <!-- Учебные материалы (только преподавателям) -->
+  <a class="teacher-only" href="/manage-teachers-subject.html">Управление предметами</a>
+  <a class="teacher-only" href="/manage-lectures-subject.html">Управление лекциями</a>
+  <a class="teacher-only" href="/manage-topics-subject.html">Управление темами</a>
+  <a class="teacher-only" href="/questions-page.html">Загрузить вопросы</a>
+
+  <!-- Тесты -->
+  <a class="teacher-only" href="/create-test.html">Создать тест</a>
+  <a href="/results.html" style="font-weight:bold;">Результаты тестов</a>
+
+  <!-- Группы / факультеты (только преподавателям) -->
+  <a class="teacher-only" href="/groups.html" style="font-weight:bold;">Создать группу</a>
+  <a class="teacher-only" href="/create-faculty.html" style="font-weight:bold;">Создать факультет</a>
+  <a class="teacher-only" href="/manage-subject-faculty.html">Управление связями</a>
+  <a class="teacher-only" href="/create-subject.html" style="font-weight:bold;">Создание предмета</a>
+</div>
+
+<div class="content">
+  <h1>Личный кабинет</h1>
+
+  <div id="error" class="error hidden"></div>
+
+  <div id="user-info" class="hidden">
+    <p><strong>Имя:</strong> <span id="firstName"></span></p>
+    <p><strong>Фамилия:</strong> <span id="lastName"></span></p>
+    <p><strong>Логин:</strong> <span id="login"></span></p>
+    <p><strong>Телефон:</strong> <span id="phoneNumber"></span></p>
+    <p><strong>Роль:</strong> <span id="role"></span></p>
+    <p class="muted" id="extra"></p>
+  </div>
+
+  <p class="muted">Данные подтягиваются из <code>/api/v1/users/me</code>.</p>
+</div>
+
+<script>
+  function toggleInfo() {
+    const el = document.getElementById('user-info');
+    el.classList.toggle('hidden');
+  }
+
+  const err = document.getElementById('error');
+  function showError(msg){ err.textContent = msg; err.classList.remove('hidden'); }
+  function hideError(){ err.textContent=''; err.classList.add('hidden'); }
+
+  function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.textContent; }
+
+  async function loadMe(){
+    hideError();
+    try{
+      const res = await fetch('/api/v1/users/me', { credentials:'same-origin' });
+      if (res.status === 401) { location.href = '/login'; return; }
+      if (!res.ok) throw new Error('Ошибка загрузки профиля: ' + res.status);
+      const me = await res.json();
+
+      // Заполним поля
+      document.getElementById('firstName').textContent  = esc(me.firstName);
+      document.getElementById('lastName').textContent   = esc(me.lastName);
+      document.getElementById('login').textContent      = esc(me.login);
+      document.getElementById('phoneNumber').textContent= esc(me.phoneNumber);
+      document.getElementById('role').textContent       = esc(me.role);
+
+      const extra = [];
+      if (me.student) {
+        extra.push('Студент' + (me.groupName ? `, группа: ${esc(me.groupName)}` : ''));
+      }
+      if (me.teacher) {
+        extra.push('Преподаватель');
+      }
+      document.getElementById('extra').textContent = extra.join(' • ');
+
+      // Скрыть учительские пункты меню, если пользователь не преподаватель
+      if (!me.teacher) {
+        document.querySelectorAll('.teacher-only').forEach(a => a.classList.add('hidden'));
+      }
+
+      document.getElementById('user-info').classList.remove('hidden');
+    } catch(e){
+      showError(e.message || 'Не удалось загрузить профиль');
+    }
+  }
+
+  loadMe();
+</script>
+
+</body>
+</html>

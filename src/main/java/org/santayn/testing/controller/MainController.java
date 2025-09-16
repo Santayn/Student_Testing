@@ -37,7 +37,7 @@ public class MainController {
     // Раздел "Личный кабинет" — перенаправление на UserController
     @GetMapping("/kubstuTest/profile")
     public String redirectProfile() {
-        return "redirect:/kubstuTest/profile/me"; // Передаём специальный путь для текущего пользователя
+        return "forward:/profile.html"; // Передаём специальный путь для текущего пользователя
     }
 
     // Раздел "Предметы" — перенаправление на список предметов по факультету
