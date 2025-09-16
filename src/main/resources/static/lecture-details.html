@@ -84,8 +84,6 @@
         badgeId.textContent = `ID: ${l.id ?? '—'}`;
 
         descEl.innerHTML = l.description ? safeHtml(l.description).replaceAll('\n','<br/>') : '—';
-        // content может быть HTML — показываем как есть (если храните HTML);
-        // если у тебя plain-text — используй safeHtml(l.content)
         contentEl.innerHTML = l.content || '—';
       }
 
@@ -115,8 +113,8 @@
           const btn = document.createElement('a');
           btn.className = 'btn btn-primary btn-sm';
           btn.textContent = 'Перейти к тесту';
-          // используем твой существующий роут MVC:
-          btn.href = `/kubstuTest/test/${encodeURIComponent(t.id)}`;
+          // исправленный переход на статическую страницу теста
+          btn.href = `/test.html?testId=${encodeURIComponent(t.id)}`;
 
           li.appendChild(left);
           li.appendChild(btn);

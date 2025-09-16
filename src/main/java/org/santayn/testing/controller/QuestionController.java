@@ -31,30 +31,7 @@ public class QuestionController {
     private final StudentService   studentService;
     private final AnswerResultRepository answerRepo;
 
-    @GetMapping("/test/{testId}")
-    public String getTestDetails(
-            @PathVariable Integer testId,
-            Principal          principal,
-            Model              model) {
 
-        // Теперь studentService.findByLogin вернет Student, либо бросит исключение
-        Student student = studentService.findByLogin(principal.getName());
-
-        Test test = testService.getTestById(testId);
-        if (test == null) {
-            model.addAttribute("error", "Тест не найден");
-            return "error-page";
-        }
-
-        List<Question> questions = questionService
-                .getRandomQuestionsByTopic(test.getTopic().getId(), test.getQuestionCount());
-
-        model.addAttribute("test",      test);
-        model.addAttribute("questions", questions);
-        // Если нужно — можно вывести ID студента в шаблоне
-        model.addAttribute("studentId", student.getId());
-        return "test-details";
-    }
 
     @PostMapping("/test/{testId}/submitAnswers")
     public String submitAnswers(
