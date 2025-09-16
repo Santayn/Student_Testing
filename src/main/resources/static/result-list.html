@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Результаты тестов (REST)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        body { padding: 16px; }
+        .right { background: #dfd; }
+        .wrong { background: #fdd; }
+        .muted { color: #666; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: .5rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="mb-3">Результаты тестов</h1>
+
+    <div id="error" class="alert alert-danger d-none"></div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <label class="form-label">Предмет</label>
+            <select id="subject" class="form-select">
+                <option value="">— выберите —</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Лекция</label>
+            <select id="lecture" class="form-select" disabled>
+                <option value="">— выберите —</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Тест</label>
+            <select id="test" class="form-select" disabled>
+                <option value="">— выберите —</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Группа</label>
+            <select id="group" class="form-select" disabled>
+                <option value="">— выберите —</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Студент</label>
+            <select id="student" class="form-select" disabled>
+                <option value="">— все —</option>
+            </select>
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+            <button id="load" class="btn btn-primary w-100">Показать</button>
+        </div>
+    </div>
+
+    <div class="mb-2 muted" id="breadcrumbs"></div>
+
+    <div class="mb-3" id="stats"></div>
+
+    <div class="table-responsive">
+        <table id="tbl">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Вопрос</th>
+                <th>Ответ</th>
+                <th>Правильный</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API = '/api/v1/teacher/results';
+
+    const errBox = document.getElementById('error');
+    function showError(msg){ errBox.textContent = msg; errBox.classList.remove('d-none'); }
+    function hideError(){ errBox.classList.add('d-none'); errBox.textContent=''; }
+
+    const $subj = document.getElementById('subject');
+    const $lec  = document.getElementById('lecture');
+    const $test = document.getElementById('test');
+    const $grp  = document.getElementById('group');
+    const $std  = document.getElementById('student');
+    const $load = document.getElementById('load');
+
+    const $stats = document.getElementById('stats');
+    const $crumb = document.getElementById('breadcrumbs');
+    const $tbody = document.querySelector('#tbl tbody');
+
+    function opt(text, value){ const o=document.createElement('option'); o.textContent=text; o.value=value ?? ''; return o; }
+
+    async function getJSON(url){
+      const res = await fetch(url, {credentials:'same-origin'});
+      if (!res.ok){
+        if (res.status === 401) throw new Error('Не авторизовано (нужна роль преподавателя)');
+        throw new Error(`Ошибка ${res.status}`);
+      }
+      return res.json();
+    }
+
+    async function loadSubjects(){
+      const data = await getJSON(`${API}/subjects`);
+      $subj.replaceChildren(opt('— выберите —',''));
+      data.forEach(s => $subj.appendChild(opt(s.name, s.id)));
+      $lec.disabled = true; $test.disabled = true; $grp.disabled = true; $std.disabled = true;
+    }
+
+    async function loadLectures(){
+      const sid = $subj.value || '';
+      if (!sid){ $lec.replaceChildren(opt('— выберите —','')); $lec.disabled=true; return; }
+      const data = await getJSON(`${API}/lectures?subjectId=${encodeURIComponent(sid)}`);
+      $lec.replaceChildren(opt('— выберите —',''));
+      data.forEach(l => $lec.appendChild(opt(l.title, l.id)));
+      $lec.disabled = false; $test.disabled = true; $grp.disabled = true; $std.disabled = true;
+    }
+
+    async function loadTests(){
+      const lid = $lec.value || '';
+      if (!lid){ $test.replaceChildren(opt('— выберите —','')); $test.disabled=true; return; }
+      const data = await getJSON(`${API}/tests?lectureId=${encodeURIComponent(lid)}`);
+      $test.replaceChildren(opt('— выберите —',''));
+      data.forEach(t => $test.appendChild(opt(t.name ?? ('Тест #' + t.id), t.id)));
+      $test.disabled = false; $grp.disabled = true; $std.disabled = true;
+    }
+
+    async function loadGroups(){
+      const tid = $test.value || '';
+      if (!tid){ $grp.replaceChildren(opt('— выберите —','')); $grp.disabled=true; return; }
+      const data = await getJSON(`${API}/groups?testId=${encodeURIComponent(tid)}`);
+      $grp.replaceChildren(opt('— выберите —',''));
+      data.forEach(g => $grp.appendChild(opt(g.name, g.id)));
+      $grp.disabled = false; $std.disabled = true;
+    }
+
+    async function loadStudents(){
+      const gid = $grp.value || '';
+      if (!gid){ $std.replaceChildren(opt('— все —','')); $std.disabled=true; return; }
+      const data = await getJSON(`${API}/students?groupId=${encodeURIComponent(gid)}`);
+      $std.replaceChildren(opt('— все —',''));
+      data.forEach(s => $std.appendChild(opt(s.fullName, s.id)));
+      $std.disabled = false;
+    }
+
+    async function loadData(){
+      const params = new URLSearchParams();
+      if ($subj.value) params.set('subjectId', $subj.value);
+      if ($lec.value)  params.set('lectureId', $lec.value);
+      if ($test.value) params.set('testId', $test.value);
+      if ($grp.value)  params.set('groupId', $grp.value);
+      if ($std.value)  params.set('studentId', $std.value);
+
+      const d = await getJSON(`${API}/data?` + params.toString());
+
+      // статистика
+      const st = d.stats || {total:0,right:0,percent:0};
+      $stats.innerHTML = `Правильных: <strong>${st.right}</strong> из <strong>${st.total}</strong> (${st.percent}%)`;
+
+      // хлебные крошки
+      const parts=[];
+      if (d.selectedTestName) parts.push(`Тест: <b>${escapeHtml(d.selectedTestName)}</b>`);
+      if (d.selectedGroupName) parts.push(`Группа: <b>${escapeHtml(d.selectedGroupName)}</b>`);
+      if (d.selectedStudentName) parts.push(`Студент: <b>${escapeHtml(d.selectedStudentName)}</b>`);
+      $crumb.innerHTML = parts.join(' • ');
+
+      // таблица
+      $tbody.replaceChildren();
+      (d.results || []).forEach((r,i) => {
+        const tr = document.createElement('tr');
+        tr.className = r.correct ? 'right' : 'wrong';
+        tr.innerHTML =
+          `<td>${i+1}</td>
+           <td>${escapeHtml(abbrev(r.questionText || '', 80))}</td>
+           <td>${escapeHtml(r.givenAnswer || '')}</td>
+           <td>${escapeHtml(r.correctAnswer || '')}</td>`;
+        $tbody.appendChild(tr);
+      });
+      if (!d.results || !d.results.length){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="muted">Нет результатов для отображения</td>`;
+        $tbody.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(s){
+      const d=document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML;
+    }
+    function abbrev(s, n){ return (s && s.length>n) ? s.slice(0,n-1)+'…' : (s||''); }
+
+    // события
+    $subj.addEventListener('change', async () => { hideError(); try{ await loadLectures(); } catch(e){ showError(e.message); } });
+    $lec .addEventListener('change', async () => { hideError(); try{ await loadTests(); } catch(e){ showError(e.message); } });
+    $test.addEventListener('change', async () => { hideError(); try{ await loadGroups(); } catch(e){ showError(e.message); } });
+    $grp .addEventListener('change', async () => { hideError(); try{ await loadStudents(); } catch(e){ showError(e.message); } });
+    $load.addEventListener('click', async () => { hideError(); try{ await loadData(); } catch(e){ showError(e.message); } });
+
+    (async function boot(){
+      try{
+        await loadSubjects();
+      } catch(e){ showError(e.message); }
+    })();
+</script>
+</body>
+</html>
