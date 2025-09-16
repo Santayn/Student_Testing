@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Мои предметы</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h3 mb-0">Мои предметы</h1>
+        <a href="/kubstuTest" class="btn btn-outline-secondary btn-sm">На главную</a>
+    </div>
+
+    <div id="meta" class="small text-muted mb-3" aria-live="polite">Загрузка информации…</div>
+
+    <div class="mb-3">
+        <input id="filter" type="search" class="form-control" placeholder="Фильтр по названию предмета…">
+    </div>
+
+    <div id="err" class="alert alert-danger d-none" role="alert"></div>
+
+    <div id="skeleton" class="list-group mb-3">
+        <div class="list-group-item placeholder-glow"><span class="placeholder col-6"></span></div>
+        <div class="list-group-item placeholder-glow"><span class="placeholder col-7"></span></div>
+        <div class="list-group-item placeholder-glow"><span class="placeholder col-5"></span></div>
+    </div>
+
+    <div id="summary" class="text-muted mb-2 d-none"></div>
+    <ul id="subjects" class="list-group"></ul>
+
+    <a href="/kubstuTest" class="btn btn-secondary mt-4">Назад</a>
+</div>
+
+<script>
+    (function () {
+      const metaEl = document.getElementById('meta');
+      const errEl  = document.getElementById('err');
+      const listEl = document.getElementById('subjects');
+      const skelEl = document.getElementById('skeleton');
+      const sumEl  = document.getElementById('summary');
+      const filterEl = document.getElementById('filter');
+
+      let facultyId = null;
+      let subjects = [];
+
+      function showErr(msg, status) {
+        const loginHint = (status === 401 || status === 403)
+          ? ' Возможно, завершилась сессия. <a class="alert-link" href="/login">Войти</a>.'
+          : '';
+        errEl.innerHTML = (msg || 'Ошибка загрузки.') + loginHint;
+        errEl.classList.remove('d-none');
+      }
+      function hideErr() { errEl.classList.add('d-none'); }
+
+      function renderList(items) {
+        listEl.innerHTML = '';
+        if (!items.length) {
+          const li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.textContent = 'Предметов не найдено.';
+          listEl.appendChild(li);
+          sumEl.classList.add('d-none');
+          return;
+        }
+        items.forEach(s => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+
+          const a = document.createElement('a');
+          a.textContent = s.name || (`Предмет #${s.id}`);
+          // ВЕДЁМ на статическую страницу деталей:
+          a.href = `/subject-details.html?facultyId=${facultyId}&subjectId=${s.id}`;
+          a.className = 'stretched-link';
+
+          const right = document.createElement('div');
+          right.className = 'text-muted small';
+          if (s.id) right.textContent = `ID: ${s.id}`;
+
+          li.appendChild(a);
+          li.appendChild(right);
+          listEl.appendChild(li);
+        });
+
+        sumEl.textContent = `Найдено предметов: ${items.length}`;
+        sumEl.classList.remove('d-none');
+      }
+
+      function applyFilter() {
+        const q = (filterEl.value || '').trim().toLowerCase();
+        if (!q) { renderList(subjects); return; }
+        renderList(subjects.filter(s => (s.name || '').toLowerCase().includes(q)));
+      }
+      filterEl.addEventListener('input', applyFilter);
+
+      (async function load() {
+        try {
+          const fRes = await fetch('/api/v1/me/faculty', {credentials: 'same-origin'});
+          if (!fRes.ok) {
+            showErr('Не удалось получить информацию о факультете (' + fRes.status + ')', fRes.status);
+            skelEl.classList.add('d-none');
+            return;
+          }
+          const meta = await fRes.json();
+          facultyId = meta.facultyId;
+          metaEl.textContent = `Факультет: ${meta.facultyName || meta.facultyId}, группа: ${meta.groupTitle || meta.groupName || meta.groupId}`;
+
+          const sRes = await fetch('/api/v1/me/subjects', {credentials: 'same-origin'});
+          if (!sRes.ok) {
+            showErr('Не удалось получить предметы (' + sRes.status + ')', sRes.status);
+            skelEl.classList.add('d-none');
+            return;
+          }
+          subjects = await sRes.json();
+
+          hideErr();
+          skelEl.classList.add('d-none');
+          renderList(subjects);
+        } catch (e) {
+          skelEl.classList.add('d-none');
+          showErr(e?.message || 'Ошибка загрузки');
+        }
+      })();
+    })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Детали предмета</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        .skeleton{display:inline-block;height:1em;width:60%;background:#e9ecef;border-radius:4px;animation:pulse 1.2s infinite ease-in-out}
+        @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4" id="app">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/kubstuTest">Главная</a></li>
+            <li class="breadcrumb-item"><a id="crumbSubjects" href="#">Предметы</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><span id="crumbCurrent">Детали предмета</span></li>
+        </ol>
+    </nav>
+
+    <div id="err" class="alert alert-danger d-none" role="alert"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h1 id="title" class="h4 mb-0"><span class="skeleton">&nbsp;</span></h1>
+            <span id="badgeId" class="badge text-bg-secondary d-none">ID: —</span>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Название</dt>
+                <dd class="col-sm-9" id="name"><span class="skeleton">&nbsp;</span></dd>
+                <dt class="col-sm-3">Описание</dt>
+                <dd class="col-sm-9" id="description"><span class="text-muted">—</span></dd>
+            </dl>
+        </div>
+        <div class="card-footer d-flex gap-2">
+            <a id="lecturesLink" class="btn btn-primary disabled" href="#" aria-disabled="true">Перейти к лекциям</a>
+            <a id="backLink" class="btn btn-outline-secondary" href="#">Назад к списку</a>
+        </div>
+    </div>
+
+    <div id="notFound" class="alert alert-warning mt-3 d-none">
+        Предмет не найден.
+        <a class="alert-link" id="notFoundBack" href="#">Вернуться к списку предметов</a>
+    </div>
+</div>
+
+<script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+
+      const errBox       = $('err');
+      const notFoundBox  = $('notFound');
+      const notFoundBack = $('notFoundBack');
+
+      const titleEl      = $('title');
+      const crumbCurrent = $('crumbCurrent');
+      const badgeId      = $('badgeId');
+      const nameEl       = $('name');
+      const descEl       = $('description');
+      const lecturesLink = $('lecturesLink');
+      const backLink     = $('backLink');
+      const crumbSubjects= $('crumbSubjects');
+
+      const url = new URL(window.location.href);
+      const facultyId = url.searchParams.get('facultyId');
+      const subjectId = url.searchParams.get('subjectId');
+
+      const subjectsUrl = facultyId
+        ? `/subjects.html?facultyId=${encodeURIComponent(facultyId)}`
+        : `/subjects.html`;
+      backLink.href = subjectsUrl;
+      crumbSubjects.href = subjectsUrl;
+      notFoundBack.href = subjectsUrl;
+
+      if (!subjectId) {
+        showError('Не передан параметр subjectId');
+        toggleNotFound(true);
+        stopSkeleton();
+        return;
+      }
+
+      fetch(`/api/v1/subjects/${encodeURIComponent(subjectId)}`, {credentials:'same-origin'})
+        .then(async (res) => {
+          if (res.status === 404) {
+            toggleNotFound(true);
+            throw new Error('Предмет не найден');
+          }
+          if (!res.ok) {
+            throw new Error('Ошибка загрузки предмета (' + res.status + ')');
+          }
+          return res.json();
+        })
+        .then((s) => {
+          titleEl.textContent = s.name || (`Предмет #${s.id}`);
+          crumbCurrent.textContent = titleEl.textContent;
+
+          badgeId.classList.remove('d-none');
+          badgeId.textContent = `ID: ${s.id ?? '—'}`;
+
+          nameEl.textContent = s.name || '—';
+
+          const safe = (txt) => {
+            if (!txt) return null;
+            const div = document.createElement('div');
+            div.textContent = txt;
+            return div.innerHTML;
+          };
+          if (s.description && s.description.trim().length > 0) {
+            descEl.innerHTML = safe(s.description).replaceAll('\n', '<br/>');
+          } else {
+            descEl.innerHTML = '<span class="text-muted">—</span>';
+          }
+
+          lecturesLink.href = `/lectures.html?subjectId=${encodeURIComponent(s.id)}`;
+          lecturesLink.classList.remove('disabled');
+          lecturesLink.removeAttribute('aria-disabled');
+        })
+        .catch((e) => {
+          showError(e.message || 'Произошла ошибка загрузки');
+        })
+        .finally(() => {
+          stopSkeleton();
+        });
+
+      function showError(message) {
+        errBox.textContent = message;
+        errBox.classList.remove('d-none');
+      }
+      function toggleNotFound(on) {
+        notFoundBox.classList.toggle('d-none', !on);
+      }
+      function stopSkeleton() {
+        document.querySelectorAll('.skeleton').forEach(el => {
+          el.classList.remove('skeleton');
+          if (!el.textContent.trim()) el.textContent = '—';
+        });
+      }
+    })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@
     <div class="d-flex justify-content-between align-items-center">
         <h1 class="mb-0">Добро пожаловать на платформу тестирования студентов</h1>
 
-        <!-- Кнопка выхода (POST /logout + CSRF) -->
+        <!-- Кнопка выхода (POST /logout + CSRF) — будет работать только если файл рендерится через Thymeleaf -->
         <form th:action="@{/logout}" method="post" class="ms-3">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <button type="submit" class="btn btn-outline-danger">Выйти</button>
@@ -22,7 +22,7 @@
     <div class="mt-4">
         <a href="/kubstuTest/about" class="btn btn-primary me-2">О платформе</a>
         <a href="/kubstuTest/profile" class="btn btn-secondary me-2">Личный кабинет</a>
-        <a href="/kubstuTest/subjects" class="btn btn-success">Предметы</a>
+        <a href="/subjects.html" class="btn btn-success">Предметы</a>
     </div>
 </div>
 </body>
