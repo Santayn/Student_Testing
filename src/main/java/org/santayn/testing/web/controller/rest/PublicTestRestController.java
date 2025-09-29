@@ -9,7 +9,12 @@ import org.santayn.testing.repository.AnswerResultRepository;
 import org.santayn.testing.service.QuestionService;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.service.UserService;
-import org.santayn.testing.web.dto.test.*;
+import org.santayn.testing.web.dto.test.AnswerResultDto;
+import org.santayn.testing.web.dto.test.QuestionDto;
+import org.santayn.testing.web.dto.test.SubmitRequest;
+import org.santayn.testing.web.dto.test.SubmitResponse;
+import org.santayn.testing.web.dto.test.TestLoadResponse;
+import org.santayn.testing.web.dto.test.TestShortDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -19,6 +24,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/public/tests")
@@ -43,10 +51,11 @@ public class PublicTestRestController {
     @GetMapping("/{testId}")
     public TestLoadResponse load(@PathVariable Integer testId) {
         Test test = testService.getTestById(testId);
-        if (test == null)
+        if (test == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Тест не найден");
+        }
 
-        var qs = questionService.getRandomQuestionsByTopic(
+        List<Question> qs = questionService.getRandomQuestionsByTopic(
                 test.getTopic().getId(), test.getQuestionCount());
 
         Integer studentId = currentStudentIdOrNull();
@@ -58,7 +67,11 @@ public class PublicTestRestController {
         );
     }
 
-    /** Отправка ответов (JSON) */
+    /**
+     * Отправка ответов (JSON).
+     * Ответы сопоставляются по идентификатору вопроса, а не по индексу —
+     * так исключаем «переворачивание» при произвольном порядке JPA.
+     */
     @PostMapping("/{testId}/submit")
     public SubmitResponse submit(@PathVariable Integer testId,
                                  @RequestBody SubmitRequest req) {
@@ -70,36 +83,59 @@ public class PublicTestRestController {
 
         Integer studentId = currentStudentIdRequired();
 
-        var questions = questionService.findQuestionsByIds(req.questionIds());
-        var toSave = new ArrayList<AnswerResult>();
-        var resultDtos = new ArrayList<AnswerResultDto>();
-        int correctCount = 0;
+        // Загружаем вопросы и индексируем по ID
+        List<Question> loaded = questionService.findQuestionsByIds(req.questionIds());
+        Map<Integer, Question> byId = loaded.stream()
+                .collect(Collectors.toMap(Question::getId, q -> q));
 
-        for (int i = 0; i < questions.size(); i++) {
-            Question q = questions.get(i);
-            String given = (req.answers().get(i) == null ? "" : req.answers().get(i)).trim();
-            boolean ok = given.equalsIgnoreCase(q.getCorrectAnswer().trim());
+        if (byId.size() != req.questionIds().size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Некоторые вопросы не найдены");
+        }
+
+        int correctCount = 0;
+        List<AnswerResult> entities = new ArrayList<>(req.questionIds().size());
+        List<AnswerResultDto> details = new ArrayList<>(req.questionIds().size());
+
+        // Идём в исходном порядке questionIds
+        for (int i = 0; i < req.questionIds().size(); i++) {
+            Integer qid = req.questionIds().get(i);
+            Question q = byId.get(qid);
+
+            String givenRaw = req.answers().get(i);
+            String givenNorm = normalize(givenRaw);
+            String correctNorm = normalize(q.getCorrectAnswer());
+
+            boolean ok = givenNorm.equals(correctNorm);
             if (ok) correctCount++;
 
-            toSave.add(new AnswerResult(
-                    null, testId, studentId,
-                    q.getId(), q.getText(), q.getCorrectAnswer(),
-                    given, ok
+            entities.add(new AnswerResult(
+                    null,
+                    testId,
+                    studentId,
+                    q.getId(),
+                    q.getText(),
+                    q.getCorrectAnswer(),
+                    givenRaw == null ? "" : givenRaw.trim(),
+                    ok
             ));
 
-            resultDtos.add(new AnswerResultDto(
-                    q.getId(), q.getText(), q.getCorrectAnswer(), given, ok
+            details.add(new AnswerResultDto(
+                    q.getId(),
+                    q.getText(),
+                    q.getCorrectAnswer(),
+                    givenRaw,
+                    ok
             ));
         }
 
-        answerRepo.saveAll(toSave);
+        answerRepo.saveAll(entities);
 
         return new SubmitResponse(
                 testId,
                 studentId,
                 correctCount,
-                questions.size(),
-                resultDtos
+                req.questionIds().size(),
+                details
         );
     }
 
@@ -114,8 +150,18 @@ public class PublicTestRestController {
 
     private Integer currentStudentIdRequired() {
         Integer id = currentStudentIdOrNull();
-        if (id == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Нужно войти как студент");
+        if (id == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Нужно войти как студент");
+        }
         return id;
+    }
+
+    private static String normalize(String s) {
+        if (s == null) return "";
+        String out = s.trim().toLowerCase(Locale.ROOT);
+        // небольшая нормализация для русской 'ё'
+        out = out.replace('ё', 'е');
+        return out;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
