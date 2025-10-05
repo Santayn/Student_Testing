@@ -11,13 +11,18 @@
         .sidebar a{display:block;margin-bottom:12px;text-decoration:none;color:#333}
         .sidebar a:hover{color:#007BFF}
         .content{flex:1;padding:20px;overflow:auto}
-        form{background:#fff;padding:16px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);max-width:560px}
+        form{background:#fff;padding:16px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);max-width:720px}
         label{font-weight:bold;display:block;margin:10px 0 6px}
         select,input[type=file]{width:100%;padding:8px}
         button{margin-top:14px;padding:10px 16px;border:0;border-radius:4px;background:#28a745;color:#fff;cursor:pointer}
         button:hover{background:#218838}
+        .btn-danger{background:#dc3545}
+        .btn-danger:hover{background:#bb2d3b}
         .err{margin-top:10px;color:#b00020}
         .ok{margin-top:10px;color:#0a7a28}
+        .list{margin-top:16px}
+        .item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eee}
+        .muted{color:#666;font-size:12px}
     </style>
 </head>
 <body>
@@ -32,6 +37,7 @@
 
 <div class="content">
     <h2>Загрузка вопросов</h2>
+
     <form onsubmit="event.preventDefault(); upload();">
         <label for="subject">Предмет</label>
         <select id="subject" required onchange="loadTopics()">
@@ -39,67 +45,145 @@
         </select>
 
         <label for="topic">Тема</label>
-        <select id="topic" required>
+        <select id="topic" required onchange="refreshList()">
             <option value="">-- выберите тему --</option>
         </select>
 
         <label for="file">Файл (.docx или .csv)</label>
         <input id="file" type="file" accept=".docx,.csv" required>
 
-        <button id="btn" type="submit">Загрузить</button>
+        <button id="btnUpload" type="submit">Загрузить</button>
         <div id="msg" class=""></div>
     </form>
+
+    <form style="margin-top:16px" onsubmit="event.preventDefault(); addManual();">
+        <label>Добавить вопрос вручную</label>
+        <textarea id="manualText" placeholder="Текст вопроса" rows="3" style="width:100%;padding:8px"></textarea>
+        <label for="manualCorrect" class="muted">Правильный ответ (первая буква, напр. A)</label>
+        <input id="manualCorrect" value="A" style="width:100%;padding:8px">
+        <button type="submit">Добавить вопрос</button>
+    </form>
+
+    <div style="margin-top:20px;max-width:720px">
+        <div class="item" style="justify-content:space-between;background:#f8f9fa;border:1px solid #eee">
+            <div><strong>Вопросы выбранной темы</strong></div>
+            <div class="muted">Список обновляется при смене темы / загрузке / добавлении</div>
+        </div>
+        <div class="list" id="list"></div>
+
+        <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn-danger" onclick="deleteSelected()">Удалить выбранные</button>
+            <button onclick="refreshList()">Обновить список</button>
+        </div>
+    </div>
 </div>
 
 <script>
     const API = '/api/v1';
     const q = s => document.querySelector(s);
-    function show(ok, text){
-      const el = q('#msg'); el.className = ok ? 'ok':'err'; el.textContent = text || '';
-    }
+    const msg = q('#msg');
 
-    async function fetchJSON(url, opt={}){
-      const res = await fetch(url, opt);
+    function show(ok, text){ msg.className = ok ? 'ok' : 'err'; msg.textContent = text||''; }
+
+    async function fetchJSON(url, opt={}) {
+      const res = await fetch(url, { credentials:'same-origin', ...opt });
       const text = await res.text();
-      let data = null; try{ data = text ? JSON.parse(text) : null }catch{}
-      if (!res.ok) throw new Error((data && (data.message||data.error)) || (res.status+' '+res.statusText));
+      let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) throw new Error((data && (data.message || data.error)) || (res.status+' '+res.statusText));
       return data;
     }
 
     async function loadSubjects(){
       try{
         const subs = await fetchJSON(`${API}/teacher-subjects/me`);
-        q('#subject').innerHTML = '<option value="">-- выберите предмет --</option>' +
-          subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        q('#subject').innerHTML = '<option value="">-- выберите предмет --</option>'
+          + subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
       }catch(e){ show(false, e.message); }
     }
 
     async function loadTopics(){
       const sid = q('#subject').value;
-      if(!sid){ q('#topic').innerHTML = '<option value="">-- выберите тему --</option>'; return; }
+      q('#topic').innerHTML = '<option value="">-- выберите тему --</option>';
+      if(!sid) return;
       try{
         const topics = await fetchJSON(`${API}/questions/topics?subjectId=${sid}`);
-        q('#topic').innerHTML = '<option value="">-- выберите тему --</option>' +
-          topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        q('#topic').innerHTML = '<option value="">-- выберите тему --</option>'
+          + topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
         show(true, '');
+        refreshList();
       }catch(e){ show(false, e.message); }
     }
 
-    async function upload(){
-      const topicId = q('#topic').value;
-      const file = q('#file').files[0];
-      if(!topicId || !file){ return; }
+    async function refreshList(){
+      const tid = q('#topic').value;
+      const list = q('#list');
+      list.innerHTML = '';
+      if(!tid) return;
+      try{
+        const items = await fetchJSON(`${API}/questions/by-topic?topicId=${tid}`);
+        if(!items.length){
+          list.innerHTML = '<div class="item muted">В этой теме пока нет вопросов</div>';
+          return;
+        }
+        list.innerHTML = items.map(i => `
+          <div class="item">
+            <input type="checkbox" data-id="${i.id}">
+            <div class="muted">#${i.id}</div>
+            <div><strong>Правильный:</strong> ${i.correctAnswer}</div>
+            <div style="flex:1">${i.text}</div>
+          </div>
+        `).join('');
+      }catch(e){ list.innerHTML = `<div class="item err">Ошибка загрузки: ${e.message}</div>`; }
+    }
 
-      const btn = q('#btn'); btn.disabled = true;
+    async function upload(){
+      const tid = q('#topic').value;
+      const file = q('#file').files[0];
+      if(!tid || !file) return;
+
+      const btn = q('#btnUpload'); btn.disabled = true;
       try{
         const fd = new FormData();
-        fd.append('topicId', Number(topicId));
+        fd.append('topicId', Number(tid));
         fd.append('file', file);
         const res = await fetchJSON(`${API}/questions/upload`, { method:'POST', body: fd });
         show(true, `Успешно загружено: ${res.saved}`);
         q('#file').value = '';
+        await refreshList();
       }catch(e){ show(false, e.message); }
       finally{ btn.disabled = false; }
+    }
+
+    async function addManual(){
+      const tid = q('#topic').value;
+      const text = q('#manualText').value.trim();
+      const corr = q('#manualCorrect').value.trim();
+      if(!tid || !text || !corr) return;
+      try{
+        await fetchJSON(`${API}/questions/manual?topicId=${encodeURIComponent(tid)}&text=${encodeURIComponent(text)}&correctAnswer=${encodeURIComponent(corr)}`, {
+          method: 'POST'
+        });
+        q('#manualText').value = '';
+        show(true, 'Вопрос добавлен');
+        await refreshList();
+      }catch(e){ show(false, e.message); }
+    }
+
+    async function deleteSelected(){
+      const tid = q('#topic').value;
+      if(!tid) return;
+      const ids = Array.from(document.querySelectorAll('input[type=checkbox][data-id]:checked'))
+        .map(ch => Number(ch.getAttribute('data-id')));
+      if(!ids.length){ show(false, 'Ничего не выбрано'); return; }
+
+      const qs = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&');
+      try{
+        const r = await fetchJSON(`${API}/questions/by-topic/${encodeURIComponent(tid)}?${qs}`, {
+          method: 'DELETE'
+        });
+        show(true, `Удалено: ${r.deleted}`);
+        await refreshList();
+      }catch(e){ show(false, e.message); }
     }
 
     loadSubjects();

@@ -7,9 +7,11 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.topic.Topic;
+import org.santayn.testing.repository.QuestionInTestRepository;
 import org.santayn.testing.repository.QuestionRepository;
 import org.santayn.testing.repository.TopicRepository;
 
@@ -25,20 +27,23 @@ import java.util.stream.Collectors;
 public class QuestionService {
 
     private static final Logger log = LoggerFactory.getLogger(QuestionService.class);
+
     private final TopicRepository topicRepository;
     private final QuestionRepository questionRepository;
+    private final QuestionInTestRepository questionInTestRepository;
 
-    /** Старый метод — оставляем для совместимости (MVC). По-умолчанию определяет формат по расширению. */
+    /** Старый метод — для совместимости (MVC). */
     public void processQuestionFile(Integer topicId, MultipartFile file) {
         processQuestionFileCount(topicId, file);
     }
 
-    /** Новый метод — делает то же самое, но возвращает кол-во сохранённых вопросов. Поддерживает .docx и .csv */
+    /** Загрузка из файла (.docx/.csv) с подсчётом сохранённых вопросов. */
     public int processQuestionFileCount(Integer topicId, MultipartFile file) {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new IllegalArgumentException("Тема не найдена"));
 
-        String name = Optional.ofNullable(file.getOriginalFilename()).orElse("").toLowerCase(Locale.ROOT);
+        String name = Optional.ofNullable(file.getOriginalFilename()).orElse("")
+                .toLowerCase(Locale.ROOT);
 
         List<Question> parsed;
         if (name.endsWith(".csv")) {
@@ -59,10 +64,32 @@ public class QuestionService {
         return parsed.size();
     }
 
-    /** Возвращает случайные вопросы указанного количества */
+    /** Полный список вопросов по теме (для UI). */
+    public List<Question> getQuestionsByTopic(Integer topicId) {
+        ensureTopicExists(topicId);
+        return questionRepository.findByTopicIdOrderByIdAsc(topicId);
+    }
+
+    /** Создание одного вопроса вручную. */
+    public Question createManual(Integer topicId, String text, String correctAnswer) {
+        Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new IllegalArgumentException("Тема не найдена"));
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("Текст вопроса пуст");
+        }
+        if (correctAnswer == null || correctAnswer.isBlank()) {
+            throw new IllegalArgumentException("Правильный ответ пуст");
+        }
+        Question q = new Question();
+        q.setTopic(topic);
+        q.setText(text.trim());
+        q.setCorrectAnswer(correctAnswer.trim());
+        return questionRepository.save(q);
+    }
+
+    /** Возвращает случайные вопросы указанного количества. */
     public List<Question> getRandomQuestionsByTopic(Integer topicId, int count) {
-        if (!topicRepository.existsById(topicId))
-            throw new IllegalArgumentException("Тема не найдена");
+        ensureTopicExists(topicId);
         List<Question> all = questionRepository.findByTopicId(topicId);
         if (all.isEmpty())
             throw new IllegalArgumentException("В теме нет вопросов");
@@ -70,15 +97,51 @@ public class QuestionService {
         return all.stream().limit(count).collect(Collectors.toList());
     }
 
-    /** Находит вопросы по списку ID */
+    /** Находит вопросы по списку ID. */
     public List<Question> findQuestionsByIds(List<Integer> ids) {
         return questionRepository.findAllById(ids);
     }
 
-    /* ======== private-парсеры ======== */
+    /**
+     * Удаление пачкой: сначала чистим связи в question_in_test,
+     * затем удаляем сами вопросы. Всё в одной транзакции.
+     *
+     * @return количество удалённых вопросов
+     */
+    @Transactional
+    public int deleteQuestionsByIds(Integer topicId, List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) return 0;
+        ensureTopicExists(topicId);
+
+        // проверим, что все вопросы принадлежат теме
+        List<Question> loaded = questionRepository.findAllById(ids);
+        if (loaded.size() != ids.size()) {
+            throw new IllegalArgumentException("Некоторые вопросы не найдены");
+        }
+        boolean foreign = loaded.stream().anyMatch(q ->
+                q.getTopic() == null || !Objects.equals(q.getTopic().getId(), topicId));
+        if (foreign) {
+            throw new IllegalArgumentException("В списке есть вопросы другой темы");
+        }
+
+        // сначала удаляем связи с тестами
+        int detached = questionInTestRepository.deleteByQuestionIds(ids);
+        log.info("Удалено {} связей question_in_test для вопросов {}", detached, ids);
+
+        // затем удаляем сами вопросы
+        questionRepository.deleteAllByIdInBatch(ids);
+        return loaded.size();
+    }
+
+    /* ======== private ======== */
+
+    private void ensureTopicExists(Integer topicId) {
+        if (!topicRepository.existsById(topicId)) {
+            throw new IllegalArgumentException("Тема не найдена");
+        }
+    }
 
     /** DOCX формат:
-     *  блоки вида:
      *  Вопрос: <текст...>
      *  ...
      *  Ответ: A|B|C|D (первая буква)
@@ -110,26 +173,20 @@ public class QuestionService {
     }
 
     /** CSV формат (простой):
-     *  заголовок необязателен. Разделитель — запятая или точка с запятой.
-     *  Ожидаемые колонки: text, correct
-     *  Примеры строк:
-     *    Текст вопроса, A
-     *    "Сколько будет 2+2?", B
-     *  Если присутствует заголовок (text;correct или вопрос;ответ) — будет пропущен.
+     *  колонки: text, correct (разделитель ',' или ';')
      */
     private List<Question> parseCsv(MultipartFile file) {
         List<Question> result = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             boolean maybeHeader = true;
             while ((line = br.readLine()) != null) {
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) continue;
 
-                // делим по ; или , (без сложных кейсов экранирования)
                 String[] parts = trimmed.split("[;,]", 2);
                 if (parts.length < 2) {
-                    // попробуем всё-таки найти последнюю запятую/точку с запятой
                     int idx = Math.max(trimmed.lastIndexOf(';'), trimmed.lastIndexOf(','));
                     if (idx <= 0 || idx >= trimmed.length() - 1) continue;
                     parts = new String[]{ trimmed.substring(0, idx), trimmed.substring(idx + 1) };
@@ -143,7 +200,7 @@ public class QuestionService {
                     if (lower.contains("text") || lower.contains("вопрос")
                             || lower.contains("correct") || lower.contains("ответ")) {
                         maybeHeader = false;
-                        continue; // пропускаем заголовок
+                        continue;
                     }
                 }
                 maybeHeader = false;
