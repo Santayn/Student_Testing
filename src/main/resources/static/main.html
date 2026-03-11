@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Главная страница</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="/main.html">Student Testing</a>
+        <div class="d-flex align-items-center gap-3">
+            <span id="userBadge" class="text-white small"></span>
+            <button id="logoutBtn" type="button" class="btn btn-light btn-sm">Выйти</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-5">
+    <div id="errorBox" class="alert alert-danger d-none"></div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h1 class="mb-3">Добро пожаловать на платформу тестирования студентов</h1>
+            <p class="mb-1">
+                Текущий пользователь:
+                <strong id="currentUserName">Загрузка...</strong>
+            </p>
+            <p class="mb-0">
+                Роль:
+                <strong id="currentUserRole">—</strong>
+            </p>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a href="/about.html" class="btn btn-primary">О платформе</a>
+        <a href="/subjects.html" class="btn btn-success">Предметы</a>
+        <a href="/profile.html" class="btn btn-secondary">Личный кабинет</a>
+        <a href="/students.html" class="btn btn-outline-primary">Студенты группы</a>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        if (!StudentTestingApi.requireAuth()) {
+            return;
+        }
+
+        document.getElementById("logoutBtn").addEventListener("click", StudentTestingApi.logout);
+
+        const errorBox = document.getElementById("errorBox");
+        const currentUserName = document.getElementById("currentUserName");
+        const currentUserRole = document.getElementById("currentUserRole");
+        const userBadge = document.getElementById("userBadge");
+
+        try {
+            const user = await StudentTestingApi.loadCurrentUser();
+
+            const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+            const displayName = fullName || user.login || "Пользователь";
+
+            currentUserName.textContent = displayName;
+            currentUserRole.textContent = user.role || "—";
+            userBadge.textContent = `${displayName} (${user.role || "NO_ROLE"})`;
+        } catch (error) {
+            errorBox.textContent = error.message || "Не удалось загрузить данные пользователя";
+            errorBox.classList.remove("d-none");
+            currentUserName.textContent = "Ошибка";
+            currentUserRole.textContent = "Ошибка";
+        }
+    });
+</script>
+</body>
+</html>

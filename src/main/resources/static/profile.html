@@ -1,119 +1,207 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8"/>
-  <title>Личный кабинет</title>
-  <style>
-    body { font-family: Arial, sans-serif; display:flex; height:100vh; margin:0; }
-    .sidebar { width:200px; background:#f4f4f4; padding:20px; box-shadow:2px 0 5px rgba(0,0,0,.1); }
-    .sidebar a { display:block; margin-bottom:15px; text-decoration:none; color:#333; font-size:16px; }
-    .sidebar a:hover { color:#007BFF; }
-    .content { flex-grow:1; padding:20px; overflow:auto; }
-    h1 { margin-top:0; }
-    p { margin:5px 0; }
-    .hidden { display:none !important; }
-    .error { background:#ffeaea; border:1px solid #ffb3b3; padding:10px; margin-bottom:10px; }
-    .muted { color:#666; }
-  </style>
+    <meta charset="UTF-8"/>
+    <title>Личный кабинет</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; height: 100vh; margin: 0; }
+        .sidebar { width: 260px; background: #f4f4f4; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,.1); overflow-y: auto; }
+        .sidebar a, .sidebar button {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            padding: 0;
+        }
+        .sidebar a:hover, .sidebar button:hover { color: #007BFF; }
+        .content { flex-grow: 1; padding: 20px; overflow: auto; }
+        h1 { margin-top: 0; }
+        p { margin: 6px 0; }
+        .hidden { display: none !important; }
+        .error { background: #ffeaea; border: 1px solid #ffb3b3; padding: 10px; margin-bottom: 10px; }
+        .muted { color: #666; }
+        .block { background: #fff; border: 1px solid #ddd; padding: 16px; margin-top: 16px; border-radius: 8px; }
+        ul { padding-left: 20px; }
+    </style>
 </head>
 <body>
 
 <div class="sidebar">
-  <!-- О пользователе -->
-  <a href="#" onclick="toggleInfo()">О пользователе</a>
+    <button type="button" id="toggleUserInfoBtn">О пользователе</button>
 
-  <!-- Разделы -->
-  <a href="/main.html">Главная</a>
-  <a href="/subjects.html">Предметы</a>
-  <a href="/about.html">О платформе</a>
+    <a href="/kubstuTest">Главная</a>
+    <a href="/kubstuTest/subjects">Предметы</a>
+    <a href="/kubstuTest/about">О платформе</a>
 
-  <!-- Пользователи (только преподавателям) -->
-  <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
-  <a class="teacher-only" href="/manage-teachers.html">Управление учителями</a>
-  <a class="teacher-only" href="/users.html">Управление ролями</a>
+    <a class="teacher-only hidden" href="/manage_students.html">Управление студентами</a>
+    <a class="teacher-only hidden" href="/manage-teachers.html">Управление учителями</a>
+    <a class="teacher-only hidden" href="/users.html">Управление ролями</a>
+    <a class="teacher-only hidden" href="/manage-teachers-subject.html">Управление предметами</a>
+    <a class="teacher-only hidden" href="/manage-lectures-subject.html">Управление лекциями</a>
+    <a class="teacher-only hidden" href="/manage-topics-subject.html">Управление темами</a>
+    <a class="teacher-only hidden" href="/questions-page.html">Загрузить вопросы</a>
+    <a class="teacher-only hidden" href="/create-test.html">Создать тест</a>
+    <a href="/result-list.html">Результаты тестов</a>
+    <a class="teacher-only hidden" href="/groups.html">Создать группу</a>
+    <a class="teacher-only hidden" href="/create-faculty.html">Создать факультет</a>
+    <a class="teacher-only hidden" href="/manage-subject-faculty.html">Управление связями</a>
+    <a class="teacher-only hidden" href="/create-subject.html">Создание предмета</a>
 
-  <!-- Учебные материалы (только преподавателям) -->
-  <a class="teacher-only" href="/manage-teachers-subject.html">Управление предметами</a>
-  <a class="teacher-only" href="/manage-lectures-subject.html">Управление лекциями</a>
-  <a class="teacher-only" href="/manage-topics-subject.html">Управление темами</a>
-  <a class="teacher-only" href="/questions-page.html">Загрузить вопросы</a>
-
-  <!-- Тесты -->
-  <a class="teacher-only" href="/create-test.html">Создать тест</a>
-  <a href="/result-list.html" style="font-weight:bold;">Результаты тестов</a>
-
-  <!-- Группы / факультеты (только преподавателям) -->
-  <a class="teacher-only" href="/groups.html" style="font-weight:bold;">Создать группу</a>
-  <a class="teacher-only" href="/create-faculty.html" style="font-weight:bold;">Создать факультет</a>
-  <a class="teacher-only" href="/manage-subject-faculty.html">Управление связями</a>
-  <a class="teacher-only" href="/create-subject.html" style="font-weight:bold;">Создание предмета</a>
+    <button type="button" id="logoutBtn">Выйти</button>
 </div>
 
 <div class="content">
-  <h1>Личный кабинет</h1>
+    <h1>Личный кабинет</h1>
 
-  <div id="error" class="error hidden"></div>
+    <div id="error" class="error hidden"></div>
 
-  <div id="user-info" class="hidden">
-    <p><strong>Имя:</strong> <span id="firstName"></span></p>
-    <p><strong>Фамилия:</strong> <span id="lastName"></span></p>
-    <p><strong>Логин:</strong> <span id="login"></span></p>
-    <p><strong>Телефон:</strong> <span id="phoneNumber"></span></p>
-    <p><strong>Роль:</strong> <span id="role"></span></p>
-    <p class="muted" id="extra"></p>
-  </div>
+    <div id="user-info" class="block">
+        <p><strong>Имя:</strong> <span id="firstName">—</span></p>
+        <p><strong>Фамилия:</strong> <span id="lastName">—</span></p>
+        <p><strong>Логин:</strong> <span id="login">—</span></p>
+        <p><strong>Телефон:</strong> <span id="phoneNumber">—</span></p>
+        <p><strong>Роль:</strong> <span id="role">—</span></p>
+        <p class="muted" id="extra"></p>
+    </div>
 
-  <p class="muted">Данные подтягиваются из <code>/api/v1/users/me</code>.</p>
+    <div id="student-block" class="block hidden">
+        <h2>Информация студента</h2>
+        <p><strong>Группа:</strong> <span id="studentGroup">—</span></p>
+        <p><strong>Факультет:</strong> <span id="studentFaculty">—</span></p>
+        <h3>Предметы</h3>
+        <ul id="studentSubjects"></ul>
+    </div>
+
+    <div id="teacher-block" class="block hidden">
+        <h2>Информация преподавателя</h2>
+        <h3>Предметы</h3>
+        <ul id="teacherSubjects"></ul>
+        <h3>Группы</h3>
+        <ul id="teacherGroups"></ul>
+    </div>
 </div>
 
+<script src="/js/api.js"></script>
 <script>
-  function toggleInfo() {
-    const el = document.getElementById('user-info');
-    el.classList.toggle('hidden');
-  }
+    document.addEventListener("DOMContentLoaded", async () => {
+        if (!StudentTestingApi.requireAuth()) {
+            return;
+        }
 
-  const err = document.getElementById('error');
-  function showError(msg){ err.textContent = msg; err.classList.remove('hidden'); }
-  function hideError(){ err.textContent=''; err.classList.add('hidden'); }
+        const errorEl = document.getElementById("error");
+        const userInfoEl = document.getElementById("user-info");
+        const studentBlockEl = document.getElementById("student-block");
+        const teacherBlockEl = document.getElementById("teacher-block");
 
-  function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.textContent; }
+        document.getElementById("logoutBtn").addEventListener("click", StudentTestingApi.logout);
 
-  async function loadMe(){
-    hideError();
-    try{
-      const res = await fetch('/api/v1/users/me', { credentials:'same-origin' });
-      if (res.status === 401) { location.href = '/login'; return; }
-      if (!res.ok) throw new Error('Ошибка загрузки профиля: ' + res.status);
-      const me = await res.json();
+        document.getElementById("toggleUserInfoBtn").addEventListener("click", () => {
+            userInfoEl.classList.toggle("hidden");
+        });
 
-      // Заполним поля
-      document.getElementById('firstName').textContent  = esc(me.firstName);
-      document.getElementById('lastName').textContent   = esc(me.lastName);
-      document.getElementById('login').textContent      = esc(me.login);
-      document.getElementById('phoneNumber').textContent= esc(me.phoneNumber);
-      document.getElementById('role').textContent       = esc(me.role);
+        function showError(message) {
+            errorEl.textContent = message;
+            errorEl.classList.remove("hidden");
+        }
 
-      const extra = [];
-      if (me.student) {
-        extra.push('Студент' + (me.groupName ? `, группа: ${esc(me.groupName)}` : ''));
-      }
-      if (me.teacher) {
-        extra.push('Преподаватель');
-      }
-      document.getElementById('extra').textContent = extra.join(' • ');
+        function hideError() {
+            errorEl.textContent = "";
+            errorEl.classList.add("hidden");
+        }
 
-      // Скрыть учительские пункты меню, если пользователь не преподаватель
-      if (!me.teacher) {
-        document.querySelectorAll('.teacher-only').forEach(a => a.classList.add('hidden'));
-      }
+        function renderList(listElement, items, renderText) {
+            listElement.innerHTML = "";
+            if (!items || !items.length) {
+                const li = document.createElement("li");
+                li.textContent = "Нет данных";
+                listElement.appendChild(li);
+                return;
+            }
+            items.forEach(item => {
+                const li = document.createElement("li");
+                li.textContent = renderText(item);
+                listElement.appendChild(li);
+            });
+        }
 
-      document.getElementById('user-info').classList.remove('hidden');
-    } catch(e){
-      showError(e.message || 'Не удалось загрузить профиль');
-    }
-  }
+        try {
+            hideError();
 
-  loadMe();
+            const me = await StudentTestingApi.apiFetch("/users/me");
+
+            document.getElementById("firstName").textContent = me.firstName || "—";
+            document.getElementById("lastName").textContent = me.lastName || "—";
+            document.getElementById("login").textContent = me.login || "—";
+            document.getElementById("phoneNumber").textContent = me.phoneNumber || "—";
+            document.getElementById("role").textContent = me.role || "—";
+
+            const roleName = (me.role || "").toUpperCase();
+            const isTeacher = Boolean(me.teacher) || roleName.includes("TEACHER") || roleName.includes("ADMIN");
+            const isStudent = Boolean(me.student) || roleName.includes("STUDENT");
+
+            const extra = [];
+            if (isStudent) {
+                extra.push("Студент");
+            }
+            if (isTeacher) {
+                extra.push("Преподаватель");
+            }
+            document.getElementById("extra").textContent = extra.join(" • ");
+
+            if (isTeacher) {
+                document.querySelectorAll(".teacher-only").forEach(a => a.classList.remove("hidden"));
+                teacherBlockEl.classList.remove("hidden");
+
+                const [subjects, groups] = await Promise.all([
+                    StudentTestingApi.apiFetch("/teacher-subjects/me"),
+                    StudentTestingApi.apiFetch("/teacher-groups/me")
+                ]);
+
+                renderList(
+                    document.getElementById("teacherSubjects"),
+                    subjects,
+                    item => `${item.name || "Без названия"}${item.id ? " (ID: " + item.id + ")" : ""}`
+                );
+
+                renderList(
+                    document.getElementById("teacherGroups"),
+                    groups,
+                    item => `${item.name || "Без названия"}${item.id ? " (ID: " + item.id + ")" : ""}`
+                );
+            }
+
+            if (isStudent) {
+                studentBlockEl.classList.remove("hidden");
+
+                const [facultyInfo, subjects] = await Promise.all([
+                    StudentTestingApi.apiFetch("/me/faculty"),
+                    StudentTestingApi.apiFetch("/me/subjects")
+                ]);
+
+                document.getElementById("studentGroup").textContent =
+                    facultyInfo.groupTitle || facultyInfo.groupName || facultyInfo.groupId || "—";
+
+                document.getElementById("studentFaculty").textContent =
+                    facultyInfo.facultyName || facultyInfo.facultyId || "—";
+
+                renderList(
+                    document.getElementById("studentSubjects"),
+                    subjects,
+                    item => `${item.name || "Без названия"}${item.id ? " (ID: " + item.id + ")" : ""}`
+                );
+            }
+
+        } catch (error) {
+            showError(error.message || "Не удалось загрузить профиль");
+        }
+    });
 </script>
 
 </body>

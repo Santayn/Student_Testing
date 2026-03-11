@@ -1,0 +1,225 @@
+package org.santayn.testing.security;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.santayn.testing.service.UserRegisterService;
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    @Bean
+    @Order(1)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http,
+                                                      JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                      AuthenticationProvider authenticationProvider,
+                                                      ObjectMapper objectMapper) throws Exception {
+        http
+                .securityMatcher("/api/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                writeSecurityError(response, request, objectMapper,
+                                        HttpServletResponse.SC_UNAUTHORIZED,
+                                        "unauthorized",
+                                        "Требуется авторизация"))
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                writeSecurityError(response, request, objectMapper,
+                                        HttpServletResponse.SC_FORBIDDEN,
+                                        "forbidden",
+                                        "Недостаточно прав для выполнения операции"))
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // auth
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
+
+                        // public read
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/public/subjects/*/lectures",
+                                "/api/v1/public/lectures/*"
+                        ).permitAll()
+
+                        // public tests
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/public/lectures/*/tests",
+                                "/api/v1/public/tests/*"
+                        ).hasAnyRole("STUDENT", "TEACHER", "ADMIN")
+
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/public/tests/*/submit"
+                        ).hasRole("STUDENT")
+
+                        // me / profile
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/users/me",
+                                "/api/v1/me/**",
+                                "/api/v1/auth/me"
+                        ).authenticated()
+
+                        // teacher/admin
+                        .requestMatchers("/api/v1/teacher/results/**").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/v1/tests/**").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/v1/questions/**").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/v1/lectures/**").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/v1/subjects/*/topics/**").hasAnyRole("TEACHER", "ADMIN")
+
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/teacher-subjects/me",
+                                "/api/v1/teacher-groups/me",
+                                "/api/v1/teachers/subjects",
+                                "/api/v1/teachers/groups",
+                                "/api/v1/teacher/subjects",
+                                "/api/v1/teacher/groups"
+                        ).hasAnyRole("TEACHER", "ADMIN")
+
+                        // admin
+                        .requestMatchers("/api/v1/roles/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/users/by-role").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/users/*/role").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*").hasRole("ADMIN")
+
+                        .requestMatchers("/api/v1/faculties/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/groups/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/group-students/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/faculty-subjects/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/teacher-subjects/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/teacher-groups/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/teachers/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/teacher/**").hasRole("ADMIN")
+
+                        // authenticated read
+                        .requestMatchers(HttpMethod.GET, "/api/v1/subjects/**").authenticated()
+
+                        .anyRequest().authenticated()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/login",
+                                "/register",
+                                "/kubstuTest",
+                                "/kubstuTest/about",
+                                "/kubstuTest/profile",
+                                "/kubstuTest/subjects",
+                                "/kubstuTest/group/*/students",
+                                "/kubstuTest/group/*/students/*",
+                                "/index.html",
+                                "/login.html",
+                                "/register.html",
+                                "/main.html",
+                                "/about.html",
+                                "/students.html",
+                                "/student-details.html",
+                                "/profile.html",
+                                "/subjects.html",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**",
+                                "/webjars/**",
+                                "/favicon.ico"
+                        ).permitAll()
+                        .anyRequest().permitAll()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(UserRegisterService userRegisterService,
+                                                         PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userRegisterService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+        ));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+        return source;
+    }
+
+    private void writeSecurityError(HttpServletResponse response,
+                                    HttpServletRequest request,
+                                    ObjectMapper objectMapper,
+                                    int status,
+                                    String error,
+                                    String message) throws IOException {
+        response.setStatus(status);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+        Map<String, Object> body = Map.of(
+                "timestamp", Instant.now().toString(),
+                "status", status,
+                "error", error,
+                "message", message,
+                "path", request.getRequestURI()
+        );
+
+        objectMapper.writeValue(response.getWriter(), body);
+    }
+}
