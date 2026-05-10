@@ -1,208 +1,256 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8"/>
+    <meta charset="UTF-8">
     <title>Личный кабинет</title>
-    <style>
-        body { font-family: Arial, sans-serif; display: flex; height: 100vh; margin: 0; }
-        .sidebar { width: 260px; background: #f4f4f4; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,.1); overflow-y: auto; }
-        .sidebar a, .sidebar button {
-            display: block;
-            width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 12px;
-            text-decoration: none;
-            color: #333;
-            font-size: 16px;
-            background: none;
-            border: none;
-            text-align: left;
-            cursor: pointer;
-            padding: 0;
-        }
-        .sidebar a:hover, .sidebar button:hover { color: #007BFF; }
-        .content { flex-grow: 1; padding: 20px; overflow: auto; }
-        h1 { margin-top: 0; }
-        p { margin: 6px 0; }
-        .hidden { display: none !important; }
-        .error { background: #ffeaea; border: 1px solid #ffb3b3; padding: 10px; margin-bottom: 10px; }
-        .muted { color: #666; }
-        .block { background: #fff; border: 1px solid #ddd; padding: 16px; margin-top: 16px; border-radius: 8px; }
-        ul { padding-left: 20px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-
-<div class="sidebar">
-    <button type="button" id="toggleUserInfoBtn">О пользователе</button>
-
-    <a href="/kubstuTest">Главная</a>
-    <a href="/kubstuTest/subjects">Предметы</a>
-    <a href="/kubstuTest/about">О платформе</a>
-
-    <a class="teacher-only hidden" href="/manage_students.html">Управление студентами</a>
-    <a class="teacher-only hidden" href="/manage-teachers.html">Управление учителями</a>
-    <a class="teacher-only hidden" href="/users.html">Управление ролями</a>
-    <a class="teacher-only hidden" href="/manage-teachers-subject.html">Управление предметами</a>
-    <a class="teacher-only hidden" href="/manage-lectures-subject.html">Управление лекциями</a>
-    <a class="teacher-only hidden" href="/manage-topics-subject.html">Управление темами</a>
-    <a class="teacher-only hidden" href="/questions-page.html">Загрузить вопросы</a>
-    <a class="teacher-only hidden" href="/create-test.html">Создать тест</a>
+<div class="app-shell">
+    <aside class="sidebar">
+    <h3>Меню</h3>
+    <a href="/profile.html">О пользователе</a>
+    <a href="/main.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/about.html">О платформе</a>
+    <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
+    <a class="teacher-only" href="/manage-teachers.html">Учебная нагрузка</a>
+    <a class="teacher-only" href="/users.html">Управление ролями</a>
+    <a class="teacher-only" href="/manage-teachers-subject.html">Преподаватели и предметы</a>
+    <a class="teacher-only" href="/manage-lectures-subject.html">Лекции</a>
+    <a class="teacher-only" href="/questions-page.html">Вопросы</a>
+    <a class="teacher-only" href="/create-test.html">Создать тест</a>
     <a href="/result-list.html">Результаты тестов</a>
-    <a class="teacher-only hidden" href="/groups.html">Создать группу</a>
-    <a class="teacher-only hidden" href="/create-faculty.html">Создать факультет</a>
-    <a class="teacher-only hidden" href="/manage-subject-faculty.html">Управление связями</a>
-    <a class="teacher-only hidden" href="/create-subject.html">Создание предмета</a>
+    <a class="teacher-only" href="/groups.html">Группы</a>
+    <a class="teacher-only" href="/create-faculty.html">Факультеты</a>
+    <a class="teacher-only" href="/manage-subject-faculty.html">Предметы факультетов</a>
+    <a class="teacher-only" href="/create-subject.html">Создание предмета</a>
+    <button type="button" id="logoutBtn" data-sidebar-logout>Выйти</button></aside>
 
-    <button type="button" id="logoutBtn">Выйти</button>
-</div>
+    <main class="content">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Личный кабинет</h1>
+                <p class="page-subtitle">Профиль пользователя, учебные назначения и доступные разделы.</p>
+            </div>
+        </div>
 
-<div class="content">
-    <h1>Личный кабинет</h1>
+        <div id="error" class="alert alert-error hidden"></div>
 
-    <div id="error" class="error hidden"></div>
+        <nav class="profile-tabs" aria-label="Разделы личного кабинета">
+            <button class="profile-tab is-active" type="button" data-profile-tab="user" aria-controls="userInfo" aria-selected="true">Пользователь</button>
+            <button class="profile-tab" type="button" data-profile-tab="student" aria-controls="studentBlock" aria-selected="false" disabled>Студент</button>
+            <button class="profile-tab" type="button" data-profile-tab="teacher" aria-controls="teacherBlock" aria-selected="false" disabled>Преподаватель</button>
+        </nav>
 
-    <div id="user-info" class="block">
-        <p><strong>Имя:</strong> <span id="firstName">—</span></p>
-        <p><strong>Фамилия:</strong> <span id="lastName">—</span></p>
-        <p><strong>Логин:</strong> <span id="login">—</span></p>
-        <p><strong>Телефон:</strong> <span id="phoneNumber">—</span></p>
-        <p><strong>Роль:</strong> <span id="role">—</span></p>
-        <p class="muted" id="extra"></p>
-    </div>
+        <section id="userInfo" class="panel profile-tab-panel" data-profile-panel="user">
+            <h2 class="flush-top">Пользователь</h2>
+            <dl class="data-list">
+                <dt>Имя</dt><dd id="firstName">-</dd>
+                <dt>Фамилия</dt><dd id="lastName">-</dd>
+                <dt>Логин</dt><dd id="login">-</dd>
+                <dt>Телефон</dt><dd id="phoneNumber">-</dd>
+                <dt>Роли</dt><dd id="role">-</dd>
+                <dt>Person ID</dt><dd id="personId">-</dd>
+            </dl>
+            <p class="muted" id="extra"></p>
+        </section>
 
-    <div id="student-block" class="block hidden">
-        <h2>Информация студента</h2>
-        <p><strong>Группа:</strong> <span id="studentGroup">—</span></p>
-        <p><strong>Факультет:</strong> <span id="studentFaculty">—</span></p>
-        <h3>Предметы</h3>
-        <ul id="studentSubjects"></ul>
-    </div>
+        <section id="studentBlock" class="panel profile-tab-panel" data-profile-panel="student" hidden>
+            <h2 class="flush-top">Информация студента</h2>
+            <dl class="data-list">
+                <dt>Группа</dt><dd id="studentGroup">-</dd>
+                <dt>Факультет</dt><dd id="studentFaculty">-</dd>
+                <dt>GroupMembership</dt><dd id="studentMembership">-</dd>
+            </dl>
+            <h3>Предметы</h3>
+            <ul id="studentSubjects"></ul>
+        </section>
 
-    <div id="teacher-block" class="block hidden">
-        <h2>Информация преподавателя</h2>
-        <h3>Предметы</h3>
-        <ul id="teacherSubjects"></ul>
-        <h3>Группы</h3>
-        <ul id="teacherGroups"></ul>
-    </div>
+        <section id="teacherBlock" class="panel profile-tab-panel" data-profile-panel="teacher" hidden>
+            <h2 class="flush-top">Информация преподавателя</h2>
+            <h3>Предметы</h3>
+            <ul id="teacherSubjects"></ul>
+            <h3>Группы из учебной нагрузки</h3>
+            <ul id="teacherGroups"></ul>
+        </section>
+
+    </main>
 </div>
 
 <script src="/js/api.js"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-        if (!StudentTestingApi.requireAuth()) {
-            return;
-        }
+    const api = StudentTestingApi.apiFetch;
+    const SUBJECT_ROLE_TEACHER = 1;
+    const GROUP_ROLE_STUDENT = 1;
 
-        const errorEl = document.getElementById("error");
-        const userInfoEl = document.getElementById("user-info");
-        const studentBlockEl = document.getElementById("student-block");
-        const teacherBlockEl = document.getElementById("teacher-block");
+    const el = id => document.getElementById(id);
+    const profileTabs = [...document.querySelectorAll('[data-profile-tab]')];
+    const profilePanels = [...document.querySelectorAll('[data-profile-panel]')];
 
-        document.getElementById("logoutBtn").addEventListener("click", StudentTestingApi.logout);
+    function setProfileTabAvailable(tabName, available) {
+      const tab = profileTabs.find(button => button.dataset.profileTab === tabName);
+      if (!tab) {
+        return;
+      }
+      tab.disabled = !available;
+      tab.setAttribute('aria-disabled', String(!available));
+    }
 
-        document.getElementById("toggleUserInfoBtn").addEventListener("click", () => {
-            userInfoEl.classList.toggle("hidden");
-        });
+    function activateProfileTab(tabName) {
+      const targetTab = profileTabs.find(button => button.dataset.profileTab === tabName);
+      if (!targetTab || targetTab.disabled) {
+        return;
+      }
 
-        function showError(message) {
-            errorEl.textContent = message;
-            errorEl.classList.remove("hidden");
-        }
+      profileTabs.forEach(button => {
+        const active = button.dataset.profileTab === tabName;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', String(active));
+      });
 
-        function hideError() {
-            errorEl.textContent = "";
-            errorEl.classList.add("hidden");
-        }
+      profilePanels.forEach(panel => {
+        panel.hidden = panel.dataset.profilePanel !== tabName;
+      });
+    }
 
-        function renderList(listElement, items, renderText) {
-            listElement.innerHTML = "";
-            if (!items || !items.length) {
-                const li = document.createElement("li");
-                li.textContent = "Нет данных";
-                listElement.appendChild(li);
-                return;
-            }
-            items.forEach(item => {
-                const li = document.createElement("li");
-                li.textContent = renderText(item);
-                listElement.appendChild(li);
-            });
-        }
+    function showError(message) {
+      el('error').textContent = message || '';
+      el('error').classList.toggle('hidden', !message);
+    }
 
-        try {
-            hideError();
+    function renderList(listElement, items, renderText) {
+      listElement.innerHTML = '';
+      if (!items.length) {
+        const li = document.createElement('li');
+        li.textContent = 'Нет данных';
+        listElement.appendChild(li);
+        return;
+      }
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = renderText(item);
+        listElement.appendChild(li);
+      });
+    }
 
-            const me = await StudentTestingApi.apiFetch("/users/me");
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+    }
 
-            document.getElementById("firstName").textContent = me.firstName || "—";
-            document.getElementById("lastName").textContent = me.lastName || "—";
-            document.getElementById("login").textContent = me.login || "—";
-            document.getElementById("phoneNumber").textContent = me.phoneNumber || "—";
-            document.getElementById("role").textContent = me.role || "—";
+    function roleText(roles) {
+      return roles.length ? roles.join(', ') : '-';
+    }
 
-            const roleName = (me.role || "").toUpperCase();
-            const isTeacher = Boolean(me.teacher) || roleName.includes("TEACHER") || roleName.includes("ADMIN");
-            const isStudent = Boolean(me.student) || roleName.includes("STUDENT");
+    async function init() {
+      const me = await api('/users/me');
+      const person = me.person || {};
+      const roles = StudentTestingApi.normalizeRoleNames(me);
+      const normalizedRoles = roles.join(' ').toUpperCase();
+      const isAdmin = normalizedRoles.includes('ADMIN');
+      const isTeacher = normalizedRoles.includes('TEACHER');
+      const isStudent = normalizedRoles.includes('STUDENT');
 
-            const extra = [];
-            if (isStudent) {
-                extra.push("Студент");
-            }
-            if (isTeacher) {
-                extra.push("Преподаватель");
-            }
-            document.getElementById("extra").textContent = extra.join(" • ");
+      el('firstName').textContent = person.firstName || '-';
+      el('lastName').textContent = person.lastName || '-';
+      el('login').textContent = me.login || '-';
+      el('phoneNumber').textContent = person.phone || '-';
+      el('role').textContent = roleText(roles);
+      el('personId').textContent = me.personId || '-';
+      el('extra').textContent = [isStudent ? 'Студент' : null, isTeacher ? 'Преподаватель' : null, isAdmin ? 'Администратор' : null].filter(Boolean).join(' / ');
 
-            if (isTeacher) {
-                document.querySelectorAll(".teacher-only").forEach(a => a.classList.remove("hidden"));
-                teacherBlockEl.classList.remove("hidden");
+      StudentTestingApi.applySidebarState(me);
 
-                const [subjects, groups] = await Promise.all([
-                    StudentTestingApi.apiFetch("/teacher-subjects/me"),
-                    StudentTestingApi.apiFetch("/teacher-groups/me")
-                ]);
+      if (isTeacher || isAdmin) {
+        setProfileTabAvailable('teacher', true);
+        await loadTeacherInfo(me.personId);
+      }
 
-                renderList(
-                    document.getElementById("teacherSubjects"),
-                    subjects,
-                    item => `${item.name || "Без названия"}${item.id ? " (ID: " + item.id + ")" : ""}`
-                );
+      if (isStudent) {
+        setProfileTabAvailable('student', true);
+        await loadStudentInfo(me.personId);
+      }
 
-                renderList(
-                    document.getElementById("teacherGroups"),
-                    groups,
-                    item => `${item.name || "Без названия"}${item.id ? " (ID: " + item.id + ")" : ""}`
-                );
-            }
+      activateProfileTab('user');
+    }
 
-            if (isStudent) {
-                studentBlockEl.classList.remove("hidden");
+    async function loadTeacherInfo(personId) {
+      if (!personId) {
+        renderList(el('teacherSubjects'), [], item => item.name);
+        renderList(el('teacherGroups'), [], item => item.name);
+        return;
+      }
 
-                const [facultyInfo, subjects] = await Promise.all([
-                    StudentTestingApi.apiFetch("/me/faculty"),
-                    StudentTestingApi.apiFetch("/me/subjects")
-                ]);
+      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(personId)}&activeOnly=true`);
+      const teacherMemberships = memberships.filter(item => Number(item.role) === SUBJECT_ROLE_TEACHER);
 
-                document.getElementById("studentGroup").textContent =
-                    facultyInfo.groupTitle || facultyInfo.groupName || facultyInfo.groupId || "—";
+      const subjects = await Promise.all(
+        unique(teacherMemberships.map(item => item.subjectId)).map(id => api(`/subjects/${encodeURIComponent(id)}`))
+      );
 
-                document.getElementById("studentFaculty").textContent =
-                    facultyInfo.facultyName || facultyInfo.facultyId || "—";
+      const assignmentLists = await Promise.all(
+        teacherMemberships.map(item => api(`/teaching/assignments?subjectMembershipId=${encodeURIComponent(item.id)}`))
+      );
+      const groupIds = unique(assignmentLists.flat().map(item => item.groupId));
+      const groups = await Promise.all(groupIds.map(id => api(`/groups/${encodeURIComponent(id)}`)));
 
-                renderList(
-                    document.getElementById("studentSubjects"),
-                    subjects,
-                    item => `${item.name || "Без названия"}${item.id ? " (ID: " + item.id + ")" : ""}`
-                );
-            }
+      renderList(el('teacherSubjects'), subjects, subject => `${subject.name || 'Без названия'} (ID: ${subject.id})`);
+      renderList(el('teacherGroups'), groups, group => `${group.name || group.code || 'Без названия'} (ID: ${group.id})`);
+    }
 
-        } catch (error) {
-            showError(error.message || "Не удалось загрузить профиль");
-        }
-    });
+    async function loadStudentInfo(personId) {
+      if (!personId) {
+        return;
+      }
+
+      const memberships = await api(`/memberships/groups?personId=${encodeURIComponent(personId)}&activeOnly=true`);
+      const groupMembership = memberships.find(item => Number(item.role) === GROUP_ROLE_STUDENT);
+      if (!groupMembership) {
+        el('studentGroup').textContent = 'Нет активной группы';
+        el('studentFaculty').textContent = '-';
+        el('studentMembership').textContent = '-';
+        renderList(el('studentSubjects'), [], item => item.name);
+        return;
+      }
+
+      const group = await api(`/groups/${encodeURIComponent(groupMembership.groupId)}`);
+      const faculty = group.facultyId ? await api(`/faculties/${encodeURIComponent(group.facultyId)}`) : null;
+
+      el('studentGroup').textContent = group.name || group.code || `Группа #${group.id}`;
+      el('studentFaculty').textContent = faculty ? (faculty.name || faculty.code || `Факультет #${faculty.id}`) : '-';
+      el('studentMembership').textContent = `#${groupMembership.id}`;
+
+      const [enrollments, groupAssignments] = await Promise.all([
+        api(`/teaching/enrollments?groupMembershipId=${encodeURIComponent(groupMembership.id)}`),
+        api(`/teaching/assignments?groupId=${encodeURIComponent(group.id)}`)
+      ]);
+      const enrolledAssignments = await Promise.all(
+        unique(enrollments.map(item => item.teachingAssignmentId)).map(id => api(`/teaching/assignments/${encodeURIComponent(id)}`))
+      );
+      const assignments = [...new Map(
+        [...groupAssignments, ...enrolledAssignments]
+          .filter(item => item && item.id !== null && item.id !== undefined)
+          .map(item => [item.id, item])
+      ).values()];
+
+      const subjectMemberships = await Promise.all(
+        unique(assignments.map(item => item.subjectMembershipId)).map(id => api(`/memberships/subjects/memberships/${encodeURIComponent(id)}`))
+      );
+      const subjects = await Promise.all(
+        unique(subjectMemberships.map(item => item.subjectId)).map(id => api(`/subjects/${encodeURIComponent(id)}`))
+      );
+
+      renderList(el('studentSubjects'), subjects, subject => `${subject.name || 'Без названия'} (ID: ${subject.id})`);
+    }
+
+    profileTabs.forEach(button => button.addEventListener('click', () => activateProfileTab(button.dataset.profileTab)));
+    document.getElementById('toggleUserInfoBtn')?.addEventListener('click', () => activateProfileTab('user'));
+
+    if (StudentTestingApi.requireAuth()) {
+      init().catch(error => showError(error.message || 'Не удалось загрузить профиль.'));
+    }
 </script>
-
 </body>
 </html>
+

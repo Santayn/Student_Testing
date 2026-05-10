@@ -1,71 +1,86 @@
 package org.santayn.testing.web.controller.rest;
 
-import org.santayn.testing.models.subject.Subject;
-import org.santayn.testing.models.topic.Topic;
-import org.santayn.testing.service.SubjectService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.TopicService;
-import org.santayn.testing.service.UserSearch;
-import org.santayn.testing.web.dto.topic.TopicDto;
+import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/subjects/{subjectId}/topics")
+@RequestMapping({"/api/topics", "/api/v1/topics"})
 public class TopicRestController {
 
     private final TopicService topicService;
-    private final SubjectService subjectService;
-    private final UserSearch userSearch;
 
-    public TopicRestController(TopicService topicService,
-                               SubjectService subjectService,
-                               UserSearch userSearch) {
+    public TopicRestController(TopicService topicService) {
         this.topicService = topicService;
-        this.subjectService = subjectService;
-        this.userSearch = userSearch;
     }
 
-    /** Список тем предмета */
     @GetMapping
-    public List<TopicDto> list(@PathVariable Integer subjectId) {
-        ensureSubjectBelongsToCurrentTeacher(subjectId);
-        return topicService.getTopicsBySubjectId(subjectId)
-                .stream().map(TopicDto::from).toList();
+    public List<ApiResponses.TopicResponse> all(@RequestParam(required = false) Integer subjectId,
+                                                @RequestParam(required = false) Integer courseLectureId,
+                                                @RequestParam(required = false) Integer subjectMembershipId) {
+        return ApiResponses.list(topicService.findAll(subjectId, courseLectureId, subjectMembershipId), ApiResponses::topic);
     }
 
-    /** Создать тему */
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping("/{id}")
+    public ApiResponses.TopicResponse one(@PathVariable Integer id) {
+        return ApiResponses.topic(topicService.get(id));
+    }
+
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TopicDto create(@PathVariable Integer subjectId,
-                           @RequestBody CreateTopicRequest body) {
-        ensureSubjectBelongsToCurrentTeacher(subjectId);
-        if (body == null || body.name() == null || body.name().isBlank()) {
-            throw new IllegalArgumentException("Поле 'name' обязательно");
-        }
-        Topic created = topicService.addTopic(subjectId, body.name().trim());
-        return TopicDto.from(created);
+    public ApiResponses.TopicResponse create(@Valid @RequestBody TopicRequest request) {
+        return ApiResponses.topic(topicService.create(
+                request.subjectId(),
+                request.courseLectureId(),
+                request.subjectMembershipId(),
+                request.ordinal(),
+                request.name(),
+                request.description()
+        ));
     }
 
-    /** Удалить тему */
-    @DeleteMapping("/{topicId}")
+    @PutMapping("/{id}")
+    public ApiResponses.TopicResponse update(@PathVariable Integer id, @Valid @RequestBody TopicRequest request) {
+        return ApiResponses.topic(topicService.update(
+                id,
+                request.subjectId(),
+                request.courseLectureId(),
+                request.subjectMembershipId(),
+                request.ordinal(),
+                request.name(),
+                request.description()
+        ));
+    }
+
+    @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Integer subjectId,
-                       @PathVariable Integer topicId) {
-        ensureSubjectBelongsToCurrentTeacher(subjectId);
-        topicService.deleteTopic(topicId);
+    public void delete(@PathVariable Integer id) {
+        topicService.delete(id);
     }
 
-    private void ensureSubjectBelongsToCurrentTeacher(Integer subjectId) {
-        var teacher = userSearch.getCurrentTeacher();
-        Subject subj = subjectService.findById(subjectId);
-        // если у тебя связь Subject.teacher есть — стоит проверить именно её
-        var teacherSubjects = subjectService.getSubjectsByTeacher(teacher);
-        boolean ok = teacherSubjects.stream().anyMatch(s -> s.getId().equals(subjectId));
-        if (!ok) throw new RuntimeException("Учитель не имеет доступа к этому предмету");
+    public record TopicRequest(
+            Integer subjectId,
+            Integer courseLectureId,
+            Integer subjectMembershipId,
+            @Positive int ordinal,
+            @NotBlank @Size(max = 200) String name,
+            @Size(max = 2000) String description
+    ) {
     }
-
-    public record CreateTopicRequest(String name) {}
 }

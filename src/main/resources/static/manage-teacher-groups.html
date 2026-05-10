@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Шаблоны нагрузки</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Шаблоны нагрузки</h1>
+            <p class="page-subtitle">Свяжите предметы, преподавателей и группы внутри факультета. Сначала соберите пары предмет -> преподаватель, затем примените шаблон к нужным группам.</p>
+        </div>
+        <div class="actions actions-compact">
+            <a class="btn btn-light" href="/manage-subject-faculty.html">Предметы факультетов</a>
+            <a class="btn btn-light" href="/manage-teachers-subject.html">Преподаватели и предметы</a>
+        </div>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <section class="summary">
+        <div class="summary-item">
+            <strong>Факультет</strong>
+            <span id="summaryFaculty">Не выбран</span>
+        </div>
+        <div class="summary-item">
+            <strong>Предметов факультета</strong>
+            <span id="summarySubjects">0</span>
+        </div>
+        <div class="summary-item">
+            <strong>Групп факультета</strong>
+            <span id="summaryGroups">0</span>
+        </div>
+        <div class="summary-item">
+            <strong>Назначений в шаблоне</strong>
+            <span id="summaryAssignments">0</span>
+        </div>
+    </section>
+
+    <div class="layout teacher-group-admin-layout">
+        <section>
+            <div class="panel">
+                <h2 class="flush-top">Параметры шаблона</h2>
+                <div class="grid">
+                    <div class="field">
+                        <label for="studyCourseSelect">Курс</label>
+                        <select id="studyCourseSelect">
+                            <option value="1">1 курс</option>
+                            <option value="2">2 курс</option>
+                            <option value="3">3 курс</option>
+                            <option value="4">4 курс</option>
+                            <option value="5">5 курс</option>
+                            <option value="6">6 курс</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="semesterSelect">Семестр</label>
+                        <select id="semesterSelect">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="academicYearInput">Учебный год</label>
+                        <input id="academicYearInput" type="number" min="2000" required>
+                    </div>
+                    <div class="field">
+                        <label for="facultySelect">Факультет</label>
+                        <select id="facultySelect">
+                            <option value="">Выберите факультет...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="row">
+                    <h2>Предметы и преподаватели</h2>
+                    <button id="addSubjectTeacherRowBtn" class="btn btn-light" type="button" disabled>Добавить строку</button>
+                </div>
+                <p class="muted">Соберите пары предметов и преподавателей. После выбора пары можно отметить группы, для которых нужно создать назначения.</p>
+                <div id="subjectTeacherRows" class="subject-teacher-list"></div>
+                <p id="subjectTeacherHint" class="muted">Сначала выберите факультет.</p>
+                <div class="field panel-gap-sm">
+                    <label for="notesInput">Примечание</label>
+                    <textarea id="notesInput" maxlength="1000" placeholder="Например: поток 2026, резерв для дополнительных групп"></textarea>
+                </div>
+                <div class="field panel-gap-sm field-inline">
+                    <label for="statusSelect">Статус</label>
+                    <select id="statusSelect">
+                        <option value="1">Активно</option>
+                        <option value="2">Черновик</option>
+                        <option value="3">Закрыто</option>
+                        <option value="4">В паузе</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="row">
+                    <h2>Подготовленные назначения</h2>
+                    <span id="groupSelectionCount" class="badge">0</span>
+                </div>
+                <p id="groupHint" class="muted">Сначала выберите факультет.</p>
+                <div id="groupChecklist" class="selection-summary empty">Список назначений появится после выбора групп.</div>
+                <div class="actions">
+                    <button id="assignGroupsBtn" class="btn btn-primary" type="button" disabled>Применить шаблон</button>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="panel">
+                <h2 class="flush-top">Текущие назначения</h2>
+                <p id="templateListHint" class="muted">Выберите факультет, чтобы посмотреть назначения по текущему курсу и семестру.</p>
+                <div id="templateList" class="empty">Список назначений появится после выбора факультета.</div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const TEACHER_ROLE = 1;
+    const ADMIN_ROLE = 'ADMIN';
+    const DEFAULT_LOAD_TYPE_NAME = 'Основная нагрузка';
+    const DEFAULT_LOAD_TYPE_DESCRIPTION = 'Системный тип нагрузки для шаблонов факультета';
+    const DUPLICATE_ASSIGNMENT_ERROR = 'Teaching assignment already exists for this subject, group and term.';
+    const STATUS_LABELS = {
+      1: 'Активно',
+      2: 'Черновик',
+      3: 'Закрыто',
+      4: 'В паузе'
+    };
+    let rowSequence = 0;
+
+    const state = {
+      user: null,
+      faculties: [],
+      subjects: [],
+      groups: [],
+      loadTypes: [],
+      defaultLoadTypeId: null,
+      peopleIndex: new Map(),
+      teacherMemberships: [],
+      teacherMembershipIndex: new Map(),
+      facultySubjects: [],
+      facultyGroups: [],
+      subjectTeacherRows: [],
+      assignments: []
+    };
+
+    const el = id => document.getElementById(id);
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+    }
+
+    function numberOrNull(value) {
+      return value ? Number(value) : null;
+    }
+
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+    }
+
+    function createSubjectTeacherRow(subjectId = null, teacherMembershipId = null) {
+      rowSequence += 1;
+      return {
+        id: rowSequence,
+        subjectId,
+        teacherMembershipId,
+        groupIds: []
+      };
+    }
+
+    function ensureAdmin(user) {
+      const roles = StudentTestingApi.normalizeRoleNames(user);
+      if (!roles.some(role => role.includes(ADMIN_ROLE))) {
+        throw new Error('У вас нет прав для управления шаблонами нагрузки.');
+      }
+    }
+
+    function personLabel(person) {
+      if (!person) {
+        return 'Неизвестный преподаватель';
+      }
+      return person.fullName
+        || [person.lastName, person.firstName].filter(Boolean).join(' ').trim()
+        || person.email
+        || `Преподаватель #${person.id}`;
+    }
+
+    function facultyLabel(faculty) {
+      if (!faculty) {
+        return 'Не выбран';
+      }
+      return faculty.name || `Факультет #${faculty.id}`;
+    }
+
+    function subjectName(subjectId) {
+      const subject = state.subjects.find(item => Number(item.id) === Number(subjectId))
+        || state.facultySubjects.find(item => Number(item.id) === Number(subjectId));
+      return subject ? subject.name : `Предмет #${subjectId}`;
+    }
+
+    function groupName(groupId) {
+      const group = state.groups.find(item => Number(item.id) === Number(groupId))
+        || state.facultyGroups.find(item => Number(item.id) === Number(groupId));
+      return group ? (group.name || group.code || `Группа #${group.id}`) : `Группа #${groupId}`;
+    }
+
+    function selectedFacultyId() {
+      return numberOrNull(el('facultySelect').value);
+    }
+
+    function selectedStudyCourse() {
+      return Number(el('studyCourseSelect').value || 0);
+    }
+
+    function selectedSemester() {
+      return Number(el('semesterSelect').value || 0);
+    }
+
+    function selectedAcademicYear() {
+      return Number(el('academicYearInput').value || 0);
+    }
+
+    function selectedGroupIds() {
+      return unique(completeSubjectTeacherRows().flatMap(row => row.groupIds || []).map(Number));
+    }
+
+    function currentFaculty() {
+      return state.faculties.find(item => Number(item.id) === Number(selectedFacultyId())) || null;
+    }
+
+    function currentTemplateTitle() {
+      const faculty = currentFaculty();
+      if (!faculty) {
+        return 'Шаблон нагрузки';
+      }
+      return `${selectedStudyCourse()} курс, ${facultyLabel(faculty)}`;
+    }
+
+    function currentTemplateSubtitle() {
+      return `${selectedSemester()} семестр, учебный год ${selectedAcademicYear()}.`;
+    }
+
+    function rowGroupIds(row) {
+      return unique((row?.groupIds || []).map(Number).filter(Boolean));
+    }
+
+    function completeSubjectTeacherRows() {
+      return state.subjectTeacherRows.filter(row => row.subjectId && row.teacherMembershipId);
+    }
+
+    function rowsWithPartialInput() {
+      return state.subjectTeacherRows.filter(row =>
+        (row.subjectId && !row.teacherMembershipId) || (!row.subjectId && row.teacherMembershipId)
+      );
+    }
+
+    function explicitSelectionTasks() {
+      return completeSubjectTeacherRows().flatMap(row =>
+        rowGroupIds(row).map(groupId => ({
+          rowId: row.id,
+          subjectId: Number(row.subjectId),
+          subjectMembershipId: Number(row.teacherMembershipId),
+          groupId: Number(groupId)
+        }))
+      );
+    }
+
+    function visibleAssignments() {
+      return state.assignments.filter(assignment =>
+        Number(assignment.studyCourse || 0) === Number(selectedStudyCourse())
+      );
+    }
+
+    function filteredTemplateAssignments() {
+      const assignments = visibleAssignments();
+      const rows = completeSubjectTeacherRows();
+      if (!rows.length) {
+        return assignments;
+      }
+
+      return assignments.filter(assignment => rows.some(row => {
+        if (Number(assignmentSubjectId(assignment)) !== Number(row.subjectId)) {
+          return false;
+        }
+
+        const groups = rowGroupIds(row);
+        return !groups.length || groups.includes(Number(assignment.groupId));
+      }));
+    }
+
+    function membershipById(membershipId) {
+      return state.teacherMembershipIndex.get(Number(membershipId)) || null;
+    }
+
+    function assignmentSubjectId(assignment) {
+      return membershipById(assignment.subjectMembershipId)?.subjectId ?? null;
+    }
+
+    function assignmentTeacherName(assignment) {
+      const membership = membershipById(assignment.subjectMembershipId);
+      return personLabel(state.peopleIndex.get(Number(membership?.personId)));
+    }
+
+    function assignmentStatusLabel(status) {
+      return STATUS_LABELS[Number(status)] || `Статус ${status}`;
+    }
+
+    function sortAssignments(left, right) {
+      return String(subjectName(assignmentSubjectId(left))).localeCompare(String(subjectName(assignmentSubjectId(right))), 'ru')
+        || String(groupName(left.groupId)).localeCompare(String(groupName(right.groupId)), 'ru')
+        || String(assignmentTeacherName(left)).localeCompare(String(assignmentTeacherName(right)), 'ru');
+    }
+
+    function teachersForSubject(subjectId) {
+      return state.teacherMemberships
+        .filter(item =>
+          Number(item.subjectId) === Number(subjectId)
+            && Number(item.status) === 1
+            && !item.removedAtUtc
+        )
+        .map(item => ({
+          membershipId: Number(item.id),
+          subjectId: Number(item.subjectId),
+          personId: Number(item.personId),
+          personName: personLabel(state.peopleIndex.get(Number(item.personId)))
+        }))
+        .sort((left, right) => String(left.personName || '').localeCompare(String(right.personName || ''), 'ru'));
+    }
+
+    function subjectOptionsForRow(rowId) {
+      const selectedElsewhere = new Set(
+        state.subjectTeacherRows
+          .filter(row => row.id !== rowId && row.subjectId)
+          .map(row => Number(row.subjectId))
+      );
+
+      return state.facultySubjects.filter(subject =>
+        !selectedElsewhere.has(Number(subject.id))
+          || Number(state.subjectTeacherRows.find(row => row.id === rowId)?.subjectId) === Number(subject.id)
+      );
+    }
+
+    function assignmentForSubjectAndGroup(subjectId, groupId) {
+      return visibleAssignments().find(assignment =>
+        Number(assignmentSubjectId(assignment)) === Number(subjectId)
+          && Number(assignment.groupId) === Number(groupId)
+      ) || null;
+    }
+
+    function normalizeRowGroupSelections() {
+      const facultyGroupIds = new Set(state.facultyGroups.map(group => Number(group.id)));
+
+      state.subjectTeacherRows.forEach(row => {
+        if (!row.subjectId) {
+          row.groupIds = [];
+          return;
+        }
+
+        row.groupIds = rowGroupIds(row).filter(groupId =>
+          facultyGroupIds.has(Number(groupId))
+            && !assignmentForSubjectAndGroup(row.subjectId, groupId)
+        );
+      });
+    }
+
+    function updateSummary() {
+      el('summaryFaculty').textContent = facultyLabel(currentFaculty());
+      el('summarySubjects').textContent = String(state.facultySubjects.length);
+      el('summaryGroups').textContent = String(state.facultyGroups.length);
+      el('summaryAssignments').textContent = String(filteredTemplateAssignments().length);
+    }
+
+    async function ensureDefaultLoadType(loadTypes) {
+      if (loadTypes.length) {
+        const preferred = loadTypes.find(item => String(item.name || '').toLowerCase() === DEFAULT_LOAD_TYPE_NAME.toLowerCase());
+        return {
+          loadTypes,
+          defaultLoadTypeId: Number(preferred?.id ?? loadTypes[0].id)
+        };
+      }
+
+      try {
+        await api('/teaching/load-types', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: DEFAULT_LOAD_TYPE_NAME,
+            description: DEFAULT_LOAD_TYPE_DESCRIPTION
+          })
+        });
+      } catch (error) {
+        if (!String(error.message || '').toLowerCase().includes('already exists')) {
+          throw error;
+        }
+      }
+
+      const refreshed = await api('/teaching/load-types');
+      if (!refreshed.length) {
+        throw new Error('Не удалось получить типы учебной нагрузки.');
+      }
+
+      const preferred = refreshed.find(item => String(item.name || '').toLowerCase() === DEFAULT_LOAD_TYPE_NAME.toLowerCase());
+      return {
+        loadTypes: refreshed,
+        defaultLoadTypeId: Number(preferred?.id ?? refreshed[0].id)
+      };
+    }
+
+    function fillFacultySelect() {
+      const select = el('facultySelect');
+      select.disabled = !state.faculties.length;
+      select.innerHTML = state.faculties.length
+        ? '<option value="">Выберите факультет</option>' +
+          state.faculties.map(faculty => `<option value="${faculty.id}">${html(facultyLabel(faculty))}</option>`).join('')
+        : '<option value="">Нет доступных факультетов</option>';
+    }
+
+    function renderSubjectTeacherHint() {
+      if (!selectedFacultyId()) {
+        el('subjectTeacherHint').textContent = 'Сначала выберите факультет.';
+        return;
+      }
+      if (!state.facultySubjects.length) {
+        el('subjectTeacherHint').textContent = 'У выбранного факультета пока нет доступных предметов.';
+        return;
+      }
+
+      const available = completeSubjectTeacherRows().length;
+      el('subjectTeacherHint').textContent = `Заполнено пар предмет-преподаватель: ${available}. После выбора преподавателя можно отметить группы для назначения.`;
+    }
+
+    function renderSubjectTeacherRows() {
+      const container = el('subjectTeacherRows');
+      const rows = state.subjectTeacherRows;
+      const canAddMore = state.facultySubjects.length > rows.length;
+      normalizeRowGroupSelections();
+
+      if (!rows.length) {
+        container.innerHTML = '<div class="empty">Добавьте хотя бы одну строку шаблона.</div>';
+        el('addSubjectTeacherRowBtn').disabled = true;
+        renderSubjectTeacherHint();
+        refreshAssignButtonState();
+        return;
+      }
+
+      container.innerHTML = rows.map(row => {
+        const subjectOptions = subjectOptionsForRow(row.id);
+        const teacherOptions = row.subjectId ? teachersForSubject(row.subjectId) : [];
+        const selectedGroups = new Set(rowGroupIds(row));
+        const groupSection = !selectedFacultyId()
+          ? '<div class="subject-teacher-row__groups-empty">Сначала выберите факультет.</div>'
+          : !state.facultyGroups.length
+            ? '<div class="subject-teacher-row__groups-empty">У выбранного факультета пока нет групп.</div>'
+            : `<div class="selection-checklist subject-teacher-row__group-list">
+                ${state.facultyGroups.map(group => {
+                  const existingAssignment = row.subjectId ? assignmentForSubjectAndGroup(row.subjectId, group.id) : null;
+                  const disabled = !row.subjectId || !row.teacherMembershipId || !!existingAssignment;
+                  const checked = selectedGroups.has(Number(group.id)) && !disabled;
+                  const note = !row.subjectId
+                    ? 'Сначала выберите предмет.'
+                    : !row.teacherMembershipId
+                      ? 'Сначала выберите преподавателя.'
+                      : existingAssignment
+                        ? `Уже назначено: ${assignmentTeacherName(existingAssignment)}.`
+                        : 'Группа будет добавлена в шаблон.';
+
+                  return `
+                    <label class="${disabled ? 'check selection-check is-disabled' : 'check selection-check'}">
+                      <input type="checkbox" data-row-group="${row.id}" value="${group.id}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                      <span>
+                        <b>${html(group.name || group.code || `Группа #${group.id}`)}</b>
+                        <span class="selection-check-note">${html(note)}</span>
+                      </span>
+                    </label>`;
+                }).join('')}
+              </div>`;
+
+        return `
+          <div class="subject-teacher-row">
+            <div class="field">
+              <label>Предмет</label>
+              <select data-row-subject="${row.id}">
+                <option value="">Выберите предмет</option>
+                ${subjectOptions.map(subject => `
+                  <option value="${subject.id}" ${Number(row.subjectId) === Number(subject.id) ? 'selected' : ''}>
+                    ${html(subject.name)}
+                  </option>`).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label>Преподаватель</label>
+              <select data-row-teacher="${row.id}" ${teacherOptions.length ? '' : 'disabled'}>
+                <option value="">${teacherOptions.length ? 'Выберите преподавателя' : 'Нет преподавателей по предмету'}</option>
+                ${teacherOptions.map(option => `
+                  <option value="${option.membershipId}" ${Number(row.teacherMembershipId) === Number(option.membershipId) ? 'selected' : ''}>
+                    ${html(option.personName)}
+                  </option>`).join('')}
+              </select>
+            </div>
+            <div class="subject-teacher-row__actions">
+              <label class="subject-teacher-row__placeholder">Действие</label>
+              <button type="button" class="btn btn-light" data-remove-row="${row.id}" ${rows.length === 1 ? 'disabled' : ''}>Удалить</button>
+            </div>
+            <div class="subject-teacher-row__groups">
+              <div class="subject-teacher-row__groups-head">
+                <strong>Группы для этого предмета</strong>
+                <span class="badge">${rowGroupIds(row).length}</span>
+              </div>
+              ${groupSection}
+            </div>
+          </div>`;
+      }).join('');
+
+      container.querySelectorAll('[data-row-subject]').forEach(select => {
+        select.addEventListener('change', () => {
+          const row = state.subjectTeacherRows.find(item => Number(item.id) === Number(select.dataset.rowSubject));
+          if (!row) {
+            return;
+          }
+          row.subjectId = numberOrNull(select.value);
+          row.teacherMembershipId = null;
+          row.groupIds = [];
+          renderSubjectTeacherRows();
+          renderGroupChecklist();
+          renderTemplateList();
+        });
+      });
+
+      container.querySelectorAll('[data-row-teacher]').forEach(select => {
+        select.addEventListener('change', () => {
+          const row = state.subjectTeacherRows.find(item => Number(item.id) === Number(select.dataset.rowTeacher));
+          if (!row) {
+            return;
+          }
+          row.teacherMembershipId = numberOrNull(select.value);
+          renderSubjectTeacherRows();
+          renderGroupChecklist();
+          renderTemplateList();
+        });
+      });
+
+      container.querySelectorAll('[data-row-group]').forEach(input => {
+        input.addEventListener('change', () => {
+          const row = state.subjectTeacherRows.find(item => Number(item.id) === Number(input.dataset.rowGroup));
+          if (!row) {
+            return;
+          }
+
+          row.groupIds = [...container.querySelectorAll(`[data-row-group="${row.id}"]:checked`)]
+            .map(item => Number(item.value))
+            .filter(Boolean);
+
+          renderSubjectTeacherRows();
+          renderGroupChecklist();
+          renderTemplateList();
+        });
+      });
+
+      container.querySelectorAll('[data-remove-row]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.subjectTeacherRows = state.subjectTeacherRows.filter(row => Number(row.id) !== Number(button.dataset.removeRow));
+          if (!state.subjectTeacherRows.length) {
+            state.subjectTeacherRows = [createSubjectTeacherRow()];
+          }
+          renderSubjectTeacherRows();
+          renderGroupChecklist();
+          renderTemplateList();
+        });
+      });
+
+      el('addSubjectTeacherRowBtn').disabled = !selectedFacultyId() || !canAddMore;
+      renderSubjectTeacherHint();
+      refreshAssignButtonState();
+    }
+
+    function renderGroupHint() {
+      const taskCount = explicitSelectionTasks().length;
+      el('groupSelectionCount').textContent = String(taskCount);
+
+      if (!selectedFacultyId()) {
+        el('groupHint').textContent = 'Сначала выберите факультет.';
+        return;
+      }
+      if (!state.facultySubjects.length) {
+        el('groupHint').textContent = 'У выбранного факультета пока нет предметов.';
+        return;
+      }
+
+      const rows = completeSubjectTeacherRows();
+      if (!rows.length) {
+        el('groupHint').textContent = 'Добавьте хотя бы одну пару предмет-преподаватель.';
+        return;
+      }
+
+      if (!taskCount) {
+        el('groupHint').textContent = 'Отметьте группы в строках шаблона, чтобы подготовить назначения.';
+        return;
+      }
+
+      el('groupHint').textContent = `Подготовлено назначений к созданию: ${taskCount}. После применения система создаст записи по выбранным группам.`;
+    }
+
+    function renderGroupChecklist() {
+      const container = el('groupChecklist');
+      normalizeRowGroupSelections();
+      const rows = completeSubjectTeacherRows().filter(row => rowGroupIds(row).length > 0);
+
+      if (!selectedFacultyId()) {
+        container.className = 'selection-summary empty';
+        container.innerHTML = 'Сначала выберите факультет.';
+        renderGroupHint();
+        refreshAssignButtonState();
+        return;
+      }
+
+      if (!rows.length) {
+        container.className = 'selection-summary empty';
+        container.innerHTML = 'Список назначений появится после выбора групп.';
+        renderGroupHint();
+        refreshAssignButtonState();
+        return;
+      }
+
+      container.className = 'selection-summary';
+      container.innerHTML = rows.map(row => `
+        <div class="selection-summary__item">
+          <strong>${html(subjectName(row.subjectId))}</strong>
+          <span>${html(assignmentTeacherName({ subjectMembershipId: row.teacherMembershipId }))}</span>
+          <span>${html(rowGroupIds(row).map(groupId => groupName(groupId)).join(', '))}</span>
+        </div>`).join('');
+
+      renderGroupHint();
+      refreshAssignButtonState();
+    }
+
+    function renderTemplateList() {
+      const container = el('templateList');
+      const assignments = filteredTemplateAssignments();
+      const hasTeacherFilter = completeSubjectTeacherRows().length > 0;
+      const hasGroupFilter = selectedGroupIds().length > 0;
+
+      updateSummary();
+
+      if (!selectedFacultyId()) {
+        el('templateListHint').textContent = 'Выберите факультет, чтобы посмотреть назначения по текущему курсу и семестру.';
+        container.className = 'empty';
+        container.innerHTML = 'Список назначений появится после выбора факультета.';
+        return;
+      }
+
+      const title = currentTemplateTitle();
+      const subtitle = currentTemplateSubtitle();
+      el('templateListHint').textContent = assignments.length
+        ? 'Ниже показаны существующие назначения. Можно менять преподавателя и статус прямо в таблице.'
+        : hasTeacherFilter || hasGroupFilter
+          ? 'По текущему фильтру совпадений нет. Измените выбранные предметы, преподавателей или группы.'
+          : 'У выбранных параметров пока нет назначений. Сформируйте шаблон и примените его к группам.';
+
+      container.className = '';
+      container.innerHTML = `
+        <details class="template-accordion" ${assignments.length ? '' : 'open'}>
+          <summary>
+            <span class="template-accordion__title">
+              <strong>${html(title)}</strong>
+              <small>${html(subtitle)}</small>
+            </span>
+            <span class="template-accordion__count">${assignments.length}</span>
+          </summary>
+          <div class="template-accordion__body">
+            ${assignments.length ? renderTemplateTable(assignments) : '<div class="empty">По текущим условиям записи не найдены.</div>'}
+          </div>
+        </details>`;
+
+      container.querySelectorAll('[data-save-assignment]').forEach(button => {
+        button.addEventListener('click', () => updateAssignment(Number(button.dataset.saveAssignment)));
+      });
+    }
+
+    function renderTemplateTable(assignments) {
+      return `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Предмет</th>
+                <th>Преподаватель</th>
+                <th>Группа</th>
+                <th>Статус</th>
+                <th>Действие</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${assignments.map(assignment => {
+                const subjectId = assignmentSubjectId(assignment);
+                const teacherOptions = teachersForSubject(subjectId);
+                return `
+                  <tr>
+                    <td>${html(subjectName(subjectId))}</td>
+                    <td>
+                      <select data-assignment-teacher="${assignment.id}">
+                        ${teacherOptions.map(option => `
+                          <option value="${option.membershipId}" ${Number(option.membershipId) === Number(assignment.subjectMembershipId) ? 'selected' : ''}>
+                            ${html(option.personName)}
+                          </option>`).join('')}
+                      </select>
+                    </td>
+                    <td>${html(groupName(assignment.groupId))}</td>
+                    <td>
+                      <select data-assignment-status="${assignment.id}">
+                        <option value="1" ${Number(assignment.status) === 1 ? 'selected' : ''}>${html(assignmentStatusLabel(1))}</option>
+                        <option value="2" ${Number(assignment.status) === 2 ? 'selected' : ''}>${html(assignmentStatusLabel(2))}</option>
+                        <option value="3" ${Number(assignment.status) === 3 ? 'selected' : ''}>${html(assignmentStatusLabel(3))}</option>
+                        <option value="4" ${Number(assignment.status) === 4 ? 'selected' : ''}>${html(assignmentStatusLabel(4))}</option>
+                      </select>
+                    </td>
+                    <td>
+                      <button type="button" class="btn btn-light" data-save-assignment="${assignment.id}">Сохранить</button>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function refreshAssignButtonState() {
+      const completeRows = completeSubjectTeacherRows();
+      const hasPartialRows = rowsWithPartialInput().length > 0;
+      const taskCount = explicitSelectionTasks().length;
+      const ready = !!selectedFacultyId()
+        && completeRows.length > 0
+        && !hasPartialRows
+        && taskCount > 0;
+
+      el('assignGroupsBtn').disabled = !ready;
+      updateSummary();
+    }
+
+    async function loadInitialData() {
+      state.user = await StudentTestingApi.loadCurrentUser();
+      ensureAdmin(state.user);
+
+      const [faculties, subjects, groups, loadTypes, people, memberships] = await Promise.all([
+        api('/faculties'),
+        api('/subjects'),
+        api('/groups'),
+        api('/teaching/load-types'),
+        api('/users/people'),
+        api('/memberships/subjects?activeOnly=false')
+      ]);
+
+      const loadTypeState = await ensureDefaultLoadType(loadTypes);
+      state.faculties = faculties.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'ru'));
+      state.subjects = subjects.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'ru'));
+      state.groups = groups.sort((left, right) => String(left.name || left.code || '').localeCompare(String(right.name || right.code || ''), 'ru'));
+      state.loadTypes = loadTypeState.loadTypes.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'ru'));
+      state.defaultLoadTypeId = loadTypeState.defaultLoadTypeId;
+      state.peopleIndex = new Map(people.map(person => [Number(person.id), person]));
+      state.teacherMemberships = memberships.filter(item => Number(item.role) === TEACHER_ROLE);
+      state.teacherMembershipIndex = new Map(state.teacherMemberships.map(item => [Number(item.id), item]));
+      state.subjectTeacherRows = [createSubjectTeacherRow()];
+
+      fillFacultySelect();
+      renderSubjectTeacherRows();
+      renderGroupChecklist();
+      renderTemplateList();
+    }
+
+    async function loadFacultyContext() {
+      showMessage('', '');
+      state.facultySubjects = [];
+      state.facultyGroups = [];
+      state.assignments = [];
+      state.subjectTeacherRows = [createSubjectTeacherRow()];
+
+      renderSubjectTeacherRows();
+      renderGroupChecklist();
+      renderTemplateList();
+
+      const facultyId = selectedFacultyId();
+      if (!facultyId) {
+        return;
+      }
+
+      const [facultySubjects, facultyGroups] = await Promise.all([
+        api(`/faculties/${encodeURIComponent(facultyId)}/subjects`),
+        api(`/groups?facultyId=${encodeURIComponent(facultyId)}`)
+      ]);
+
+      state.facultySubjects = facultySubjects.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'ru'));
+      state.facultyGroups = facultyGroups.sort((left, right) => String(left.name || left.code || '').localeCompare(String(right.name || right.code || ''), 'ru'));
+
+      await refreshAssignments();
+      renderSubjectTeacherRows();
+      renderGroupChecklist();
+      renderTemplateList();
+    }
+
+    async function refreshAssignments() {
+      const facultyId = selectedFacultyId();
+      if (!facultyId) {
+        state.assignments = [];
+        renderTemplateList();
+        return;
+      }
+
+      state.assignments = (await api(
+        `/teaching/assignments?facultyId=${encodeURIComponent(facultyId)}&studyCourse=${encodeURIComponent(selectedStudyCourse())}&semester=${encodeURIComponent(selectedSemester())}&academicYear=${encodeURIComponent(selectedAcademicYear())}`
+      )).sort(sortAssignments);
+
+      normalizeRowGroupSelections();
+      renderTemplateList();
+    }
+
+    async function ensureSubjectLoadType(subjectMembershipId) {
+      const existing = await api(
+        `/teaching/subject-load-types?subjectMembershipId=${encodeURIComponent(subjectMembershipId)}&teachingLoadTypeId=${encodeURIComponent(state.defaultLoadTypeId)}`
+      );
+      if (existing.some(item => Number(item.teachingLoadTypeId) === Number(state.defaultLoadTypeId))) {
+        return;
+      }
+
+      await api(`/teaching/subject-memberships/${encodeURIComponent(subjectMembershipId)}/load-types`, {
+        method: 'POST',
+        body: JSON.stringify({
+          teachingLoadTypeId: Number(state.defaultLoadTypeId),
+          notes: 'Автоматически добавлено из шаблона нагрузки'
+        })
+      });
+    }
+
+    async function assignGroups() {
+      const facultyId = selectedFacultyId();
+      const completeRows = completeSubjectTeacherRows();
+      const partialRows = rowsWithPartialInput();
+      const tasks = explicitSelectionTasks().filter(task =>
+        !assignmentForSubjectAndGroup(task.subjectId, task.groupId)
+      );
+
+      if (!facultyId) {
+        showMessage('error', 'Выберите факультет.');
+        return;
+      }
+      if (partialRows.length) {
+        showMessage('error', 'Заполните все выбранные строки: для каждого предмета нужен преподаватель.');
+        return;
+      }
+      if (!completeRows.length) {
+        showMessage('error', 'Добавьте хотя бы одну пару предмет-преподаватель.');
+        return;
+      }
+      if (!tasks.length) {
+        showMessage('error', 'Отметьте хотя бы одну группу для назначения.');
+        return;
+      }
+
+      const uniqueMembershipIds = unique(tasks.map(item => item.subjectMembershipId));
+      const payloadBase = {
+        loadTypeId: Number(state.defaultLoadTypeId),
+        courseVersionId: null,
+        semester: selectedSemester(),
+        studyCourse: selectedStudyCourse(),
+        academicYear: selectedAcademicYear(),
+        hoursPerWeek: 0,
+        status: Number(el('statusSelect').value),
+        notes: el('notesInput').value.trim() || null
+      };
+
+      const button = el('assignGroupsBtn');
+      button.disabled = true;
+
+      try {
+        showMessage('', '');
+        for (const subjectMembershipId of uniqueMembershipIds) {
+          await ensureSubjectLoadType(subjectMembershipId);
+        }
+
+        const results = await Promise.allSettled(tasks.map(task => api('/teaching/assignments', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...payloadBase,
+            subjectMembershipId: task.subjectMembershipId,
+            groupId: task.groupId
+          })
+        })));
+
+        const successCount = results.filter(item => item.status === 'fulfilled').length;
+        const errors = results
+          .filter(item => item.status === 'rejected')
+          .map(item => item.reason?.message || 'Не удалось создать часть назначений.');
+        const duplicateErrors = errors.filter(message =>
+          String(message).includes(DUPLICATE_ASSIGNMENT_ERROR)
+        );
+        const otherErrors = errors.filter(message =>
+          !String(message).includes(DUPLICATE_ASSIGNMENT_ERROR)
+        );
+
+        if (!successCount && !duplicateErrors.length) {
+          throw new Error(otherErrors[0] || 'Не удалось создать назначения.');
+        }
+
+        if (!successCount && duplicateErrors.length && !otherErrors.length) {
+          showMessage('info', `Новые назначения не созданы. Уже существующих записей: ${duplicateErrors.length}.`);
+        } else if (otherErrors.length) {
+          const skippedPart = duplicateErrors.length
+            ? ` Уже существующих записей: ${duplicateErrors.length}.`
+            : '';
+          showMessage('info', `Создано назначений: ${successCount}.${skippedPart} Ошибки: ${html(otherErrors.join(' | '))}`);
+        } else if (duplicateErrors.length) {
+          showMessage('success', `Создано назначений: ${successCount}. Уже существующих записей: ${duplicateErrors.length}.`);
+        } else {
+          showMessage('success', `Создано назначений: ${successCount}.`);
+        }
+
+        await refreshAssignments();
+        renderSubjectTeacherRows();
+        renderGroupChecklist();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      } finally {
+        refreshAssignButtonState();
+      }
+    }
+
+    async function updateAssignment(assignmentId) {
+      const assignment = state.assignments.find(item => Number(item.id) === Number(assignmentId));
+      const teacherSelect = document.querySelector(`[data-assignment-teacher="${assignmentId}"]`);
+      const statusSelect = document.querySelector(`[data-assignment-status="${assignmentId}"]`);
+      const button = document.querySelector(`[data-save-assignment="${assignmentId}"]`);
+
+      if (!assignment || !teacherSelect || !statusSelect || !button) {
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        showMessage('', '');
+        const subjectMembershipId = Number(teacherSelect.value);
+        await ensureSubjectLoadType(subjectMembershipId);
+        await api(`/teaching/assignments/${encodeURIComponent(assignmentId)}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            subjectMembershipId,
+            groupId: assignment.groupId,
+            loadTypeId: assignment.loadTypeId,
+            courseVersionId: assignment.courseVersionId,
+            semester: assignment.semester,
+            studyCourse: assignment.studyCourse,
+            academicYear: assignment.academicYear,
+            hoursPerWeek: assignment.hoursPerWeek ?? 0,
+            status: Number(statusSelect.value),
+            notes: assignment.notes
+          })
+        });
+
+        await refreshAssignments();
+        renderSubjectTeacherRows();
+        renderGroupChecklist();
+        showMessage('success', 'Назначение обновлено.');
+      } catch (error) {
+        showMessage('error', html(error.message));
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function setDefaultAcademicYear() {
+      el('academicYearInput').value = String(new Date().getFullYear());
+    }
+
+    el('facultySelect').addEventListener('change', () => {
+      loadFacultyContext().catch(error => showMessage('error', html(error.message)));
+    });
+    el('studyCourseSelect').addEventListener('change', () => {
+      refreshAssignments()
+        .then(renderGroupChecklist)
+        .catch(error => showMessage('error', html(error.message)));
+    });
+    el('semesterSelect').addEventListener('change', () => {
+      refreshAssignments()
+        .then(renderGroupChecklist)
+        .catch(error => showMessage('error', html(error.message)));
+    });
+    el('academicYearInput').addEventListener('input', () => {
+      refreshAssignments()
+        .then(renderGroupChecklist)
+        .catch(error => showMessage('error', html(error.message)));
+    });
+    el('addSubjectTeacherRowBtn').addEventListener('click', () => {
+      state.subjectTeacherRows.push(createSubjectTeacherRow());
+      renderSubjectTeacherRows();
+      renderGroupChecklist();
+      renderTemplateList();
+    });
+    el('assignGroupsBtn').addEventListener('click', assignGroups);
+
+    setDefaultAcademicYear();
+
+    if (StudentTestingApi.requireAuth()) {
+      loadInitialData().catch(error => {
+        el('facultySelect').innerHTML = '<option value="">Выберите факультет</option>';
+        showMessage('error', html(error.message));
+      });
+    }
+</script>
+</body>
+</html>

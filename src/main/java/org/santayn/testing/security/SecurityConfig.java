@@ -36,6 +36,22 @@ import java.util.Map;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final String[] ADMIN_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "roles.manage", "ROLES.MANAGE"
+    };
+    private static final String[] USER_READ_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "users.read", "USERS.READ"
+    };
+    private static final String[] USER_WRITE_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "users.write", "USERS.WRITE"
+    };
+    private static final String[] PEOPLE_READ_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER", "people.read", "PEOPLE.READ", "users.read", "USERS.READ"
+    };
+    private static final String[] PEOPLE_WRITE_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER", "people.write", "PEOPLE.WRITE", "users.write", "USERS.WRITE"
+    };
+
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http,
@@ -54,76 +70,34 @@ public class SecurityConfig {
                                 writeSecurityError(response, request, objectMapper,
                                         HttpServletResponse.SC_UNAUTHORIZED,
                                         "unauthorized",
-                                        "Требуется авторизация"))
+                                        "Authentication is required."))
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 writeSecurityError(response, request, objectMapper,
                                         HttpServletResponse.SC_FORBIDDEN,
                                         "forbidden",
-                                        "Недостаточно прав для выполнения операции"))
+                                        "Not enough permissions."))
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // auth
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
-
-                        // public read
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/public/subjects/*/lectures",
-                                "/api/v1/public/lectures/*"
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/refresh",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/refresh"
                         ).permitAll()
-
-                        // public tests
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/public/lectures/*/tests",
-                                "/api/v1/public/tests/*"
-                        ).hasAnyRole("STUDENT", "TEACHER", "ADMIN")
-
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/public/tests/*/submit"
-                        ).hasRole("STUDENT")
-
-                        // me / profile
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/users/me",
-                                "/api/v1/me/**",
-                                "/api/v1/auth/me"
-                        ).authenticated()
-
-                        // teacher/admin
-                        .requestMatchers("/api/v1/teacher/results/**").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/v1/tests/**").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/v1/questions/**").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/v1/lectures/**").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/v1/subjects/*/topics/**").hasAnyRole("TEACHER", "ADMIN")
-
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/teacher-subjects/me",
-                                "/api/v1/teacher-groups/me",
-                                "/api/v1/teachers/subjects",
-                                "/api/v1/teachers/groups",
-                                "/api/v1/teacher/subjects",
-                                "/api/v1/teacher/groups"
-                        ).hasAnyRole("TEACHER", "ADMIN")
-
-                        // admin
-                        .requestMatchers("/api/v1/roles/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/users/by-role").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/users/*/role").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*").hasRole("ADMIN")
-
-                        .requestMatchers("/api/v1/faculties/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/groups/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/group-students/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/faculty-subjects/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/teacher-subjects/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/teacher-groups/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/teachers/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/teacher/**").hasRole("ADMIN")
-
-                        // authenticated read
-                        .requestMatchers(HttpMethod.GET, "/api/v1/subjects/**").authenticated()
-
+                        .requestMatchers(HttpMethod.GET, "/api/public/**", "/api/v1/public/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasAnyAuthority(ADMIN_AUTHORITIES)
+                        .requestMatchers("/api/v1/roles/**", "/api/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
+                        .requestMatchers(HttpMethod.GET, "/api/users/me", "/api/v1/users/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_READ_AUTHORITIES)
+                        .requestMatchers(HttpMethod.POST, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
+                        .requestMatchers(HttpMethod.PUT, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
+                        .requestMatchers(HttpMethod.PUT, "/api/users/*/roles", "/api/v1/users/*/roles").hasAnyAuthority(ADMIN_AUTHORITIES)
+                        .requestMatchers(HttpMethod.PUT, "/api/users/*/permissions", "/api/v1/users/*/permissions").hasAnyAuthority(ADMIN_AUTHORITIES)
+                        .requestMatchers(HttpMethod.PUT, "/api/users/*/active", "/api/v1/users/*/active").hasAnyAuthority(USER_WRITE_AUTHORITIES)
+                        .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/v1/users/**").hasAnyAuthority(USER_READ_AUTHORITIES)
                         .anyRequest().authenticated()
                 );
 
@@ -142,12 +116,7 @@ public class SecurityConfig {
                                 "/",
                                 "/login",
                                 "/register",
-                                "/kubstuTest",
-                                "/kubstuTest/about",
-                                "/kubstuTest/profile",
-                                "/kubstuTest/subjects",
-                                "/kubstuTest/group/*/students",
-                                "/kubstuTest/group/*/students/*",
+                                "/kubstuTest/**",
                                 "/index.html",
                                 "/login.html",
                                 "/register.html",

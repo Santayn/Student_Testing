@@ -1,47 +1,39 @@
-// src/main/java/org/santayn/testing/web/controller/rest/UserRoleRestController.java
 package org.santayn.testing.web.controller.rest;
 
 import jakarta.validation.Valid;
-import org.santayn.testing.models.user.User;
 import org.santayn.testing.service.UserRoleService;
-import org.santayn.testing.service.UserService;
-import org.santayn.testing.web.dto.user.UserRoleDto;
-import org.santayn.testing.web.dto.user.UserRoleUpdateRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.santayn.testing.web.dto.platform.ApiResponses;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import java.util.Set;
 
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping({"/api/users", "/api/v1/users"})
 public class UserRoleRestController {
 
-    private final UserService userService;
     private final UserRoleService userRoleService;
 
-    public UserRoleRestController(UserService userService, UserRoleService userRoleService) {
-        this.userService = userService;
+    public UserRoleRestController(UserRoleService userRoleService) {
         this.userRoleService = userRoleService;
     }
 
-    /** Пользователи по роли (как было в MVC /users/role?roleId=...) */
-    @GetMapping("/by-role")
-    public List<UserRoleDto> usersByRole(@RequestParam Integer roleId){
-        return userService.findUsers(roleId).stream().map(UserRoleDto::from).toList();
+    @PutMapping("/{id}/roles")
+    public ApiResponses.UserResponse setRoles(@PathVariable Integer id, @Valid @RequestBody UserRolesRequest request) {
+        return ApiResponses.user(userRoleService.setRoles(id, request.roleIds()));
     }
 
-    /** Один пользователь */
-    @GetMapping("/{userId}")
-    public UserRoleDto get(@PathVariable Integer userId){
-        return UserRoleDto.from(userService.getUserById(userId));
+    @PutMapping("/{id}/permissions")
+    public ApiResponses.UserResponse setPermissions(@PathVariable Integer id, @Valid @RequestBody UserPermissionsRequest request) {
+        return ApiResponses.user(userRoleService.setUserPermissions(id, request.permissionIds()));
     }
 
-    /** Смена роли пользователя */
-    @PatchMapping("/{userId}/role")
-    @ResponseStatus(HttpStatus.OK)
-    public UserRoleDto changeRole(@PathVariable Integer userId,
-                                  @Valid @RequestBody UserRoleUpdateRequest req){
-        User updated = userRoleService.changeRole(userId, req.roleId());
-        return UserRoleDto.from(updated);
+    public record UserRolesRequest(Set<Integer> roleIds) {
+    }
+
+    public record UserPermissionsRequest(Set<Integer> permissionIds) {
     }
 }

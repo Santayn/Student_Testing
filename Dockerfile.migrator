@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
+WORKDIR /workspace/TestPlatformBackend
+
+COPY TestPlatformBackend/TestPlatformBackend.csproj ./
+RUN dotnet restore
+
+RUN dotnet tool install --global dotnet-ef --version 10.0.4
+
+COPY TestPlatformBackend/. ./
+RUN dotnet build TestPlatformBackend.csproj -c Release --no-restore
+
+ENTRYPOINT ["dotnet", "ef", "database", "update", "--configuration", "Release", "--no-build", "--project", "TestPlatformBackend.csproj"]

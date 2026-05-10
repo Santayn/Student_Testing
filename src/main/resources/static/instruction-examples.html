@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Примеры экранов</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="bg-light">
+<main class="page">
+    <section class="panel example-hero">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Примеры экранов</h1>
+                <p class="page-subtitle">Небольшая витрина типовых экранов для студента, преподавателя и администратора. Страница используется как наглядный ориентир для интерфейса.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2 class="flush-top">Студент</h2>
+        <p class="muted">Пример карточки профиля и блока с результатами тестирования.</p>
+        <div class="example-grid">
+            <section class="panel panel-flat example-panel">
+                <h3 class="flush-top">Профиль студента</h3>
+                <div class="grid">
+                    <div class="field">
+                        <label for="studentFirstName">Имя</label>
+                        <input id="studentFirstName" value="Иван" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="studentLastName">Фамилия</label>
+                        <input id="studentLastName" value="Петров" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="studentLogin">Логин</label>
+                        <input id="studentLogin" value="student" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="studentRole">Роль</label>
+                        <input id="studentRole" value="STUDENT" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="studentGroupField">Группа</label>
+                        <input id="studentGroupField" value="ИВТ-201" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="studentFacultyField">Факультет</label>
+                        <input id="studentFacultyField" value="Институт цифровых технологий" readonly>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel panel-flat example-panel">
+                <h3 class="flush-top">Результаты по тесту</h3>
+                <div class="grid">
+                    <div class="field">
+                        <label for="studentSubjectResult">Предмет</label>
+                        <select id="studentSubjectResult">
+                            <option selected>Алгоритмы и структуры данных</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="studentLectureResult">Лекция</label>
+                        <select id="studentLectureResult">
+                            <option selected>АВЛ-деревья</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="studentTestResult">Тест</label>
+                        <select id="studentTestResult">
+                            <option selected>Тест по теме «АВЛ-деревья»</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="summary list-spaced">
+                    <div class="summary-item">
+                        <strong>Попытка</strong>
+                        <div>1 из 2</div>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Баллы</strong>
+                        <div>18 / 20</div>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Процент</strong>
+                        <div>90%</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2 class="flush-top">Преподаватель</h2>
+        <p class="muted">Пример настройки теста и выбора учебного контента.</p>
+        <section class="panel panel-flat example-panel">
+            <div class="form-subsection">
+                <h3 class="form-subsection-title">Контекст предмета</h3>
+                <div class="grid">
+                    <div class="field">
+                        <label for="teacherSubject">Предмет</label>
+                        <select id="teacherSubject">
+                            <option selected>Алгоритмы и структуры данных</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="teacherCourse">Курс</label>
+                        <select id="teacherCourse">
+                            <option selected>Весенний курс 2026</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="teacherVersion">Версия курса</label>
+                        <select id="teacherVersion">
+                            <option selected>Версия 3</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="teacherLecture">Лекция</label>
+                        <select id="teacherLecture">
+                            <option selected>АВЛ-деревья</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="teacherTopic">Тема</label>
+                        <select id="teacherTopic">
+                            <option selected>AVL-деревья</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="field">
+                    <label for="teacherTitle">Название теста</label>
+                    <input id="teacherTitle" value="Тест по теме AVL-деревья">
+                </div>
+                <div class="field">
+                    <label for="teacherQuestions">Количество вопросов</label>
+                    <input id="teacherQuestions" type="number" value="20">
+                </div>
+                <div class="field">
+                    <label for="teacherAttempts">Попыток</label>
+                    <input id="teacherAttempts" type="number" value="2">
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="teacherDescription">Описание</label>
+                <textarea id="teacherDescription">Контрольный тест по теме AVL-деревья для группы ИВТ-201.</textarea>
+            </div>
+        </section>
+    </section>
+
+    <section class="panel">
+        <h2 class="flush-top">Администратор</h2>
+        <p class="muted">Пример справочников факультетов, предметов и связей между ними.</p>
+        <div class="example-grid">
+            <section class="panel panel-flat example-panel">
+                <h3 class="flush-top">Факультет</h3>
+                <div class="field">
+                    <label for="adminFacultyName">Название</label>
+                    <input id="adminFacultyName" value="Институт цифровых технологий">
+                </div>
+                <div class="field">
+                    <label for="adminFacultyCode">Код</label>
+                    <input id="adminFacultyCode" value="IDT-01">
+                </div>
+                <div class="field">
+                    <label for="adminFacultyDescription">Описание</label>
+                    <input id="adminFacultyDescription" value="Подразделение для ИТ-направлений и цифровых дисциплин.">
+                </div>
+            </section>
+
+            <section class="panel panel-flat example-panel">
+                <h3 class="flush-top">Связь факультет ↔ предмет</h3>
+                <div class="field">
+                    <label for="adminFacultyLink">Факультет</label>
+                    <select id="adminFacultyLink">
+                        <option selected>Институт цифровых технологий</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="adminSubjectLink">Предмет</label>
+                    <select id="adminSubjectLink">
+                        <option selected>Алгоритмы и структуры данных</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="adminGroupExample">Пример группы</label>
+                    <input id="adminGroupExample" value="ИВТ-201">
+                </div>
+            </section>
+        </div>
+    </section>
+</main>
+<script src="/js/api.js"></script>
+</body>
+</html>

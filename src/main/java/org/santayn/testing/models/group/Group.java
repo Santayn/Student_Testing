@@ -1,67 +1,41 @@
 package org.santayn.testing.models.group;
 
-import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.santayn.testing.models.faculty.Faculty;
-import org.santayn.testing.models.student.Student;
-import org.santayn.testing.models.teacher.Teacher_Group;
-import org.santayn.testing.models.test.Test_Group;
 
-import java.util.ArrayList;
-import java.util.List;
-
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
-@Table(name = "app_group")
-@Data
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@Table(name = "`Groups`")
 public class Group {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @EqualsAndHashCode.Include
+    @Column(name = "`Id`")
     private Integer id;
 
-    private Integer course_code;
-
-    @Column(unique = true)
+    @Column(name = "`Name`", nullable = false, length = 200)
     private String name;
 
-    private String title;
+    @Column(name = "`Code`", nullable = false, length = 50, unique = true, columnDefinition = "citext")
+    private String code;
 
-    // Связь с студентами через промежуточную таблицу
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Group_Student> groupStudents = new ArrayList<>();
+    @Column(name = "`FacultyId`", nullable = false)
+    private Integer facultyId;
 
-    // Связь с тестами через Test_Group
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Test_Group> testGroups = new ArrayList<>();
-
-    // Группа принадлежит факультету
-    @ManyToOne
-    @JoinColumn(name = "faculty_id", referencedColumnName = "id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "`FacultyId`", referencedColumnName = "`Id`", insertable = false, updatable = false)
     private Faculty faculty;
-
-    // Преподаватели, связанные с группой
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Teacher_Group> teacherGroups = new ArrayList<>();
-
-    // Методы для управления студентами
-    public void addStudent(Student student) {
-        Group_Student gs = new Group_Student();
-        gs.setGroup(this);
-        gs.setStudent(student);
-        student.setGroup(this);
-        groupStudents.add(gs);
-    }
-
-    public void removeStudent(Student student) {
-        groupStudents.stream()
-                .filter(gs -> gs.getStudent().getId().equals(student.getId()))
-                .findFirst()
-                .ifPresent(gs -> {
-                    gs.getStudent().setGroup(null);
-                    groupStudents.remove(gs);
-                });
-    }
 }

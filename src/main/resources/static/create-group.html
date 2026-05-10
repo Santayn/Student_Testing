@@ -1,14 +1,14 @@
-<!doctype html><meta charset="utf-8"><title>Список групп</title>
-<h1>Список групп</h1>
-<ul id="list"></ul>
-<a href="/groups.html">Создать новую группу</a>
-<script>
-    (async ()=>{
-      const res = await fetch('/api/v1/groups'); const groups = await res.json();
-      list.innerHTML = groups.map(g => `
-        <li>
-          <strong>${g.name ?? ''}</strong><br/>
-          <a href="/group-details.html?id=${g.id}">Подробнее</a>
-        </li>`).join('');
-    })();
-</script>
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=/groups.html">
+    <title>Создание группы</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<p><a href="/groups.html">Перейти к списку групп</a></p>
+<script src="/js/api.js"></script>
+</body>
+</html>

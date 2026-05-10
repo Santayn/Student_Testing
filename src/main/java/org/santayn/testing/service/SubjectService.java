@@ -1,78 +1,60 @@
 package org.santayn.testing.service;
-import org.santayn.testing.models.group.Group;
+
+import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.subject.Subject;
-import org.santayn.testing.models.teacher.Teacher;
 import org.santayn.testing.repository.SubjectRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
-import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class SubjectService {
 
     private final SubjectRepository subjectRepository;
 
-    public SubjectService(SubjectRepository subjectRepository) {
-        this.subjectRepository = subjectRepository;
-    }
-
-
-
-
-    public List<Subject> findFreeSubjects() {
-        List<Subject> subjects = subjectRepository.findSubjectsNotInAnyTeachers();
-        System.out.println("Free subjects found: " + subjects.size());
-        return subjects;
-    }
-
-    public List<Subject> getSubjectsByTecherID(Integer teacherId) {
-        if (teacherId == null) {
-            throw new IllegalArgumentException("teacherId не может быть null");
-        }
-        System.out.println("Fetching Subject for teacher ID: " + teacherId);
-        List<Subject> subjects = subjectRepository.findSubjectByTeacherId(teacherId);
-        System.out.println("Groups found: " + subjects.size());
-        return subjects;
-    }
-
-
-
-
-    public Subject getSpecificSubjectByFacultyIdAndSubjectId(Integer facultyId, Integer subjectId) {
-        List<Subject> subjects = subjectRepository.findSubjectByFacultyId(facultyId);
-
-        Optional<Subject> specificSubject = subjects.stream()
-                .filter(subject -> subject.getId().equals(subjectId))  // ← исправлено: сравниваем с subjectId
-                .findFirst();
-
-        return specificSubject.orElseThrow(() -> new RuntimeException(
-                "Subject with ID " + subjectId + " not found for Faculty with ID " + facultyId));
-    }
-    public List<Subject> getSubjectsByFacultyId(Integer facultyId) {
-        return subjectRepository.findSubjectByFacultyId(facultyId);
-    }
-
-    // Получение конкретного предмета по ID факультета и ID предмета
-    public Subject findSubjectByIdAndFacultyId(Integer facultyId, Integer subjectId) {
-        List<Subject> subjects = subjectRepository.findSubjectByFacultyId(facultyId);
-
-        Optional<Subject> specificSubject = subjects.stream()
-                .filter(subject -> subject.getId().equals(subjectId))
-                .findFirst();
-
-        return specificSubject.orElseThrow(() -> new RuntimeException(
-                "Subject with ID " + subjectId + " not found for Faculty with ID " + facultyId));
-    }
-
-
-    public List<Subject> getAllSubjects() {
+    @Transactional(readOnly = true)
+    public List<Subject> findAll() {
         return subjectRepository.findAll();
     }
-    public List<Subject> getSubjectsByTeacher(Teacher teacher) {
-        return subjectRepository.findSubjectByTeacherId(teacher.getId());
-    }
-    public Subject findById(Integer id) {
+
+    @Transactional(readOnly = true)
+    public Subject get(Integer id) {
         return subjectRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Subject not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Subject not found: " + id));
+    }
+
+    @Transactional
+    public Subject create(String name, String description) {
+        String normalizedName = FacultyService.requireText(name, "Name");
+        if (subjectRepository.existsByName(normalizedName)) {
+            throw new AuthConflictException("Subject already exists: " + normalizedName);
+        }
+
+        Subject subject = new Subject();
+        subject.setName(normalizedName);
+        subject.setDescription(FacultyService.trimToNull(description));
+        return subjectRepository.save(subject);
+    }
+
+    @Transactional
+    public Subject update(Integer id, String name, String description) {
+        Subject subject = get(id);
+        if (name != null) {
+            String normalizedName = FacultyService.requireText(name, "Name");
+            if (!normalizedName.equals(subject.getName()) && subjectRepository.existsByName(normalizedName)) {
+                throw new AuthConflictException("Subject already exists: " + normalizedName);
+            }
+            subject.setName(normalizedName);
+        }
+        subject.setDescription(FacultyService.trimToNull(description));
+        return subject;
+    }
+
+    @Transactional
+    public void delete(Integer id) {
+        Subject subject = get(id);
+        subjectRepository.delete(subject);
     }
 }

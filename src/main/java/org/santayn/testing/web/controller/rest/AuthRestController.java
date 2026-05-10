@@ -1,153 +1,121 @@
 package org.santayn.testing.web.controller.rest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import org.santayn.testing.models.user.User;
-import org.santayn.testing.security.JwtService;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.UserRegisterService;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping({"/api/auth", "/api/v1/auth"})
 public class AuthRestController {
 
-    private final AuthenticationManager authenticationManager;
     private final UserRegisterService userRegisterService;
-    private final JwtService jwtService;
 
-    public AuthRestController(AuthenticationManager authenticationManager,
-                              UserRegisterService userRegisterService,
-                              JwtService jwtService) {
-        this.authenticationManager = authenticationManager;
+    public AuthRestController(UserRegisterService userRegisterService) {
         this.userRegisterService = userRegisterService;
-        this.jwtService = jwtService;
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.login(), request.password())
-        );
-
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new BadCredentialsException("Неверный логин или пароль");
-        }
-
-        User user = userRegisterService.findUserByLogin(request.login());
-        String accessToken = jwtService.generateAccessToken(user);
-
-        return new AuthResponse(
-                accessToken,
-                "Bearer",
-                jwtService.getAccessTokenExpiresInSeconds(),
-                UserInfo.from(user)
+    public UserRegisterService.AuthTokens login(@Valid @RequestBody LoginRequest request,
+                                                HttpServletRequest httpRequest) {
+        return userRegisterService.login(
+                request.login(),
+                request.password(),
+                request.lifetimeKind(),
+                httpRequest.getRemoteAddr(),
+                httpRequest.getHeader("User-Agent")
         );
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        User created = userRegisterService.registerUser(
+    @ResponseStatus(HttpStatus.CREATED)
+    public UserRegisterService.AuthTokens register(@Valid @RequestBody RegisterRequest request,
+                                                   HttpServletRequest httpRequest) {
+        return userRegisterService.register(
                 request.login(),
                 request.password(),
-                request.firstName(),
-                request.lastName(),
-                request.phoneNumber()
+                request.personId(),
+                request.lifetimeKind(),
+                httpRequest.getRemoteAddr(),
+                httpRequest.getHeader("User-Agent")
         );
+    }
 
-        String accessToken = jwtService.generateAccessToken(created);
-
-        AuthResponse response = new AuthResponse(
-                accessToken,
-                "Bearer",
-                jwtService.getAccessTokenExpiresInSeconds(),
-                UserInfo.from(created)
+    @PostMapping("/refresh")
+    public UserRegisterService.AuthTokens refresh(@Valid @RequestBody RefreshRequest request,
+                                                  HttpServletRequest httpRequest) {
+        return userRegisterService.refresh(
+                request.refreshToken(),
+                httpRequest.getRemoteAddr(),
+                httpRequest.getHeader("User-Agent")
         );
+    }
 
-        return ResponseEntity
-                .created(URI.create("/api/v1/users/" + created.getId()))
-                .body(response);
+    @PostMapping("/revoke")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revoke(@Valid @RequestBody RefreshRequest request,
+                       Authentication authentication,
+                       HttpServletRequest httpRequest) {
+        userRegisterService.revoke(request.refreshToken(), requireLogin(authentication), httpRequest.getRemoteAddr());
+    }
+
+    @PostMapping("/change-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                               Authentication authentication,
+                               HttpServletRequest httpRequest) {
+        userRegisterService.changePassword(
+                requireLogin(authentication),
+                request.currentPassword(),
+                request.newPassword(),
+                httpRequest.getRemoteAddr()
+        );
     }
 
     @GetMapping("/me")
-    public UserInfo me(Authentication authentication) {
+    public UserRegisterService.CurrentUser me(Authentication authentication) {
+        return userRegisterService.currentUser(requireLogin(authentication));
+    }
+
+    private String requireLogin(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new BadCredentialsException("Пользователь не авторизован");
+            throw new BadCredentialsException("Authentication is required.");
         }
-
-        User user = userRegisterService.findUserByLogin(authentication.getName());
-        return UserInfo.from(user);
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErrorResponse handleBadCredentials(BadCredentialsException ex) {
-        return new ErrorResponse("unauthorized", ex.getMessage());
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleBadRequest(IllegalArgumentException ex) {
-        return new ErrorResponse("bad_request", ex.getMessage());
+        return authentication.getName();
     }
 
     public record LoginRequest(
-            @NotBlank String login,
-            @NotBlank String password
+            @NotBlank @Size(max = 100) String login,
+            @NotBlank @Size(min = 6, max = 200) String password,
+            Integer lifetimeKind
     ) {
     }
 
     public record RegisterRequest(
-            @NotBlank String login,
-            @NotBlank String password,
-            String firstName,
-            String lastName,
-            String phoneNumber
+            @NotBlank @Size(max = 100) String login,
+            @NotBlank @Size(min = 6, max = 200) String password,
+            @Positive Integer personId,
+            Integer lifetimeKind
     ) {
     }
 
-    public record AuthResponse(
-            String accessToken,
-            String tokenType,
-            long expiresIn,
-            UserInfo user
-    ) {
+    public record RefreshRequest(@NotBlank String refreshToken) {
     }
 
-    public record UserInfo(
-            Integer id,
-            String login,
-            String firstName,
-            String lastName,
-            String phoneNumber,
-            String role,
-            Integer studentId,
-            Integer teacherId
-    ) {
-        public static UserInfo from(User user) {
-            return new UserInfo(
-                    user.getId(),
-                    user.getLogin(),
-                    user.getFirstName(),
-                    user.getLastName(),
-                    user.getPhoneNumber(),
-                    user.getRole() != null ? user.getRole().getName() : null,
-                    user.getStudent() != null ? user.getStudent().getId() : null,
-                    user.getTeacher() != null ? user.getTeacher().getId() : null
-            );
-        }
-    }
-
-    public record ErrorResponse(
-            String error,
-            String message
+    public record ChangePasswordRequest(
+            @NotBlank @Size(min = 6, max = 200) String currentPassword,
+            @NotBlank @Size(min = 6, max = 200) String newPassword
     ) {
     }
 }

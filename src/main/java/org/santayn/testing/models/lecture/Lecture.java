@@ -1,45 +1,74 @@
 package org.santayn.testing.models.lecture;
 
-import jakarta.persistence.*;
-import lombok.Data;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.santayn.testing.models.course.CourseVersion;
 import org.santayn.testing.models.subject.Subject;
+import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.test.Test;
-import org.santayn.testing.models.test.Test_Lecture;
 
-import java.util.List;
-
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
-@Table(name = "lecture")
+@Table(name = "`CourseLectures`")
 public class Lecture {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "`Id`")
     private Integer id;
 
-    @ManyToOne
-    @JoinColumn(name = "subject_id", referencedColumnName = "id")
+    @Column(name = "`SubjectId`")
+    private Integer subjectId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "`SubjectId`", referencedColumnName = "`Id`", insertable = false, updatable = false)
     private Subject subject;
 
-    private String content;
+    @Column(name = "`SubjectMembershipId`")
+    private Integer subjectMembershipId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "`SubjectMembershipId`", referencedColumnName = "`Id`", insertable = false, updatable = false)
+    private SubjectMembership subjectMembership;
+
+    @Column(name = "`CourseVersionId`")
+    private Integer courseVersionId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "`CourseVersionId`", referencedColumnName = "`Id`", insertable = false, updatable = false)
+    private CourseVersion courseVersion;
+
+    @Column(name = "`Ordinal`", nullable = false)
+    private int ordinal = 1;
+
+    @Column(name = "`Title`", nullable = false, length = 200)
     private String title;
+
+    @Column(name = "`Description`", length = 2000)
     private String description;
 
-    @OneToMany(mappedBy = "lecture", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Test_Lecture> testLectures; // Список связей с Test_Lecture
+    @Column(name = "`ContentFolderKey`", nullable = false, length = 255)
+    private String contentFolderKey;
 
-    public void addTestLecture(Test_Lecture testLecture) {
-        testLecture.setLecture(this);
-        this.testLectures.add(testLecture);
-    }
+    @Column(name = "`LinkedTestId`")
+    private Integer linkedTestId;
 
-    public void removeTestLecture(Test_Lecture testLecture) {
-        this.testLectures.remove(testLecture);
-        testLecture.setLecture(null);
-    }
-    public List<Test> getTests() {
-        return testLectures.stream()
-                .map(Test_Lecture::getTest)
-                .toList();
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "`LinkedTestId`", referencedColumnName = "`Id`", insertable = false, updatable = false)
+    private Test linkedTest;
+
+    @Column(name = "`IsPublic`", nullable = false)
+    private boolean publicVisible;
 }

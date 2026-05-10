@@ -1,137 +1,108 @@
-// src/main/java/org/santayn/testing/web/controller/rest/LectureRestController.java
 package org.santayn.testing.web.controller.rest;
 
 import jakarta.validation.Valid;
-import org.santayn.testing.models.lecture.Lecture;
-import org.santayn.testing.models.subject.Subject;
-import org.santayn.testing.models.teacher.Teacher;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.LectureService;
-import org.santayn.testing.service.SubjectService;
-import org.santayn.testing.service.UserSearch;
-import org.santayn.testing.web.dto.lecture.LectureCreateRequest;
-import org.santayn.testing.web.dto.lecture.LectureResponse;
-import org.santayn.testing.web.dto.lecture.LectureShortDto;
-import org.santayn.testing.web.dto.lecture.LectureUpdateRequest;
-import org.santayn.testing.web.dto.subject.SubjectShortDto;
+import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/lectures")
+@RequestMapping({"/api/lectures", "/api/v1/lectures"})
 public class LectureRestController {
 
     private final LectureService lectureService;
-    private final SubjectService subjectService;
-    private final UserSearch userSearch;
 
-    public LectureRestController(LectureService lectureService,
-                                 SubjectService subjectService,
-                                 UserSearch userSearch) {
+    public LectureRestController(LectureService lectureService) {
         this.lectureService = lectureService;
-        this.subjectService = subjectService;
-        this.userSearch = userSearch;
     }
 
-    /** Предметы текущего преподавателя (можно также использовать /api/v1/teacher-subjects/me) */
-    @GetMapping("/my-subjects")
-    public List<SubjectShortDto> mySubjects() {
-        Teacher t = userSearch.getCurrentTeacher();
-        List<Subject> subjects = subjectService.getSubjectsByTeacher(t);
-        return subjects.stream().map(SubjectShortDto::from).toList();
+    @GetMapping
+    public List<ApiResponses.LectureResponse> all(@RequestParam(required = false) Integer subjectId,
+                                                  @RequestParam(required = false) Integer subjectMembershipId,
+                                                  @RequestParam(required = false) Integer courseVersionId) {
+        return ApiResponses.list(
+                lectureService.findAll(subjectId, subjectMembershipId, courseVersionId),
+                ApiResponses::lecture
+        );
     }
 
-    /** Лекции по предмету (доступ только если предмет у текущего преподавателя) */
-    @GetMapping("/by-subject/{subjectId}")
-    public List<LectureResponse> listBySubject(@PathVariable Integer subjectId) {
-        assertSubjectOwnedByCurrentTeacher(subjectId);
-        return lectureService.getLecturesBySubjectId(subjectId)
-                .stream()
-                .map(LectureResponse::from)
-                .toList();
+    @GetMapping("/{id}")
+    public ApiResponses.LectureResponse one(@PathVariable Integer id) {
+        return ApiResponses.lecture(lectureService.get(id));
     }
 
-    /** Короткий список лекций по предмету (для селектов) */
-    @GetMapping("/by-subject/{subjectId}/short")
-    public List<LectureShortDto> listShortBySubject(@PathVariable Integer subjectId) {
-        assertSubjectOwnedByCurrentTeacher(subjectId);
-        return lectureService.getLecturesBySubjectId(subjectId)
-                .stream()
-                .map(LectureShortDto::from)
-                .toList();
-    }
-
-    /** Получить одну лекцию (без сложных прав — при желании можно тоже проверять владельца предмета) */
-    @GetMapping("/{lectureId}")
-    public LectureResponse get(@PathVariable Integer lectureId) {
-        Lecture l = lectureService.findById(lectureId);
-        return LectureResponse.from(l);
-    }
-
-    /** Создать лекцию (проверяем, что предмет принадлежит текущему преподавателю) */
     @PostMapping
-    public ResponseEntity<LectureResponse> create(@Valid @RequestBody LectureCreateRequest req) {
-        assertSubjectOwnedByCurrentTeacher(req.subjectId());
-        Lecture l = lectureService.addLecture(req.subjectId(), req.title(), req.content(), req.description());
-        return ResponseEntity
-                .created(URI.create("/api/v1/lectures/" + l.getId()))
-                .body(LectureResponse.from(l));
+    public ApiResponses.LectureResponse create(@Valid @RequestBody LectureRequest request) {
+        return ApiResponses.lecture(lectureService.create(
+                request.subjectId(),
+                request.subjectMembershipId(),
+                request.courseVersionId(),
+                request.ordinal(),
+                request.title(),
+                request.description(),
+                request.contentFolderKey(),
+                request.linkedTestId(),
+                request.publicVisible()
+        ));
     }
 
-    /** Частичное обновление лекции; если меняется subjectId — тоже проверяем, что предмет принадлежит преподавателю */
-    @PatchMapping("/{lectureId}")
-    public LectureResponse update(@PathVariable Integer lectureId,
-                                  @RequestBody LectureUpdateRequest req) {
-        Lecture l = lectureService.findById(lectureId);
-
-        // если хотят перенести лекцию на другой предмет — проверим владение
-        if (req.subjectId() != null) {
-            assertSubjectOwnedByCurrentTeacher(req.subjectId());
-            Subject s = subjectService.findById(req.subjectId());
-            l.setSubject(s);
-        }
-        if (req.title() != null)       l.setTitle(req.title());
-        if (req.content() != null)     l.setContent(req.content());
-        if (req.description() != null) l.setDescription(req.description());
-
-        // LectureService не имеет save, но LectureRepository.save(l) внутри addLecture есть.
-        // Раз у тебя есть groupService.save, добавь аналог в lectureService при желании.
-        // Проще всего: репозиторий через сервис:
-        // сделаем маленький помощник:
-        return LectureResponse.from(lectureService.findById(lectureServiceAddLikeSave(l)));
+    @PutMapping("/{id}")
+    public ApiResponses.LectureResponse update(@PathVariable Integer id, @Valid @RequestBody LectureRequest request) {
+        return ApiResponses.lecture(lectureService.update(
+                id,
+                request.subjectId(),
+                request.subjectMembershipId(),
+                request.courseVersionId(),
+                request.ordinal(),
+                request.title(),
+                request.description(),
+                request.contentFolderKey(),
+                request.linkedTestId(),
+                request.publicVisible()
+        ));
     }
 
-    /** Удалить лекцию */
-    @DeleteMapping("/{lectureId}")
+    @PutMapping("/{id}/linked-test")
+    public ApiResponses.LectureResponse updateLinkedTest(@PathVariable Integer id,
+                                                         @Valid @RequestBody LinkedTestRequest request) {
+        return ApiResponses.lecture(lectureService.updateLinkedTest(id, request.linkedTestId()));
+    }
+
+    @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Integer lectureId) {
-        // можно усилить: проверить, что лекция принадлежит предмету текущего преподавателя
-        lectureService.deleteLecture(lectureId);
+    public void delete(@PathVariable Integer id) {
+        lectureService.delete(id);
     }
 
-    /* ================= helpers ================= */
-
-    private void assertSubjectOwnedByCurrentTeacher(Integer subjectId) {
-        Teacher t = userSearch.getCurrentTeacher();
-        boolean ok = subjectService.getSubjectsByTeacher(t).stream()
-                .anyMatch(s -> s.getId().equals(subjectId));
-        if (!ok) {
-            throw new RuntimeException("Нет доступа к предмету id=" + subjectId);
-        }
+    public record LectureRequest(
+            Integer subjectId,
+            Integer subjectMembershipId,
+            Integer courseVersionId,
+            @Positive int ordinal,
+            @NotBlank @Size(max = 200) String title,
+            @Size(max = 2000) String description,
+            @NotBlank @Size(max = 255) String contentFolderKey,
+            Integer linkedTestId,
+            boolean publicVisible
+    ) {
     }
 
-    /**
-     * Небольшой хак чтобы "сохранить" изменения без явного save в сервисе:
-     * берём актуальную сущность, меняем поля и пересчитываем id через findById.
-     * Если хочешь красиво — добавь в LectureService метод save(Lecture l) с репозиторием внутри.
-     */
-    private Integer lectureServiceAddLikeSave(Lecture l) {
-        // Если у тебя включён OpenSessionInView (по умолчанию true),
-        // изменения на управляемой сущности уедут в БД при завершении транзакции/запроса.
-        // Просто возвращаем id, а контроллер заново считает сущность.
-        return l.getId();
+    public record LinkedTestRequest(
+            Integer linkedTestId
+    ) {
     }
 }

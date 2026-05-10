@@ -2,128 +2,192 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Управление группами</title>
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
-        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
-        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333;font-size:16px}
-        .sidebar a:hover{color:#007BFF}
-        .content{flex:1;padding:20px;overflow:auto}
-        form{display:flex;flex-wrap:wrap;gap:15px;margin-bottom:30px;background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1)}
-        label{font-weight:bold}
-        input,select{width:100%;padding:8px;margin-top:5px}
-        button{padding:10px 20px;background:#28a745;color:#fff;border:0;cursor:pointer;font-size:16px;border-radius:4px}
-        button:hover{background:#218838}
-        table{width:100%;border-collapse:collapse;margin-top:10px}
-        th,td{border:1px solid #ddd;padding:10px;text-align:left}
-        th{background:#f2f2f2}
-        .delete-btn{background:#dc3545;color:#fff;border:0;padding:5px 10px;cursor:pointer;font-size:14px;border-radius:4px}
-        .delete-btn:hover{background:#c82333}
-        .error{margin-top:8px;color:#b00020}
-    </style>
+    <title>Группы</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-<div class="sidebar">
-    <a href="#" onclick="alert(userInfoText)">О пользователе</a>
-    <!-- заменяем th:href на обычные ссылки на статику (создашь по мере миграции) -->
-    <a href="/index.html">Главная</a>
+<body class="app-shell">
+<aside class="sidebar">
+    <h3>Меню</h3>
+    <a href="/profile.html">О пользователе</a>
+    <a href="/main.html">Главная</a>
     <a href="/subjects.html">Предметы</a>
     <a href="/about.html">О платформе</a>
-    <a href="/students.html">Управление студентами</a>
-    <a href="/teachers.html">Управление учителями</a>
-    <a href="/roles.html">Управление ролями</a>
-    <a href="/teachers-subject.html">Управление предметами</a>
-    <a href="/lectures.html">Управление лекциями</a>
-    <a href="/tests-create.html">Создать тест</a>
-    <a href="/topics.html">Управление темами</a>
-    <a href="/questions-upload.html">Загрузить вопросы</a>
-    <a href="/results.html" style="font-weight:bold;">Результаты тестов</a>
-    <a href="/groups.html" style="font-weight:bold;">Создать группу</a>
-</div>
+    <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
+    <a class="teacher-only" href="/manage-teachers.html">Учебная нагрузка</a>
+    <a class="teacher-only" href="/users.html">Управление ролями</a>
+    <a class="teacher-only" href="/manage-teachers-subject.html">Преподаватели и предметы</a>
+    <a class="teacher-only" href="/manage-lectures-subject.html">Лекции</a>
+    <a class="teacher-only" href="/questions-page.html">Вопросы</a>
+    <a class="teacher-only" href="/create-test.html">Создать тест</a>
+    <a href="/result-list.html">Результаты тестов</a>
+    <a class="teacher-only" href="/groups.html">Группы</a>
+    <a class="teacher-only" href="/create-faculty.html">Факультеты</a>
+    <a class="teacher-only" href="/manage-subject-faculty.html">Предметы факультетов</a>
+    <a class="teacher-only" href="/create-subject.html">Создание предмета</a>
+    <button type="button" id="logoutBtn" data-sidebar-logout>Выйти</button></aside>
 
-<div class="content">
-    <h2>Создать новую группу</h2>
+<main class="content">
+    <h1>Группы</h1>
+    <div id="message"></div>
 
-    <form onsubmit="event.preventDefault(); createGroup();">
-        <div style="flex:1;min-width:250px;">
-            <label for="name">Название группы:</label>
-            <input id="name" required />
-        </div>
-        <div style="flex:1;min-width:250px;">
-            <label for="facultyId">Выберите факультет:</label>
-            <select id="facultyId" required>
-                <option value="">-- Выберите --</option>
-            </select>
-        </div>
-        <div style="align-self:flex-end;">
-            <button type="submit">Создать группу</button>
-        </div>
-    </form>
-    <div id="err" class="error"></div>
+    <section class="panel">
+        <h2 id="formTitle">Новая группа</h2>
+        <form id="groupForm">
+            <div class="grid">
+                <div>
+                    <label for="nameInput">Название</label>
+                    <input id="nameInput" required maxlength="200">
+                </div>
+                <div>
+                    <label for="codeInput">Код</label>
+                    <input id="codeInput" required maxlength="50">
+                </div>
+                <div>
+                    <label for="facultySelect">Факультет</label>
+                    <select id="facultySelect" required></select>
+                </div>
+            </div>
+            <div class="actions">
+                <button id="saveBtn" class="btn-primary" type="submit">Сохранить</button>
+                <button id="cancelBtn" class="btn-light hidden" type="button">Отмена</button>
+            </div>
+        </form>
+    </section>
 
-    <h3>Список групп</h3>
-    <table>
-        <thead><tr><th>ID</th><th>Название</th><th>Факультет</th><th>Действия</th></tr></thead>
-        <tbody id="tbody"></tbody>
-    </table>
-</div>
+    <section class="panel">
+        <table>
+            <thead><tr><th>ID</th><th>Название</th><th>Код</th><th>Факультет</th><th></th></tr></thead>
+            <tbody id="groupsBody"></tbody>
+        </table>
+    </section>
+</main>
 
+<script src="/js/api.js"></script>
 <script>
-    const API = '/api/v1';
-    const userInfoText = 'Профиль пользователя (заглушка)';
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
 
-    async function fetchJSON(url, opt={}) {
-      const res = await fetch(url, { headers: { 'Accept':'application/json', ...(opt.headers||{}) }, ...opt });
-      const txt = await res.text(); let data=null; try{ data = txt? JSON.parse(txt): null }catch{}
-      if (!res.ok) throw new Error(data?.message || data?.error?.message || res.status+' '+res.statusText);
-      return data;
+    const state = {
+      groups: [],
+      faculties: [],
+      editingId: null
+    };
+
+    const el = id => document.getElementById(id);
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
-    async function loadFaculties() {
-      const faculties = await fetchJSON(`${API}/faculties`);
-      const sel = document.getElementById('facultyId');
-      sel.innerHTML = '<option value="">-- Выберите --</option>' +
-        faculties.map(f => `<option value="${f.id}">${f.name ?? f.title ?? ('#'+f.id)}</option>`).join('');
+    function facultyName(id) {
+      const faculty = state.faculties.find(item => Number(item.id) === Number(id));
+      return faculty ? `${faculty.name} (${faculty.code})` : `#${id}`;
     }
 
-    async function loadGroups() {
-      const groups = await fetchJSON(`${API}/groups`);
-      const tbody = document.getElementById('tbody');
-      tbody.innerHTML = groups.map(g => `
+    async function loadData() {
+      const [faculties, groups] = await Promise.all([
+        api('/faculties'),
+        api('/groups')
+      ]);
+      state.faculties = faculties.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
+      state.groups = groups.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
+      renderFaculties();
+      renderGroups();
+    }
+
+    function renderFaculties() {
+      el('facultySelect').innerHTML = '<option value="">Выберите факультет</option>' +
+        state.faculties.map(faculty => `<option value="${faculty.id}">${html(faculty.name)} (${html(faculty.code)})</option>`).join('');
+    }
+
+    function renderGroups() {
+      el('groupsBody').innerHTML = state.groups.map(group => `
         <tr>
-          <td>${g.id}</td>
-          <td><a href="/group-details.html?id=${g.id}">${g.name ?? ''}</a></td>
-          <td>${g.facultyId ?? '-'}</td>
-          <td><button class="delete-btn" data-id="${g.id}">Удалить</button></td>
+          <td>${group.id}</td>
+          <td><a href="/group-details.html?id=${encodeURIComponent(group.id)}">${html(group.name || '')}</a></td>
+          <td>${html(group.code || '')}</td>
+          <td>${html(facultyName(group.facultyId))}</td>
+          <td>
+            <div class="actions actions-compact">
+              <button class="btn-light" type="button" onclick="editGroup(${group.id})">Изменить</button>
+              <button class="btn-danger" type="button" onclick="deleteGroup(${group.id})">Удалить</button>
+            </div>
+          </td>
         </tr>
       `).join('');
-      tbody.querySelectorAll('button.delete-btn').forEach(b => b.onclick = async () => {
-        if (!confirm('Удалить группу #' + b.dataset.id + '?')) return;
-        await fetchJSON(`${API}/groups/${b.dataset.id}`, { method: 'DELETE' });
-        await loadGroups();
-      });
     }
 
-    async function createGroup() {
-      const name = document.getElementById('name').value.trim();
-      const facultyId = document.getElementById('facultyId').value;
-      const err = document.getElementById('err'); err.textContent = '';
-      if (!name || !facultyId) { err.textContent = 'Заполните поля'; return; }
+    async function saveGroup(event) {
+      event.preventDefault();
+      const body = {
+        name: el('nameInput').value.trim(),
+        code: el('codeInput').value.trim(),
+        facultyId: Number(el('facultySelect').value)
+      };
 
       try {
-        await fetchJSON(`${API}/groups`, {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json' },
-          body: JSON.stringify({ name, facultyId: Number(facultyId) })
-        });
-        document.getElementById('name').value = '';
-        document.getElementById('facultyId').value = '';
-        await loadGroups();
-      } catch(e) { err.textContent = e.message; }
+        if (state.editingId) {
+          await api(`/groups/${encodeURIComponent(state.editingId)}`, {
+            method: 'PUT',
+            body: JSON.stringify(body)
+          });
+          showMessage('success', 'Группа обновлена.');
+        } else {
+          await api('/groups', {
+            method: 'POST',
+            body: JSON.stringify(body)
+          });
+          showMessage('success', 'Группа создана.');
+        }
+        clearForm();
+        await loadData();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
     }
 
-    (async function init(){ await loadFaculties().catch(()=>{}); await loadGroups(); })();
+    function editGroup(id) {
+      const group = state.groups.find(item => item.id === id);
+      if (!group) {
+        return;
+      }
+      state.editingId = id;
+      el('formTitle').textContent = 'Изменить группу';
+      el('nameInput').value = group.name || '';
+      el('codeInput').value = group.code || '';
+      el('facultySelect').value = String(group.facultyId || '');
+      el('cancelBtn').classList.remove('hidden');
+    }
+
+    async function deleteGroup(id) {
+      const group = state.groups.find(item => item.id === id);
+      if (!group || !confirm(`Удалить группу "${group.name}"?`)) {
+        return;
+      }
+      try {
+        await api(`/groups/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        showMessage('success', 'Группа удалена.');
+        await loadData();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
+    }
+
+    function clearForm() {
+      state.editingId = null;
+      el('formTitle').textContent = 'Новая группа';
+      el('groupForm').reset();
+      el('cancelBtn').classList.add('hidden');
+    }
+
+    el('groupForm').addEventListener('submit', saveGroup);
+    el('cancelBtn').addEventListener('click', clearForm);
+
+    if (StudentTestingApi.requireAuth()) {
+      loadData().catch(error => showMessage('error', html(error.message)));
+    }
 </script>
 </body>
 </html>
+

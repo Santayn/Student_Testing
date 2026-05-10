@@ -6,5 +6,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface TopicRepository extends JpaRepository<Topic, Integer> {
-    List<Topic> findBySubjectId(Integer subjectId);
+
+    List<Topic> findAllByOrderBySubjectMembershipIdAscOrdinalAsc();
+
+    List<Topic> findBySubjectIdOrderByOrdinalAsc(Integer subjectId);
+
+    List<Topic> findBySubjectMembershipIdOrderByOrdinalAsc(Integer subjectMembershipId);
+
+    List<Topic> findByCourseLectureIdOrderByOrdinalAsc(Integer courseLectureId);
+
+    boolean existsBySubjectMembershipIdAndOrdinal(Integer subjectMembershipId, int ordinal);
+
+    boolean existsBySubjectMembershipIdAndOrdinalAndIdNot(Integer subjectMembershipId, int ordinal, Integer id);
 }

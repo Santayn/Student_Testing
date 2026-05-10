@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Инструкция</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="app-topbar">
+    <div class="app-topbar__inner">
+        <a class="app-brand" href="/main.html">Student Testing</a>
+        <div class="top-actions">
+            <span id="userBadge" class="small"></span>
+            <button id="logoutBtn" type="button" class="btn-light">Выйти</button>
+        </div>
+    </div>
+</header>
+
+<main class="page">
+    <div id="errorBox" class="alert alert-danger hidden"></div>
+
+    <section class="panel">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Инструкция</h1>
+                <p class="page-subtitle">Краткая памятка по навигации, ролям и основным действиям в системе.</p>
+            </div>
+        </div>
+        <p id="instructionNote" class="muted">Разделы ниже переключаются по роли. При включенном preview открывается выбранный сценарий без авторизации.</p>
+    </section>
+
+    <section class="panel">
+        <div class="actions" id="roleTabs"></div>
+        <div id="instructionContent" class="instruction-content"></div>
+    </section>
+</main>
+
+<script>
+    (() => {
+        const params = new URLSearchParams(window.location.search);
+        const previewRoleValue = (params.get("previewRole") || "").toUpperCase().trim();
+        if (!previewRoleValue) {
+            return;
+        }
+
+        const previewRoles = previewRoleValue
+            .split(",")
+            .map(role => role.trim())
+            .filter(Boolean);
+
+        if (!previewRoles.length) {
+            return;
+        }
+
+        const previewName = params.get("previewName") || "Preview User";
+        const [firstName, ...lastNameParts] = previewName.split(" ").filter(Boolean);
+        window.__studentTestingPreviewMode = true;
+        window.__studentTestingPreviewToken = "preview-token";
+        window.__studentTestingPreviewUser = {
+            login: previewName.toLowerCase().replace(/\s+/g, "."),
+            roles: previewRoles,
+            person: {
+                firstName: firstName || "Preview",
+                lastName: lastNameParts.join(" ") || "User"
+            }
+        };
+    })();
+</script>
+<script src="/js/api.js"></script>
+<script>
+    const ROLE_IMAGES = {
+        student: {
+            menu: {
+                src: "/images/instructions/student-menu.png",
+                alt: "Меню студента",
+                caption: "Студенту доступны предметы, результаты тестов и личный профиль."
+            },
+            filled: {
+                src: "/images/instructions/student-filled.png",
+                alt: "Экран студента",
+                caption: "В сценарии студента акцент сделан на прохождении тестов и просмотре назначенных материалов."
+            }
+        },
+        teacher: {
+            menu: {
+                src: "/images/instructions/teacher-menu.png",
+                alt: "Меню преподавателя",
+                caption: "Преподаватель работает с предметами, лекциями, вопросами и тестами."
+            },
+            filled: {
+                src: "/images/instructions/teacher-filled.png",
+                alt: "Экран преподавателя",
+                caption: "Для преподавателя доступны инструменты подготовки курсов и анализа результатов."
+            }
+        },
+        admin: {
+            menu: {
+                src: "/images/instructions/admin-menu.png",
+                alt: "Меню администратора",
+                caption: "Администратор управляет факультетами, группами, ролями и шаблонами нагрузки."
+            },
+            filled: {
+                src: "/images/instructions/admin-filled.png",
+                alt: "Экран администратора",
+                caption: "Админский сценарий объединяет справочники, связи сущностей и служебные настройки."
+            }
+        }
+    };
+
+    const INSTRUCTION_SECTIONS = {
+        common: {
+            title: "Общее",
+            description: "Базовые действия, одинаковые для всех ролей.",
+            items: [
+                {
+                    tab: "Главная",
+                    href: "/main.html",
+                    purpose: "Показывает краткую сводку по текущему пользователю и быстрые ссылки в основные разделы.",
+                    steps: [
+                        "Откройте главную страницу после входа.",
+                        "Проверьте отображаемую роль и учетную запись.",
+                        "Перейдите в нужный раздел по кнопкам быстрого доступа."
+                    ],
+                    expected: "На экране видны имя пользователя, роль и ссылки на основные рабочие страницы.",
+                    troubleshooting: "Если главная не загружается, проверьте токен авторизации и повторите вход."
+                },
+                {
+                    tab: "Профиль",
+                    href: "/profile.html",
+                    purpose: "Позволяет проверить данные текущего пользователя и его роли.",
+                    steps: [
+                        "Откройте раздел профиля.",
+                        "Сверьте имя, почту и список ролей.",
+                        "Используйте эту страницу для первичной диагностики доступа."
+                    ],
+                    expected: "В профиле отображаются актуальные пользовательские данные.",
+                    troubleshooting: "Если данные пустые, проверьте ответ `/users/me` и доступность API."
+                },
+                {
+                    tab: "О платформе",
+                    href: "/about.html",
+                    purpose: "Кратко описывает назначение системы и ее основные сценарии.",
+                    steps: [
+                        "Откройте страницу «О платформе».",
+                        "Используйте ее как краткий обзор для новых пользователей."
+                    ],
+                    expected: "Страница без авторизационных зависимостей, с базовым описанием системы.",
+                    troubleshooting: "Если текст не отображается, проблема почти всегда в статических ресурсах."
+                }
+            ]
+        },
+        student: {
+            title: "Студент",
+            description: "Основные действия студента: открыть предмет, перейти к лекции и пройти тест.",
+            items: [
+                {
+                    tab: "Предметы",
+                    href: "/subjects.html",
+                    purpose: "Показывает дисциплины, связанные с текущей учебной группой.",
+                    steps: [
+                        "Откройте список предметов.",
+                        "При необходимости используйте поиск по названию.",
+                        "Перейдите в карточку предмета и далее в лекции."
+                    ],
+                    expected: "В списке видны предметы студента и ссылки на карточки предметов.",
+                    troubleshooting: "Если список пуст, проверьте membership студента и учебную группу."
+                },
+                {
+                    tab: "Результаты",
+                    href: "/result-list.html",
+                    purpose: "Дает доступ к расшифровке ответов и статистике по тестам.",
+                    steps: [
+                        "Выберите тест и при необходимости фильтры.",
+                        "Откройте подробные результаты.",
+                        "Сверьте правильные и данные ответы."
+                    ],
+                    expected: "На странице доступны строки с вопросами, ответами и итоговой статистикой.",
+                    troubleshooting: "Если результатов нет, проверьте, была ли создана попытка и отправлены ответы."
+                }
+            ]
+        },
+        teacher: {
+            title: "Преподаватель",
+            description: "Преподаватель управляет учебным контентом и проверяет результаты студентов.",
+            items: [
+                {
+                    tab: "Лекции",
+                    href: "/manage-lectures-subject.html",
+                    purpose: "Позволяет создавать и редактировать лекции в рамках предмета.",
+                    steps: [
+                        "Выберите предмет преподавателя.",
+                        "Создайте лекцию или откройте существующую.",
+                        "Заполните описание и привязанный контент."
+                    ],
+                    expected: "Лекции сгруппированы по предметам и доступны для дальнейшего назначения тестов.",
+                    troubleshooting: "Если лекции не сохраняются, проверьте course/version и права преподавателя."
+                },
+                {
+                    tab: "Вопросы",
+                    href: "/questions-page.html",
+                    purpose: "Используется для подготовки пула вопросов к тестам.",
+                    steps: [
+                        "Откройте библиотеку вопросов.",
+                        "Добавьте новые вопросы или импортируйте существующие.",
+                        "Проверьте типы вопросов и варианты ответов."
+                    ],
+                    expected: "После сохранения вопрос доступен для включения в тесты.",
+                    troubleshooting: "Если вопрос не появляется, проверьте выбранный предмет и ответ API на сохранение."
+                },
+                {
+                    tab: "Результаты",
+                    href: "/result-list.html",
+                    purpose: "Позволяет преподавателю анализировать ответы по тесту, группе и студенту.",
+                    steps: [
+                        "Выберите предмет, лекцию и тест.",
+                        "При необходимости уточните группу и студента.",
+                        "Загрузите результат и просмотрите детализацию."
+                    ],
+                    expected: "Отображаются итоговая статистика и таблица ответов.",
+                    troubleshooting: "Если фильтры пустые, проверьте опубликованные тесты и привязки к группам."
+                }
+            ]
+        },
+        admin: {
+            title: "Администратор",
+            description: "Администратор поддерживает справочники системы и распределение учебной нагрузки.",
+            items: [
+                {
+                    tab: "Факультеты",
+                    href: "/create-faculty.html",
+                    purpose: "Создание и редактирование факультетов.",
+                    steps: [
+                        "Откройте страницу факультетов.",
+                        "Добавьте новый факультет или обновите существующий.",
+                        "Проверьте, что код и описание заполнены корректно."
+                    ],
+                    expected: "Новый факультет появляется в списке и доступен в связанных справочниках.",
+                    troubleshooting: "Если запись не сохраняется, проверьте уникальность кода и обязательные поля."
+                },
+                {
+                    tab: "Связи",
+                    href: "/manage-subject-faculty.html",
+                    purpose: "Настройка связей между факультетами и предметами.",
+                    steps: [
+                        "Выберите факультет.",
+                        "Добавьте свободные предметы или удалите лишние.",
+                        "Обновите список после изменений."
+                    ],
+                    expected: "Список связанных предметов синхронизирован с выбранным факультетом.",
+                    troubleshooting: "Если предметы не применяются, проверьте ответ эндпоинтов `faculty-subjects`."
+                },
+                {
+                    tab: "Нагрузка",
+                    href: "/manage-teacher-groups.html",
+                    purpose: "Работа с шаблонами нагрузки и привязками преподавателей к группам.",
+                    steps: [
+                        "Выберите факультет, курс и семестр.",
+                        "Сформируйте список предметов и преподавателей.",
+                        "Примените шаблон к нужным группам."
+                    ],
+                    expected: "После применения создаются или обновляются назначения по выбранным группам.",
+                    troubleshooting: "Если часть назначений пропускается, проверьте конфликты с существующими записями."
+                }
+            ]
+        }
+    };
+
+    const ROLE_ORDER = ["STUDENT", "TEACHER", "ADMIN"];
+    let activeSection = "common";
+
+    function normalizeRoleName(value) {
+        return String(value || "").toUpperCase();
+    }
+
+    function resolveDefaultSection(user) {
+        const roles = (user && Array.isArray(user.roles) ? user.roles : []).map(normalizeRoleName);
+        if (roles.some(role => role.includes("ADMIN"))) return "admin";
+        if (roles.some(role => role.includes("TEACHER"))) return "teacher";
+        if (roles.some(role => role.includes("STUDENT"))) return "student";
+        return "common";
+    }
+
+    function roleLabel(key) {
+        switch (key) {
+            case "student": return "Студент";
+            case "teacher": return "Преподаватель";
+            case "admin": return "Администратор";
+            default: return "Общее";
+        }
+    }
+
+    function renderTabs() {
+        const tabs = document.getElementById("roleTabs");
+        const order = ["common", "student", "teacher", "admin"];
+        tabs.innerHTML = order.map(key => `
+            <button type="button" class="${key === activeSection ? 'btn btn-primary' : 'btn'}" data-role-tab="${key}">
+                ${roleLabel(key)}
+            </button>
+        `).join("");
+
+        tabs.querySelectorAll("[data-role-tab]").forEach(button => {
+            button.addEventListener("click", () => {
+                activeSection = button.dataset.roleTab;
+                renderTabs();
+                renderSection();
+            });
+        });
+    }
+
+    function imageMarkup(sectionKey, index) {
+        const roleImages = ROLE_IMAGES[sectionKey];
+        if (!roleImages) {
+            return "";
+        }
+        const imageConfig = index % 2 === 0 ? roleImages.menu : roleImages.filled;
+        if (!imageConfig) {
+            return "";
+        }
+        return `
+            <figure class="panel panel-flat panel-gap-sm">
+                <img src="${imageConfig.src}" alt="${imageConfig.alt}">
+                <figcaption class="muted small">${imageConfig.caption}</figcaption>
+            </figure>
+        `;
+    }
+
+    function renderSection() {
+        const root = document.getElementById("instructionContent");
+        const section = INSTRUCTION_SECTIONS[activeSection];
+        root.innerHTML = `
+            <section class="panel panel-flat">
+                <h2 class="flush-top">${section.title}</h2>
+                <p class="muted">${section.description}</p>
+            </section>
+            ${section.items.map((item, index) => `
+                <section class="panel panel-gap">
+                    <div class="page-header page-header-compact">
+                        <div>
+                            <h3 class="flush-top">${item.tab}</h3>
+                            <p class="muted">${item.purpose}</p>
+                        </div>
+                        <a class="btn btn-light" href="${item.href}">Открыть раздел</a>
+                    </div>
+                    ${imageMarkup(activeSection, index)}
+                    <div class="grid">
+                        <div>
+                            <h4>Как открыть</h4>
+                            <ul class="list list-spaced">
+                                ${item.steps.map(step => `<li class="list-row">${step}</li>`).join("")}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Ожидаемый результат</h4>
+                            <p class="muted">${item.expected}</p>
+                            <h4>Если что-то не работает</h4>
+                            <p class="muted">${item.troubleshooting}</p>
+                        </div>
+                    </div>
+                </section>
+            `).join("")}
+        `;
+    }
+
+    async function init() {
+        document.getElementById("logoutBtn").addEventListener("click", StudentTestingApi.logout);
+        const errorBox = document.getElementById("errorBox");
+        const userBadge = document.getElementById("userBadge");
+
+        try {
+            let user = StudentTestingApi.getCurrentUserFromStorage?.() || null;
+            if (!window.__studentTestingPreviewMode) {
+                user = await StudentTestingApi.loadCurrentUser();
+            } else {
+                user = window.__studentTestingPreviewUser;
+            }
+
+            const person = user?.person || {};
+            const displayName = user?.fullName
+                || [person.firstName, person.lastName].filter(Boolean).join(" ").trim()
+                || user?.login
+                || "Пользователь";
+            const roles = Array.isArray(user?.roles) ? user.roles.map(normalizeRoleName) : [];
+            const roleText = roles.length ? roles.join(", ") : "COMMON";
+            userBadge.textContent = `${displayName} (${roleText})`;
+            activeSection = resolveDefaultSection(user);
+        } catch (error) {
+            errorBox.textContent = error.message || "Не удалось загрузить инструкцию для текущего пользователя.";
+            errorBox.classList.remove("hidden");
+            activeSection = "common";
+        }
+
+        renderTabs();
+        renderSection();
+    }
+
+    init();
+</script>
+</body>
+</html>

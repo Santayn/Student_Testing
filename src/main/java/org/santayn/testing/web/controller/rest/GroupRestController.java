@@ -1,106 +1,65 @@
-// src/main/java/org/santayn/testing/web/controller/rest/GroupRestController.java
 package org.santayn.testing.web.controller.rest;
 
 import jakarta.validation.Valid;
-import org.santayn.testing.models.faculty.Faculty;
-import org.santayn.testing.models.group.Group;
-import org.santayn.testing.service.FacultyService;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.GroupService;
-import org.santayn.testing.web.dto.group.GroupCreateRequest;
-import org.santayn.testing.web.dto.group.GroupResponse;
-import org.santayn.testing.web.dto.group.GroupShortDto;
-import org.santayn.testing.web.dto.group.GroupUpdateRequest;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.santayn.testing.web.dto.platform.ApiResponses;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/groups")
+@RequestMapping({"/api/groups", "/api/v1/groups"})
 public class GroupRestController {
 
     private final GroupService groupService;
-    private final FacultyService facultyService;
 
-    public GroupRestController(GroupService groupService, FacultyService facultyService) {
+    public GroupRestController(GroupService groupService) {
         this.groupService = groupService;
-        this.facultyService = facultyService;
     }
 
-    /** Полный список групп */
     @GetMapping
-    public List<GroupResponse> list() {
-        return groupService.getAllGroup()
-                .stream()
-                .map(GroupResponse::from)
-                .toList();
+    public List<ApiResponses.GroupResponse> all(@RequestParam(required = false) Integer facultyId) {
+        return ApiResponses.list(groupService.findAll(facultyId), ApiResponses::group);
     }
 
-    /** Короткий список (для селектов) */
-    @GetMapping("/short")
-    public List<GroupShortDto> listShort() {
-        return groupService.getAllGroup()
-                .stream()
-                .map(GroupShortDto::from)
-                .toList();
-    }
-
-    /** Получить одну группу */
     @GetMapping("/{id}")
-    public GroupResponse get(@PathVariable Integer id) {
-        Group g = groupService.getGroupById(id);
-        return GroupResponse.from(g);
+    public ApiResponses.GroupResponse one(@PathVariable Integer id) {
+        return ApiResponses.group(groupService.get(id));
     }
 
-    /** Создать группу (courseCode игнорируем по твоему требованию) */
     @PostMapping
-    public ResponseEntity<GroupResponse> create(@Valid @RequestBody GroupCreateRequest req) {
-        Group g = new Group();
-        g.setName(req.name());
-        g.setTitle(req.title());
-        // req.courseCode() — не используем
-
-        if (req.facultyId() != null) {
-            Faculty f = facultyService.findById(req.facultyId());
-            g.setFaculty(f);
-        }
-
-        groupService.save(g);
-
-        Integer id = g.getId();
-        if (id == null) {
-            // fallback, если провайдер не проставил id сразу
-            g = groupService.getSpecificGroupByGroupName(req.name());
-            id = g.getId();
-        }
-
-        return ResponseEntity
-                .created(URI.create("/api/v1/groups/" + id))
-                .body(GroupResponse.from(g));
+    public ApiResponses.GroupResponse create(@Valid @RequestBody GroupRequest request) {
+        return ApiResponses.group(groupService.create(request.name(), request.code(), request.facultyId()));
     }
 
-    /** Частичное обновление (courseCode игнорируем) */
-    @PatchMapping("/{id}")
-    public GroupResponse update(@PathVariable Integer id, @RequestBody GroupUpdateRequest req) {
-        Group g = groupService.getGroupById(id);
-
-        if (req.name() != null)  g.setName(req.name());
-        if (req.title() != null) g.setTitle(req.title());
-        // req.courseCode() — не используем
-        if (req.facultyId() != null) {
-            Faculty f = facultyService.findById(req.facultyId());
-            g.setFaculty(f);
-        }
-
-        groupService.save(g);
-        return GroupResponse.from(g);
+    @PutMapping("/{id}")
+    public ApiResponses.GroupResponse update(@PathVariable Integer id, @Valid @RequestBody GroupRequest request) {
+        return ApiResponses.group(groupService.update(id, request.name(), request.code(), request.facultyId()));
     }
 
-    /** Удалить группу */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
-        groupService.deleteGroupById(id);
-        return ResponseEntity.noContent().build();
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Integer id) {
+        groupService.delete(id);
+    }
+
+    public record GroupRequest(
+            @NotBlank @Size(max = 200) String name,
+            @NotBlank @Size(max = 50) String code,
+            @NotNull Integer facultyId
+    ) {
     }
 }

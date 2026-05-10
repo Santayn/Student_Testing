@@ -2,191 +2,906 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Связи учитель ↔ группы</title>
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
-        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
-        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333;font-size:16px}
-        .sidebar a:hover{color:#007BFF}
-        .content{flex:1;padding:20px;overflow:auto}
-        h2{margin-top:0}
-        form,.section{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:25px}
-        label{font-weight:bold;display:block;margin-bottom:5px}
-        select{width:100%;padding:6px;margin-top:5px}
-        select[multiple]{height:160px}
-        button{padding:10px 20px;border:0;border-radius:4px;cursor:pointer;font-size:15px}
-        .btn-add{background:#28a745;color:#fff}
-        .btn-add:hover{background:#218838}
-        .btn-del{background:#dc3545;color:#fff}
-        .btn-del:hover{background:#c82333}
-        .btn-blue{background:#007BFF;color:#fff}
-        .btn-blue:hover{background:#0056b3}
-        .err{margin-top:10px;color:#b00020}
-        .muted{opacity:.6;pointer-events:none}
-    </style>
+    <title>Персональная нагрузка</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-<div class="sidebar">
-    <a href="/index.html">Главная</a>
-    <a href="/subjects.html">Предметы</a>
-    <a href="/faculties.html">Факультеты</a>
-    <a href="/groups.html">Группы</a>
-    <a href="/teacher-group.html" style="font-weight:bold;">Связи учитель↔группы</a>
-</div>
-
-<div class="content">
-    <h2>Управление связями учитель ↔ группы</h2>
-
-    <!-- выбор учителя -->
-    <form onsubmit="event.preventDefault(); loadTeacherGroups();">
-        <label for="teacher-select">Выберите учителя:</label>
-        <select id="teacher-select" required>
-            <option value="">-- Выберите учителя --</option>
-        </select>
-        <br><br>
-        <button id="btn-show" type="submit" class="btn-blue">Показать группы</button>
-        <div id="err0" class="err"></div>
-    </form>
-
-    <!-- добавление -->
-    <div class="section" id="section-add" style="display:none;">
-        <h3>Добавить группы учителю</h3>
-        <form onsubmit="event.preventDefault(); addGroups();">
-            <label for="free-groups">Свободные группы:</label>
-            <select id="free-groups" multiple required></select>
-            <br><br>
-            <button id="btn-add" type="submit" class="btn-add">Добавить выбранные</button>
-            <div id="errAdd" class="err"></div>
-        </form>
+<body class="app-shell">
+<main class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Персональная нагрузка</h1>
+            <p class="page-subtitle">Соберите выдачу лекций: выберите предмет, лекции и группы из вашей текущей нагрузки по выбранному периоду.</p>
+        </div>
+        <div class="actions actions-compact">
+            <a class="btn btn-light" href="/manage-lectures-subject.html">Лекции</a>
+        </div>
     </div>
 
-    <!-- список -->
-    <div class="section" id="section-list" style="display:none;">
-        <h3>Группы учителя</h3>
-        <select id="assigned-groups-list" multiple></select>
-    </div>
+    <div id="message" class="message"></div>
 
-    <!-- удаление -->
-    <div class="section" id="section-del" style="display:none;">
-        <h3>Удалить группы у учителя</h3>
-        <form onsubmit="event.preventDefault(); removeGroups();">
-            <label for="assigned-groups">Текущие группы учителя:</label>
-            <select id="assigned-groups" multiple required></select>
-            <br><br>
-            <button id="btn-del" type="submit" class="btn-del">Удалить выбранные</button>
-            <div id="errDel" class="err"></div>
-        </form>
-    </div>
-</div>
+    <section class="summary">
+        <div class="summary-item">
+            <strong>Период</strong>
+            <span id="summaryPeriod">-</span>
+        </div>
+        <div class="summary-item">
+            <strong>Предметов в нагрузке</strong>
+            <span id="summarySubjects">0</span>
+        </div>
+        <div class="summary-item">
+            <strong>Групп в выборке</strong>
+            <span id="summaryGroups">0</span>
+        </div>
+        <div class="summary-item">
+            <strong>Назначенных лекций</strong>
+            <span id="summaryLectureAssignments">0</span>
+        </div>
+    </section>
 
+    <div class="layout teacher-group-admin-layout">
+        <section>
+            <div class="panel">
+                <h2 class="flush-top">Период нагрузки</h2>
+                <div class="grid">
+                    <div class="field">
+                        <label for="studyCourseSelect">Курс</label>
+                        <select id="studyCourseSelect">
+                            <option value="1">1 курс</option>
+                            <option value="2">2 курс</option>
+                            <option value="3">3 курс</option>
+                            <option value="4">4 курс</option>
+                            <option value="5">5 курс</option>
+                            <option value="6">6 курс</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="semesterSelect">Семестр</label>
+                        <select id="semesterSelect">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="academicYearInput">Учебный год</label>
+                        <input id="academicYearInput" type="number" min="2000" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="row">
+                    <h2>Предметы, лекции и группы</h2>
+                    <button id="addSubjectRowBtn" class="btn btn-light" type="button" disabled>Добавить предмет</button>
+                </div>
+                <p class="muted">Каждая строка описывает одну комбинацию: предмет, выбранные лекции и учебные группы из вашей текущей нагрузки по периоду.</p>
+                <div id="subjectRows" class="subject-teacher-list"></div>
+                <p id="subjectRowsHint" class="muted">Загрузка текущей нагрузки...</p>
+            </div>
+
+            <div class="panel">
+                <div class="row">
+                    <h2>План назначений</h2>
+                    <span id="selectionCount" class="badge">0</span>
+                </div>
+                <p id="selectionHint" class="muted">После заполнения строк будет видно, сколько новых назначений лекций создастся по выбранным группам.</p>
+                <div id="selectionSummary" class="selection-summary empty">Выберите предмет, лекции и группы.</div>
+                <div class="actions">
+                    <button id="assignLecturesBtn" class="btn btn-primary" type="button" disabled>Назначить выбранные лекции</button>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="panel">
+                <h2 class="flush-top">Текущие назначения лекций</h2>
+                <p id="currentAssignmentsHint" class="muted">Просматривайте уже выданные лекции по активным группам. Статус можно менять прямо здесь.</p>
+                <div id="currentAssignments" class="empty">Для активных групп назначенных лекций пока нет.</div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="/js/api.js"></script>
 <script>
-    const API = '/api/v1';
-    const ERR = (id,msg) => document.getElementById(id).textContent = msg || '';
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const TEACHER_ROLE = 1;
 
-    async function fetchJSON(url, opt = {}) {
-      const res = await fetch(url, {
-        headers: { 'Accept': 'application/json', ...(opt.headers || {}) },
-        ...opt
+    let rowSequence = 0;
+
+    const state = {
+      user: null,
+      subjectMemberships: [],
+      membershipsById: new Map(),
+      membershipBySubjectId: new Map(),
+      subjectsById: new Map(),
+      assignments: [],
+      assignmentsById: new Map(),
+      activeAssignments: [],
+      lectureAssignmentsByTeachingAssignmentId: new Map(),
+      lectureCatalogBySubjectId: new Map(),
+      lectureCatalogPromises: new Map(),
+      subjectRows: []
+    };
+
+    const el = id => document.getElementById(id);
+
+    function createSubjectRow(subjectId = null) {
+      rowSequence += 1;
+      return {
+        id: rowSequence,
+        subjectId,
+        lectureIds: [],
+        teachingAssignmentIds: []
+      };
+    }
+
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+    }
+
+    function numberOrNull(value) {
+      return value ? Number(value) : null;
+    }
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+    }
+
+    function selectedStudyCourse() {
+      return Number(el('studyCourseSelect').value || 0);
+    }
+
+    function selectedSemester() {
+      return Number(el('semesterSelect').value || 0);
+    }
+
+    function selectedAcademicYear() {
+      return Number(el('academicYearInput').value || 0);
+    }
+
+    function subjectName(subjectId) {
+      const subject = state.subjectsById.get(Number(subjectId));
+      return subject ? subject.name : `Предмет #${subjectId}`;
+    }
+
+    function groupName(groupId) {
+      const assignment = state.assignments.find(item => Number(item.groupId) === Number(groupId));
+      return assignment?.groupName || assignment?.groupCode || `Группа #${groupId}`;
+    }
+
+    function assignmentSubjectId(assignment) {
+      return state.membershipsById.get(Number(assignment.subjectMembershipId))?.subjectId ?? null;
+    }
+
+    function assignmentStatusLabel(status) {
+      switch (Number(status)) {
+        case 1: return 'Активно';
+        case 2: return 'Черновик';
+        case 3: return 'Закрыто';
+        case 4: return 'В паузе';
+        default: return `Статус ${status}`;
+      }
+    }
+
+    function currentPeriodLabel() {
+      return `${selectedStudyCourse()} курс / ${selectedSemester()} семестр / ${selectedAcademicYear()}`;
+    }
+
+    function availableSubjectIds() {
+      return unique(
+        state.activeAssignments
+          .map(assignmentSubjectId)
+          .filter(Boolean)
+      ).sort((left, right) => String(subjectName(left)).localeCompare(String(subjectName(right)), 'ru'));
+    }
+
+    function activeAssignmentsForSubject(subjectId) {
+      return state.activeAssignments
+        .filter(assignment => Number(assignmentSubjectId(assignment)) === Number(subjectId))
+        .sort((left, right) =>
+          String(groupName(left.groupId)).localeCompare(String(groupName(right.groupId)), 'ru') ||
+          Number(left.id) - Number(right.id)
+        );
+    }
+
+    function lectureCatalogForSubject(subjectId) {
+      return state.lectureCatalogBySubjectId.get(Number(subjectId)) || { lectures: [], lectureById: new Map() };
+    }
+
+    function lectureMeta(lectureId) {
+      const requestedId = Number(lectureId);
+      for (const catalog of state.lectureCatalogBySubjectId.values()) {
+        if (catalog.lectureById.has(requestedId)) {
+          return catalog.lectureById.get(requestedId);
+        }
+      }
+      return null;
+    }
+
+    function selectedTasks() {
+      return state.subjectRows.flatMap(row => {
+        if (!row.subjectId) {
+          return [];
+        }
+        const lectureIds = unique((row.lectureIds || []).map(Number).filter(Boolean));
+        const teachingAssignmentIds = unique((row.teachingAssignmentIds || []).map(Number).filter(Boolean));
+        return lectureIds.flatMap(lectureId =>
+          teachingAssignmentIds.map(teachingAssignmentId => ({
+            rowId: row.id,
+            subjectId: Number(row.subjectId),
+            lectureId,
+            teachingAssignmentId
+          }))
+        );
       });
-      const txt = await res.text();
-      let data = null;
-      try { data = txt ? JSON.parse(txt) : null; } catch {}
-      if (!res.ok) throw new Error((data && (data.message || data.error)) || (res.status + ' ' + res.statusText));
-      return data;
     }
 
-    // учителя
-    async function loadTeachers() {
-      try {
-        ERR('err0','');
-        const teachers = await fetchJSON(`${API}/teachers`);
-        const sel = document.getElementById('teacher-select');
-        sel.innerHTML =
-          '<option value="">-- Выберите учителя --</option>' +
-          teachers.map(t => `<option value="${t.id}">${t.fullName}</option>`).join('');
-      } catch (e) { ERR('err0', e.message); }
+    function existingLectureAssignmentForTask(task) {
+      return (state.lectureAssignmentsByTeachingAssignmentId.get(Number(task.teachingAssignmentId)) || [])
+        .find(item => Number(item.courseLectureId) === Number(task.lectureId)) || null;
     }
 
-    let currentTeacherId = null;
+    function pendingTasks() {
+      return selectedTasks().filter(task => !existingLectureAssignmentForTask(task));
+    }
 
-    async function loadTeacherGroups() {
-      const id = document.getElementById('teacher-select').value;
-      if (!id) return;
-      currentTeacherId = id;
+    function duplicateTasks() {
+      return selectedTasks().filter(task => !!existingLectureAssignmentForTask(task));
+    }
 
-      const btn = document.getElementById('btn-show');
-      btn.classList.add('muted');
+    function completeRows() {
+      return state.subjectRows.filter(row =>
+        row.subjectId
+          && Array.isArray(row.lectureIds) && row.lectureIds.length > 0
+          && Array.isArray(row.teachingAssignmentIds) && row.teachingAssignmentIds.length > 0
+      );
+    }
 
-      try {
-        // группы учителя
-        const assigned = await fetchJSON(`${API}/teacher-groups/${id}`);
-        // свободные группы
-        const free     = await fetchJSON(`${API}/teacher-groups/free`);
+    function incompleteRows() {
+      return state.subjectRows.filter(row =>
+        row.subjectId
+          && (!Array.isArray(row.lectureIds) || !row.lectureIds.length
+            || !Array.isArray(row.teachingAssignmentIds) || !row.teachingAssignmentIds.length)
+      );
+    }
 
-        document.getElementById('assigned-groups-list').innerHTML =
-          assigned.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-        document.getElementById('assigned-groups').innerHTML =
-          assigned.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-        document.getElementById('free-groups').innerHTML =
-          free.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    function currentLectureAssignments() {
+      return [...state.lectureAssignmentsByTeachingAssignmentId.values()].flat();
+    }
 
-        document.getElementById('section-add').style.display = 'block';
-        document.getElementById('section-list').style.display = 'block';
-        document.getElementById('section-del').style.display = 'block';
-        ERR('err0','');
-      } catch (e) {
-        ERR('err0', e.message);
-      } finally {
-        btn.classList.remove('muted');
+    function subjectOptionsForRow(rowId) {
+      const selectedElsewhere = new Set(
+        state.subjectRows
+          .filter(row => row.id !== rowId && row.subjectId)
+          .map(row => Number(row.subjectId))
+      );
+      const currentSubjectId = Number(state.subjectRows.find(row => row.id === rowId)?.subjectId || 0);
+
+      return availableSubjectIds().filter(subjectId =>
+        !selectedElsewhere.has(Number(subjectId)) || Number(subjectId) === currentSubjectId
+      );
+    }
+
+    function normalizeRowSelections() {
+      const availableSubjects = new Set(availableSubjectIds());
+
+      state.subjectRows.forEach(row => {
+        if (!row.subjectId || !availableSubjects.has(Number(row.subjectId))) {
+          row.lectureIds = [];
+          row.teachingAssignmentIds = [];
+          return;
+        }
+
+        const assignmentIds = new Set(activeAssignmentsForSubject(row.subjectId).map(item => Number(item.id)));
+        row.teachingAssignmentIds = unique((row.teachingAssignmentIds || []).map(Number).filter(id => assignmentIds.has(id)));
+
+        const availableLectureIds = new Set(lectureCatalogForSubject(row.subjectId).lectures.map(item => Number(item.id)));
+        row.lectureIds = unique((row.lectureIds || []).map(Number).filter(id => availableLectureIds.has(id)));
+      });
+
+      if (!state.subjectRows.length) {
+        state.subjectRows = [createSubjectRow()];
       }
     }
 
-    async function addGroups() {
-      const selected = [...document.getElementById('free-groups').selectedOptions].map(o => Number(o.value));
-      if (!selected.length) return;
+    function updateSummary() {
+      el('summaryPeriod').textContent = currentPeriodLabel();
+      el('summarySubjects').textContent = String(availableSubjectIds().length);
+      el('summaryGroups').textContent = String(unique(state.activeAssignments.map(item => Number(item.groupId))).length);
+      el('summaryLectureAssignments').textContent = String(currentLectureAssignments().length);
+    }
 
-      const btn = document.getElementById('btn-add');
-      btn.classList.add('muted');
+    async function ensureLectureCatalog(subjectId) {
+      const numericSubjectId = Number(subjectId);
+      if (!numericSubjectId) {
+        return { lectures: [], lectureById: new Map() };
+      }
 
+      if (state.lectureCatalogBySubjectId.has(numericSubjectId)) {
+        return state.lectureCatalogBySubjectId.get(numericSubjectId);
+      }
+
+      if (state.lectureCatalogPromises.has(numericSubjectId)) {
+        return state.lectureCatalogPromises.get(numericSubjectId);
+      }
+
+      const membership = state.membershipBySubjectId.get(numericSubjectId);
+      if (!membership) {
+        const emptyCatalog = { lectures: [], lectureById: new Map() };
+        state.lectureCatalogBySubjectId.set(numericSubjectId, emptyCatalog);
+        return emptyCatalog;
+      }
+
+      const loader = (async () => {
+        const lectures = (await api(`/lectures?subjectMembershipId=${encodeURIComponent(membership.id)}`))
+          .sort((left, right) =>
+            Number(left.ordinal || 0) - Number(right.ordinal || 0) ||
+            String(left.title || '').localeCompare(String(right.title || ''), 'ru')
+          );
+
+        const catalog = {
+          lectures,
+          lectureById: new Map(lectures.map(item => [Number(item.id), item]))
+        };
+
+        state.lectureCatalogBySubjectId.set(numericSubjectId, catalog);
+        return catalog;
+      })();
+
+      state.lectureCatalogPromises.set(numericSubjectId, loader);
       try {
-        await fetchJSON(`${API}/teacher-groups/${currentTeacherId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(selected)
+        return await loader;
+      } finally {
+        state.lectureCatalogPromises.delete(numericSubjectId);
+      }
+    }
+
+    async function loadInitialData() {
+      state.user = await StudentTestingApi.loadCurrentUser();
+      if (!state.user.personId) {
+        throw new Error('Не удалось определить преподавателя по текущему профилю.');
+      }
+
+      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
+      state.subjectMemberships = memberships
+        .filter(item => Number(item.role) === TEACHER_ROLE)
+        .sort((left, right) => Number(left.id) - Number(right.id));
+      state.membershipsById = new Map(state.subjectMemberships.map(item => [Number(item.id), item]));
+
+      const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
+      const subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+      state.subjectsById = new Map(subjects.map(item => [Number(item.id), item]));
+      state.membershipBySubjectId = new Map(
+        state.subjectMemberships.map(item => [Number(item.subjectId), item])
+      );
+
+      if (!state.subjectMemberships.length) {
+        state.subjectRows = [createSubjectRow()];
+        renderAll();
+        showMessage('info', 'Нет предметов преподавателя для учебной нагрузки.');
+        return;
+      }
+
+      if (!state.subjectRows.length) {
+        state.subjectRows = [createSubjectRow()];
+      }
+
+      await refreshAssignments();
+    }
+
+    async function loadAssignmentsForMembership(membership) {
+      return api(
+        `/teaching/assignments?subjectMembershipId=${encodeURIComponent(membership.id)}`
+        + `&studyCourse=${encodeURIComponent(selectedStudyCourse())}`
+        + `&semester=${encodeURIComponent(selectedSemester())}`
+        + `&academicYear=${encodeURIComponent(selectedAcademicYear())}`
+      );
+    }
+
+    async function refreshAssignments() {
+      showMessage('', '');
+
+      if (!state.subjectMemberships.length) {
+        renderAll();
+        return;
+      }
+
+      const assignmentLists = await Promise.all(
+        state.subjectMemberships.map(loadAssignmentsForMembership)
+      );
+
+      state.assignments = assignmentLists.flat()
+        .map(item => ({
+          ...item,
+          groupName: null,
+          groupCode: null
+        }))
+        .filter((item, index, items) => items.findIndex(other => Number(other.id) === Number(item.id)) === index);
+      state.assignmentsById = new Map(state.assignments.map(item => [Number(item.id), item]));
+      state.activeAssignments = state.assignments.filter(item => Number(item.status) === 1);
+
+      const groupIds = unique(state.assignments.map(item => item.groupId));
+      const groups = await Promise.all(groupIds.map(id => api(`/groups/${encodeURIComponent(id)}`)));
+      const groupsById = new Map(groups.map(group => [Number(group.id), group]));
+      state.assignments = state.assignments.map(item => ({
+        ...item,
+        groupName: groupsById.get(Number(item.groupId))?.name || null,
+        groupCode: groupsById.get(Number(item.groupId))?.code || null
+      }));
+      state.assignmentsById = new Map(state.assignments.map(item => [Number(item.id), item]));
+      state.activeAssignments = state.assignments.filter(item => Number(item.status) === 1);
+
+      await refreshLectureAssignments();
+      await Promise.all(availableSubjectIds().map(ensureLectureCatalog));
+      renderAll();
+    }
+
+    async function refreshLectureAssignments() {
+      const pairs = await Promise.all(
+        state.assignments.map(async assignment => ({
+          teachingAssignmentId: assignment.id,
+          items: await api(`/teaching/lecture-assignments?teachingAssignmentId=${encodeURIComponent(assignment.id)}`)
+        }))
+      );
+      state.lectureAssignmentsByTeachingAssignmentId = new Map(
+        pairs.map(pair => [Number(pair.teachingAssignmentId), pair.items])
+      );
+    }
+
+    function renderAll() {
+      normalizeRowSelections();
+      updateSummary();
+      renderSubjectRows();
+      renderSelectionSummary();
+      renderCurrentAssignments();
+      updatePageHints();
+      refreshAssignButtonState();
+    }
+
+    function updatePageHints() {
+      el('addSubjectRowBtn').disabled = availableSubjectIds().length === 0;
+
+      if (!state.subjectMemberships.length) {
+        el('subjectRowsHint').textContent = 'Нет преподавательских предметов.';
+        return;
+      }
+
+      if (!availableSubjectIds().length) {
+        el('subjectRowsHint').textContent = 'По выбранному периоду активных назначений пока нет.';
+        return;
+      }
+
+      el('subjectRowsHint').textContent = 'Добавьте предмет, затем отметьте лекции и группы.';
+    }
+
+    function renderSubjectRows() {
+      const container = el('subjectRows');
+      container.innerHTML = state.subjectRows.map(row => {
+        const subjectOptions = subjectOptionsForRow(row.id);
+        const lectures = row.subjectId ? lectureCatalogForSubject(row.subjectId).lectures : [];
+        const assignments = row.subjectId ? activeAssignmentsForSubject(row.subjectId) : [];
+
+        const lectureContent = !row.subjectId
+          ? '<div class="empty-inline">Сначала выберите предмет.</div>'
+          : !lectures.length
+            ? '<div class="empty-inline">У этого предмета пока нет лекций.</div>'
+            : `<div class="selection-checklist">
+                ${lectures.map(lecture => `
+                  <label class="check selection-check">
+                    <input type="checkbox" data-row-lecture="${row.id}" value="${lecture.id}" ${row.lectureIds.includes(Number(lecture.id)) ? 'checked' : ''}>
+                    <span>
+                      <strong>${html(`${lecture.ordinal}. ${lecture.title}`)}</strong>
+                      <small class="selection-check-note">${html(lecture.description || 'Без описания')}</small>
+                    </span>
+                  </label>
+                `).join('')}
+              </div>`;
+
+        const groupContent = !row.subjectId
+          ? '<div class="empty-inline">Сначала выберите предмет.</div>'
+          : !assignments.length
+            ? '<div class="empty-inline">Для выбранного предмета нет активных групп по периоду.</div>'
+            : `<div class="selection-checklist">
+                ${assignments.map(assignment => `
+                  <label class="check selection-check">
+                    <input type="checkbox" data-row-assignment="${row.id}" value="${assignment.id}" ${row.teachingAssignmentIds.includes(Number(assignment.id)) ? 'checked' : ''}>
+                    <span>
+                      <strong>${html(groupName(assignment.groupId))}</strong>
+                      <small class="selection-check-note">${html(currentPeriodLabel())}</small>
+                    </span>
+                  </label>
+                `).join('')}
+              </div>`;
+
+        return `
+          <div class="subject-teacher-row" data-row-id="${row.id}">
+            <div class="field">
+              <label for="subject-row-${row.id}">Предмет</label>
+              <select id="subject-row-${row.id}" data-row-subject="${row.id}">
+                <option value="">Выберите предмет</option>
+                ${subjectOptions.map(subjectId => `
+                  <option value="${subjectId}" ${Number(subjectId) === Number(row.subjectId) ? 'selected' : ''}>${html(subjectName(subjectId))}</option>
+                `).join('')}
+              </select>
+            </div>
+            <div class="subject-teacher-row__placeholder"></div>
+            <div class="subject-teacher-row__actions">
+              <button type="button" class="btn btn-light" data-remove-row="${row.id}" ${state.subjectRows.length === 1 ? 'disabled' : ''}>Удалить</button>
+            </div>
+            <div class="subject-teacher-row__selection-grid">
+              <section class="subject-teacher-row__selection-section">
+                <h3>Лекции</h3>
+                ${lectureContent}
+              </section>
+              <section class="subject-teacher-row__selection-section">
+                <h3>Группы</h3>
+                ${groupContent}
+              </section>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('[data-row-subject]').forEach(select => {
+        select.addEventListener('change', async event => {
+          const rowId = Number(event.target.dataset.rowSubject);
+          const subjectId = numberOrNull(event.target.value);
+          await updateSubjectRow(rowId, subjectId);
         });
-        ERR('errAdd','');
-        await loadTeacherGroups();
-      } catch (e) {
-        ERR('errAdd', e.message);
-      } finally {
-        btn.classList.remove('muted');
-      }
+      });
+
+      container.querySelectorAll('[data-remove-row]').forEach(button => {
+        button.addEventListener('click', () => removeSubjectRow(Number(button.dataset.removeRow)));
+      });
+
+      container.querySelectorAll('[data-row-lecture]').forEach(input => {
+        input.addEventListener('change', event => {
+          toggleRowLecture(
+            Number(event.target.dataset.rowLecture),
+            Number(event.target.value),
+            event.target.checked
+          );
+        });
+      });
+
+      container.querySelectorAll('[data-row-assignment]').forEach(input => {
+        input.addEventListener('change', event => {
+          toggleRowAssignment(
+            Number(event.target.dataset.rowAssignment),
+            Number(event.target.value),
+            event.target.checked
+          );
+        });
+      });
     }
 
-    async function removeGroups() {
-      const selected = [...document.getElementById('assigned-groups').selectedOptions].map(o => Number(o.value));
-      if (!selected.length) return;
+    function renderSelectionSummary() {
+      const selected = selectedTasks();
+      const pending = pendingTasks();
+      const duplicates = duplicateTasks();
 
-      const btn = document.getElementById('btn-del');
-      btn.classList.add('muted');
+      el('selectionCount').textContent = String(pending.length);
+
+      if (!availableSubjectIds().length) {
+        el('selectionSummary').className = 'selection-summary empty';
+        el('selectionSummary').textContent = 'По выбранному периоду пока нет доступных назначений.';
+        return;
+      }
+
+      if (!selected.length) {
+        el('selectionSummary').className = 'selection-summary empty';
+        el('selectionSummary').textContent = 'Выберите предмет, лекции и группы.';
+        return;
+      }
+
+      const rowItems = completeRows().map(row => {
+        const rowSelected = selected.filter(item => Number(item.rowId) === Number(row.id));
+        const rowPending = pending.filter(item => Number(item.rowId) === Number(row.id));
+        const rowDuplicates = duplicates.filter(item => Number(item.rowId) === Number(row.id));
+
+        return `
+          <div class="selection-summary__item">
+            <strong>${html(subjectName(row.subjectId))}</strong>
+            <span>Лекций: ${row.lectureIds.length}, групп: ${row.teachingAssignmentIds.length}</span>
+            <div class="selection-summary__value">${rowPending.length} новых, ${rowDuplicates.length} уже назначено</div>
+            <small class="selection-check-note">Всего комбинаций: ${rowSelected.length}</small>
+          </div>
+        `;
+      }).join('');
+
+      const headerItem = `
+        <div class="selection-summary__item">
+          <strong>Итог по периоду</strong>
+          <span>${html(currentPeriodLabel())}</span>
+          <div class="selection-summary__value">${pending.length} новых назначений</div>
+          <small class="selection-check-note">Уже назначено: ${duplicates.length}. Всего комбинаций: ${selected.length}.</small>
+        </div>
+      `;
+
+      el('selectionSummary').className = 'selection-summary';
+      el('selectionSummary').innerHTML = headerItem + rowItems;
+    }
+
+    function renderCurrentAssignments() {
+      const container = el('currentAssignments');
+      const items = currentLectureAssignments()
+        .map(item => {
+          const assignment = state.assignmentsById.get(Number(item.teachingAssignmentId));
+          if (!assignment) {
+            return null;
+          }
+          return {
+            lectureAssignment: item,
+            assignment,
+            subjectId: assignmentSubjectId(assignment),
+            lecture: lectureMeta(item.courseLectureId)
+          };
+        })
+        .filter(Boolean)
+        .sort((left, right) =>
+          String(subjectName(left.subjectId)).localeCompare(String(subjectName(right.subjectId)), 'ru') ||
+          Number(left.lecture?.ordinal || 0) - Number(right.lecture?.ordinal || 0) ||
+          String(left.lecture?.title || '').localeCompare(String(right.lecture?.title || ''), 'ru') ||
+          String(groupName(left.assignment.groupId)).localeCompare(String(groupName(right.assignment.groupId)), 'ru')
+        );
+
+      if (!state.assignments.length) {
+        container.className = 'empty';
+        container.textContent = 'По выбранному периоду учебная нагрузка не найдена.';
+        return;
+      }
+
+      if (!items.length) {
+        container.className = 'empty';
+        container.textContent = 'Для активных групп назначенных лекций пока нет.';
+        return;
+      }
+
+      const grouped = new Map();
+      items.forEach(item => {
+        const key = Number(item.subjectId || 0);
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        grouped.get(key).push(item);
+      });
+
+      container.className = '';
+      container.innerHTML = [...grouped.entries()].map(([subjectId, subjectItems]) => {
+        const uniqueLectures = unique(subjectItems.map(item => Number(item.lectureAssignment.courseLectureId))).length;
+        const uniqueGroups = unique(subjectItems.map(item => Number(item.assignment.groupId))).length;
+
+        return `
+          <details class="template-accordion" open>
+            <summary>
+              <div class="template-accordion__title">
+                <strong>${html(subjectName(subjectId))}</strong>
+                <small>${html(`${uniqueLectures} лекций в ${uniqueGroups} группах / ${currentPeriodLabel()}`)}</small>
+              </div>
+              <span class="template-accordion__count">${subjectItems.length}</span>
+            </summary>
+            <div class="template-accordion__body">
+              <table>
+                <thead>
+                <tr>
+                  <th>Лекция</th>
+                  <th>Группа</th>
+                  <th>Статус</th>
+                  <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                ${subjectItems.map(item => {
+                  const lectureTitle = item.lecture
+                    ? `${item.lecture.ordinal}. ${item.lecture.title}`
+                    : `Лекция #${item.lectureAssignment.courseLectureId}`;
+
+                  return `
+                    <tr>
+                      <td>${html(lectureTitle)}</td>
+                      <td>${html(groupName(item.assignment.groupId))}</td>
+                      <td>
+                        <select data-lecture-assignment-status="${item.lectureAssignment.id}">
+                          <option value="1" ${Number(item.lectureAssignment.status) === 1 ? 'selected' : ''}>Активно</option>
+                          <option value="2" ${Number(item.lectureAssignment.status) === 2 ? 'selected' : ''}>Черновик</option>
+                          <option value="3" ${Number(item.lectureAssignment.status) === 3 ? 'selected' : ''}>Закрыто</option>
+                          <option value="4" ${Number(item.lectureAssignment.status) === 4 ? 'selected' : ''}>В паузе</option>
+                        </select>
+                      </td>
+                      <td>
+                        <button type="button" class="btn btn-light" data-save-lecture-assignment="${item.lectureAssignment.id}">Сохранить</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        `;
+      }).join('');
+
+      container.querySelectorAll('[data-save-lecture-assignment]').forEach(button => {
+        button.addEventListener('click', () => updateLectureAssignmentStatus(Number(button.dataset.saveLectureAssignment)));
+      });
+    }
+
+    function refreshAssignButtonState() {
+      const ready = pendingTasks().length > 0 && incompleteRows().length === 0;
+      el('assignLecturesBtn').disabled = !ready;
+    }
+
+    async function updateSubjectRow(rowId, subjectId) {
+      const row = state.subjectRows.find(item => Number(item.id) === Number(rowId));
+      if (!row) {
+        return;
+      }
+
+      row.subjectId = subjectId;
+      row.lectureIds = [];
+      row.teachingAssignmentIds = [];
+
+      if (subjectId) {
+        await ensureLectureCatalog(subjectId);
+      }
+
+      renderAll();
+    }
+
+    function toggleRowLecture(rowId, lectureId, checked) {
+      const row = state.subjectRows.find(item => Number(item.id) === Number(rowId));
+      if (!row) {
+        return;
+      }
+
+      const values = new Set((row.lectureIds || []).map(Number));
+      if (checked) {
+        values.add(Number(lectureId));
+      } else {
+        values.delete(Number(lectureId));
+      }
+      row.lectureIds = [...values];
+      renderSelectionSummary();
+      refreshAssignButtonState();
+    }
+
+    function toggleRowAssignment(rowId, teachingAssignmentId, checked) {
+      const row = state.subjectRows.find(item => Number(item.id) === Number(rowId));
+      if (!row) {
+        return;
+      }
+
+      const values = new Set((row.teachingAssignmentIds || []).map(Number));
+      if (checked) {
+        values.add(Number(teachingAssignmentId));
+      } else {
+        values.delete(Number(teachingAssignmentId));
+      }
+      row.teachingAssignmentIds = [...values];
+      renderSelectionSummary();
+      refreshAssignButtonState();
+    }
+
+    function addSubjectRow() {
+      state.subjectRows.push(createSubjectRow());
+      renderSubjectRows();
+      renderSelectionSummary();
+      refreshAssignButtonState();
+    }
+
+    function removeSubjectRow(rowId) {
+      state.subjectRows = state.subjectRows.filter(row => Number(row.id) !== Number(rowId));
+      if (!state.subjectRows.length) {
+        state.subjectRows = [createSubjectRow()];
+      }
+      renderAll();
+    }
+
+    async function assignLectures() {
+      const rowsWithMissingSelections = incompleteRows();
+      const tasks = pendingTasks();
+
+      if (!state.subjectMemberships.length) {
+        showMessage('error', 'Нет предметов преподавателя для учебной нагрузки.');
+        return;
+      }
+      if (rowsWithMissingSelections.length) {
+        showMessage('error', 'Заполните все выбранные строки: в каждой строке должны быть предмет, лекции и группы.');
+        return;
+      }
+      if (!tasks.length) {
+        showMessage('error', 'Нет новых назначений для сохранения.');
+        return;
+      }
+
+      const button = el('assignLecturesBtn');
+      button.disabled = true;
 
       try {
-        await fetchJSON(`${API}/teacher-groups/${currentTeacherId}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(selected)
-        });
-        ERR('errDel','');
-        await loadTeacherGroups();
-      } catch (e) {
-        ERR('errDel', e.message);
-      } finally {
-        btn.classList.remove('muted');
+        showMessage('', '');
+        const results = await Promise.allSettled(tasks.map(task => api(
+          `/teaching/assignments/${encodeURIComponent(task.teachingAssignmentId)}/lecture-assignments`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              courseLectureId: Number(task.lectureId),
+              availableFromUtc: null,
+              dueToUtc: null,
+              closedAtUtc: null,
+              required: true,
+              minProgressPercent: 100,
+              status: 1
+            })
+          }
+        )));
+
+        const successCount = results.filter(item => item.status === 'fulfilled').length;
+        const errors = results
+          .filter(item => item.status === 'rejected')
+        .map(item => item.reason?.message || 'Не удалось создать назначение.');
+
+        if (!successCount && errors.length) {
+          throw new Error(errors[0]);
+        }
+
+        if (errors.length) {
+        showMessage('info', `Создано назначений: ${successCount}. Ошибки: ${html(errors.join(' | '))}`);
+        } else {
+        showMessage('success', `Создано назначений: ${successCount}.`);
+        }
+
+        await refreshAssignments();
+      } catch (error) {
+        showMessage('error', html(error.message));
+        refreshAssignButtonState();
       }
     }
 
-    loadTeachers();
+    async function updateLectureAssignmentStatus(lectureAssignmentId) {
+      const select = document.querySelector(`[data-lecture-assignment-status="${lectureAssignmentId}"]`);
+      const button = document.querySelector(`[data-save-lecture-assignment="${lectureAssignmentId}"]`);
+      if (!select || !button) {
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        showMessage('', '');
+        await api(`/teaching/lecture-assignments/${encodeURIComponent(lectureAssignmentId)}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ status: Number(select.value) })
+        });
+      showMessage('success', 'Статус назначения обновлен.');
+        await refreshAssignments();
+      } catch (error) {
+        showMessage('error', html(error.message));
+        button.disabled = false;
+      }
+    }
+
+    function setDefaultAcademicYear() {
+      el('academicYearInput').value = String(new Date().getFullYear());
+    }
+
+    function onPeriodChanged() {
+      refreshAssignments().catch(error => showMessage('error', html(error.message)));
+    }
+
+    el('addSubjectRowBtn').addEventListener('click', addSubjectRow);
+    el('assignLecturesBtn').addEventListener('click', () => {
+      assignLectures().catch(error => showMessage('error', html(error.message)));
+    });
+    el('studyCourseSelect').addEventListener('change', onPeriodChanged);
+    el('semesterSelect').addEventListener('change', onPeriodChanged);
+    el('academicYearInput').addEventListener('input', onPeriodChanged);
+
+    setDefaultAcademicYear();
+
+    if (StudentTestingApi.requireAuth()) {
+      loadInitialData().catch(error => showMessage('error', html(error.message)));
+    }
 </script>
 </body>
 </html>

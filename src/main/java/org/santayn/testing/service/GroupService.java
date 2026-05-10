@@ -1,115 +1,75 @@
 package org.santayn.testing.service;
 
+import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.group.Group;
-import org.santayn.testing.models.group.Group_Student;
-import org.santayn.testing.models.student.Student;
-import org.santayn.testing.repository.*;
-
+import org.santayn.testing.repository.FacultyRepository;
+import org.santayn.testing.repository.GroupRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Locale;
 
 @Service
+@RequiredArgsConstructor
 public class GroupService {
 
     private final GroupRepository groupRepository;
-    private final StudentRepository studentRepository;
-    private final Group_StudentRepository groupStudentRepository;
+    private final FacultyRepository facultyRepository;
 
-    public GroupService(GroupRepository groupRepository,
-                        StudentRepository studentRepository,
-                        Group_StudentRepository groupStudentRepository) {
-        this.groupRepository = groupRepository;
-        this.studentRepository = studentRepository;
-        this.groupStudentRepository = groupStudentRepository;
+    @Transactional(readOnly = true)
+    public List<Group> findAll(Integer facultyId) {
+        return facultyId == null ? groupRepository.findAll() : groupRepository.findByFacultyId(facultyId);
     }
 
-    public List<Group> getAllGroup() {
-        return groupRepository.findAllGroups();
-    }
-
-    public Group getSpecificGroupByGroupName(String name) {
-        List<Group> groups = groupRepository.findGroupByName(name);
-        return groups.stream()
-                .filter(group -> group.getName().equals(name))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Группа с именем " + name + " не найдена."));
-    }
-
-    public void save(Group group) {
-        groupRepository.save(group);
-    }
-
-    public Group getGroupById(Integer groupId) {
-        return groupRepository.findGroupById(groupId)
-                .orElseThrow(() -> new RuntimeException("Группа не найдена"));
-    }
-
-    public List<Group> findFreeGroups() {
-        List<Group> groups = groupRepository.findGroupsNotInAnyTeachers();
-        System.out.println("Free Groups found: " + groups.size());
-        return groups;
-    }
-
-    public List<Group> getGroupsByTecherID(Integer teacherId) {
-        if (teacherId == null) {
-            throw new IllegalArgumentException("teacherId не может быть null");
-        }
-        System.out.println("Fetching Groups for teacher ID: " + teacherId);
-        List<Group> groups = groupRepository.findGroupByTeacherId(teacherId);
-        System.out.println("Groups found: " + groups.size());
-        return groups;
+    @Transactional(readOnly = true)
+    public Group get(Integer id) {
+        return groupRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found: " + id));
     }
 
     @Transactional
-    public Group addStudentsToGroup(Integer groupId, List<Integer> studentIds) {
-        Group group = getGroupById(groupId);
-        List<Student> students = studentRepository.findAllById(studentIds);
-
-        if (students.size() != studentIds.size()) {
-            throw new RuntimeException("Не все студенты найдены");
+    public Group create(String name, String code, Integer facultyId) {
+        String normalizedCode = FacultyService.requireText(code, "Code").toLowerCase(Locale.ROOT);
+        if (groupRepository.existsByCode(normalizedCode)) {
+            throw new AuthConflictException("Group code already exists: " + normalizedCode);
+        }
+        if (!facultyRepository.existsById(facultyId)) {
+            throw new IllegalArgumentException("Faculty not found: " + facultyId);
         }
 
-        for (Student student : students) {
-            // 1. Устанавливаем группу у студента
-            student.setGroup(group);
-            studentRepository.save(student); // Сохраняем изменения
-
-            // 2. Создаём запись в group_student
-            Group_Student groupStudent = new Group_Student();
-            groupStudent.setGroup(group);
-            groupStudent.setStudent(student);
-            groupStudentRepository.save(groupStudent);
-        }
-
-        return group;
+        Group group = new Group();
+        group.setName(FacultyService.requireText(name, "Name"));
+        group.setCode(normalizedCode);
+        group.setFacultyId(facultyId);
+        return groupRepository.save(group);
     }
-    public void deleteGroupById(Integer id) {
-        groupRepository.deleteById(id);
-    }
+
     @Transactional
-    public Group deleteStudentsFromGroup(Integer groupId, List<Integer> studentIds) {
-        Group group = getGroupById(groupId);
-        List<Student> students = studentRepository.findAllById(studentIds);
-
-        if (students.size() != studentIds.size()) {
-            throw new RuntimeException("Не все студенты найдены");
+    public Group update(Integer id, String name, String code, Integer facultyId) {
+        Group group = get(id);
+        if (name != null) {
+            group.setName(FacultyService.requireText(name, "Name"));
         }
-
-        for (Student student : students) {
-            Optional<Group_Student> existingLinkOpt = groupStudentRepository.findByGroupIdAndStudentId(groupId, student.getId());
-
-            existingLinkOpt.ifPresent(groupStudentRepository::delete);
-
-            // Очищаем ссылку на группу у студента
-            if (student.getGroup() != null && student.getGroup().getId().equals(groupId)) {
-                student.setGroup(null);
-                studentRepository.save(student);
+        if (code != null) {
+            String normalizedCode = FacultyService.requireText(code, "Code").toLowerCase(Locale.ROOT);
+            if (!normalizedCode.equals(group.getCode()) && groupRepository.existsByCode(normalizedCode)) {
+                throw new AuthConflictException("Group code already exists: " + normalizedCode);
             }
+            group.setCode(normalizedCode);
         }
-
+        if (facultyId != null) {
+            if (!facultyRepository.existsById(facultyId)) {
+                throw new IllegalArgumentException("Faculty not found: " + facultyId);
+            }
+            group.setFacultyId(facultyId);
+        }
         return group;
+    }
+
+    @Transactional
+    public void delete(Integer id) {
+        Group group = get(id);
+        groupRepository.delete(group);
     }
 }

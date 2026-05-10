@@ -1,143 +1,175 @@
-// src/main/java/org/santayn/testing/web/controller/rest/QuestionUploadRestController.java
 package org.santayn.testing.web.controller.rest;
 
-import org.santayn.testing.models.question.Question;
-import org.santayn.testing.models.teacher.Teacher;
-import org.santayn.testing.models.topic.Topic;
-import org.santayn.testing.repository.TopicRepository;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import org.santayn.testing.models.question.QuestionTypeSupport;
 import org.santayn.testing.service.QuestionService;
-import org.santayn.testing.service.SubjectService;
-import org.santayn.testing.service.UserSearch;
-import org.santayn.testing.web.dto.question.QuestionListItemDto;
-import org.santayn.testing.web.dto.topic.TopicShortDto;
-import org.springframework.http.HttpStatus;
+import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/questions")
+@RequestMapping({"/api/questions", "/api/v1/questions"})
 public class QuestionUploadRestController {
 
     private final QuestionService questionService;
-    private final TopicRepository topicRepository;
-    private final SubjectService subjectService;
-    private final UserSearch userSearch;
 
-    public QuestionUploadRestController(QuestionService questionService,
-                                        TopicRepository topicRepository,
-                                        SubjectService subjectService,
-                                        UserSearch userSearch) {
+    public QuestionUploadRestController(QuestionService questionService) {
         this.questionService = questionService;
-        this.topicRepository = topicRepository;
-        this.subjectService = subjectService;
-        this.userSearch = userSearch;
     }
 
-    /** Получить темы по предмету (для выпадающего списка). */
-    @GetMapping("/topics")
-    public List<TopicShortDto> topicsBySubject(@RequestParam Integer subjectId) {
-        assertSubjectOwnedByCurrentTeacher(subjectId);
-        return topicRepository.findBySubjectId(subjectId)
-                .stream()
-                .map(TopicShortDto::from)
+    @GetMapping
+    public List<ApiResponses.QuestionResponseDto> questions(@RequestParam(required = false) Integer testId,
+                                                            @RequestParam(required = false) Integer topicId) {
+        return ApiResponses.list(questionService.findAll(testId, topicId), ApiResponses::question);
+    }
+
+    @GetMapping("/{questionId}")
+    public ApiResponses.QuestionResponseDto one(@PathVariable Long questionId) {
+        return ApiResponses.question(questionService.get(questionId));
+    }
+
+    @GetMapping("/{questionId}/options")
+    public List<ApiResponses.QuestionOptionResponse> options(@PathVariable Long questionId) {
+        return ApiResponses.list(questionService.findOptions(questionId), ApiResponses::questionOption);
+    }
+
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public QuestionImportResponse importDocx(@RequestParam(required = false) Integer testId,
+                                             @RequestParam(required = false) Integer courseLectureId,
+                                             @RequestParam(required = false) Integer topicId,
+                                             @RequestParam("file") MultipartFile file) {
+        QuestionService.QuestionImportResult result = questionService.importDocx(testId, courseLectureId, topicId, file);
+        return new QuestionImportResponse(
+                result.questions().size(),
+                result.importedOptions(),
+                ApiResponses.list(result.questions(), ApiResponses::question)
+        );
+    }
+
+    @PostMapping
+    public ApiResponses.QuestionResponseDto create(@Valid @RequestBody QuestionRequest request) {
+        return ApiResponses.question(questionService.create(
+                request.testId(),
+                request.courseLectureId(),
+                request.topicId(),
+                request.type(),
+                request.question(),
+                request.points(),
+                request.ordinal(),
+                request.correctAnswer(),
+                matchingPairs(request.matchingPairs())
+        ));
+    }
+
+    @PutMapping("/{questionId}")
+    public ApiResponses.QuestionResponseDto update(@PathVariable Long questionId,
+                                                   @Valid @RequestBody QuestionUpdateRequest request) {
+        return ApiResponses.question(questionService.update(
+                questionId,
+                request.courseLectureId(),
+                request.topicId(),
+                request.type(),
+                request.question(),
+                request.points(),
+                request.ordinal(),
+                request.correctAnswer(),
+                matchingPairs(request.matchingPairs()),
+                request.active()
+        ));
+    }
+
+    @GetMapping("/options/{optionId}")
+    public ApiResponses.QuestionOptionResponse option(@PathVariable Long optionId) {
+        return ApiResponses.questionOption(questionService.getOption(optionId));
+    }
+
+    @PostMapping("/{questionId}/options")
+    public ApiResponses.QuestionOptionResponse addOption(@PathVariable Long questionId, @Valid @RequestBody OptionRequest request) {
+        return ApiResponses.questionOption(questionService.addOption(questionId, request.text(), request.ordinal(), request.correct()));
+    }
+
+    @PutMapping("/options/{optionId}")
+    public ApiResponses.QuestionOptionResponse updateOption(@PathVariable Long optionId, @Valid @RequestBody OptionRequest request) {
+        return ApiResponses.questionOption(questionService.updateOption(optionId, request.text(), request.ordinal(), request.correct()));
+    }
+
+    @PutMapping("/{questionId}/active")
+    public ApiResponses.QuestionResponseDto setActive(@PathVariable Long questionId, @Valid @RequestBody QuestionActiveRequest request) {
+        return ApiResponses.question(questionService.setActive(questionId, request.active()));
+    }
+
+    public record QuestionRequest(
+            Integer testId,
+            Integer courseLectureId,
+            Integer topicId,
+            int type,
+            @NotBlank @Size(max = 2000) String question,
+            BigDecimal points,
+            @Positive int ordinal,
+            @Size(max = 2000) String correctAnswer,
+            List<@Valid MatchingPairRequest> matchingPairs
+    ) {
+    }
+
+    public record QuestionUpdateRequest(
+            Integer courseLectureId,
+            Integer topicId,
+            int type,
+            @NotBlank @Size(max = 2000) String question,
+            BigDecimal points,
+            @Positive int ordinal,
+            @Size(max = 2000) String correctAnswer,
+            List<@Valid MatchingPairRequest> matchingPairs,
+            boolean active
+    ) {
+    }
+
+    public record OptionRequest(
+            @NotBlank @Size(max = 2000) String text,
+            @Positive int ordinal,
+            boolean correct
+    ) {
+    }
+
+    public record QuestionActiveRequest(boolean active) {
+    }
+
+    public record QuestionImportResponse(int importedQuestions,
+                                         int importedOptions,
+                                         List<ApiResponses.QuestionResponseDto> questions) {
+    }
+
+    public record MatchingPairRequest(
+            @NotBlank @Size(max = 2000) String left,
+            @NotBlank @Size(max = 2000) String right,
+            @Positive int ordinal
+    ) {
+    }
+
+    private static List<QuestionTypeSupport.MatchingPair> matchingPairs(List<MatchingPairRequest> requests) {
+        if (requests == null) {
+            return List.of();
+        }
+        return requests.stream()
+                .map(request -> new QuestionTypeSupport.MatchingPair(
+                        request.ordinal(),
+                        request.left(),
+                        request.right()
+                ))
                 .toList();
     }
-
-    /** Список вопросов по теме — через path variable. */
-    @GetMapping("/by-topic/{topicId}")
-    public List<QuestionListItemDto> listByTopicPath(@PathVariable Integer topicId) {
-        return listByTopicInternal(topicId);
-    }
-
-    /** Список вопросов по теме — через query param (?topicId=). */
-    @GetMapping("/by-topic")
-    public List<QuestionListItemDto> listByTopicQuery(@RequestParam Integer topicId) {
-        return listByTopicInternal(topicId);
-    }
-
-    /** Добавить один вопрос вручную. */
-    @PostMapping("/manual")
-    public QuestionListItemDto addManual(@RequestParam Integer topicId,
-                                         @RequestParam String text,
-                                         @RequestParam String correctAnswer) {
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Тема не найдена"));
-        assertSubjectOwnedByCurrentTeacher(topic.getSubject().getId());
-
-        Question q = questionService.createManual(topicId, text, correctAnswer);
-        return QuestionListItemDto.from(q);
-    }
-
-    /** Загрузка файла с вопросами (.docx или .csv). */
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public UploadResp upload(@RequestParam Integer topicId,
-                             @RequestPart("file") MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Файл не выбран или пустой");
-        }
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Тема не найдена"));
-        assertSubjectOwnedByCurrentTeacher(topic.getSubject().getId());
-
-        int saved = questionService.processQuestionFileCount(topicId, file);
-        return new UploadResp(saved, "OK");
-    }
-
-    /**
-     * Пакетное удаление (вариант для текущего фронта):
-     * DELETE /api/v1/questions/by-topic/{topicId}?ids=1&ids=2&ids=3
-     */
-    @DeleteMapping("/by-topic/{topicId}")
-    public DeleteResult deleteByTopicIds(@PathVariable Integer topicId,
-                                         @RequestParam("ids") List<Integer> ids) {
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Тема не найдена"));
-        assertSubjectOwnedByCurrentTeacher(topic.getSubject().getId());
-
-        int deleted = questionService.deleteQuestionsByIds(topicId, ids);
-        return new DeleteResult(deleted);
-    }
-
-    /** Альтернативный вариант пакетного удаления через POST c JSON-массивом в теле. */
-    @PostMapping("/batch-delete")
-    public DeleteResult batchDelete(@RequestParam Integer topicId,
-                                    @RequestBody List<Integer> questionIds) {
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Тема не найдена"));
-        assertSubjectOwnedByCurrentTeacher(topic.getSubject().getId());
-
-        int deleted = questionService.deleteQuestionsByIds(topicId, questionIds);
-        return new DeleteResult(deleted);
-    }
-
-    /* ================= helpers ================= */
-
-    private List<QuestionListItemDto> listByTopicInternal(Integer topicId) {
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Тема не найдена"));
-        assertSubjectOwnedByCurrentTeacher(topic.getSubject().getId());
-
-        return questionService.getQuestionsByTopic(topicId)
-                .stream()
-                .map(QuestionListItemDto::from)
-                .toList();
-    }
-
-    private void assertSubjectOwnedByCurrentTeacher(Integer subjectId) {
-        Teacher t = userSearch.getCurrentTeacher();
-        boolean ok = subjectService.getSubjectsByTeacher(t).stream()
-                .anyMatch(s -> s.getId().equals(subjectId));
-        if (!ok) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Нет доступа к предмету id=" + subjectId);
-        }
-    }
-
-    /* ================= DTOs ответа ================= */
-
-    public record UploadResp(int saved, String status) {}
-    public record DeleteResult(int deleted) {}
 }

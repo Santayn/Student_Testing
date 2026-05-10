@@ -1,0 +1,9 @@
+.git
+.idea
+.mvn
+target
+TestPlatformBackend/.vs
+TestPlatformBackend/bin
+TestPlatformBackend/obj
+**/*.log
+**/*.user

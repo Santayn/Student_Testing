@@ -1,59 +1,86 @@
 package org.santayn.testing.web.controller.rest;
 
-import org.santayn.testing.models.faculty.Faculty;
-import org.santayn.testing.service.CreateFacultyService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.santayn.testing.service.FacultySubjectService;
 import org.santayn.testing.service.FacultyService;
-import org.santayn.testing.web.dto.faculty.CreateFacultyRequest;
-import org.santayn.testing.web.dto.faculty.FacultyDto;
+import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/faculties")
+@RequestMapping({"/api/faculties", "/api/v1/faculties"})
 public class FacultyRestController {
 
     private final FacultyService facultyService;
-    private final CreateFacultyService createFacultyService;
+    private final FacultySubjectService facultySubjectService;
 
     public FacultyRestController(FacultyService facultyService,
-                                 CreateFacultyService createFacultyService) {
+                                 FacultySubjectService facultySubjectService) {
         this.facultyService = facultyService;
-        this.createFacultyService = createFacultyService;
+        this.facultySubjectService = facultySubjectService;
     }
 
-    /** Список факультетов */
     @GetMapping
-    public List<FacultyDto> list() {
-        return facultyService.getAllFaculty()
-                .stream()
-                .map(FacultyDto::from)
-                .toList();
+    public List<ApiResponses.FacultyResponse> all() {
+        return ApiResponses.list(facultyService.findAll(), ApiResponses::faculty);
     }
 
-    /** Создать факультет */
+    @GetMapping("/{id}")
+    public ApiResponses.FacultyResponse one(@PathVariable Integer id) {
+        return ApiResponses.faculty(facultyService.get(id));
+    }
+
+    @GetMapping("/{id}/subjects")
+    public List<ApiResponses.SubjectResponse> subjects(@PathVariable Integer id) {
+        return ApiResponses.list(facultySubjectService.findSubjectsByFaculty(id), ApiResponses::subject);
+    }
+
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public FacultyDto create(@RequestBody CreateFacultyRequest req) {
-        if (req == null || req.name() == null || req.name().isBlank()) {
-            throw new IllegalArgumentException("Поле 'name' обязательно");
-        }
-        createFacultyService.addFaculty(req.name().trim());
-
-        // На текущей бизнес-логике получаем созданный через поиск по имени (лучше доработать сервис, чтобы возвращал сущность/ID)
-        Faculty created = facultyService.getAllFaculty().stream()
-                .filter(f -> f.getName().equals(req.name().trim()))
-                .reduce((first, second) -> second) // последний
-                .orElseThrow();
-
-        return FacultyDto.from(created);
+    public ApiResponses.FacultyResponse create(@Valid @RequestBody FacultyRequest request) {
+        return ApiResponses.faculty(facultyService.create(request.name(), request.code(), request.description()));
     }
 
-    /** Удалить факультет */
+    @PutMapping("/{id}")
+    public ApiResponses.FacultyResponse update(@PathVariable Integer id, @Valid @RequestBody FacultyRequest request) {
+        return ApiResponses.faculty(facultyService.update(id, request.name(), request.code(), request.description()));
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer id) {
-        createFacultyService.deleteFaculty(id);
+        facultyService.delete(id);
+    }
+
+    @PostMapping("/{facultyId}/subjects/{subjectId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void linkSubject(@PathVariable Integer facultyId,
+                            @PathVariable Integer subjectId) {
+        facultySubjectService.link(facultyId, subjectId);
+    }
+
+    @DeleteMapping("/{facultyId}/subjects/{subjectId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlinkSubject(@PathVariable Integer facultyId,
+                              @PathVariable Integer subjectId) {
+        facultySubjectService.unlink(facultyId, subjectId);
+    }
+
+    public record FacultyRequest(
+            @NotBlank @Size(max = 200) String name,
+            @NotBlank @Size(max = 50) String code,
+            @Size(max = 1000) String description
+    ) {
     }
 }

@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Тематики предмета</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app-shell">
+<aside class="sidebar"></aside>
+
+<main class="content">
+    <h1>Тематики предмета</h1>
+    <div id="message" class="message"></div>
+
+    <div class="layout">
+        <section>
+            <div class="panel">
+                    <h2>Контекст предмета</h2>
+
+                <label for="subjectSelect">Предмет</label>
+                <select id="subjectSelect">
+                    <option value="">Загрузка...</option>
+                </select>
+
+                <div id="topicContextHint" class="muted">
+                    Выберите предмет преподавателя. Тематики используются при создании вопросов и тестов.
+                </div>
+
+                <div class="row-start">
+                    <a id="manageQuestionsLink" class="button-link btn-light hidden" href="/questions-page.html">Вопросы темы</a>
+                    <a id="createTestLink" class="button-link btn-light hidden" href="/create-test.html">Создать тест</a>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 id="topicFormTitle">Новая тематика</h2>
+                <div id="topicFormHint" class="hint">
+                    <span id="topicFormHintText">Выберите предмет преподавателя.</span>
+                </div>
+                <fieldset id="topicFormFields" class="form-fieldset" disabled>
+                    <div class="grid">
+                        <div>
+                            <label for="topicOrdinal">Порядок</label>
+                            <input id="topicOrdinal" type="number" min="1" value="1">
+                        </div>
+                        <div>
+                            <label for="topicName">Название тематики</label>
+                            <input id="topicName" type="text" maxlength="200">
+                        </div>
+                    </div>
+
+                    <label for="topicDescription">Описание</label>
+                    <textarea id="topicDescription" maxlength="2000"></textarea>
+
+                    <div class="actions">
+                        <button id="saveTopicBtn" class="btn" type="button" disabled>Сохранить тематику</button>
+                        <button id="cancelTopicBtn" class="btn-secondary hidden" type="button">Отмена</button>
+                    </div>
+                </fieldset>
+            </div>
+        </section>
+
+        <section>
+            <div class="panel">
+                <div class="row">
+                    <h2>Тематики предмета</h2>
+                    <span id="topicCount" class="badge">0</span>
+                </div>
+                <div id="topicContext" class="muted">Предмет не выбран.</div>
+                <div id="topicList" class="empty">Тематики не выбраны.</div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const TEACHER_ROLE = 1;
+
+    const state = {
+      user: null,
+      subjectMemberships: [],
+      subjects: [],
+      topics: [],
+      editingTopicId: null
+    };
+
+    const initialFilters = {
+      subjectId: StudentTestingApi.getQueryParam('subjectId'),
+      subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
+      topicId: StudentTestingApi.getQueryParam('topicId')
+    };
+
+    const el = id => document.getElementById(id);
+
+    function numberOrNull(value) {
+      return value ? Number(value) : null;
+    }
+
+    function selectedSubjectId() {
+      return numberOrNull(el('subjectSelect').value);
+    }
+
+    function selectedSubjectMembership() {
+      const subjectId = selectedSubjectId();
+      if (!subjectId) {
+        return null;
+      }
+      return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
+    }
+
+    function selectedSubject() {
+      return state.subjects.find(item => Number(item.id) === selectedSubjectId()) || null;
+    }
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+    }
+
+    function setLoading(button, loading) {
+      button.disabled = loading;
+      button.dataset.loading = loading ? 'true' : 'false';
+    }
+
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+    }
+
+    function resolveInitialSelection(items, requestedId) {
+      if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
+        return String(requestedId);
+      }
+      if (items.length === 1) {
+        return String(items[0].id);
+      }
+      return '';
+    }
+
+    function buildQuestionsHref(topicId) {
+      const params = new URLSearchParams();
+      if (selectedSubjectId()) {
+        params.set('subjectId', String(selectedSubjectId()));
+      }
+      const membership = selectedSubjectMembership();
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      if (topicId) {
+        params.set('topicId', String(topicId));
+      }
+      return `/questions-page.html?${params.toString()}`;
+    }
+
+    function buildCreateTestHref(topicId) {
+      const params = new URLSearchParams();
+      if (selectedSubjectId()) {
+        params.set('subjectId', String(selectedSubjectId()));
+      }
+      const membership = selectedSubjectMembership();
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      if (topicId) {
+        params.set('topicId', String(topicId));
+      }
+      return `/create-test.html?${params.toString()}`;
+    }
+
+    function updateContextUI() {
+      const subject = selectedSubject();
+      const topicId = initialFilters.topicId && state.topics.some(item => String(item.id) === String(initialFilters.topicId))
+        ? Number(initialFilters.topicId)
+        : null;
+      const selectedTopicId = state.editingTopicId && state.topics.some(item => Number(item.id) === Number(state.editingTopicId))
+        ? Number(state.editingTopicId)
+        : topicId;
+
+      el('manageQuestionsLink').href = buildQuestionsHref(selectedTopicId);
+      el('createTestLink').href = buildCreateTestHref(selectedTopicId);
+      el('manageQuestionsLink').classList.toggle('hidden', !selectedTopicId);
+      el('createTestLink').classList.toggle('hidden', !selectedTopicId);
+
+      if (!subject) {
+        el('topicContextHint').textContent = 'Выберите предмет преподавателя. Тематики используются при создании вопросов и тестов.';
+        return;
+      }
+
+      if (!state.topics.length) {
+        el('topicContextHint').textContent = `У предмета "${subject.name}" пока нет тематик. Создайте первую тему, чтобы затем наполнять ее вопросами и тестами.`;
+        return;
+      }
+
+      el('topicContextHint').textContent = `У предмета "${subject.name}" тематик: ${state.topics.length}.`;
+    }
+
+    async function loadTeacherSubjects() {
+      state.user = await StudentTestingApi.loadCurrentUser();
+      if (!state.user.personId) {
+        throw new Error('Не удалось определить преподавателя по текущему профилю.');
+      }
+
+      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
+      state.subjectMemberships = memberships
+        .filter(item => Number(item.role) === TEACHER_ROLE)
+        .sort((left, right) => Number(left.id) - Number(right.id));
+
+      const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
+      state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+
+      const select = el('subjectSelect');
+      if (!state.subjects.length) {
+        select.innerHTML = '<option value="">Нет доступных предметов</option>';
+        select.disabled = true;
+        renderTopics();
+        updateTopicFormAvailability();
+        updateContextUI();
+        showMessage('info', 'Нет предметов преподавателя для управления тематикой.');
+        return;
+      }
+
+      select.disabled = false;
+      select.innerHTML = '<option value="">Выберите предмет</option>' +
+        state.subjects
+          .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
+          .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
+          .join('');
+
+      const preferredMembership = initialFilters.subjectMembershipId
+        ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
+        : null;
+      const selectedId = preferredMembership
+        ? String(preferredMembership.subjectId)
+        : resolveInitialSelection(state.subjects, initialFilters.subjectId);
+
+      if (selectedId) {
+        select.value = selectedId;
+        await loadTopics();
+      } else {
+        renderTopics();
+        updateTopicFormAvailability();
+        updateContextUI();
+      }
+    }
+
+    async function loadTopics() {
+      clearTopicForm();
+      const membership = selectedSubjectMembership();
+      if (!membership) {
+        state.topics = [];
+        renderTopics();
+        updateTopicFormAvailability();
+        updateContextUI();
+        return;
+      }
+
+      state.topics = (await api(`/topics?subjectMembershipId=${encodeURIComponent(membership.id)}`))
+        .sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
+
+      renderTopics();
+      prepareTopicDefaults();
+      updateTopicFormAvailability();
+      updateContextUI();
+
+      if (initialFilters.topicId) {
+        const topic = state.topics.find(item => String(item.id) === String(initialFilters.topicId));
+        if (topic) {
+          editTopic(topic.id);
+        }
+      }
+    }
+
+    function updateTopicFormAvailability() {
+      const membership = selectedSubjectMembership();
+      if (membership) {
+        el('topicFormHint').classList.add('hidden');
+        el('topicFormFields').disabled = false;
+        el('saveTopicBtn').disabled = false;
+        return;
+      }
+
+      el('topicFormFields').disabled = true;
+      el('saveTopicBtn').disabled = true;
+      el('topicFormHint').classList.remove('hidden');
+      el('topicFormHintText').textContent = 'Выберите предмет преподавателя.';
+    }
+
+    function renderTopics() {
+      const subject = selectedSubject();
+      el('topicCount').textContent = state.topics.length;
+      el('topicContext').textContent = subject
+        ? `Предмет: ${subject.name}. Тематики используются в вопросах и тестах.`
+        : 'Предмет не выбран.';
+
+      if (!subject) {
+        el('topicList').className = 'empty';
+        el('topicList').innerHTML = 'Тематики не выбраны.';
+        return;
+      }
+
+      if (!state.topics.length) {
+        el('topicList').className = 'empty';
+        el('topicList').innerHTML = 'Для выбранного предмета пока нет тематик.';
+        return;
+      }
+
+      el('topicList').className = '';
+      el('topicList').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Порядок</th>
+              <th>Тематика</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.topics.map(topic => `
+              <tr>
+                <td>${topic.ordinal}</td>
+                <td>
+                  <div><b>${html(topic.name)}</b></div>
+                  <div class="muted">${html(topic.description || '')}</div>
+                </td>
+                <td>
+                  <div class="row-start">
+                    <a class="button-link btn-light" href="${buildQuestionsHref(topic.id)}">Вопросы</a>
+                    <a class="button-link btn-light" href="${buildCreateTestHref(topic.id)}">Тест</a>
+                    <button class="btn-light" type="button" onclick="editTopic(${topic.id})">Изменить</button>
+                    <button class="btn-danger" type="button" onclick="deleteTopic(${topic.id})">Удалить</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    async function saveTopic() {
+      const subjectId = selectedSubjectId();
+      const membership = selectedSubjectMembership();
+      const name = el('topicName').value.trim();
+      if (!subjectId || !membership || !name) {
+        showMessage('error', 'Заполните название темы и выберите предмет.');
+        return;
+      }
+
+      const body = {
+        subjectId,
+        courseLectureId: null,
+        subjectMembershipId: membership.id,
+        ordinal: Number(el('topicOrdinal').value) || 1,
+        name,
+        description: el('topicDescription').value.trim() || null
+      };
+
+      const button = el('saveTopicBtn');
+      setLoading(button, true);
+      try {
+        if (state.editingTopicId) {
+          await api(`/topics/${encodeURIComponent(state.editingTopicId)}`, {
+            method: 'PUT',
+            body: JSON.stringify(body)
+          });
+          showMessage('success', 'Тематика обновлена.');
+        } else {
+          await api('/topics', {
+            method: 'POST',
+            body: JSON.stringify(body)
+          });
+          showMessage('success', 'Тематика создана.');
+        }
+        clearTopicForm();
+        await loadTopics();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      } finally {
+        setLoading(button, false);
+      }
+    }
+
+    function editTopic(id) {
+      const topic = state.topics.find(item => Number(item.id) === Number(id));
+      if (!topic) {
+        return;
+      }
+
+      state.editingTopicId = id;
+      el('topicFormTitle').textContent = 'Редактирование тематики';
+      el('topicOrdinal').value = topic.ordinal;
+      el('topicName').value = topic.name || '';
+      el('topicDescription').value = topic.description || '';
+      el('cancelTopicBtn').classList.remove('hidden');
+      updateContextUI();
+    }
+
+    async function deleteTopic(id) {
+      const topic = state.topics.find(item => Number(item.id) === Number(id));
+      if (!topic || !confirm(`Удалить тематику "${topic.name}"?`)) {
+        return;
+      }
+
+      try {
+        await api(`/topics/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        showMessage('success', 'Тематика удалена.');
+        clearTopicForm();
+        await loadTopics();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
+    }
+
+    function prepareTopicDefaults() {
+      const maxOrdinal = state.topics.reduce((max, topic) => Math.max(max, Number(topic.ordinal || 0)), 0);
+      el('topicOrdinal').value = String(maxOrdinal + 1);
+      el('topicFormTitle').textContent = 'Новая тематика';
+      el('cancelTopicBtn').classList.add('hidden');
+      state.editingTopicId = null;
+    }
+
+    function clearTopicForm() {
+      state.editingTopicId = null;
+      el('topicFormTitle').textContent = 'Новая тематика';
+      el('topicOrdinal').value = '1';
+      el('topicName').value = '';
+      el('topicDescription').value = '';
+      el('cancelTopicBtn').classList.add('hidden');
+      updateContextUI();
+    }
+
+    el('subjectSelect').addEventListener('change', () => loadTopics().catch(error => showMessage('error', html(error.message))));
+    el('saveTopicBtn').addEventListener('click', saveTopic);
+    el('cancelTopicBtn').addEventListener('click', () => {
+      clearTopicForm();
+      prepareTopicDefaults();
+    });
+
+    renderTopics();
+    updateTopicFormAvailability();
+    updateContextUI();
+
+    if (StudentTestingApi.requireAuth()) {
+      loadTeacherSubjects().catch(error => {
+        el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
+        showMessage('error', html(error.message));
+      });
+    }
+</script>
+</body>
+</html>
+

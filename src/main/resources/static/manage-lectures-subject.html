@@ -1,185 +1,766 @@
-<!-- src/main/resources/static/teacher-lecture.html -->
 <!doctype html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Лекции (управление)</title>
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
-        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
-        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333}
-        .sidebar a:hover{color:#007BFF}
-        .content{flex:1;padding:20px;overflow:auto}
-        form,.card{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:20px}
-        label{font-weight:bold;display:block;margin:8px 0 4px}
-        input[type="text"],textarea,select{width:100%;padding:8px}
-        textarea{min-height:120px}
-        button{padding:10px 16px;border:0;border-radius:4px;cursor:pointer}
-        .btn{background:#007BFF;color:#fff}
-        .btn:hover{background:#0056b3}
-        .btn-danger{background:#dc3545}
-        .btn-danger:hover{background:#c82333}
-        .muted{opacity:.6;pointer-events:none}
-        ul{list-style:none}
-        li{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}
-        .err{margin-top:8px;color:#b00020}
-    </style>
+    <title>Лекции предмета</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-<div class="sidebar">
-    <a href="/index.html">Главная</a>
-    <a href="/subjects.html">Предметы</a>
-    <a href="/groups.html">Группы</a>
-    <a href="/teacher-subject.html">Связи учитель↔предмет</a>
-    <a href="/teacher-lecture.html" style="font-weight:bold">Лекции</a>
-</div>
+<body class="app-shell">
+<main class="content">
+    <h1>Лекции предмета</h1>
+    <div id="message" class="message"></div>
 
-<div class="content">
-    <h2>Управление лекциями</h2>
+    <div class="layout">
+        <section>
+            <div class="panel">
+                <h2>Контекст предмета</h2>
 
-    <!-- выбор предмета -->
-    <form onsubmit="event.preventDefault(); loadLectures();">
-        <label for="subject-select">Предмет:</label>
-        <select id="subject-select" required>
-            <option value="">-- выберите предмет --</option>
-        </select>
-        <br><br>
-        <button id="btn-show" class="btn" type="submit">Показать лекции</button>
-        <div id="err0" class="err"></div>
-    </form>
+                <label for="subjectSelect">Предмет</label>
+                <select id="subjectSelect">
+                    <option value="">Загрузка...</option>
+                </select>
 
-    <!-- список лекций -->
-    <div id="list-card" class="card" style="display:none;">
-        <h3>Лекции предмета</h3>
-        <ul id="lecture-list"></ul>
-    </div>
+                <div id="lectureContextHint" class="muted">
+                    Выберите предмет преподавателя. Лекции используются в тематике, вопросах и назначениях по группам.
+                </div>
 
-    <!-- добавление -->
-    <div id="add-card" class="card" style="display:none;">
-        <h3>Добавить лекцию</h3>
-        <form onsubmit="event.preventDefault(); addLecture();">
-            <label for="title">Заголовок</label>
-            <input id="title" type="text" required>
-
-            <label for="content">Содержание</label>
-            <textarea id="content" required></textarea>
-
-            <label for="description">Описание</label>
-            <textarea id="description"></textarea>
-
-            <br>
-            <button id="btn-add" class="btn" type="submit">Добавить</button>
-            <div id="errAdd" class="err"></div>
-        </form>
-    </div>
-</div>
-
-<script>
-    const API = '/api/v1';
-    const q = s => document.querySelector(s);
-    const ERR = (id,msg) => (q('#'+id).textContent = msg || '');
-
-    async function fetchJSON(url, opt={}) {
-      const res = await fetch(url, {
-        headers: { 'Accept': 'application/json', ...(opt.headers||{}) },
-        ...opt
-      });
-      const txt = await res.text();
-      let data = null;
-      try { data = txt ? JSON.parse(txt) : null; } catch {}
-      if (!res.ok) throw new Error((data && (data.message||data.error)) || (res.status+' '+res.statusText));
-      return data;
-    }
-
-    // загрузка предметов текущего преподавателя
-    async function loadMySubjects() {
-      try {
-        ERR('err0','');
-        // можно использовать и /api/v1/teacher-subjects/me
-        const subjects = await fetchJSON(`${API}/teacher-subjects/me`);
-        const sel = q('#subject-select');
-        sel.innerHTML = '<option value="">-- выберите предмет --</option>' +
-          subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-      } catch (e) {
-        ERR('err0', e.message);
-      }
-    }
-
-    let currentSubjectId = null;
-
-    async function loadLectures() {
-      const id = q('#subject-select').value;
-      if (!id) return;
-      currentSubjectId = id;
-
-      const btn = q('#btn-show'); btn.classList.add('muted');
-      try {
-        const lectures = await fetchJSON(`${API}/lectures/by-subject/${id}`);
-        const ul = q('#lecture-list');
-        ul.innerHTML = lectures.map(l => `
-          <li>
-            <div>
-              <div><b>${escapeHtml(l.title || '')}</b></div>
-              <div style="font-size:12px;opacity:.7">${escapeHtml(l.description || '')}</div>
+                <div class="row-start">
+                    <a id="manageTopicsLink" class="button-link btn-light" href="/manage-topic-library.html">Тематики</a>
+                    <a id="manageQuestionsLink" class="button-link btn-light" href="/questions-page.html">Все вопросы</a>
+                    <a id="createTestLink" class="button-link btn-light" href="/create-test.html">Создать тест</a>
+                </div>
             </div>
-            <button class="btn-danger" onclick="removeLecture(${l.id})">Удалить</button>
-          </li>
-        `).join('');
-        q('#list-card').style.display = 'block';
-        q('#add-card').style.display = 'block';
-        ERR('err0','');
-      } catch (e) {
-        ERR('err0', e.message);
-      } finally {
-        btn.classList.remove('muted');
-      }
+
+            <div class="panel">
+                <h2 id="lectureFormTitle">Новая лекция</h2>
+                <div id="lectureFormHint" class="hint">
+                    <span id="lectureFormHintText">Выберите предмет преподавателя.</span>
+                </div>
+                <fieldset id="lectureFormFields" class="form-fieldset" disabled>
+                    <label for="lectureTitle">Название</label>
+                    <input id="lectureTitle" type="text" maxlength="200">
+
+                    <label for="lectureDescription">Описание</label>
+                    <textarea id="lectureDescription" maxlength="2000"></textarea>
+
+                    <label for="lectureLinkedTestSelect">Связанные тесты</label>
+                    <select id="lectureLinkedTestSelect" multiple size="8" disabled>
+                        <option value="" disabled>Тесты пока недоступны</option>
+                    </select>
+                    <div class="muted">Можно выбрать несколько тестов для одной лекции.</div>
+
+                    <label for="lectureFiles">Материалы лекции</label>
+                    <input id="lectureFiles" type="file" multiple>
+                    <div class="muted">Можно прикрепить PDF, Word, Excel и другие рабочие файлы. До 50 МБ на файл.</div>
+                    <div id="lectureMaterialList" class="empty">Файлы пока не добавлены.</div>
+
+                    <label class="check">
+                        <input id="lecturePublic" type="checkbox" checked>
+                        Публиковать лекцию
+                    </label>
+
+                    <div class="actions">
+                        <button id="saveLectureBtn" class="btn" type="button" disabled>Сохранить лекцию</button>
+                        <button id="cancelLectureBtn" class="btn-secondary hidden" type="button">Отмена</button>
+                    </div>
+                </fieldset>
+            </div>
+        </section>
+
+        <section>
+            <div class="panel">
+                <div class="row">
+                    <h2>Список лекций</h2>
+                    <span id="lectureCount" class="badge">0</span>
+                </div>
+                <div id="lectureList" class="empty">Лекции не выбраны.</div>
+            </div>
+
+            <div class="panel">
+                <h2>Связанный поток</h2>
+                <div class="muted">
+                    Лекции становятся опорой для тестов и учебных назначений. Порядок и ключ контента формируются автоматически, а к одной лекции можно привязать несколько тестов.
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const TEACHER_ROLE = 1;
+
+    const state = {
+      user: null,
+      subjectMemberships: [],
+      subjects: [],
+      lectures: [],
+      availableTests: [],
+      availableTestsById: new Map(),
+      lectureTestsByLectureId: new Map(),
+      lectureMaterialsByLectureId: new Map(),
+      pendingLectureFiles: [],
+      editingLectureId: null
+    };
+
+    const initialFilters = {
+      subjectId: StudentTestingApi.getQueryParam('subjectId'),
+      subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
+      lectureId: StudentTestingApi.getQueryParam('lectureId')
+    };
+
+    const el = id => document.getElementById(id);
+
+    function numberOrNull(value) {
+      return value ? Number(value) : null;
     }
 
-    async function addLecture() {
-      if (!currentSubjectId) return;
-      const title = q('#title').value.trim();
-      const content = q('#content').value.trim();
-      const description = q('#description').value.trim();
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+    }
 
-      if (!title || !content) return;
+    function selectedSubjectId() {
+      return numberOrNull(el('subjectSelect').value);
+    }
 
-      const btn = q('#btn-add'); btn.classList.add('muted');
+    function selectedSubjectMembership() {
+      const subjectId = selectedSubjectId();
+      if (!subjectId) {
+        return null;
+      }
+      return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
+    }
+
+    function selectedSubject() {
+      return state.subjects.find(item => Number(item.id) === selectedSubjectId()) || null;
+    }
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+    }
+
+    function setLoading(button, loading) {
+      button.disabled = loading;
+      button.dataset.loading = loading ? 'true' : 'false';
+    }
+
+    function resolveInitialSelection(items, requestedId) {
+      if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
+        return String(requestedId);
+      }
+      if (items.length === 1) {
+        return String(items[0].id);
+      }
+      return '';
+    }
+
+    function sortTests(tests) {
+      return tests.slice().sort((left, right) =>
+        String(left.title || '').localeCompare(String(right.title || ''), 'ru')
+        || Number(left.id || 0) - Number(right.id || 0)
+      );
+    }
+
+    function setAvailableTests(tests) {
+      state.availableTests = sortTests(tests);
+      state.availableTestsById = new Map(state.availableTests.map(test => [Number(test.id), test]));
+    }
+
+    function mergeAvailableTests(tests) {
+      const merged = new Map(state.availableTestsById);
+      tests.forEach(test => {
+        if (test && test.id != null) {
+          merged.set(Number(test.id), test);
+        }
+      });
+      setAvailableTests([...merged.values()]);
+    }
+
+    function nextLectureOrdinal() {
+      return state.lectures.reduce((max, lecture) => Math.max(max, Number(lecture.ordinal || 0)), 0) + 1;
+    }
+
+    function slugifyLectureTitle(value) {
+      const normalized = String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9а-яё]+/gi, '-')
+        .replace(/^-+|-+$/g, '');
+      return normalized || 'lecture';
+    }
+
+    function buildLectureContentKey(title, lectureId = null) {
+      const subjectPart = selectedSubjectId() ? `subject-${selectedSubjectId()}` : 'subject';
+      const lecturePart = lectureId ? `lecture-${lectureId}` : `lecture-${nextLectureOrdinal()}`;
+      return `${subjectPart}/${lecturePart}-${slugifyLectureTitle(title)}`;
+    }
+
+    function lectureTests(lectureId) {
+      return state.lectureTestsByLectureId.get(Number(lectureId)) || [];
+    }
+
+    function lectureMaterials(lectureId) {
+      return state.lectureMaterialsByLectureId.get(Number(lectureId)) || [];
+    }
+
+    function lectureTestIds(lecture) {
+      const ids = new Set(lectureTests(lecture.id).map(item => Number(item.id)));
+      if (lecture.linkedTestId) {
+        ids.add(Number(lecture.linkedTestId));
+      }
+      return [...ids];
+    }
+
+    function lectureTestsForSelect(lecture = null) {
+      const selectedIds = lecture ? lectureTestIds(lecture) : [];
+      const tests = selectedIds
+        .map(id => state.availableTestsById.get(Number(id)) || { id: Number(id), title: `Тест #${id}` });
+      mergeAvailableTests(tests);
+      return selectedIds;
+    }
+
+    function selectedLectureTestIds() {
+      return [...el('lectureLinkedTestSelect').selectedOptions]
+        .map(option => Number(option.value))
+        .filter(Boolean);
+    }
+
+    function lectureTestSummary(lecture) {
+      const tests = lectureTestIds(lecture)
+        .map(id => state.availableTestsById.get(Number(id)) || { id: Number(id), title: `Тест #${id}` });
+      if (!tests.length) {
+        return '<span class="muted">Тесты не выбраны</span>';
+      }
+      return tests
+        .map(test => `<div>#${test.id} ${html(test.title || 'Без названия')}</div>`)
+        .join('');
+    }
+
+    function formatFileSize(sizeBytes) {
+      const size = Number(sizeBytes || 0);
+      if (size < 1024) {
+        return `${size} Б`;
+      }
+      if (size < 1024 * 1024) {
+        return `${(size / 1024).toFixed(1)} КБ`;
+      }
+      return `${(size / (1024 * 1024)).toFixed(1)} МБ`;
+    }
+
+    function renderLectureMaterials(lectureId = state.editingLectureId) {
+      const container = el('lectureMaterialList');
+      const existingMaterials = lectureId ? lectureMaterials(lectureId) : [];
+      const queuedFiles = state.pendingLectureFiles;
+      const rows = [
+        ...existingMaterials.map(material => `
+          <div class="list-group-item">
+              <div>
+                  <a class="button-link" href="/api/lectures/${encodeURIComponent(lectureId)}/materials/${encodeURIComponent(material.id)}/download">${html(material.fileName)}</a>
+                  <div class="muted">${html(material.contentType || 'Файл')} · ${html(formatFileSize(material.sizeBytes))}</div>
+              </div>
+              <button class="btn-danger" type="button" onclick="deleteLectureMaterial(${material.id})">Удалить</button>
+          </div>
+        `),
+        ...queuedFiles.map((file, index) => `
+          <div class="list-group-item">
+              <div>
+                  <b>${html(file.name)}</b>
+                  <div class="muted">Будет загружен после сохранения · ${html(formatFileSize(file.size))}</div>
+              </div>
+              <button class="btn-light" type="button" onclick="removePendingLectureFile(${index})">Убрать</button>
+          </div>
+        `)
+      ];
+
+      if (!rows.length) {
+        container.className = 'empty';
+        container.textContent = 'Файлы пока не добавлены.';
+        return;
+      }
+
+      container.className = 'list';
+      container.innerHTML = rows.join('');
+    }
+
+    function buildTopicsApiPath(subjectMembershipId) {
+      return `/topics?subjectMembershipId=${encodeURIComponent(subjectMembershipId)}`;
+    }
+
+    function buildTopicLibraryHref() {
+      const params = new URLSearchParams();
+      const membership = selectedSubjectMembership();
+      if (selectedSubjectId()) {
+        params.set('subjectId', String(selectedSubjectId()));
+      }
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      const query = params.toString();
+      return query ? `/manage-topic-library.html?${query}` : '/manage-topic-library.html';
+    }
+
+    function buildQuestionsHref() {
+      const params = new URLSearchParams();
+      const membership = selectedSubjectMembership();
+      if (selectedSubjectId()) {
+        params.set('subjectId', String(selectedSubjectId()));
+      }
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      const query = params.toString();
+      return query ? `/questions-page.html?${query}` : '/questions-page.html';
+    }
+
+    function buildCreateTestHref() {
+      const params = new URLSearchParams();
+      const membership = selectedSubjectMembership();
+      if (selectedSubjectId()) {
+        params.set('subjectId', String(selectedSubjectId()));
+      }
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      const query = params.toString();
+      return query ? `/create-test.html?${query}` : '/create-test.html';
+    }
+
+    function updateContextLinks() {
+      const membership = selectedSubjectMembership();
+      el('manageTopicsLink').href = buildTopicLibraryHref();
+      el('manageTopicsLink').dataset.sourceApi = membership ? buildTopicsApiPath(membership.id) : '';
+      el('manageQuestionsLink').href = buildQuestionsHref();
+      el('createTestLink').href = buildCreateTestHref();
+    }
+
+    async function loadLectureMaterials(lectureId) {
+      const resolvedLectureId = Number(lectureId);
+      if (!resolvedLectureId) {
+        renderLectureMaterials();
+        return;
+      }
+      state.lectureMaterialsByLectureId.set(
+        resolvedLectureId,
+        await api(`/lectures/${encodeURIComponent(resolvedLectureId)}/materials`)
+      );
+      renderLectureMaterials(resolvedLectureId);
+    }
+
+    async function uploadLectureFiles(lectureId) {
+      const resolvedLectureId = Number(lectureId);
+      if (!resolvedLectureId || !state.pendingLectureFiles.length) {
+        return;
+      }
+
+      const formData = new FormData();
+      state.pendingLectureFiles.forEach(file => formData.append('files', file));
+
+      const response = await fetch(`/api/lectures/${encodeURIComponent(resolvedLectureId)}/materials`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Не удалось загрузить файлы лекции.');
+      }
+
+      state.lectureMaterialsByLectureId.set(resolvedLectureId, payload || []);
+      state.pendingLectureFiles = [];
+      el('lectureFiles').value = '';
+      renderLectureMaterials(resolvedLectureId);
+    }
+
+    function removePendingLectureFile(index) {
+      state.pendingLectureFiles = state.pendingLectureFiles.filter((_, fileIndex) => fileIndex !== Number(index));
+      renderLectureMaterials();
+    }
+
+    async function deleteLectureMaterial(materialId) {
+      const lectureId = Number(state.editingLectureId);
+      if (!lectureId || !confirm('Удалить файл лекции?')) {
+        return;
+      }
       try {
-        await fetchJSON(`${API}/lectures`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subjectId: Number(currentSubjectId),
-            title, content, description
-          })
+        await api(`/lectures/${encodeURIComponent(lectureId)}/materials/${encodeURIComponent(materialId)}`, {
+          method: 'DELETE'
         });
-        ERR('errAdd','');
-        q('#title').value = '';
-        q('#content').value = '';
-        q('#description').value = '';
-        await loadLectures();
-      } catch (e) {
-        ERR('errAdd', e.message);
-      } finally {
-        btn.classList.remove('muted');
+        state.lectureMaterialsByLectureId.set(
+          lectureId,
+          lectureMaterials(lectureId).filter(material => Number(material.id) !== Number(materialId))
+        );
+        renderLectureMaterials(lectureId);
+      } catch (error) {
+        showMessage('error', html(error.message));
       }
     }
 
-    async function removeLecture(lectureId) {
+    function fillLinkedTestSelect(selectedIds = []) {
+      const select = el('lectureLinkedTestSelect');
+      if (!state.availableTests.length) {
+        select.innerHTML = '<option value="" disabled>Тесты пока недоступны</option>';
+        select.disabled = true;
+        return;
+      }
+
+      const selected = new Set((selectedIds || []).map(Number).filter(Boolean));
+      select.innerHTML = state.availableTests
+        .map(test => `<option value="${test.id}" ${selected.has(Number(test.id)) ? 'selected' : ''}>${html(`#${test.id} ${test.title}`)}</option>`)
+        .join('');
+      select.disabled = false;
+    }
+
+    function updateLectureFormAvailability() {
+      const membership = selectedSubjectMembership();
+      const subject = selectedSubject();
+
+      updateContextLinks();
+
+      if (!membership || !subject) {
+        el('lectureFormFields').disabled = true;
+        el('saveLectureBtn').disabled = true;
+        el('lectureFormHint').classList.remove('hidden');
+        el('lectureFormHintText').textContent = 'Выберите предмет преподавателя.';
+        el('lectureContextHint').textContent = 'Выберите предмет преподавателя. Лекции используются в тематике, вопросах и назначениях по группам.';
+        return;
+      }
+
+      el('lectureFormFields').disabled = false;
+      el('saveLectureBtn').disabled = false;
+      el('lectureFormHint').classList.add('hidden');
+      el('lectureContextHint').textContent =
+        `Предмет: ${subject.name}. Эти лекции можно использовать в тематике, тестах и назначениях по группам.`;
+    }
+
+    async function loadTeacherSubjects() {
+      state.user = await StudentTestingApi.loadCurrentUser();
+      if (!state.user.personId) {
+        throw new Error('Не удалось определить преподавателя по текущему профилю.');
+      }
+
+      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
+      state.subjectMemberships = memberships
+        .filter(item => Number(item.role) === TEACHER_ROLE)
+        .sort((left, right) => Number(left.id) - Number(right.id));
+
+      const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
+      state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+
+      const select = el('subjectSelect');
+      if (!state.subjects.length) {
+        select.innerHTML = '<option value="">Нет доступных предметов</option>';
+        select.disabled = true;
+        renderLectures();
+        updateLectureFormAvailability();
+        showMessage('info', 'Нет предметов преподавателя для управления лекциями.');
+        return;
+      }
+
+      select.disabled = false;
+      select.innerHTML = '<option value="">Выберите предмет</option>' +
+        state.subjects
+          .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
+          .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
+          .join('');
+
+      const preferredMembership = initialFilters.subjectMembershipId
+        ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
+        : null;
+      const selectedId = preferredMembership
+        ? String(preferredMembership.subjectId)
+        : resolveInitialSelection(state.subjects, initialFilters.subjectId);
+
+      if (selectedId) {
+        select.value = selectedId;
+        await loadSubjectContext();
+      } else {
+        renderLectures();
+        updateLectureFormAvailability();
+      }
+    }
+
+    async function loadSubjectContext() {
+      clearLectureForm();
+      await loadLectures();
+      await loadAvailableTests();
+      updateLectureFormAvailability();
+    }
+
+    async function loadLectures(preferredLectureId = null) {
+      const membership = selectedSubjectMembership();
+      if (!membership) {
+        state.lectures = [];
+        state.lectureTestsByLectureId = new Map();
+        state.lectureMaterialsByLectureId = new Map();
+        renderLectures();
+        return;
+      }
+
+      state.lectures = (await api(`/lectures?subjectMembershipId=${encodeURIComponent(membership.id)}`))
+        .sort((left, right) =>
+          Number(left.ordinal || 0) - Number(right.ordinal || 0) ||
+          String(left.title || '').localeCompare(String(right.title || ''), 'ru')
+        );
+      state.lectureTestsByLectureId = new Map();
+      state.lectureMaterialsByLectureId = new Map();
+
+      renderLectures();
+      prepareLectureDefaults();
+
+      const lectureId = preferredLectureId || initialFilters.lectureId;
+      if (lectureId) {
+        const lecture = state.lectures.find(item => Number(item.id) === Number(lectureId));
+        if (lecture) {
+          editLecture(lecture.id);
+        }
+      }
+    }
+
+    async function loadAvailableTests() {
+      setAvailableTests([]);
+      state.lectureTestsByLectureId = new Map();
+      fillLinkedTestSelect();
+
+      const membership = selectedSubjectMembership();
+      if (!membership) {
+        renderLectures();
+        return;
+      }
+
+      const lectureTestsPromise = state.lectures.length
+        ? Promise.all(
+            state.lectures.map(lecture => api(`/lectures/${encodeURIComponent(lecture.id)}/tests`))
+          )
+        : Promise.resolve([]);
+
+      const [tests, lectureTestLists] = await Promise.all([
+        api(`/tests?subjectId=${encodeURIComponent(selectedSubjectId())}`),
+        lectureTestsPromise
+      ]);
+
+      setAvailableTests(tests || []);
+      state.lectureTestsByLectureId = new Map(
+        state.lectures.map((lecture, index) => [Number(lecture.id), lectureTestLists[index] || []])
+      );
+
+      renderLectures();
+
+      const editingLecture = state.lectures.find(item => Number(item.id) === Number(state.editingLectureId));
+      fillLinkedTestSelect(editingLecture ? lectureTestsForSelect(editingLecture) : []);
+    }
+
+    async function syncLectureTests(lectureId, selectedTestIds) {
+      const resolvedLectureId = Number(lectureId);
+      if (!resolvedLectureId) {
+        return;
+      }
+
+      state.lectureTestsByLectureId.set(
+        resolvedLectureId,
+        await api(`/lectures/${encodeURIComponent(resolvedLectureId)}/tests`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            testIds: unique((selectedTestIds || []).map(Number).filter(Boolean))
+          })
+        })
+      );
+    }
+
+    function renderLectures() {
+      el('lectureCount').textContent = String(state.lectures.length);
+
+      if (!selectedSubjectMembership()) {
+        el('lectureList').className = 'empty';
+        el('lectureList').textContent = 'Лекции не выбраны.';
+        return;
+      }
+
+      if (!state.lectures.length) {
+        el('lectureList').className = 'empty';
+        el('lectureList').textContent = 'Для выбранного предмета пока нет лекций.';
+        return;
+      }
+
+      el('lectureList').className = '';
+      el('lectureList').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Лекция</th>
+              <th>Тесты</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.lectures.map(lecture => `
+              <tr>
+                <td>
+                  <div><b>${html(lecture.title)}</b></div>
+                  <div class="muted">${html(lecture.description || '')}</div>
+                </td>
+                <td>${lectureTestSummary(lecture)}</td>
+                <td>
+                  <span class="badge ${lecture.publicVisible ? 'badge-ok' : ''}">
+                    ${lecture.publicVisible ? 'Видима' : 'Скрыта'}
+                  </span>
+                </td>
+                <td>
+                  <div class="row-start">
+                    <button class="btn-light" type="button" onclick="editLecture(${lecture.id})">Изменить</button>
+                    <button class="btn-danger" type="button" onclick="deleteLecture(${lecture.id})">Удалить</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    async function saveLecture() {
+      const membership = selectedSubjectMembership();
+      const subject = selectedSubject();
+      const title = el('lectureTitle').value.trim();
+      const isEditing = Boolean(state.editingLectureId);
+      const editingLecture = state.lectures.find(item => Number(item.id) === Number(state.editingLectureId)) || null;
+      const selectedTestIds = selectedLectureTestIds();
+
+      if (!membership || !subject || !title) {
+        showMessage('error', 'Заполните название лекции и выберите предмет.');
+        return;
+      }
+
+      const body = {
+        subjectId: subject.id,
+        subjectMembershipId: membership.id,
+        courseVersionId: null,
+        ordinal: editingLecture?.ordinal || nextLectureOrdinal(),
+        title,
+        description: el('lectureDescription').value.trim() || null,
+        contentFolderKey: editingLecture?.contentFolderKey || buildLectureContentKey(title, editingLecture?.id || null),
+        linkedTestId: null,
+        publicVisible: el('lecturePublic').checked
+      };
+
+      const button = el('saveLectureBtn');
+      setLoading(button, true);
       try {
-        await fetchJSON(`${API}/lectures/${lectureId}`, { method: 'DELETE' });
-        await loadLectures();
-      } catch (e) {
-        alert(e.message);
+        let lecture;
+        if (isEditing) {
+          lecture = await api(`/lectures/${encodeURIComponent(state.editingLectureId)}`, {
+            method: 'PUT',
+            body: JSON.stringify(body)
+          });
+        } else {
+          lecture = await api('/lectures', {
+            method: 'POST',
+            body: JSON.stringify(body)
+          });
+        }
+        await syncLectureTests(lecture.id, selectedTestIds);
+        await uploadLectureFiles(lecture.id);
+        clearLectureForm();
+        await loadLectures(lecture?.id || null);
+        await loadAvailableTests();
+        showMessage('success', isEditing ? 'Лекция обновлена.' : 'Лекция создана.');
+      } catch (error) {
+        showMessage('error', html(error.message));
+      } finally {
+        setLoading(button, false);
       }
     }
 
-    function escapeHtml(s){
-      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    function editLecture(id) {
+      const lecture = state.lectures.find(item => Number(item.id) === Number(id));
+      if (!lecture) {
+        return;
+      }
+
+      state.editingLectureId = lecture.id;
+      el('lectureFormTitle').textContent = 'Редактирование лекции';
+      el('lectureTitle').value = lecture.title || '';
+      el('lectureDescription').value = lecture.description || '';
+      fillLinkedTestSelect(lectureTestsForSelect(lecture));
+      el('lecturePublic').checked = !!lecture.publicVisible;
+      el('cancelLectureBtn').classList.remove('hidden');
+      renderLectureMaterials(lecture.id);
+      loadLectureMaterials(lecture.id).catch(error => showMessage('error', html(error.message)));
+      updateContextLinks();
     }
 
-    loadMySubjects();
+    async function deleteLecture(id) {
+      const lecture = state.lectures.find(item => Number(item.id) === Number(id));
+      if (!lecture || !confirm(`Удалить лекцию "${lecture.title}"?`)) {
+        return;
+      }
+
+      try {
+        await api(`/lectures/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        showMessage('success', 'Лекция удалена.');
+        clearLectureForm();
+        await loadLectures();
+        await loadAvailableTests();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
+    }
+
+    function prepareLectureDefaults() {
+      el('lecturePublic').checked = true;
+      fillLinkedTestSelect([]);
+      state.pendingLectureFiles = [];
+      el('lectureFiles').value = '';
+      renderLectureMaterials();
+      el('lectureFormTitle').textContent = 'Новая лекция';
+      el('cancelLectureBtn').classList.add('hidden');
+      state.editingLectureId = null;
+      updateContextLinks();
+    }
+
+    function clearLectureForm() {
+      state.editingLectureId = null;
+      el('lectureFormTitle').textContent = 'Новая лекция';
+      el('lectureTitle').value = '';
+      el('lectureDescription').value = '';
+      el('lecturePublic').checked = true;
+      fillLinkedTestSelect([]);
+      state.pendingLectureFiles = [];
+      el('lectureFiles').value = '';
+      renderLectureMaterials();
+      el('cancelLectureBtn').classList.add('hidden');
+      updateContextLinks();
+    }
+
+    el('subjectSelect').addEventListener('change', () => loadSubjectContext().catch(error => showMessage('error', html(error.message))));
+    el('lectureFiles').addEventListener('change', () => {
+      state.pendingLectureFiles = [...el('lectureFiles').files];
+      renderLectureMaterials();
+    });
+    el('saveLectureBtn').addEventListener('click', saveLecture);
+    el('cancelLectureBtn').addEventListener('click', () => {
+      clearLectureForm();
+      prepareLectureDefaults();
+    });
+
+    window.editLecture = editLecture;
+    window.deleteLecture = deleteLecture;
+    window.deleteLectureMaterial = deleteLectureMaterial;
+    window.removePendingLectureFile = removePendingLectureFile;
+
+    renderLectures();
+    fillLinkedTestSelect();
+    renderLectureMaterials();
+    updateContextLinks();
+    updateLectureFormAvailability();
+
+    if (StudentTestingApi.requireAuth()) {
+      loadTeacherSubjects().catch(error => {
+        el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
+        showMessage('error', html(error.message));
+      });
+    }
 </script>
 </body>
 </html>

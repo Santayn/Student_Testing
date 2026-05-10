@@ -1,144 +1,168 @@
-<!-- src/main/resources/static/test.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
     <title>Прохождение теста</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="bg-light">
-<div class="container py-4">
-    <div id="err" class="alert alert-danger d-none"></div>
-
-    <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h1 id="testTitle" class="h5 mb-0">Загрузка…</h1>
-            <span id="badge" class="badge text-bg-secondary d-none">ID</span>
-        </div>
-        <div id="testBody" class="card-body">Загрузка…</div>
-        <div class="card-footer d-flex gap-2">
-            <a id="back" class="btn btn-outline-secondary" href="javascript:history.back()">Назад</a>
-            <button id="submitBtn" class="btn btn-primary">Отправить</button>
+<body>
+<header class="app-topbar">
+    <div class="app-topbar__inner">
+        <a class="app-brand" href="/main.html">Student Testing</a>
+        <div class="top-actions">
+            <a class="btn btn-light" href="javascript:history.back()">Назад</a>
         </div>
     </div>
+</header>
 
-    <div id="result" class="mt-3 d-none"></div>
-</div>
+<main class="page">
+    <div id="error" class="alert alert-error hidden"></div>
 
+    <section class="panel">
+        <div class="page-header">
+            <div>
+                <h1 id="testTitle" class="page-title">Загрузка теста...</h1>
+                <p id="testMeta" class="page-subtitle"></p>
+            </div>
+            <button id="submitBtn" class="btn-primary" type="button">Завершить тест</button>
+        </div>
+        <div id="testBody">Загрузка вопросов...</div>
+    </section>
+
+    <section id="result" class="panel hidden"></section>
+</main>
+
+<script src="/js/api.js"></script>
 <script>
-    (function () {
-      const q = new URL(location.href).searchParams;
-      const testId = q.get('testId');
-      const err = document.getElementById('err');
-      const body = document.getElementById('testBody');
-      const title = document.getElementById('testTitle');
-      const badge = document.getElementById('badge');
-      const submitBtn = document.getElementById('submitBtn');
-      const resultBox = document.getElementById('result');
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const testId = StudentTestingApi.getQueryParam('testId');
+    const assignmentId = StudentTestingApi.getQueryParam('assignmentId');
+    let attemptId = null;
+    let questions = [];
 
-      let questions = [];
+    const el = id => document.getElementById(id);
 
-      if (!testId) {
-        err.textContent = 'Не передан testId';
-        err.classList.remove('d-none');
+    function showError(message) {
+      el('error').textContent = message || 'Не удалось загрузить тест.';
+      el('error').classList.remove('hidden');
+    }
+
+    async function loadTest() {
+      if (!testId && !assignmentId) {
+        throw new Error('Не указан параметр testId или assignmentId.');
+      }
+
+      let data;
+      if (assignmentId) {
+        if (!StudentTestingApi.requireAuth()) {
+          return;
+        }
+        data = await api(`/public/learning/test-assignments/${encodeURIComponent(assignmentId)}/attempts/start`, {
+          method: 'POST'
+        });
+        attemptId = data.attemptId;
+      } else {
+        data = await api(`/public/learning/tests/${encodeURIComponent(testId)}`);
+      }
+      questions = data.questions || [];
+      el('testTitle').textContent = data.test.title || `Тест #${data.test.id}`;
+      el('testMeta').textContent = `Вопросов: ${questions.length}, попыток: ${data.test.attemptsAllowed}`;
+
+      if (!questions.length) {
+        el('testBody').innerHTML = '<div class="muted">В этом тесте пока нет вопросов.</div>';
+        el('submitBtn').disabled = true;
         return;
       }
 
-      function safe(text){ const d=document.createElement('div'); d.textContent=text||''; return d.innerHTML; }
+      el('testBody').innerHTML = questions.map((question, index) => questionMarkup(question, index)).join('');
+    }
 
-      async function load() {
-        const res = await fetch(`/api/v1/public/tests/${encodeURIComponent(testId)}`, {credentials:'same-origin'});
-        if (!res.ok) throw new Error(`Не удалось загрузить тест (${res.status})`);
-        const data = await res.json();
+    function questionMarkup(question, index) {
+      const options = Array.isArray(question.options) ? question.options : [];
+      const hasOptions = (question.type === 2 || question.type === 3) && options.length > 0;
+      const optionMarkup = options.map(option => `
+        <label class="option-label">
+          <input type="${question.type === 3 ? 'checkbox' : 'radio'}"
+                 name="q_${question.id}"
+                 data-qid="${question.id}"
+                 data-option-id="${option.id}">
+          ${html(option.text)}
+        </label>
+      `).join('');
 
-        title.textContent = data.test.description || `Тест #${data.test.id}`;
-        badge.classList.remove('d-none');
-        badge.textContent = `ID: ${data.test.id}`;
-        questions = data.questions || [];
+      return `
+        <div class="panel panel-flat panel-gap">
+          <div class="muted small">Вопрос ${index + 1}, ${html(question.points)} балл.</div>
+          <p><strong>${html(question.text || question.question)}</strong></p>
+          ${hasOptions
+            ? `<div class="form-grid">${optionMarkup}</div>`
+            : `<input type="text" data-qid="${question.id}" data-answer-input="true" placeholder="Введите ответ">`}
+        </div>`;
+    }
 
-        if (!questions.length) {
-          body.innerHTML = '<div class="text-muted">Нет вопросов.</div>';
-          submitBtn.disabled = true;
-          return;
-        }
-
-        const form = document.createElement('div');
-        questions.forEach((q, idx) => {
-          const block = document.createElement('div');
-          block.className = 'mb-3';
-          block.innerHTML = `
-            <label class="form-label fw-semibold">Вопрос ${idx+1}</label>
-            <div class="mb-2">${safe(q.text)}</div>
-            <input class="form-control" data-qid="${q.id}" placeholder="Ваш ответ">
-          `;
-          form.appendChild(block);
-        });
-        body.innerHTML = '';
-        body.appendChild(form);
+    async function submitTest() {
+      if (!StudentTestingApi.requireAuth()) {
+        return;
       }
 
-      async function submit() {
-        const inputs = body.querySelectorAll('input[data-qid]');
-        const questionIds = [];
-        const answers = [];
-        inputs.forEach(inp => {
-          questionIds.push(Number(inp.dataset.qid));
-          answers.push(inp.value || '');
-        });
+      const questionIds = [];
+      const answers = [];
+      const selectedOptionIds = [];
 
-        const res = await fetch(`/api/v1/public/tests/${encodeURIComponent(testId)}/submit`, {
+      questions.forEach(question => {
+        questionIds.push(Number(question.id));
+        const input = document.querySelector(`input[data-answer-input="true"][data-qid="${question.id}"]`);
+        answers.push(input ? input.value || '' : '');
+        selectedOptionIds.push(
+          [...document.querySelectorAll(`input[data-option-id][data-qid="${question.id}"]:checked`)]
+            .map(optionInput => Number(optionInput.dataset.optionId))
+        );
+      });
+
+      el('submitBtn').disabled = true;
+      try {
+        const submitUrl = attemptId
+          ? `/public/learning/attempts/${encodeURIComponent(attemptId)}/submit`
+          : `/public/learning/tests/${encodeURIComponent(testId)}/submit`;
+        const result = await api(submitUrl, {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          credentials:'same-origin',
-          body: JSON.stringify({questionIds, answers})
+          body: JSON.stringify({ questionIds, answers, selectedOptionIds })
         });
-
-        if (res.status === 401) {
-          err.textContent = 'Нужно войти как студент, чтобы отправить ответы.';
-          err.classList.remove('d-none');
+        renderResult(result);
+        el('submitBtn').disabled = true;
+      } catch (error) {
+        showError(error.message || 'Не удалось отправить ответы на тест.');
+      } finally {
+        if (!el('result').classList.contains('hidden')) {
           return;
         }
-        if (!res.ok) {
-          err.textContent = `Не удалось отправить ответы (${res.status})`;
-          err.classList.remove('d-none');
-          return;
-        }
-
-        const r = await res.json();
-        resultBox.className = 'mt-3';
-        resultBox.innerHTML = `
-          <div class="alert alert-info">
-            Результат: <strong>${r.correctCount}</strong> из <strong>${r.totalCount}</strong>
-          </div>
-          <div class="card">
-            <div class="card-header">Детали</div>
-            <ul class="list-group list-group-flush">
-              ${r.details.map(d => `
-                <li class="list-group-item">
-                  <div class="fw-semibold">${safe(d.questionText)}</div>
-                  <div class="small">Ваш ответ: ${safe(d.givenAnswer || '—')}</div>
-                  <div class="small">Правильный: ${safe(d.correctAnswer)}</div>
-                  <span class="badge ${d.correct ? 'text-bg-success' : 'text-bg-danger'}">
-                    ${d.correct ? 'Верно' : 'Неверно'}
-                  </span>
-                </li>
-              `).join('')}
-            </ul>
-          </div>
-        `;
-        window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'});
+        el('submitBtn').disabled = false;
       }
+    }
 
-      (async function boot(){
-        try { await load(); }
-        catch(e){ err.textContent = e.message || 'Ошибка загрузки'; err.classList.remove('d-none'); }
-      })();
+    function renderResult(result) {
+      el('result').classList.remove('hidden');
+      el('result').innerHTML = `
+        <div class="alert alert-success">
+          Правильных ответов: <strong>${html(result.correctCount)}</strong> из <strong>${html(result.totalCount)}</strong>,
+          итоговый балл: <strong>${html(result.score ?? 0)}</strong>
+        </div>
+        ${(result.details || []).map(detail => `
+          <div class="panel panel-flat panel-gap-sm">
+            <p><strong>${html(detail.questionText)}</strong></p>
+            <p class="muted">Ваш ответ: ${html(detail.givenAnswer || '-')}</p>
+            <p class="muted">Правильный ответ: ${html(detail.correctAnswer || '-')}</p>
+            <strong class="${detail.correct ? 'answer-correct' : 'answer-wrong'}">${detail.correct ? 'Верно' : 'Неверно'}</strong>
+          </div>
+        `).join('')}`;
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
 
-      submitBtn.addEventListener('click', () => submit().catch(e=>{
-        err.textContent = e.message || 'Ошибка отправки'; err.classList.remove('d-none');
-      }));
-    })();
+    el('submitBtn').addEventListener('click', () => submitTest());
+
+    loadTest().catch(error => showError(error.message || 'Не удалось загрузить тест.'));
 </script>
 </body>
 </html>

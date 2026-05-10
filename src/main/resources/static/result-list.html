@@ -1,214 +1,333 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Результаты тестов (REST)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <title>Результаты тестов</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
     <style>
-        body { padding: 16px; }
-        .right { background: #dfd; }
-        .wrong { background: #fdd; }
-        .muted { color: #666; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: .5rem; }
+        .result-attempt-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .result-attempt-meta {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .result-attempt-table tr.is-correct {
+            background: #ecfdf3;
+        }
+
+        .result-attempt-table tr.is-wrong {
+            background: #fef3f2;
+        }
+
+        @media (max-width: 820px) {
+            .result-attempt-meta {
+                justify-content: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1 class="mb-3">Результаты тестов</h1>
-
-    <div id="error" class="alert alert-danger d-none"></div>
-
-    <div class="row g-2 mb-3">
-        <div class="col-md-3">
-            <label class="form-label">Предмет</label>
-            <select id="subject" class="form-select">
-                <option value="">— выберите —</option>
-            </select>
+<header class="app-topbar">
+    <div class="app-topbar__inner">
+        <a class="app-brand" href="/main.html">Student Testing</a>
+        <div class="top-actions">
+            <a class="btn btn-light" href="/profile.html">Личный кабинет</a>
         </div>
+    </div>
+</header>
 
-        <div class="col-md-3">
-            <label class="form-label">Лекция</label>
-            <select id="lecture" class="form-select" disabled>
-                <option value="">— выберите —</option>
-            </select>
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label">Тест</label>
-            <select id="test" class="form-select" disabled>
-                <option value="">— выберите —</option>
-            </select>
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label">Группа</label>
-            <select id="group" class="form-select" disabled>
-                <option value="">— выберите —</option>
-            </select>
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label">Студент</label>
-            <select id="student" class="form-select" disabled>
-                <option value="">— все —</option>
-            </select>
-        </div>
-
-        <div class="col-md-3 d-flex align-items-end">
-            <button id="load" class="btn btn-primary w-100">Показать</button>
+<main class="page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Результаты тестов</h1>
+            <p class="page-subtitle">Выберите предмет, лекцию, тест, группу и студента, чтобы получить результаты в виде раскрывающихся попыток.</p>
         </div>
     </div>
 
-    <div class="mb-2 muted" id="breadcrumbs"></div>
+    <div id="error" class="alert alert-error hidden"></div>
 
-    <div class="mb-3" id="stats"></div>
+    <section class="panel">
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <label for="subject">Предмет</label>
+                <select id="subject">
+                    <option value="">-- выберите предмет --</option>
+                </select>
+            </div>
+            <div class="col-lg-7">
+                <label for="lecture">Лекция</label>
+                <select id="lecture" disabled>
+                    <option value="">-- выберите лекцию --</option>
+                </select>
+            </div>
+            <div class="col-lg-5">
+                <label for="test">Тест</label>
+                <select id="test" disabled>
+                    <option value="">-- выберите тест --</option>
+                </select>
+            </div>
+            <div class="col-4">
+                <label for="group">Группа</label>
+                <select id="group" disabled>
+                    <option value="">-- выберите группу --</option>
+                </select>
+            </div>
+            <div class="col-4">
+                <label for="student">Студент</label>
+                <select id="student" disabled>
+                    <option value="">-- выберите студента --</option>
+                </select>
+            </div>
+            <div class="col-4 align-end">
+                <button id="load" class="btn-primary btn-block" type="button">Показать результаты</button>
+            </div>
+        </div>
+    </section>
 
-    <div class="table-responsive">
-        <table id="tbl">
+    <section class="panel">
+        <div class="muted" id="breadcrumbs"></div>
+        <div class="alert alert-info" id="stats">Выберите фильтры и нажмите кнопку «Показать результаты».</div>
+        <div id="attemptList" class="result-attempt-list"></div>
+    </section>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+
+    const subjectSelect = document.getElementById('subject');
+    const lectureSelect = document.getElementById('lecture');
+    const testSelect = document.getElementById('test');
+    const groupSelect = document.getElementById('group');
+    const studentSelect = document.getElementById('student');
+    const loadButton = document.getElementById('load');
+    const errorBox = document.getElementById('error');
+    const statsBox = document.getElementById('stats');
+    const breadcrumbs = document.getElementById('breadcrumbs');
+    const attemptList = document.getElementById('attemptList');
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorBox.textContent = '';
+      errorBox.classList.add('hidden');
+    }
+
+    function option(text, value) {
+      const item = document.createElement('option');
+      item.textContent = text;
+      item.value = value ?? '';
+      return item;
+    }
+
+    function resetSelect(select, text, disabled = true) {
+      select.replaceChildren(option(text, ''));
+      select.disabled = disabled;
+    }
+
+    async function loadSubjects() {
+      const subjects = await api('/results/teacher/subjects');
+      resetSelect(subjectSelect, '-- выберите предмет --', false);
+      subjects.forEach(subject => subjectSelect.appendChild(option(subject.name, subject.id)));
+      resetSelect(lectureSelect, '-- выберите лекцию --');
+      resetSelect(testSelect, '-- выберите тест --');
+      resetSelect(groupSelect, '-- выберите группу --');
+      resetSelect(studentSelect, '-- выберите студента --');
+    }
+
+    async function loadLectures() {
+      resetSelect(lectureSelect, '-- выберите лекцию --');
+      resetSelect(testSelect, '-- выберите тест --');
+      resetSelect(groupSelect, '-- выберите группу --');
+      resetSelect(studentSelect, '-- выберите студента --');
+      if (!subjectSelect.value) {
+        return;
+      }
+      const lectures = await api(`/results/teacher/lectures?subjectId=${encodeURIComponent(subjectSelect.value)}`);
+      resetSelect(lectureSelect, '-- выберите лекцию --', false);
+      lectures.forEach(lecture => {
+        const label = `${lecture.ordinal}. ${lecture.title || `Лекция #${lecture.id}`} (${lecture.courseName}, v${lecture.versionNumber})`;
+        lectureSelect.appendChild(option(label, lecture.id));
+      });
+    }
+
+    async function loadTests() {
+      resetSelect(testSelect, '-- выберите тест --');
+      resetSelect(groupSelect, '-- выберите группу --');
+      resetSelect(studentSelect, '-- выберите студента --');
+      if (!lectureSelect.value) {
+        return;
+      }
+      const tests = await api(`/results/teacher/tests?lectureId=${encodeURIComponent(lectureSelect.value)}`);
+      resetSelect(testSelect, '-- выберите тест --', false);
+      tests.forEach(test => testSelect.appendChild(option(test.title || `Тест #${test.id}`, test.id)));
+    }
+
+    async function loadGroups() {
+      resetSelect(groupSelect, '-- выберите группу --', false);
+      resetSelect(studentSelect, '-- выберите студента --');
+      if (!testSelect.value) {
+        return;
+      }
+      const groups = await api(`/results/teacher/groups?testId=${encodeURIComponent(testSelect.value)}`);
+      groups.forEach(group => groupSelect.appendChild(option(group.name || group.code || `Группа #${group.id}`, group.id)));
+    }
+
+    async function loadStudents() {
+      resetSelect(studentSelect, '-- выберите студента --', false);
+      if (!groupSelect.value) {
+        return;
+      }
+      const students = await api(`/results/teacher/students?groupId=${encodeURIComponent(groupSelect.value)}`);
+      students.forEach(student => studentSelect.appendChild(option(student.fullName || `Студент #${student.id}`, student.id)));
+    }
+
+    async function loadResults() {
+      const params = new URLSearchParams();
+      if (subjectSelect.value) params.set('subjectId', subjectSelect.value);
+      if (lectureSelect.value) params.set('lectureId', lectureSelect.value);
+      if (testSelect.value) params.set('testId', testSelect.value);
+      if (groupSelect.value) params.set('groupId', groupSelect.value);
+      if (studentSelect.value) params.set('studentId', studentSelect.value);
+
+      const data = await api(`/results/teacher/data?${params.toString()}`);
+      const stats = data.stats || { total: 0, right: 0, percent: 0 };
+      const attempts = data.attempts || [];
+      const attemptCount = data.attemptCount ?? attempts.length;
+
+      statsBox.innerHTML =
+        `Найдено попыток: <strong>${html(String(attemptCount))}</strong>. ` +
+        `Правильных ответов: <strong>${html(String(stats.right ?? 0))}</strong> ` +
+        `из <strong>${html(String(stats.total ?? 0))}</strong> (${html(String(stats.percent ?? 0))}%)`;
+
+      const parts = [];
+      if (data.selectedTestName) parts.push(`Тест: <b>${html(data.selectedTestName)}</b>`);
+      if (data.selectedGroupName) parts.push(`Группа: <b>${html(data.selectedGroupName)}</b>`);
+      if (data.selectedStudentName) parts.push(`Студент: <b>${html(data.selectedStudentName)}</b>`);
+      breadcrumbs.innerHTML = parts.join(' | ');
+
+      attemptList.innerHTML = '';
+      if (!attempts.length) {
+        attemptList.innerHTML = '<div class="hint">По выбранным фильтрам данных не найдено.</div>';
+        return;
+      }
+
+      attemptList.innerHTML = attempts
+        .map((attempt, index) => renderAttemptCard(attempt, attempts.length === 1 && index === 0))
+        .join('');
+    }
+
+    function renderAttemptCard(attempt, open) {
+      const stats = attempt.stats || { total: 0, right: 0, percent: 0 };
+      const testName = attempt.testName || `Тест #${attempt.testId ?? '?'}`;
+      const studentName = attempt.studentName || `Студент #${attempt.studentId ?? '?'}`;
+      const meta = [`Сдал ${html(studentName)}`];
+
+      if (attempt.attemptOrdinal) {
+        meta.push(`Попытка ${html(String(attempt.attemptOrdinal))}`);
+      }
+      if (attempt.completedAt) {
+        meta.push(html(formatDateTime(attempt.completedAt)));
+      }
+
+      return `
+        <details class="template-accordion" ${open ? 'open' : ''}>
+          <summary>
+            <div class="template-accordion__title">
+              <strong>${html(testName)}</strong>
+              <small>${meta.join(' | ')}</small>
+            </div>
+            <div class="result-attempt-meta">
+              <span class="badge ${Number(stats.right) > 0 && Number(stats.right) === Number(stats.total) ? 'badge-ok' : ''}">
+                ${html(String(stats.right ?? 0))} из ${html(String(stats.total ?? 0))}
+              </span>
+              <span class="badge">${html(String(stats.percent ?? 0))}%</span>
+            </div>
+          </summary>
+          <div class="template-accordion__body">
+            ${renderAttemptRows(attempt.results || [])}
+          </div>
+        </details>
+      `;
+    }
+
+    function renderAttemptRows(rows) {
+      if (!rows.length) {
+        return '<div class="hint">Для этой попытки нет доступных ответов.</div>';
+      }
+
+      return `
+        <div class="table-wrap">
+          <table class="result-attempt-table">
             <thead>
             <tr>
-                <th>#</th>
-                <th>Вопрос</th>
-                <th>Ответ</th>
-                <th>Правильный</th>
+              <th>#</th>
+              <th>Вопрос</th>
+              <th>Ответ студента</th>
+              <th>Правильный ответ</th>
             </tr>
             </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    const API = '/api/v1/teacher/results';
-
-    const errBox = document.getElementById('error');
-    function showError(msg){ errBox.textContent = msg; errBox.classList.remove('d-none'); }
-    function hideError(){ errBox.classList.add('d-none'); errBox.textContent=''; }
-
-    const $subj = document.getElementById('subject');
-    const $lec  = document.getElementById('lecture');
-    const $test = document.getElementById('test');
-    const $grp  = document.getElementById('group');
-    const $std  = document.getElementById('student');
-    const $load = document.getElementById('load');
-
-    const $stats = document.getElementById('stats');
-    const $crumb = document.getElementById('breadcrumbs');
-    const $tbody = document.querySelector('#tbl tbody');
-
-    function opt(text, value){ const o=document.createElement('option'); o.textContent=text; o.value=value ?? ''; return o; }
-
-    async function getJSON(url){
-      const res = await fetch(url, {credentials:'same-origin'});
-      if (!res.ok){
-        if (res.status === 401) throw new Error('Не авторизовано (нужна роль преподавателя)');
-        throw new Error(`Ошибка ${res.status}`);
-      }
-      return res.json();
+            <tbody>
+              ${rows.map((row, index) => `
+                <tr class="${row.correct ? 'is-correct' : 'is-wrong'}">
+                  <td>${index + 1}</td>
+                  <td>${html(abbrev(row.questionText || '', 160))}</td>
+                  <td>${html(row.givenAnswer || '')}</td>
+                  <td>${html(row.correctAnswer || '')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
     }
 
-    async function loadSubjects(){
-      const data = await getJSON(`${API}/subjects`);
-      $subj.replaceChildren(opt('— выберите —',''));
-      data.forEach(s => $subj.appendChild(opt(s.name, s.id)));
-      $lec.disabled = true; $test.disabled = true; $grp.disabled = true; $std.disabled = true;
-    }
-
-    async function loadLectures(){
-      const sid = $subj.value || '';
-      if (!sid){ $lec.replaceChildren(opt('— выберите —','')); $lec.disabled=true; return; }
-      const data = await getJSON(`${API}/lectures?subjectId=${encodeURIComponent(sid)}`);
-      $lec.replaceChildren(opt('— выберите —',''));
-      data.forEach(l => $lec.appendChild(opt(l.title, l.id)));
-      $lec.disabled = false; $test.disabled = true; $grp.disabled = true; $std.disabled = true;
-    }
-
-    async function loadTests(){
-      const lid = $lec.value || '';
-      if (!lid){ $test.replaceChildren(opt('— выберите —','')); $test.disabled=true; return; }
-      const data = await getJSON(`${API}/tests?lectureId=${encodeURIComponent(lid)}`);
-      $test.replaceChildren(opt('— выберите —',''));
-      data.forEach(t => $test.appendChild(opt(t.name ?? ('Тест #' + t.id), t.id)));
-      $test.disabled = false; $grp.disabled = true; $std.disabled = true;
-    }
-
-    async function loadGroups(){
-      const tid = $test.value || '';
-      if (!tid){ $grp.replaceChildren(opt('— выберите —','')); $grp.disabled=true; return; }
-      const data = await getJSON(`${API}/groups?testId=${encodeURIComponent(tid)}`);
-      $grp.replaceChildren(opt('— выберите —',''));
-      data.forEach(g => $grp.appendChild(opt(g.name, g.id)));
-      $grp.disabled = false; $std.disabled = true;
-    }
-
-    async function loadStudents(){
-      const gid = $grp.value || '';
-      if (!gid){ $std.replaceChildren(opt('— все —','')); $std.disabled=true; return; }
-      const data = await getJSON(`${API}/students?groupId=${encodeURIComponent(gid)}`);
-      $std.replaceChildren(opt('— все —',''));
-      data.forEach(s => $std.appendChild(opt(s.fullName, s.id)));
-      $std.disabled = false;
-    }
-
-    async function loadData(){
-      const params = new URLSearchParams();
-      if ($subj.value) params.set('subjectId', $subj.value);
-      if ($lec.value)  params.set('lectureId', $lec.value);
-      if ($test.value) params.set('testId', $test.value);
-      if ($grp.value)  params.set('groupId', $grp.value);
-      if ($std.value)  params.set('studentId', $std.value);
-
-      const d = await getJSON(`${API}/data?` + params.toString());
-
-      // статистика
-      const st = d.stats || {total:0,right:0,percent:0};
-      $stats.innerHTML = `Правильных: <strong>${st.right}</strong> из <strong>${st.total}</strong> (${st.percent}%)`;
-
-      // хлебные крошки
-      const parts=[];
-      if (d.selectedTestName) parts.push(`Тест: <b>${escapeHtml(d.selectedTestName)}</b>`);
-      if (d.selectedGroupName) parts.push(`Группа: <b>${escapeHtml(d.selectedGroupName)}</b>`);
-      if (d.selectedStudentName) parts.push(`Студент: <b>${escapeHtml(d.selectedStudentName)}</b>`);
-      $crumb.innerHTML = parts.join(' • ');
-
-      // таблица
-      $tbody.replaceChildren();
-      (d.results || []).forEach((r,i) => {
-        const tr = document.createElement('tr');
-        tr.className = r.correct ? 'right' : 'wrong';
-        tr.innerHTML =
-          `<td>${i+1}</td>
-           <td>${escapeHtml(abbrev(r.questionText || '', 80))}</td>
-           <td>${escapeHtml(r.givenAnswer || '')}</td>
-           <td>${escapeHtml(r.correctAnswer || '')}</td>`;
-        $tbody.appendChild(tr);
-      });
-      if (!d.results || !d.results.length){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="4" class="muted">Нет результатов для отображения</td>`;
-        $tbody.appendChild(tr);
+    function formatDateTime(value) {
+      try {
+        return new Intl.DateTimeFormat('ru-RU', {
+          dateStyle: 'short',
+          timeStyle: 'short'
+        }).format(new Date(value));
+      } catch (error) {
+        return value || '';
       }
     }
 
-    function escapeHtml(s){
-      const d=document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML;
+    function abbrev(value, length) {
+      return value && value.length > length ? value.slice(0, length - 1) + '...' : (value || '');
     }
-    function abbrev(s, n){ return (s && s.length>n) ? s.slice(0,n-1)+'…' : (s||''); }
 
-    // события
-    $subj.addEventListener('change', async () => { hideError(); try{ await loadLectures(); } catch(e){ showError(e.message); } });
-    $lec .addEventListener('change', async () => { hideError(); try{ await loadTests(); } catch(e){ showError(e.message); } });
-    $test.addEventListener('change', async () => { hideError(); try{ await loadGroups(); } catch(e){ showError(e.message); } });
-    $grp .addEventListener('change', async () => { hideError(); try{ await loadStudents(); } catch(e){ showError(e.message); } });
-    $load.addEventListener('click', async () => { hideError(); try{ await loadData(); } catch(e){ showError(e.message); } });
+    subjectSelect.addEventListener('change', () => run(loadLectures));
+    lectureSelect.addEventListener('change', () => run(loadTests));
+    testSelect.addEventListener('change', () => run(loadGroups));
+    groupSelect.addEventListener('change', () => run(loadStudents));
+    loadButton.addEventListener('click', () => run(loadResults));
 
-    (async function boot(){
-      try{
-        await loadSubjects();
-      } catch(e){ showError(e.message); }
-    })();
+    async function run(task) {
+      hideError();
+      try {
+        await task();
+      } catch (error) {
+        showError(error.message || 'Не удалось выполнить запрос результатов.');
+      }
+    }
+
+    if (StudentTestingApi.requireAuth()) {
+      run(loadSubjects);
+    }
 </script>
 </body>
 </html>

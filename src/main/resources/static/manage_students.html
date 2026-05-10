@@ -2,150 +2,265 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Связи группа ↔ студенты</title>
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
-        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1)}
-        .sidebar a{display:block;margin-bottom:15px;text-decoration:none;color:#333}
-        .sidebar a:hover{color:#007BFF}
-        .content{flex:1;padding:20px}
-        form,.section{background:#fff;padding:15px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);margin-bottom:25px}
-        label{font-weight:bold;display:block;margin-bottom:5px}
-        select{width:100%;padding:6px;margin-top:5px}
-        select[multiple]{height:160px}
-        button{padding:10px 20px;border:0;border-radius:4px;cursor:pointer;font-size:15px}
-        .btn-add{background:#28a745;color:#fff}.btn-add:hover{background:#218838}
-        .btn-del{background:#dc3545;color:#fff}.btn-del:hover{background:#c82333}
-        .btn-blue{background:#007BFF;color:#fff}.btn-blue:hover{background:#0056b3}
-        .err{margin-top:10px;color:#b00020}
-        .muted{opacity:.6;pointer-events:none}
-    </style>
+    <title>Группы и студенты</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-<div class="sidebar">
-    <a href="/index.html">Главная</a>
-    <a href="/groups.html">Группы</a>
-    <a href="/group-student.html" style="font-weight:bold;">Группа↔студенты</a>
-</div>
+<body class="app-shell">
+<aside class="sidebar">
+    <h3>Меню</h3>
+    <a href="/profile.html">О пользователе</a>
+    <a href="/main.html">Главная</a>
+    <a href="/subjects.html">Предметы</a>
+    <a href="/about.html">О платформе</a>
+    <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
+    <a class="teacher-only" href="/manage-teachers.html">Учебная нагрузка</a>
+    <a class="teacher-only" href="/users.html">Управление ролями</a>
+    <a class="teacher-only" href="/manage-teachers-subject.html">Преподаватели и предметы</a>
+    <a class="teacher-only" href="/manage-lectures-subject.html">Лекции</a>
+    <a class="teacher-only" href="/questions-page.html">Вопросы</a>
+    <a class="teacher-only" href="/create-test.html">Создать тест</a>
+    <a href="/result-list.html">Результаты тестов</a>
+    <a class="teacher-only" href="/groups.html">Группы</a>
+    <a class="teacher-only" href="/create-faculty.html">Факультеты</a>
+    <a class="teacher-only" href="/manage-subject-faculty.html">Предметы факультетов</a>
+    <a class="teacher-only" href="/create-subject.html">Создание предмета</a>
+    <button type="button" id="logoutBtn" data-sidebar-logout>Выйти</button></aside>
 
-<div class="content">
-    <h2>Управление связями группа ↔ студенты</h2>
+<main class="content">
+    <h1>Назначение студентов в группы</h1>
+    <div id="message" class="message"></div>
 
-    <form onsubmit="event.preventDefault(); loadGroupStudents();">
-        <label for="group-select">Выберите группу:</label>
-        <select id="group-select" required>
-            <option value="">-- Выберите группу --</option>
-        </select>
-        <br><br>
-        <button id="btn-show" class="btn-blue">Показать студентов</button>
-        <div id="err0" class="err"></div>
-    </form>
+    <div class="layout">
+        <section>
+            <div class="panel">
+                <h2>Группа</h2>
+                <label for="groupSelect">Учебная группа</label>
+                <select id="groupSelect">
+                    <option value="">Загрузка...</option>
+                </select>
+                <div class="muted">
+                    Связь хранится в GroupMembership с ролью студента. Снятие студента переводит membership в удаленный статус.
+                </div>
+            </div>
 
-    <div class="section" id="section-add" style="display:none;">
-        <h3>Добавить студентов в группу</h3>
-        <form onsubmit="event.preventDefault(); addStudents();">
-            <label for="free-students">Свободные студенты:</label>
-            <select id="free-students" multiple required></select>
-            <br><br>
-            <button id="btn-add" class="btn-add">Добавить выбранных</button>
-            <div id="errAdd" class="err"></div>
-        </form>
+            <div class="panel">
+                <h2>Добавить студентов</h2>
+                <label for="freeStudents">Студенты без активной группы</label>
+                <select id="freeStudents" multiple disabled></select>
+                <label for="notesInput">Примечание</label>
+                <textarea id="notesInput" maxlength="1000"></textarea>
+                <div class="actions">
+                    <button id="addBtn" class="btn" type="button" disabled>Добавить выбранных</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Удалить из группы</h2>
+                <label for="assignedStudents">Текущий состав</label>
+                <select id="assignedStudents" multiple disabled></select>
+                <div class="actions">
+                    <button id="removeBtn" class="btn-danger" type="button" disabled>Снять выбранных</button>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="panel">
+                <h2>Студенты группы</h2>
+                <div id="assignedList" class="empty">Выберите группу.</div>
+            </div>
+        </section>
     </div>
+</main>
 
-    <div class="section" id="section-list" style="display:none;">
-        <h3>Студенты группы</h3>
-        <select id="assigned-students-list" multiple></select>
-    </div>
-
-    <div class="section" id="section-del" style="display:none;">
-        <h3>Удалить студентов из группы</h3>
-        <form onsubmit="event.preventDefault(); removeStudents();">
-            <label for="assigned-students">Текущие студенты группы:</label>
-            <select id="assigned-students" multiple required></select>
-            <br><br>
-            <button id="btn-del" class="btn-del">Удалить выбранных</button>
-            <div id="errDel" class="err"></div>
-        </form>
-    </div>
-</div>
-
+<script src="/js/api.js"></script>
 <script>
-    const API = '/api/v1';
-    const ERR = (id,msg) => document.getElementById(id).textContent = msg || '';
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const STUDENT_ROLE = 1;
+    const REMOVED_STATUS = 3;
 
-    async function fetchJSON(url, opt = {}) {
-      const res = await fetch(url, { headers: { 'Accept': 'application/json', ...(opt.headers||{}) }, ...opt });
-      const txt = await res.text();
-      let data = null;
-      try { data = txt ? JSON.parse(txt) : null; } catch {}
-      if (!res.ok) throw new Error((data && (data.message || data.error)) || (res.status + ' ' + res.statusText));
-      return data;
+    const state = {
+      groups: [],
+      people: [],
+      groupMemberships: [],
+      allStudentMemberships: [],
+      selectedGroupId: null
+    };
+
+    const el = id => document.getElementById(id);
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
-    async function loadGroups() {
-      try {
-        ERR('err0','');
-        const groups = await fetchJSON(`${API}/groups`);
-        const sel = document.getElementById('group-select');
-        sel.innerHTML = '<option value="">-- Выберите группу --</option>' +
-          groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-      } catch(e){ ERR('err0', e.message); }
+    function personName(person) {
+      const fullName = [person.lastName, person.firstName].filter(Boolean).join(' ').trim();
+      return fullName || person.email || `Person #${person.id}`;
     }
 
-    let currentGroupId = null;
+    function personById(id) {
+      return state.people.find(person => person.id === id);
+    }
 
-    async function loadGroupStudents() {
-      const id = document.getElementById('group-select').value;
-      if (!id) return;
-      currentGroupId = id;
-      document.getElementById('btn-show').classList.add('muted');
+    async function init() {
+      await StudentTestingApi.loadCurrentUser();
+      const [groups, people] = await Promise.all([
+        api('/groups'),
+        api('/users/people?role=STUDENT')
+      ]);
+      state.groups = groups.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
+      state.people = people.sort((left, right) => personName(left).localeCompare(personName(right), 'ru'));
+      renderGroups();
+      renderMemberships();
+      selectFromQuery();
+    }
 
-      try {
-        const assigned = await fetchJSON(`${API}/group-students/${id}`);
-        const free     = await fetchJSON(`${API}/group-students/free`);
+    function renderGroups() {
+      const select = el('groupSelect');
+      select.disabled = !state.groups.length;
+      select.innerHTML = state.groups.length
+        ? '<option value="">Выберите группу</option>' +
+          state.groups.map(group => `<option value="${group.id}">${html(group.name || group.code || `Группа #${group.id}`)}</option>`).join('')
+        : '<option value="">Нет групп</option>';
+    }
 
-        const toOpt = s => `<option value="${s.id}">${s.fullName}</option>`;
+    async function loadMemberships() {
+      state.selectedGroupId = el('groupSelect').value ? Number(el('groupSelect').value) : null;
+      if (!state.selectedGroupId) {
+        state.groupMemberships = [];
+        state.allStudentMemberships = [];
+        renderMemberships();
+        return;
+      }
 
-        document.getElementById('assigned-students-list').innerHTML = assigned.map(toOpt).join('');
-        document.getElementById('assigned-students').innerHTML      = assigned.map(toOpt).join('');
-        document.getElementById('free-students').innerHTML          = free.map(toOpt).join('');
+      const [groupMemberships, allMemberships] = await Promise.all([
+        api(`/memberships/groups?groupId=${encodeURIComponent(state.selectedGroupId)}&activeOnly=true`),
+        api('/memberships/groups?activeOnly=true')
+      ]);
+      state.groupMemberships = groupMemberships.filter(item => item.role === STUDENT_ROLE);
+      state.allStudentMemberships = allMemberships.filter(item => item.role === STUDENT_ROLE);
+      renderMemberships();
+    }
 
-        document.getElementById('section-add').style.display  = 'block';
-        document.getElementById('section-list').style.display = 'block';
-        document.getElementById('section-del').style.display  = 'block';
-        ERR('err0','');
-      } catch(e){ ERR('err0', e.message); }
-      finally { document.getElementById('btn-show').classList.remove('muted'); }
+    function renderMemberships() {
+      const assigned = state.groupMemberships
+        .map(membership => ({ membership, person: personById(membership.personId) }))
+        .filter(item => item.person);
+      const occupiedPersonIds = new Set(state.allStudentMemberships.map(item => item.personId));
+      const free = state.people.filter(person => !occupiedPersonIds.has(person.id));
+
+      el('freeStudents').disabled = !state.selectedGroupId || !free.length;
+      el('assignedStudents').disabled = !state.selectedGroupId || !assigned.length;
+      el('addBtn').disabled = !state.selectedGroupId || !free.length;
+      el('removeBtn').disabled = !state.selectedGroupId || !assigned.length;
+
+      el('freeStudents').innerHTML = free.map(person => `<option value="${person.id}">${html(personName(person))}</option>`).join('');
+      el('assignedStudents').innerHTML = assigned
+        .map(item => `<option value="${item.membership.id}">${html(personName(item.person))}</option>`)
+        .join('');
+
+      if (!state.selectedGroupId) {
+        el('assignedList').className = 'empty';
+        el('assignedList').innerHTML = 'Выберите группу.';
+        return;
+      }
+      if (!assigned.length) {
+        el('assignedList').className = 'empty';
+        el('assignedList').innerHTML = 'В группе пока нет студентов.';
+        return;
+      }
+
+      el('assignedList').className = '';
+      el('assignedList').innerHTML = `
+        <table>
+          <thead><tr><th>Студент</th><th>Email</th><th>Membership</th><th>Примечание</th></tr></thead>
+          <tbody>
+            ${assigned.map(item => `
+              <tr>
+                <td>${html(personName(item.person))}</td>
+                <td>${html(item.person.email || '')}</td>
+                <td><span class="badge">#${item.membership.id}</span></td>
+                <td>${html(item.membership.notes || '')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
     }
 
     async function addStudents() {
-      const ids = [...document.getElementById('free-students').selectedOptions].map(o => Number(o.value));
-      if (!ids.length) return;
-      const btn = document.getElementById('btn-add'); btn.classList.add('muted');
+      const personIds = [...el('freeStudents').selectedOptions].map(option => Number(option.value));
+      if (!state.selectedGroupId || !personIds.length) {
+        return;
+      }
+
+      const button = el('addBtn');
+      button.disabled = true;
       try {
-        await fetchJSON(`${API}/group-students/${currentGroupId}`, {
-          method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(ids)
-        });
-        ERR('errAdd',''); await loadGroupStudents();
-      } catch(e){ ERR('errAdd', e.message); }
-      finally { btn.classList.remove('muted'); }
+        for (const personId of personIds) {
+          await api(`/memberships/groups/${encodeURIComponent(state.selectedGroupId)}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              personId,
+              role: STUDENT_ROLE,
+              notes: el('notesInput').value.trim() || null
+            })
+          });
+        }
+        el('notesInput').value = '';
+        showMessage('success', 'Студенты добавлены в группу.');
+        await loadMemberships();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      } finally {
+        renderMemberships();
+      }
     }
 
     async function removeStudents() {
-      const ids = [...document.getElementById('assigned-students').selectedOptions].map(o => Number(o.value));
-      if (!ids.length) return;
-      const btn = document.getElementById('btn-del'); btn.classList.add('muted');
+      const membershipIds = [...el('assignedStudents').selectedOptions].map(option => Number(option.value));
+      if (!membershipIds.length) {
+        return;
+      }
+
+      const button = el('removeBtn');
+      button.disabled = true;
       try {
-        await fetchJSON(`${API}/group-students/${currentGroupId}`, {
-          method: 'DELETE', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(ids)
-        });
-        ERR('errDel',''); await loadGroupStudents();
-      } catch(e){ ERR('errDel', e.message); }
-      finally { btn.classList.remove('muted'); }
+        for (const membershipId of membershipIds) {
+          await api(`/memberships/groups/memberships/${encodeURIComponent(membershipId)}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: REMOVED_STATUS })
+          });
+        }
+        showMessage('success', 'Студенты сняты с группы.');
+        await loadMemberships();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      } finally {
+        renderMemberships();
+      }
     }
 
-    loadGroups();
+    function selectFromQuery() {
+      const groupId = StudentTestingApi.getQueryParam('groupId');
+      if (groupId && state.groups.some(group => String(group.id) === groupId)) {
+        el('groupSelect').value = groupId;
+        loadMemberships().catch(error => showMessage('error', html(error.message)));
+      }
+    }
+
+    el('groupSelect').addEventListener('change', () => loadMemberships().catch(error => showMessage('error', html(error.message))));
+    el('addBtn').addEventListener('click', addStudents);
+    el('removeBtn').addEventListener('click', removeStudents);
+
+    if (StudentTestingApi.requireAuth()) {
+      init().catch(error => {
+        el('groupSelect').innerHTML = '<option value="">Ошибка загрузки</option>';
+        showMessage('error', html(error.message));
+      });
+    }
 </script>
 </body>
 </html>
+

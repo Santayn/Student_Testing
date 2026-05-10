@@ -1,13 +1,46 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/Test
-    username: postgres
-    password: 20040725
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/Test}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:20040725}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-init-sql: CREATE EXTENSION IF NOT EXISTS citext
+  sql:
+    init:
+      mode: always
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:200MB}
   jpa:
+    defer-datasource-initialization: true
+    open-in-view: false
     hibernate:
-        ddl-auto: update
-    database: postgresql
+        ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+        naming:
+          physical-strategy: org.santayn.testing.config.QuotedIdentifierNamingStrategy
     show-sql: true
+  thymeleaf:
+    check-template-location: false
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
+app:
+  data-loader:
+    enabled: ${APP_DATA_LOADER_ENABLED:true}
+  storage:
+    lecture-materials-dir: ${APP_STORAGE_LECTURE_MATERIALS_DIR:uploads/lecture-materials}
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  packages-to-scan: org.santayn.testing.web.controller.rest
+  paths-to-match:
+    - /api/**
+    - /api/v1/**
+logging:
+  level:
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR

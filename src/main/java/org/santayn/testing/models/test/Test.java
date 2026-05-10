@@ -1,29 +1,41 @@
 package org.santayn.testing.models.test;
 
-import jakarta.persistence.*;
-import lombok.Data;
-import org.santayn.testing.models.topic.Topic;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalTime;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
-@Table(name = "test")
+@Table(name = "`Tests`")
 public class Test {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "`Id`")
     private Integer id;
 
-    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Test_Group> testGroups = new ArrayList<>();
+    @Column(name = "`Title`", nullable = false, length = 200)
+    private String title;
 
-    @ManyToOne
-    @JoinColumn(name = "topic_id", referencedColumnName = "id")
-    private Topic topic;
-
-    private String name;
-    private int questionCount;
+    @Column(name = "`Description`", length = 4000)
     private String description;
+
+    @Column(name = "`Duration`")
+    private LocalTime duration;
+
+    @Column(name = "`AttemptsAllowed`", nullable = false)
+    private int attemptsAllowed = 1;
+
+    @Column(name = "`QuestionCount`", nullable = false)
+    private int questionCount = 1;
 }

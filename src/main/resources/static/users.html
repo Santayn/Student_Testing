@@ -1,107 +1,131 @@
-<!-- src/main/resources/static/users-role.html -->
 <!doctype html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Смена роли (REST)</title>
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
-        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1)}
-        .sidebar a{display:block;margin-bottom:12px;text-decoration:none;color:#333}
-        .sidebar a:hover{color:#007BFF}
-        .content{flex:1;padding:20px}
-        .row{margin-bottom:16px}
-        select,button{padding:8px}
-        table{width:100%;border-collapse:collapse;margin-top:10px}
-        th,td{border:1px solid #ddd;padding:8px;text-align:left}
-        th{background:#f8f8f8}
-        .ok{color:#0a7a28}
-        .err{color:#b00020}
-    </style>
+    <title>Роли пользователей</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-<div class="sidebar">
-    <a href="/index.html">Главная</a>
+<body class="app-shell">
+<aside class="sidebar">
+    <h3>Меню</h3>
+    <a href="/profile.html">О пользователе</a>
+    <a href="/main.html">Главная</a>
     <a href="/subjects.html">Предметы</a>
-    <a href="/groups.html">Группы</a>
-    <a href="/users-role.html" style="font-weight:bold">Смена роли</a>
-</div>
+    <a href="/about.html">О платформе</a>
+    <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
+    <a class="teacher-only" href="/manage-teachers.html">Учебная нагрузка</a>
+    <a class="teacher-only" href="/users.html">Управление ролями</a>
+    <a class="teacher-only" href="/manage-teachers-subject.html">Преподаватели и предметы</a>
+    <a class="teacher-only" href="/manage-lectures-subject.html">Лекции</a>
+    <a class="teacher-only" href="/questions-page.html">Вопросы</a>
+    <a class="teacher-only" href="/create-test.html">Создать тест</a>
+    <a href="/result-list.html">Результаты тестов</a>
+    <a class="teacher-only" href="/groups.html">Группы</a>
+    <a class="teacher-only" href="/create-faculty.html">Факультеты</a>
+    <a class="teacher-only" href="/manage-subject-faculty.html">Предметы факультетов</a>
+    <a class="teacher-only" href="/create-subject.html">Создание предмета</a>
+    <button type="button" id="logoutBtn" data-sidebar-logout>Выйти</button></aside>
 
-<div class="content">
-    <h2>Смена роли пользователей</h2>
+<main class="content">
+    <h1>Роли пользователей</h1>
+    <div id="message"></div>
 
-    <div class="row">
-        <label>Фильтр по роли:
-            <select id="roleFilter"></select>
-        </label>
-    </div>
+    <section class="panel">
+        <label for="roleFilter">Фильтр по роли</label>
+        <select id="roleFilter"></select>
+    </section>
 
-    <div id="msg"></div>
+    <section class="panel">
+        <table>
+            <thead><tr><th>ID</th><th>Логин</th><th>Текущие роли</th><th>Новая роль</th><th></th></tr></thead>
+            <tbody id="usersBody"></tbody>
+        </table>
+    </section>
+</main>
 
-    <table id="tbl">
-        <thead><tr><th>ID</th><th>Логин</th><th>Текущая роль</th><th>Новая роль</th><th></th></tr></thead>
-        <tbody></tbody>
-    </table>
-</div>
-
+<script src="/js/api.js"></script>
 <script>
-    const API = '/api/v1';
-    const q = s => document.querySelector(s);
-    const byId = id => document.getElementById(id);
-    const msg = (ok, t)=>{ const el=byId('msg'); el.className= ok?'ok':'err'; el.textContent=t||''; };
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
 
-    async function fetchJSON(url, opt={}){
-      const res = await fetch(url, { headers:{'Accept':'application/json', ...(opt.headers||{})}, ...opt });
-      const text = await res.text(); let data=null; try{ data = text? JSON.parse(text):null }catch{}
-      if(!res.ok) throw new Error((data && (data.message||data.error)) || (res.status+' '+res.statusText));
-      return data;
+    const state = {
+      roles: [],
+      users: []
+    };
+
+    const el = id => document.getElementById(id);
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
-    let roles = [];
-
-    async function loadRoles(){
-      roles = await fetchJSON(`${API}/roles`);
-      byId('roleFilter').innerHTML = '<option value="">-- выберите роль --</option>' +
-        roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    async function loadData() {
+      const [roles, users] = await Promise.all([
+        api('/roles'),
+        api('/users')
+      ]);
+      state.roles = roles.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
+      state.users = users.sort((left, right) => String(left.login).localeCompare(String(right.login), 'ru'));
+      renderFilter();
+      renderUsers();
     }
 
-    async function loadUsersByRole(){
-      const rid = byId('roleFilter').value;
-      if(!rid){ byId('tbl').querySelector('tbody').innerHTML=''; return; }
-      const users = await fetchJSON(`${API}/users/by-role?roleId=${rid}`);
-      const tbody = byId('tbl').querySelector('tbody');
-      tbody.innerHTML = users.map(u => {
-        return `<tr>
-          <td>${u.id}</td>
-          <td>${u.login}</td>
-          <td>${u.roleName||''}</td>
-          <td>
-            <select data-user="${u.id}">
-              ${roles.map(r => `<option value="${r.id}" ${u.roleId===r.id?'selected':''}>${r.name}</option>`).join('')}
-            </select>
-          </td>
-          <td><button onclick="applyRole(${u.id})">Сохранить</button></td>
-        </tr>`;
+    function renderFilter() {
+      el('roleFilter').innerHTML = '<option value="">Все роли</option>' +
+        state.roles.map(role => `<option value="${role.name}">${html(role.name)}</option>`).join('');
+    }
+
+    function renderUsers() {
+      const filter = el('roleFilter').value;
+      const users = filter
+        ? state.users.filter(user => [...(user.roles || [])].includes(filter))
+        : state.users;
+
+      el('usersBody').innerHTML = users.map(user => {
+        const roles = [...(user.roles || [])];
+        const firstRole = roles[0] || '';
+        const selectedRoleId = roleIdByName(firstRole);
+        return `
+          <tr>
+            <td>${user.id}</td>
+            <td>${html(user.login || '')}</td>
+            <td>${roles.length ? roles.map(role => `<span class="badge">${html(role)}</span>`).join('') : '-'}</td>
+            <td>
+              <select data-user-role="${user.id}">
+                ${state.roles.map(role => `<option value="${role.id}" ${role.id === selectedRoleId ? 'selected' : ''}>${html(role.name)}</option>`).join('')}
+              </select>
+            </td>
+            <td><button type="button" onclick="applyRole(${user.id})">Сохранить</button></td>
+          </tr>`;
       }).join('');
     }
 
-    async function applyRole(userId){
-      try{
-        const select = document.querySelector(`select[data-user="${userId}"]`);
-        const roleId = Number(select.value);
-        const updated = await fetchJSON(`${API}/users/${userId}/role`, {
-          method:'PATCH',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ roleId })
-        });
-        msg(true, `Роль обновлена: ${updated.login} → ${updated.roleName}`);
-        await loadUsersByRole();
-      }catch(e){ msg(false, e.message); }
+    function roleIdByName(name) {
+      return state.roles.find(role => role.name === name)?.id || null;
     }
 
-    byId('roleFilter').addEventListener('change', loadUsersByRole);
-    loadRoles().then(loadUsersByRole);
+    async function applyRole(userId) {
+      const select = document.querySelector(`select[data-user-role="${userId}"]`);
+      const roleId = Number(select.value);
+      try {
+        const updated = await api(`/users/${encodeURIComponent(userId)}/roles`, {
+          method: 'PUT',
+          body: JSON.stringify({ roleIds: [roleId] })
+        });
+        showMessage('success', `Роли пользователя ${html(updated.login)} обновлены.`);
+        await loadData();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
+    }
+
+    el('roleFilter').addEventListener('change', renderUsers);
+
+    if (StudentTestingApi.requireAuth()) {
+      loadData().catch(error => showMessage('error', html(error.message)));
+    }
 </script>
 </body>
 </html>
+

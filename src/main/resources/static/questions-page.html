@@ -1,192 +1,698 @@
-<!-- src/main/resources/static/question-upload.html -->
 <!doctype html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Загрузка вопросов</title>
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Arial,sans-serif;display:flex;min-height:100vh}
-        .sidebar{width:250px;background:#f4f4f4;padding:20px;box-shadow:2px 0 5px rgba(0,0,0,.1);overflow:auto}
-        .sidebar a{display:block;margin-bottom:12px;text-decoration:none;color:#333}
-        .sidebar a:hover{color:#007BFF}
-        .content{flex:1;padding:20px;overflow:auto}
-        form{background:#fff;padding:16px;border-radius:6px;box-shadow:0 0 5px rgba(0,0,0,.1);max-width:720px}
-        label{font-weight:bold;display:block;margin:10px 0 6px}
-        select,input[type=file]{width:100%;padding:8px}
-        button{margin-top:14px;padding:10px 16px;border:0;border-radius:4px;background:#28a745;color:#fff;cursor:pointer}
-        button:hover{background:#218838}
-        .btn-danger{background:#dc3545}
-        .btn-danger:hover{background:#bb2d3b}
-        .err{margin-top:10px;color:#b00020}
-        .ok{margin-top:10px;color:#0a7a28}
-        .list{margin-top:16px}
-        .item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eee}
-        .muted{color:#666;font-size:12px}
-    </style>
+    <title>Вопросы предмета</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-<div class="sidebar">
-    <a href="/index.html">Главная</a>
-    <a href="/subjects.html">Предметы</a>
-    <a href="/groups.html">Группы</a>
-    <a href="/teacher-subject.html">Учитель↔предмет</a>
-    <a href="/teacher-lecture.html">Лекции</a>
-    <a href="/question-upload.html" style="font-weight:bold">Загрузка вопросов</a>
-</div>
+<body class="app-shell">
+<aside class="sidebar"></aside>
 
-<div class="content">
-    <h2>Загрузка вопросов</h2>
+<main class="content">
+    <h1>Вопросы предмета</h1>
+    <div id="message" class="message"></div>
 
-    <form onsubmit="event.preventDefault(); upload();">
-        <label for="subject">Предмет</label>
-        <select id="subject" required onchange="loadTopics()">
-            <option value="">-- выберите предмет --</option>
-        </select>
-
-        <label for="topic">Тема</label>
-        <select id="topic" required onchange="refreshList()">
-            <option value="">-- выберите тему --</option>
-        </select>
-
-        <label for="file">Файл (.docx или .csv)</label>
-        <input id="file" type="file" accept=".docx,.csv" required>
-
-        <button id="btnUpload" type="submit">Загрузить</button>
-        <div id="msg" class=""></div>
-    </form>
-
-    <form style="margin-top:16px" onsubmit="event.preventDefault(); addManual();">
-        <label>Добавить вопрос вручную</label>
-        <textarea id="manualText" placeholder="Текст вопроса" rows="3" style="width:100%;padding:8px"></textarea>
-        <label for="manualCorrect" class="muted">Правильный ответ (первая буква, напр. A)</label>
-        <input id="manualCorrect" value="A" style="width:100%;padding:8px">
-        <button type="submit">Добавить вопрос</button>
-    </form>
-
-    <div style="margin-top:20px;max-width:720px">
-        <div class="item" style="justify-content:space-between;background:#f8f9fa;border:1px solid #eee">
-            <div><strong>Вопросы выбранной темы</strong></div>
-            <div class="muted">Список обновляется при смене темы / загрузке / добавлении</div>
+    <div class="panel">
+        <div class="row">
+            <h2>Контекст вопросов</h2>
+            <a id="manageTopicLibraryLink" class="button-link btn-light" href="/manage-topic-library.html">Тематики</a>
+            <a id="createTestLink" class="button-link btn-light hidden" href="/create-test.html">Создать тест по теме</a>
         </div>
-        <div class="list" id="list"></div>
 
-        <div style="display:flex;gap:10px;margin-top:10px">
-            <button class="btn-danger" onclick="deleteSelected()">Удалить выбранные</button>
-            <button onclick="refreshList()">Обновить список</button>
+        <label for="subjectSelect">Предмет</label>
+        <select id="subjectSelect">
+            <option value="">Загрузка...</option>
+        </select>
+
+        <label for="topicSelect">Тематика</label>
+        <select id="topicSelect" disabled>
+            <option value="">Сначала выберите предмет</option>
+        </select>
+
+        <div id="topicContextHint" class="muted">
+            Выберите тематику преподавателя. Вопросы можно редактировать и затем использовать при создании тестов.
         </div>
     </div>
-</div>
 
+    <div class="panel">
+        <h2>Импорт из Word</h2>
+        <form id="wordImportForm" class="form-grid">
+            <div class="field">
+                <label for="importTopicSelect">Тематика для импорта</label>
+                <select id="importTopicSelect" disabled>
+                    <option value="">Сначала выберите предмет</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="wordFile">Файл .docx</label>
+                <input id="wordFile" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            </div>
+            <p class="muted">
+                Файл будет разобран по текущей тематике. Импортируются вопросы и варианты ответа, если они присутствуют в документе.
+            </p>
+            <div class="actions actions-compact">
+                <button id="importWordBtn" class="btn" type="submit" disabled>Импортировать вопросы в тематику</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="layout">
+        <section>
+            <div class="panel">
+                <h2 id="questionFormTitle">Новый вопрос</h2>
+                <fieldset id="questionFormFields" class="form-fieldset" disabled>
+                    <form id="questionForm">
+                        <input type="hidden" id="questionId">
+
+                        <label for="questionText">Текст вопроса</label>
+                        <textarea id="questionText" maxlength="2000" required></textarea>
+
+                        <div class="grid">
+                            <div>
+                                <label for="type">Тип</label>
+                                <select id="type">
+                                    <option value="1">Текст</option>
+                                    <option value="2">Один ответ</option>
+                                    <option value="3">Несколько ответов</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="points">Баллы</label>
+                                <input id="points" type="number" min="0" step="0.01" value="1">
+                            </div>
+                            <div>
+                                <label for="ordinal">Порядок</label>
+                                <input id="ordinal" type="number" min="1" value="1">
+                            </div>
+                        </div>
+
+                        <label for="correctAnswer">Правильный ответ для текстового вопроса</label>
+                        <input id="correctAnswer" maxlength="2000">
+
+                        <label class="check">
+                            <input id="active" type="checkbox" checked>
+                            Активен
+                        </label>
+
+                        <div class="actions">
+                            <button class="btn" type="submit">Сохранить вопрос</button>
+                            <button class="btn-secondary" type="button" id="resetBtn">Очистить</button>
+                        </div>
+                    </form>
+                </fieldset>
+                <div id="questionFormHint" class="muted">Выберите тематику преподавателя.</div>
+            </div>
+
+            <div class="panel" id="optionsCard">
+                <h2>Варианты ответа</h2>
+                <div id="optionsHint" class="muted">Выберите вопрос для редактирования вариантов ответа.</div>
+                <div id="optionsList" class="list"></div>
+                <form id="optionForm">
+                    <input type="hidden" id="optionId">
+                    <label for="optionText">Текст варианта</label>
+                    <input id="optionText" maxlength="2000" disabled>
+                    <div class="grid">
+                        <div>
+                            <label for="optionOrdinal">Порядок</label>
+                            <input id="optionOrdinal" type="number" min="1" value="1" disabled>
+                        </div>
+                        <div>
+                            <label class="check">
+                                <input id="optionCorrect" type="checkbox" disabled>
+                                Правильный
+                            </label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button id="saveOptionBtn" class="btn-light" type="submit" disabled>Сохранить вариант</button>
+                        <button id="resetOptionBtn" class="btn-secondary" type="button" disabled>Очистить</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section>
+            <div class="panel">
+                <div class="row">
+                    <h2>Вопросы выбранной тематики</h2>
+                    <span id="questionCount" class="badge">0</span>
+                </div>
+                <div id="questionStats" class="muted">Вопросы не выбраны.</div>
+                <div id="questionsList" class="empty">Список вопросов пуст.</div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="/js/api.js"></script>
 <script>
-    const API = '/api/v1';
-    const q = s => document.querySelector(s);
-    const msg = q('#msg');
+    const api = StudentTestingApi.apiFetch;
+    const html = StudentTestingApi.escapeHtml;
+    const TEACHER_ROLE = 1;
 
-    function show(ok, text){ msg.className = ok ? 'ok' : 'err'; msg.textContent = text||''; }
+    const state = {
+      user: null,
+      subjectMemberships: [],
+      subjects: [],
+      topics: [],
+      questions: [],
+      currentQuestionId: null,
+      currentQuestionType: 1
+    };
 
-    async function fetchJSON(url, opt={}) {
-      const res = await fetch(url, { credentials:'same-origin', ...opt });
-      const text = await res.text();
-      let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
-      if (!res.ok) throw new Error((data && (data.message || data.error)) || (res.status+' '+res.statusText));
-      return data;
+    const initialFilters = {
+      subjectId: StudentTestingApi.getQueryParam('subjectId'),
+      subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
+      topicId: StudentTestingApi.getQueryParam('topicId')
+    };
+
+    const optionControls = [
+      document.getElementById('optionText'),
+      document.getElementById('optionOrdinal'),
+      document.getElementById('optionCorrect'),
+      document.getElementById('saveOptionBtn'),
+      document.getElementById('resetOptionBtn')
+    ];
+
+    const el = id => document.getElementById(id);
+
+    function showMessage(type, message) {
+      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
-    async function loadSubjects(){
-      try{
-        const subs = await fetchJSON(`${API}/teacher-subjects/me`);
-        q('#subject').innerHTML = '<option value="">-- выберите предмет --</option>'
-          + subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-      }catch(e){ show(false, e.message); }
+    function numberOrNull(value) {
+      return value ? Number(value) : null;
     }
 
-    async function loadTopics(){
-      const sid = q('#subject').value;
-      q('#topic').innerHTML = '<option value="">-- выберите тему --</option>';
-      if(!sid) return;
-      try{
-        const topics = await fetchJSON(`${API}/questions/topics?subjectId=${sid}`);
-        q('#topic').innerHTML = '<option value="">-- выберите тему --</option>'
-          + topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-        show(true, '');
-        refreshList();
-      }catch(e){ show(false, e.message); }
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
     }
 
-    async function refreshList(){
-      const tid = q('#topic').value;
-      const list = q('#list');
-      list.innerHTML = '';
-      if(!tid) return;
-      try{
-        const items = await fetchJSON(`${API}/questions/by-topic?topicId=${tid}`);
-        if(!items.length){
-          list.innerHTML = '<div class="item muted">В этой теме пока нет вопросов</div>';
-          return;
+    function selectedSubjectId() {
+      return numberOrNull(el('subjectSelect').value);
+    }
+
+    function selectedTopicId() {
+      return numberOrNull(el('topicSelect').value);
+    }
+
+    function selectedImportTopicId() {
+      return numberOrNull(el('importTopicSelect').value);
+    }
+
+    function selectedSubjectMembership() {
+      const subjectId = selectedSubjectId();
+      if (!subjectId) {
+        return null;
+      }
+      return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
+    }
+
+    function resolveInitialSelection(items, requestedId) {
+      if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
+        return String(requestedId);
+      }
+      if (items.length === 1) {
+        return String(items[0].id);
+      }
+      return '';
+    }
+
+    function questionTypeLabel(type) {
+      switch (Number(type)) {
+        case 1: return 'Текст';
+        case 2: return 'Один ответ';
+        case 3: return 'Несколько ответов';
+        default: return `Тип ${type}`;
+      }
+    }
+
+    function buildCreateTestHref() {
+      const params = new URLSearchParams();
+      const subjectId = selectedSubjectId();
+      const membership = selectedSubjectMembership();
+      const topicId = selectedTopicId();
+      if (subjectId) {
+        params.set('subjectId', String(subjectId));
+      }
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      if (topicId) {
+        params.set('topicId', String(topicId));
+      }
+      return `/create-test.html?${params.toString()}`;
+    }
+
+    function buildTopicLibraryHref() {
+      const params = new URLSearchParams();
+      const subjectId = selectedSubjectId();
+      const membership = selectedSubjectMembership();
+      const topicId = selectedTopicId();
+      if (subjectId) {
+        params.set('subjectId', String(subjectId));
+      }
+      if (membership) {
+        params.set('subjectMembershipId', String(membership.id));
+      }
+      if (topicId) {
+        params.set('topicId', String(topicId));
+      }
+      const query = params.toString();
+      return query ? `/manage-topic-library.html?${query}` : '/manage-topic-library.html';
+    }
+
+    function syncImportTopicSelect() {
+      el('importTopicSelect').innerHTML = el('topicSelect').innerHTML;
+      el('importTopicSelect').disabled = el('topicSelect').disabled;
+      if (selectedTopicId()) {
+        el('importTopicSelect').value = String(selectedTopicId());
+      }
+    }
+
+    function updateContextUI() {
+      const topicId = selectedTopicId();
+      const createTestLink = el('createTestLink');
+      const manageTopicLibraryLink = el('manageTopicLibraryLink');
+      createTestLink.href = buildCreateTestHref();
+      createTestLink.classList.toggle('hidden', !topicId);
+      manageTopicLibraryLink.href = buildTopicLibraryHref();
+
+      el('questionFormFields').disabled = !topicId;
+      el('importWordBtn').disabled = !topicId;
+      el('questionFormHint').textContent = topicId
+        ? 'Можно редактировать вопрос и варианты ответа.'
+        : 'Выберите тематику преподавателя.';
+
+      if (!topicId) {
+        el('topicContextHint').innerHTML = state.topics.length
+          ? 'Выберите тематику преподавателя. Вопросы можно редактировать и затем использовать при создании тестов.'
+          : `Тематики для выбранного предмета пока не созданы. Сначала заполните раздел <a href="${buildTopicLibraryHref()}">Тематики</a>.`;
+      } else {
+        el('topicContextHint').innerHTML = `Вопросы этой темы готовы к редактированию. После наполнения можно <a href="${buildCreateTestHref()}">создать тест по тематике</a>.`;
+      }
+    }
+
+    function fillTopicSelect() {
+      const select = el('topicSelect');
+      if (!state.topics.length) {
+        select.innerHTML = '<option value="">В библиотеке предмета пока нет тематик</option>';
+        select.disabled = true;
+      } else {
+        select.innerHTML = '<option value="">Выберите тематику</option>' +
+          state.topics.map(topic => `<option value="${topic.id}">${html(`${topic.ordinal}. ${topic.name}`)}</option>`).join('');
+        select.disabled = false;
+      }
+      syncImportTopicSelect();
+    }
+
+    function renderQuestions() {
+      const topicId = selectedTopicId();
+      const questions = state.questions.slice().sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
+      const activeQuestions = questions.filter(item => item.active);
+      const textCount = activeQuestions.filter(item => Number(item.type) === 1).length;
+      const singleCount = activeQuestions.filter(item => Number(item.type) === 2).length;
+      const multipleCount = activeQuestions.filter(item => Number(item.type) === 3).length;
+
+      el('questionCount').textContent = String(questions.length);
+      if (!topicId) {
+        el('questionStats').textContent = 'Вопросы не выбраны.';
+        el('questionsList').className = 'empty';
+        el('questionsList').innerHTML = 'Список вопросов пуст.';
+        return;
+      }
+
+      el('questionStats').textContent =
+        `Всего ${questions.length}. Активных ${activeQuestions.length}. ` +
+        `Текстовых ${textCount}. С одним ответом ${singleCount}. С несколькими ответами ${multipleCount}.`;
+
+      if (!questions.length) {
+        el('questionsList').className = 'empty';
+        el('questionsList').innerHTML = 'В выбранной тематике пока нет вопросов.';
+        return;
+      }
+
+      el('questionsList').className = 'list';
+      el('questionsList').innerHTML = questions.map(question => `
+        <div class="list-group-item">
+            <div class="row">
+                <div class="row-start">
+                    <span class="badge ${question.active ? 'badge-ok' : ''}">${html(questionTypeLabel(question.type))}</span>
+                    <span class="muted">#${question.ordinal}</span>
+                    <span class="muted">${question.points} балл.</span>
+                </div>
+                <div class="row-start">
+                    <button class="btn-light" type="button" onclick="editQuestion(${question.id})">Изменить</button>
+                    <button class="btn-secondary" type="button" onclick="toggleQuestionActive(${question.id}, ${question.active ? 'false' : 'true'})">
+                        ${question.active ? 'Скрыть' : 'Активировать'}
+                    </button>
+                </div>
+            </div>
+            <div class="panel-gap-sm"><b>${html(question.question)}</b></div>
+            <div class="muted">${html(question.correctAnswer || '')}</div>
+        </div>
+      `).join('');
+    }
+
+    function resetOptionForm() {
+      el('optionId').value = '';
+      el('optionText').value = '';
+      el('optionOrdinal').value = '1';
+      el('optionCorrect').checked = false;
+    }
+
+    function setOptionControlsEnabled(enabled) {
+      optionControls.forEach(control => {
+        control.disabled = !enabled;
+      });
+    }
+
+    async function loadOptions(questionId) {
+      if (!questionId || Number(state.currentQuestionType) === 1) {
+        el('optionsHint').textContent = questionId
+          ? 'Для текстовых вопросов варианты ответа не используются.'
+          : 'Выберите вопрос для редактирования вариантов ответа.';
+        el('optionsList').innerHTML = '';
+        setOptionControlsEnabled(false);
+        resetOptionForm();
+        return;
+      }
+
+      const options = await api(`/questions/${encodeURIComponent(questionId)}/options`);
+      const maxOrdinal = options.reduce((max, option) => Math.max(max, Number(option.ordinal || 0)), 0);
+      el('optionOrdinal').value = String(maxOrdinal + 1);
+      el('optionsHint').textContent = 'Варианты ответа отсортированы по порядку вывода.';
+      setOptionControlsEnabled(true);
+      el('optionsList').innerHTML = options.length
+        ? options.map(option => `
+            <div class="list-group-item">
+                <div class="row">
+                    <div>
+                        <b>${html(option.text)}</b>
+                        <div class="muted">Порядок ${option.ordinal}${option.correct ? ', правильный' : ''}</div>
+                    </div>
+                    <button class="btn-light" type="button" onclick="editOption(${option.id})">Изменить</button>
+                </div>
+            </div>
+          `).join('')
+        : '<div class="empty">У этого вопроса пока нет вариантов ответа.</div>';
+    }
+
+    function prepareQuestionDefaults() {
+      const maxOrdinal = state.questions.reduce((max, question) => Math.max(max, Number(question.ordinal || 0)), 0);
+      el('questionId').value = '';
+      el('questionFormTitle').textContent = 'Новый вопрос';
+      el('questionText').value = '';
+      el('type').value = '1';
+      el('points').value = '1';
+      el('ordinal').value = String(maxOrdinal + 1);
+      el('correctAnswer').value = '';
+      el('active').checked = true;
+      el('resetBtn').textContent = 'Очистить';
+      state.currentQuestionId = null;
+      state.currentQuestionType = 1;
+      resetOptionForm();
+      loadOptions(null).catch(error => showMessage('error', html(error.message)));
+    }
+
+    async function loadQuestions() {
+      const topicId = selectedTopicId();
+      state.questions = topicId
+        ? await api(`/questions?topicId=${encodeURIComponent(topicId)}`)
+        : [];
+      renderQuestions();
+      if (!state.currentQuestionId) {
+        prepareQuestionDefaults();
+      }
+    }
+
+    async function loadSubjectContext() {
+      state.topics = [];
+      state.questions = [];
+      prepareQuestionDefaults();
+
+      const membership = selectedSubjectMembership();
+      if (!membership) {
+        fillTopicSelect();
+        renderQuestions();
+        updateContextUI();
+        return;
+      }
+
+      state.topics = (await api(`/topics?subjectMembershipId=${encodeURIComponent(membership.id)}`))
+        .sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
+      fillTopicSelect();
+
+      const selectedId = resolveInitialSelection(state.topics, initialFilters.topicId);
+      if (selectedId) {
+        el('topicSelect').value = selectedId;
+        await loadQuestions();
+      } else {
+        renderQuestions();
+      }
+      updateContextUI();
+    }
+
+    async function loadSubjects() {
+      state.user = await StudentTestingApi.loadCurrentUser();
+      if (!state.user.personId) {
+        throw new Error('Не удалось определить преподавателя по текущему профилю.');
+      }
+
+      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
+      state.subjectMemberships = memberships
+        .filter(item => Number(item.role) === TEACHER_ROLE)
+        .sort((left, right) => Number(left.id) - Number(right.id));
+
+      const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
+      state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+
+      const select = el('subjectSelect');
+      if (!state.subjects.length) {
+        select.innerHTML = '<option value="">Нет доступных предметов</option>';
+        select.disabled = true;
+        fillTopicSelect();
+        renderQuestions();
+        updateContextUI();
+        return;
+      }
+
+      select.disabled = false;
+      select.innerHTML = '<option value="">Выберите предмет</option>' +
+        state.subjects
+          .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
+          .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
+          .join('');
+
+      const preferredMembership = initialFilters.subjectMembershipId
+        ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
+        : null;
+      const selectedId = preferredMembership
+        ? String(preferredMembership.subjectId)
+        : resolveInitialSelection(state.subjects, initialFilters.subjectId);
+      if (selectedId) {
+        select.value = selectedId;
+        await loadSubjectContext();
+      } else {
+        fillTopicSelect();
+        renderQuestions();
+        updateContextUI();
+      }
+    }
+
+    async function saveQuestion(event) {
+      event.preventDefault();
+      showMessage('', '');
+
+      const topicId = selectedTopicId();
+      if (!topicId) {
+        showMessage('error', 'Выберите тематику преподавателя.');
+        return;
+      }
+
+      const basePayload = {
+        courseLectureId: null,
+        topicId,
+        type: Number(el('type').value),
+        question: el('questionText').value.trim(),
+        points: Number(el('points').value || 0),
+        ordinal: Number(el('ordinal').value || 1),
+        correctAnswer: el('correctAnswer').value.trim() || null
+      };
+
+      try {
+        let saved;
+        if (el('questionId').value) {
+          saved = await api(`/questions/${encodeURIComponent(el('questionId').value)}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              ...basePayload,
+              active: el('active').checked
+            })
+          });
+          showMessage('success', 'Вопрос обновлен.');
+        } else {
+          saved = await api('/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+              testId: null,
+              ...basePayload
+            })
+          });
+          showMessage('success', 'Вопрос создан.');
         }
-        list.innerHTML = items.map(i => `
-          <div class="item">
-            <input type="checkbox" data-id="${i.id}">
-            <div class="muted">#${i.id}</div>
-            <div><strong>Правильный:</strong> ${i.correctAnswer}</div>
-            <div style="flex:1">${i.text}</div>
-          </div>
-        `).join('');
-      }catch(e){ list.innerHTML = `<div class="item err">Ошибка загрузки: ${e.message}</div>`; }
+
+        state.currentQuestionId = saved.id;
+        state.currentQuestionType = Number(saved.type);
+        el('questionId').value = String(saved.id);
+        await loadQuestions();
+        await loadOptions(saved.id);
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
     }
 
-    async function upload(){
-      const tid = q('#topic').value;
-      const file = q('#file').files[0];
-      if(!tid || !file) return;
-
-      const btn = q('#btnUpload'); btn.disabled = true;
-      try{
-        const fd = new FormData();
-        fd.append('topicId', Number(tid));
-        fd.append('file', file);
-        const res = await fetchJSON(`${API}/questions/upload`, { method:'POST', body: fd });
-        show(true, `Успешно загружено: ${res.saved}`);
-        q('#file').value = '';
-        await refreshList();
-      }catch(e){ show(false, e.message); }
-      finally{ btn.disabled = false; }
+    async function editQuestion(questionId) {
+      const question = state.questions.find(item => Number(item.id) === Number(questionId));
+      if (!question) {
+        return;
+      }
+      el('questionId').value = String(question.id);
+      el('questionFormTitle').textContent = 'Редактирование вопроса';
+      el('questionText').value = question.question || '';
+      el('type').value = String(question.type);
+      el('points').value = String(question.points ?? 1);
+      el('ordinal').value = String(question.ordinal || 1);
+      el('correctAnswer').value = question.correctAnswer || '';
+      el('active').checked = !!question.active;
+      state.currentQuestionId = question.id;
+      state.currentQuestionType = Number(question.type);
+      await loadOptions(question.id);
     }
 
-    async function addManual(){
-      const tid = q('#topic').value;
-      const text = q('#manualText').value.trim();
-      const corr = q('#manualCorrect').value.trim();
-      if(!tid || !text || !corr) return;
-      try{
-        await fetchJSON(`${API}/questions/manual?topicId=${encodeURIComponent(tid)}&text=${encodeURIComponent(text)}&correctAnswer=${encodeURIComponent(corr)}`, {
-          method: 'POST'
+    async function toggleQuestionActive(questionId, active) {
+      try {
+        await api(`/questions/${encodeURIComponent(questionId)}/active`, {
+          method: 'PUT',
+          body: JSON.stringify({ active })
         });
-        q('#manualText').value = '';
-        show(true, 'Вопрос добавлен');
-        await refreshList();
-      }catch(e){ show(false, e.message); }
+        await loadQuestions();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
     }
 
-    async function deleteSelected(){
-      const tid = q('#topic').value;
-      if(!tid) return;
-      const ids = Array.from(document.querySelectorAll('input[type=checkbox][data-id]:checked'))
-        .map(ch => Number(ch.getAttribute('data-id')));
-      if(!ids.length){ show(false, 'Ничего не выбрано'); return; }
+    async function saveOption(event) {
+      event.preventDefault();
+      showMessage('', '');
 
-      const qs = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&');
-      try{
-        const r = await fetchJSON(`${API}/questions/by-topic/${encodeURIComponent(tid)}?${qs}`, {
-          method: 'DELETE'
+      if (!state.currentQuestionId || Number(state.currentQuestionType) === 1) {
+        showMessage('error', 'Выберите вопрос с вариантами ответа.');
+        return;
+      }
+
+      const payload = {
+        text: el('optionText').value.trim(),
+        ordinal: Number(el('optionOrdinal').value || 1),
+        correct: el('optionCorrect').checked
+      };
+
+      try {
+        if (el('optionId').value) {
+          await api(`/questions/options/${encodeURIComponent(el('optionId').value)}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          });
+          showMessage('success', 'Вариант ответа обновлен.');
+        } else {
+          await api(`/questions/${encodeURIComponent(state.currentQuestionId)}/options`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          showMessage('success', 'Вариант ответа создан.');
+        }
+        resetOptionForm();
+        await loadOptions(state.currentQuestionId);
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
+    }
+
+    async function editOption(optionId) {
+      try {
+        const option = await api(`/questions/options/${encodeURIComponent(optionId)}`);
+        el('optionId').value = String(option.id);
+        el('optionText').value = option.text || '';
+        el('optionOrdinal').value = String(option.ordinal || 1);
+        el('optionCorrect').checked = !!option.correct;
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
+    }
+
+    async function importWord(event) {
+      event.preventDefault();
+      showMessage('', '');
+
+      const topicId = selectedImportTopicId();
+      const file = el('wordFile').files[0];
+      if (!topicId || !file) {
+        showMessage('error', 'Выберите тематику и файл .docx.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('topicId', String(topicId));
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/api/questions/import', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
         });
-        show(true, `Удалено: ${r.deleted}`);
-        await refreshList();
-      }catch(e){ show(false, e.message); }
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(payload?.message || 'Не удалось импортировать вопросы.');
+        }
+        showMessage('success', `Импортировано вопросов: ${payload.importedQuestions}. Вариантов ответа: ${payload.importedOptions}.`);
+        el('wordFile').value = '';
+        await loadQuestions();
+      } catch (error) {
+        showMessage('error', html(error.message));
+      }
     }
 
-    loadSubjects();
+    el('subjectSelect').addEventListener('change', () => loadSubjectContext().catch(error => showMessage('error', html(error.message))));
+    el('topicSelect').addEventListener('change', () => {
+      prepareQuestionDefaults();
+      loadQuestions().then(updateContextUI).catch(error => showMessage('error', html(error.message)));
+      syncImportTopicSelect();
+    });
+    el('type').addEventListener('change', () => {
+      state.currentQuestionType = Number(el('type').value);
+      loadOptions(state.currentQuestionId).catch(error => showMessage('error', html(error.message)));
+    });
+    el('questionForm').addEventListener('submit', saveQuestion);
+    el('optionForm').addEventListener('submit', saveOption);
+    el('wordImportForm').addEventListener('submit', importWord);
+    el('resetBtn').addEventListener('click', prepareQuestionDefaults);
+    el('resetOptionBtn').addEventListener('click', resetOptionForm);
+
+    fillTopicSelect();
+    renderQuestions();
+    updateContextUI();
+    resetOptionForm();
+    setOptionControlsEnabled(false);
+
+    if (StudentTestingApi.requireAuth()) {
+      loadSubjects().catch(error => {
+        el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
+        showMessage('error', html(error.message));
+      });
+    }
 </script>
 </body>
 </html>
+

@@ -1,30 +1,33 @@
 package org.santayn.testing.models.faculty;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
-import lombok.Data;
-import org.santayn.testing.models.group.Group;
-import org.santayn.testing.models.subject.Subject_Faculty;
-import org.santayn.testing.models.teacher.Teacher;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.util.List;
-
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
-@Table
-@Data
+@Table(name = "`Faculties`")
 public class Faculty {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Integer id;
-    String name;
-    String description;
-    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Faculty_Teacher> faculty_teacher;
-    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
-    private List<Subject_Faculty> subject_faculty;
-    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Group> group;
-    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Teacher> teachers;
+    @Column(name = "`Id`")
+    private Integer id;
+
+    @Column(name = "`Name`", nullable = false, length = 200)
+    private String name;
+
+    @Column(name = "`Code`", nullable = false, length = 50, unique = true, columnDefinition = "citext")
+    private String code;
+
+    @Column(name = "`Description`", length = 1000)
+    private String description;
 }

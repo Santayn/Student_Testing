@@ -1,17 +1,74 @@
-<!doctype html><meta charset="utf-8"><title>Детали группы</title>
-<div id="root"></div>
-<p><a href="/groups.html">Вернуться к списку групп</a></p>
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали группы</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="app-topbar">
+    <div class="app-topbar__inner">
+        <a class="app-brand" href="/main.html">Student Testing</a>
+        <div class="top-actions">
+            <a href="/groups.html" class="btn btn-light">К списку групп</a>
+        </div>
+    </div>
+</header>
+
+<main class="page page-narrow">
+    <div id="error" class="alert alert-error hidden"></div>
+
+    <section id="root" class="panel hidden">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Детали группы</h1>
+                <p class="page-subtitle">Просмотрите основные сведения о группе, ее код и привязанный факультет.</p>
+            </div>
+        </div>
+
+        <dl class="data-list">
+            <dt>ID</dt><dd id="groupId">-</dd>
+            <dt>Название группы</dt><dd id="groupName">-</dd>
+            <dt>Код</dt><dd id="groupCode">-</dd>
+            <dt>Факультет</dt><dd id="facultyName">-</dd>
+        </dl>
+
+        <div class="actions actions-large">
+            <a id="studentsLink" class="btn btn-primary" href="/students.html">Открыть список студентов</a>
+            <a href="/groups.html" class="btn">Вернуться к списку групп</a>
+        </div>
+    </section>
+</main>
+
+<script src="/js/api.js"></script>
 <script>
-    const params = new URLSearchParams(location.search);
-    const id = params.get('id');
-    (async ()=>{
-      try{
-        const g = await (await fetch('/api/v1/groups/'+id)).json();
-        root.innerHTML = `
-          <h1>Детали группы</h1>
-          <p><b>Название:</b> ${g.name ?? ''}</p>
-          <p><b>Факультет:</b> ${g.facultyId ?? '-'}</p>
-        `;
-      }catch{ root.textContent = 'Группа не найдена'; }
-    })();
+    const api = StudentTestingApi.apiFetch;
+    const id = StudentTestingApi.getQueryParam('id');
+
+    function showError(message) {
+      document.getElementById('error').textContent = message;
+      document.getElementById('error').classList.remove('hidden');
+    }
+
+    async function init() {
+      if (!id) {
+        throw new Error('Не указан параметр id группы.');
+      }
+      const group = await api(`/groups/${encodeURIComponent(id)}`);
+      const faculty = group.facultyId ? await api(`/faculties/${encodeURIComponent(group.facultyId)}`) : null;
+
+      document.getElementById('groupId').textContent = group.id ?? '-';
+      document.getElementById('groupName').textContent = group.name || '-';
+      document.getElementById('groupCode').textContent = group.code || '-';
+      document.getElementById('facultyName').textContent = faculty ? `${faculty.name} (${faculty.code})` : '-';
+      document.getElementById('studentsLink').href = `/students.html?groupId=${encodeURIComponent(group.id)}`;
+      document.getElementById('root').classList.remove('hidden');
+    }
+
+    if (StudentTestingApi.requireAuth()) {
+      init().catch(error => showError(error.message || 'Не удалось загрузить данные группы.'));
+    }
 </script>
+</body>
+</html>

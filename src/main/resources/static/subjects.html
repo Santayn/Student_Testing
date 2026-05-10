@@ -1,132 +1,174 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
     <title>Мои предметы</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="bg-light">
-<div class="container py-4">
+<body>
+<header class="app-topbar">
+    <div class="app-topbar__inner">
+        <a class="app-brand" href="/main.html">Student Testing</a>
+        <div class="top-actions">
+            <a href="/main.html" class="btn btn-light">Главная</a>
+            <a href="/profile.html" class="btn btn-light">Личный кабинет</a>
+        </div>
+    </div>
+</header>
 
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h1 class="h3 mb-0">Мои предметы</h1>
-        <div class="d-flex gap-2">
-            <a href="/kubstuTest" class="btn btn-outline-secondary btn-sm">На главную</a>
-            <a href="/kubstuTest/profile" class="btn btn-outline-primary btn-sm">Личный кабинет</a>
+<main class="page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Мои предметы</h1>
+            <p class="page-subtitle">Для студентов отображаются предметы по текущей группе, для преподавателей и администраторов — доступные дисциплины.</p>
         </div>
     </div>
 
-    <div id="meta" class="small text-muted mb-3" aria-live="polite">Загрузка информации…</div>
+    <div id="meta" class="panel panel-flat muted">Загрузка данных...</div>
+    <div id="err" class="alert alert-error hidden"></div>
 
-    <div class="mb-3">
-        <input id="filter" type="search" class="form-control" placeholder="Фильтр по названию предмета…">
-    </div>
+    <section class="panel">
+        <div class="field">
+            <label for="filter">Поиск по предметам</label>
+            <input id="filter" type="search" placeholder="Введите название предмета">
+        </div>
+    </section>
 
-    <div id="err" class="alert alert-danger d-none" role="alert"></div>
-
-    <div id="skeleton" class="list-group mb-3">
-        <div class="list-group-item placeholder-glow"><span class="placeholder col-6"></span></div>
-        <div class="list-group-item placeholder-glow"><span class="placeholder col-7"></span></div>
-        <div class="list-group-item placeholder-glow"><span class="placeholder col-5"></span></div>
-    </div>
-
-    <div id="summary" class="text-muted mb-2 d-none"></div>
-    <ul id="subjects" class="list-group"></ul>
-
-    <a href="/kubstuTest" class="btn btn-secondary mt-4">Назад</a>
-</div>
+    <section class="panel">
+        <div id="summary" class="muted hidden"></div>
+        <ul id="subjects" class="list"></ul>
+    </section>
+</main>
 
 <script src="/js/api.js"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-        if (!StudentTestingApi.requireAuth()) {
-            return;
+    const api = StudentTestingApi.apiFetch;
+    const SUBJECT_ROLE_TEACHER = 1;
+    const GROUP_ROLE_STUDENT = 1;
+
+    const el = id => document.getElementById(id);
+    let facultyId = null;
+    let subjects = [];
+
+    function showError(message) {
+      el('err').textContent = message || 'Не удалось загрузить список предметов.';
+      el('err').classList.remove('hidden');
+    }
+
+    function hideError() {
+      el('err').classList.add('hidden');
+      el('err').textContent = '';
+    }
+
+    function unique(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+    }
+
+    function renderList(items) {
+      const list = el('subjects');
+      list.innerHTML = '';
+      if (!items.length) {
+        list.innerHTML = '<li class="list-row muted">Подходящие предметы не найдены.</li>';
+        el('summary').classList.add('hidden');
+        return;
+      }
+
+      list.innerHTML = items.map(subject => {
+        const params = new URLSearchParams();
+        if (facultyId) {
+          params.set('facultyId', facultyId);
         }
+        params.set('subjectId', subject.id);
+        return `
+          <li class="list-row">
+            <a href="/subject-details.html?${params.toString()}"><strong>${StudentTestingApi.escapeHtml(subject.name || `Предмет #${subject.id}`)}</strong></a>
+            <span class="muted small">ID: ${StudentTestingApi.escapeHtml(subject.id)}</span>
+          </li>`;
+      }).join('');
 
-        const metaEl = document.getElementById("meta");
-        const errEl = document.getElementById("err");
-        const listEl = document.getElementById("subjects");
-        const skelEl = document.getElementById("skeleton");
-        const sumEl = document.getElementById("summary");
-        const filterEl = document.getElementById("filter");
+      el('summary').textContent = `Найдено предметов: ${items.length}`;
+      el('summary').classList.remove('hidden');
+    }
 
-        let facultyId = null;
-        let subjects = [];
+    function applyFilter() {
+      const query = (el('filter').value || '').trim().toLowerCase();
+      renderList(query ? subjects.filter(subject => (subject.name || '').toLowerCase().includes(query)) : subjects);
+    }
 
-        function showErr(msg) {
-            errEl.textContent = msg || "Ошибка загрузки.";
-            errEl.classList.remove("d-none");
-        }
+    async function teacherSubjects(personId, includeAllForAdmin) {
+      if (!personId && includeAllForAdmin) {
+        return api('/subjects');
+      }
+      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(personId)}&activeOnly=true`);
+      const ids = unique(memberships.filter(item => Number(item.role) === SUBJECT_ROLE_TEACHER).map(item => item.subjectId));
+      return Promise.all(ids.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+    }
 
-        function hideErr() {
-            errEl.classList.add("d-none");
-        }
+    async function studentContext(personId) {
+      const memberships = await api(`/memberships/groups?personId=${encodeURIComponent(personId)}&activeOnly=true`);
+      const groupMembership = memberships.find(item => Number(item.role) === GROUP_ROLE_STUDENT);
+      if (!groupMembership) {
+        return { group: null, faculty: null, subjects: [] };
+      }
 
-        function renderList(items) {
-            listEl.innerHTML = "";
+      const group = await api(`/groups/${encodeURIComponent(groupMembership.groupId)}`);
+      const faculty = group.facultyId ? await api(`/faculties/${encodeURIComponent(group.facultyId)}`) : null;
 
-            if (!items.length) {
-                const li = document.createElement("li");
-                li.className = "list-group-item";
-                li.textContent = "Предметов не найдено.";
-                listEl.appendChild(li);
-                sumEl.classList.add("d-none");
-                return;
-            }
+      const [enrollments, groupAssignments] = await Promise.all([
+        api(`/teaching/enrollments?groupMembershipId=${encodeURIComponent(groupMembership.id)}`),
+        api(`/teaching/assignments?groupId=${encodeURIComponent(group.id)}`)
+      ]);
+      const enrolledAssignments = await Promise.all(
+        unique(enrollments.map(item => item.teachingAssignmentId)).map(id => api(`/teaching/assignments/${encodeURIComponent(id)}`))
+      );
+      const assignments = [...new Map(
+        [...groupAssignments, ...enrolledAssignments]
+          .filter(item => item && item.id !== null && item.id !== undefined)
+          .map(item => [item.id, item])
+      ).values()];
 
-            items.forEach(s => {
-                const li = document.createElement("li");
-                li.className = "list-group-item d-flex justify-content-between align-items-center";
+      const subjectMemberships = await Promise.all(
+        unique(assignments.map(item => item.subjectMembershipId)).map(id => api(`/memberships/subjects/memberships/${encodeURIComponent(id)}`))
+      );
+      const loadedSubjects = await Promise.all(
+        unique(subjectMemberships.map(item => item.subjectId)).map(id => api(`/subjects/${encodeURIComponent(id)}`))
+      );
 
-                const a = document.createElement("a");
-                a.textContent = s.name || (`Предмет #${s.id}`);
-                a.href = `/subject-details.html?facultyId=${encodeURIComponent(facultyId)}&subjectId=${encodeURIComponent(s.id)}`;
-                a.className = "stretched-link";
+      return { group, faculty, subjects: loadedSubjects };
+    }
 
-                const right = document.createElement("div");
-                right.className = "text-muted small";
-                if (s.id) {
-                    right.textContent = `ID: ${s.id}`;
-                }
+    async function init() {
+      const me = await api('/users/me');
+      const roles = Array.isArray(me.roles) ? me.roles : [...(me.roles || [])];
+      const roleName = roles.join(' ').toUpperCase();
+      const isTeacher = roleName.includes('TEACHER') || roleName.includes('ADMIN');
+      const isStudent = roleName.includes('STUDENT');
 
-                li.appendChild(a);
-                li.appendChild(right);
-                listEl.appendChild(li);
-            });
+      if (isStudent) {
+        const context = await studentContext(me.personId);
+        facultyId = context.faculty?.id || null;
+        subjects = context.subjects;
+        el('meta').textContent = context.group
+          ? `Группа: ${context.group.name || context.group.code || context.group.id}, факультет: ${context.faculty?.name || context.faculty?.id || '-'}`
+          : 'Для текущего пользователя не найдена активная учебная группа.';
+      } else if (isTeacher) {
+        subjects = await teacherSubjects(me.personId, roleName.includes('ADMIN'));
+        el('meta').textContent = 'Показаны предметы, доступные преподавателю или администратору.';
+      } else {
+        subjects = [];
+        el('meta').textContent = 'Для вашей роли доступных предметов не найдено.';
+      }
 
-            sumEl.textContent = `Найдено предметов: ${items.length}`;
-            sumEl.classList.remove("d-none");
-        }
+      hideError();
+      renderList(subjects.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru')));
+    }
 
-        function applyFilter() {
-            const q = (filterEl.value || "").trim().toLowerCase();
-            if (!q) {
-                renderList(subjects);
-                return;
-            }
-            renderList(subjects.filter(s => (s.name || "").toLowerCase().includes(q)));
-        }
+    el('filter').addEventListener('input', applyFilter);
 
-        filterEl.addEventListener("input", applyFilter);
-
-        try {
-            const meta = await StudentTestingApi.apiFetch("/me/faculty");
-            facultyId = meta.facultyId;
-            metaEl.textContent =
-                `Факультет: ${meta.facultyName || meta.facultyId}, группа: ${meta.groupTitle || meta.groupName || meta.groupId}`;
-
-            subjects = await StudentTestingApi.apiFetch("/me/subjects");
-
-            hideErr();
-            skelEl.classList.add("d-none");
-            renderList(subjects);
-        } catch (error) {
-            skelEl.classList.add("d-none");
-            showErr(error.message || "Ошибка загрузки");
-        }
-    });
+    if (StudentTestingApi.requireAuth()) {
+      init().catch(error => showError(error.message || 'Не удалось загрузить список предметов.'));
+    }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

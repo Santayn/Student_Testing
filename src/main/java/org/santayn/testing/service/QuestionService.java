@@ -1,231 +1,377 @@
-// src/main/java/org/santayn/testing/service/QuestionService.java
 package org.santayn.testing.service;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.santayn.testing.models.question.Question;
+import org.santayn.testing.models.question.QuestionOption;
+import org.santayn.testing.models.question.QuestionTypeSupport;
+import org.santayn.testing.models.test.Test;
+import org.santayn.testing.models.topic.Topic;
+import org.santayn.testing.repository.QuestionOptionRepository;
+import org.santayn.testing.repository.QuestionRepository;
+import org.santayn.testing.repository.TestRepository;
+import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
+import org.santayn.testing.repository.TopicRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.santayn.testing.models.question.Question;
-import org.santayn.testing.models.topic.Topic;
-import org.santayn.testing.repository.QuestionInTestRepository;
-import org.santayn.testing.repository.QuestionRepository;
-import org.santayn.testing.repository.TopicRepository;
 
-import java.io.BufferedReader;
+import java.math.BigDecimal;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class QuestionService {
 
-    private static final Logger log = LoggerFactory.getLogger(QuestionService.class);
-
-    private final TopicRepository topicRepository;
     private final QuestionRepository questionRepository;
-    private final QuestionInTestRepository questionInTestRepository;
+    private final QuestionOptionRepository optionRepository;
+    private final TestRepository testRepository;
+    private final LectureRepository lectureRepository;
+    private final TestQuestionSelectionRuleRepository selectionRuleRepository;
+    private final TopicRepository topicRepository;
+    private final QuestionDocxImportParser docxImportParser;
 
-    /** Старый метод — для совместимости (MVC). */
-    public void processQuestionFile(Integer topicId, MultipartFile file) {
-        processQuestionFileCount(topicId, file);
-    }
-
-    /** Загрузка из файла (.docx/.csv) с подсчётом сохранённых вопросов. */
-    public int processQuestionFileCount(Integer topicId, MultipartFile file) {
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new IllegalArgumentException("Тема не найдена"));
-
-        String name = Optional.ofNullable(file.getOriginalFilename()).orElse("")
-                .toLowerCase(Locale.ROOT);
-
-        List<Question> parsed;
-        if (name.endsWith(".csv")) {
-            parsed = parseCsv(file);
-        } else if (name.endsWith(".docx")) {
-            parsed = parseDocx(file);
-        } else {
-            // пробуем docx по умолчанию
-            parsed = parseDocx(file);
+    @Transactional(readOnly = true)
+    public List<Question> findAll(Integer testId, Integer topicId) {
+        if (topicId != null) {
+            return questionRepository.findByTopicIdAndTestIdIsNullOrderByOrdinalAsc(topicId);
         }
-
-        log.info("Найдено {} вопросов", parsed.size());
-        for (Question q : parsed) {
-            q.setTopic(topic);
-            questionRepository.save(q);
-            log.info("Сохранён вопрос: {} → {}", q.getText(), q.getCorrectAnswer());
+        if (testId != null) {
+            return questionRepository.findByTestIdOrderByOrdinalAsc(testId);
         }
-        return parsed.size();
+        throw new IllegalArgumentException("Either testId or topicId is required.");
     }
 
-    /** Полный список вопросов по теме (для UI). */
-    public List<Question> getQuestionsByTopic(Integer topicId) {
-        ensureTopicExists(topicId);
-        return questionRepository.findByTopicIdOrderByIdAsc(topicId);
+    @Transactional(readOnly = true)
+    public Question get(Long id) {
+        return questionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Question not found: " + id));
     }
 
-    /** Создание одного вопроса вручную. */
-    public Question createManual(Integer topicId, String text, String correctAnswer) {
-        Topic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new IllegalArgumentException("Тема не найдена"));
-        if (text == null || text.isBlank()) {
-            throw new IllegalArgumentException("Текст вопроса пуст");
-        }
-        if (correctAnswer == null || correctAnswer.isBlank()) {
-            throw new IllegalArgumentException("Правильный ответ пуст");
-        }
-        Question q = new Question();
-        q.setTopic(topic);
-        q.setText(text.trim());
-        q.setCorrectAnswer(correctAnswer.trim());
-        return questionRepository.save(q);
+    @Transactional(readOnly = true)
+    public List<QuestionOption> findOptions(Long questionId) {
+        return optionRepository.findByTestQuestionIdOrderByOrdinalAsc(questionId);
     }
 
-    /** Возвращает случайные вопросы указанного количества. */
-    public List<Question> getRandomQuestionsByTopic(Integer topicId, int count) {
-        ensureTopicExists(topicId);
-        List<Question> all = questionRepository.findByTopicId(topicId);
-        if (all.isEmpty())
-            throw new IllegalArgumentException("В теме нет вопросов");
-        Collections.shuffle(all);
-        return all.stream().limit(count).collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public QuestionOption getOption(Long optionId) {
+        return optionRepository.findById(optionId)
+                .orElseThrow(() -> new IllegalArgumentException("Question option not found: " + optionId));
     }
 
-    /** Находит вопросы по списку ID. */
-    public List<Question> findQuestionsByIds(List<Integer> ids) {
-        return questionRepository.findAllById(ids);
-    }
-
-    /**
-     * Удаление пачкой: сначала чистим связи в question_in_test,
-     * затем удаляем сами вопросы. Всё в одной транзакции.
-     *
-     * @return количество удалённых вопросов
-     */
     @Transactional
-    public int deleteQuestionsByIds(Integer topicId, List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) return 0;
-        ensureTopicExists(topicId);
-
-        // проверим, что все вопросы принадлежат теме
-        List<Question> loaded = questionRepository.findAllById(ids);
-        if (loaded.size() != ids.size()) {
-            throw new IllegalArgumentException("Некоторые вопросы не найдены");
+    public Question create(Integer testId,
+                           Integer courseLectureId,
+                           Integer topicId,
+                           int type,
+                           String questionText,
+                           BigDecimal points,
+                           int ordinal,
+                           String correctAnswer,
+                           List<QuestionTypeSupport.MatchingPair> matchingPairs) {
+        QuestionTarget target = resolveQuestionTarget(testId, courseLectureId, topicId);
+        QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
+        requireQuestionType(type);
+        BigDecimal normalizedPoints = points == null ? BigDecimal.ONE : points;
+        requireNonNegative(normalizedPoints, "Points");
+        int normalizedOrdinal = Math.max(1, ordinal);
+        if (ordinalExists(target.testId(), context.topicId(), normalizedOrdinal, null)) {
+            throw new AuthConflictException("Question ordinal already exists for target.");
         }
-        boolean foreign = loaded.stream().anyMatch(q ->
-                q.getTopic() == null || !Objects.equals(q.getTopic().getId(), topicId));
-        if (foreign) {
-            throw new IllegalArgumentException("В списке есть вопросы другой темы");
-        }
 
-        // сначала удаляем связи с тестами
-        int detached = questionInTestRepository.deleteByQuestionIds(ids);
-        log.info("Удалено {} связей question_in_test для вопросов {}", detached, ids);
-
-        // затем удаляем сами вопросы
-        questionRepository.deleteAllByIdInBatch(ids);
-        return loaded.size();
+        Question question = new Question();
+        question.setTestId(target.testId());
+        question.setCourseLectureId(context.courseLectureId());
+        question.setTopicId(context.topicId());
+        question.setType(type);
+        question.setQuestion(FacultyService.requireText(questionText, "Question"));
+        question.setPoints(normalizedPoints);
+        question.setOrdinal(normalizedOrdinal);
+        question.setCorrectAnswer(normalizeStoredCorrectAnswer(type, correctAnswer, matchingPairs));
+        question.setActive(true);
+        return questionRepository.save(question);
     }
 
-    /* ======== private ======== */
-
-    private void ensureTopicExists(Integer topicId) {
-        if (!topicRepository.existsById(topicId)) {
-            throw new IllegalArgumentException("Тема не найдена");
+    @Transactional
+    public Question update(Long questionId,
+                           Integer courseLectureId,
+                           Integer topicId,
+                           int type,
+                           String questionText,
+                           BigDecimal points,
+                           int ordinal,
+                           String correctAnswer,
+                           List<QuestionTypeSupport.MatchingPair> matchingPairs,
+                           boolean active) {
+        Question question = get(questionId);
+        QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
+        requireQuestionType(type);
+        BigDecimal normalizedPoints = points == null ? BigDecimal.ONE : points;
+        requireNonNegative(normalizedPoints, "Points");
+        int normalizedOrdinal = Math.max(1, ordinal);
+        if (ordinalExists(question.getTestId(), context.topicId(), normalizedOrdinal, questionId)) {
+            throw new AuthConflictException("Question ordinal already exists for target.");
         }
+
+        question.setCourseLectureId(context.courseLectureId());
+        question.setTopicId(context.topicId());
+        question.setType(type);
+        question.setQuestion(FacultyService.requireText(questionText, "Question"));
+        question.setPoints(normalizedPoints);
+        question.setOrdinal(normalizedOrdinal);
+        question.setCorrectAnswer(normalizeStoredCorrectAnswer(type, correctAnswer, matchingPairs));
+        question.setActive(active);
+        return question;
     }
 
-    /** DOCX формат:
-     *  Вопрос: <текст...>
-     *  ...
-     *  Ответ: A|B|C|D (первая буква)
-     */
-    private List<Question> parseDocx(MultipartFile file) {
-        List<Question> result = new ArrayList<>();
-        try (XWPFDocument doc = new XWPFDocument(file.getInputStream())) {
-            StringBuilder buf = new StringBuilder();
-            boolean isParsing = false;
-            for (XWPFParagraph p : doc.getParagraphs()) {
-                String text = p.getText().trim().replaceAll("\\s+", " ");
-                if (text.isEmpty()) continue;
-                if (text.startsWith("Вопрос:")) {
-                    buf.setLength(0);
-                    buf.append(text).append("\n");
-                    isParsing = true;
-                } else if (isParsing && text.startsWith("Ответ:")) {
-                    String correct = extractAnswerLetter(text.replaceFirst("Ответ:\\s*", "").trim());
-                    result.add(createQuestion(buf.toString(), correct));
-                    isParsing = false;
-                } else if (isParsing) {
-                    buf.append(text).append("\n");
-                }
+    @Transactional
+    public QuestionOption addOption(Long questionId, String text, int ordinal, boolean correct) {
+        if (!questionRepository.existsById(questionId)) {
+            throw new IllegalArgumentException("Question not found: " + questionId);
+        }
+        int normalizedOrdinal = Math.max(1, ordinal);
+        if (optionRepository.existsByTestQuestionIdAndOrdinal(questionId, normalizedOrdinal)) {
+            throw new AuthConflictException("Question option ordinal already exists: " + questionId + "/" + normalizedOrdinal);
+        }
+
+        QuestionOption option = new QuestionOption();
+        option.setTestQuestionId(questionId);
+        option.setText(FacultyService.requireText(text, "Text"));
+        option.setOrdinal(normalizedOrdinal);
+        option.setCorrect(correct);
+        return optionRepository.save(option);
+    }
+
+    @Transactional
+    public QuestionOption updateOption(Long optionId, String text, int ordinal, boolean correct) {
+        QuestionOption option = getOption(optionId);
+        int normalizedOrdinal = Math.max(1, ordinal);
+        if (optionRepository.existsByTestQuestionIdAndOrdinalAndIdNot(option.getTestQuestionId(), normalizedOrdinal, optionId)) {
+            throw new AuthConflictException("Question option ordinal already exists: " + option.getTestQuestionId() + "/" + normalizedOrdinal);
+        }
+
+        option.setText(FacultyService.requireText(text, "Text"));
+        option.setOrdinal(normalizedOrdinal);
+        option.setCorrect(correct);
+        return option;
+    }
+
+    @Transactional
+    public Question setActive(Long questionId, boolean active) {
+        Question question = get(questionId);
+        question.setActive(active);
+        return question;
+    }
+
+    @Transactional
+    public QuestionImportResult importDocx(Integer testId, Integer courseLectureId, Integer topicId, MultipartFile file) {
+        QuestionTarget target = resolveQuestionTarget(testId, courseLectureId, topicId);
+        Test test = target.testId() == null
+                ? null
+                : testRepository.findById(target.testId())
+                .orElseThrow(() -> new IllegalArgumentException("Test not found: " + target.testId()));
+        QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
+        requireDocxFile(file);
+
+        List<QuestionDocxImportParser.ParsedQuestion> parsedQuestions;
+        try {
+            parsedQuestions = docxImportParser.parse(file.getInputStream());
+        } catch (IOException error) {
+            throw new IllegalArgumentException("Failed to read DOCX file.", error);
+        }
+
+        int nextOrdinal = nextOrdinal(target.testId(), context.topicId());
+        List<Question> savedQuestions = new ArrayList<>();
+        int importedOptions = 0;
+
+        for (QuestionDocxImportParser.ParsedQuestion parsedQuestion : parsedQuestions) {
+            Question question = new Question();
+            question.setTestId(target.testId());
+            question.setCourseLectureId(context.courseLectureId());
+            question.setTopicId(context.topicId());
+            question.setType(parsedQuestion.type());
+            question.setQuestion(FacultyService.requireText(parsedQuestion.question(), "Question"));
+            question.setPoints(parsedQuestion.points());
+            question.setOrdinal(nextOrdinal++);
+            question.setCorrectAnswer(FacultyService.trimToNull(parsedQuestion.correctAnswer()));
+            question.setActive(true);
+            question = questionRepository.save(question);
+            savedQuestions.add(question);
+
+            int optionOrdinal = 1;
+            for (QuestionDocxImportParser.ParsedOption parsedOption : parsedQuestion.options()) {
+                QuestionOption option = new QuestionOption();
+                option.setTestQuestionId(question.getId());
+                option.setText(FacultyService.requireText(parsedOption.text(), "Text"));
+                option.setOrdinal(optionOrdinal++);
+                option.setCorrect(parsedOption.correct());
+                optionRepository.save(option);
+                importedOptions++;
             }
-        } catch (IOException e) {
-            throw new RuntimeException("Ошибка чтения DOCX", e);
         }
-        return result;
+
+        if (test != null && selectionRuleRepository.findByTestIdOrderByOrdinalAsc(test.getId()).isEmpty()) {
+            test.setQuestionCount(Math.max(1, (int) questionRepository.countByTestId(test.getId())));
+        }
+        return new QuestionImportResult(savedQuestions, importedOptions);
     }
 
-    /** CSV формат (простой):
-     *  колонки: text, correct (разделитель ',' или ';')
-     */
-    private List<Question> parseCsv(MultipartFile file) {
-        List<Question> result = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            boolean maybeHeader = true;
-            while ((line = br.readLine()) != null) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty()) continue;
-
-                String[] parts = trimmed.split("[;,]", 2);
-                if (parts.length < 2) {
-                    int idx = Math.max(trimmed.lastIndexOf(';'), trimmed.lastIndexOf(','));
-                    if (idx <= 0 || idx >= trimmed.length() - 1) continue;
-                    parts = new String[]{ trimmed.substring(0, idx), trimmed.substring(idx + 1) };
-                }
-
-                String text = parts[0].trim();
-                String correctRaw = parts[1].trim();
-
-                if (maybeHeader) {
-                    String lower = (text + " " + correctRaw).toLowerCase(Locale.ROOT);
-                    if (lower.contains("text") || lower.contains("вопрос")
-                            || lower.contains("correct") || lower.contains("ответ")) {
-                        maybeHeader = false;
-                        continue;
-                    }
-                }
-                maybeHeader = false;
-
-                String correct = extractAnswerLetter(correctRaw);
-                if (!text.isEmpty() && correct != null && !correct.isEmpty()) {
-                    result.add(createQuestion(text, correct));
-                }
+    private QuestionTarget resolveQuestionTarget(Integer testId, Integer courseLectureId, Integer topicId) {
+        if (testId != null) {
+            if (!testRepository.existsById(testId)) {
+                throw new IllegalArgumentException("Test not found: " + testId);
             }
-        } catch (IOException e) {
-            throw new RuntimeException("Ошибка чтения CSV", e);
+            return new QuestionTarget(testId);
         }
-        return result;
+        if (topicId != null) {
+            QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
+            if (context.topicId() == null) {
+                throw new IllegalArgumentException("TopicId is required for topic question bank.");
+            }
+            return new QuestionTarget(null);
+        }
+        throw new IllegalArgumentException("Either testId or topicId is required.");
     }
 
-    private Question createQuestion(String text, String correctAnswer) {
-        Question q = new Question();
-        q.setText(text.trim());
-        q.setCorrectAnswer(correctAnswer);
-        return q;
+    private QuestionContext resolveQuestionContext(Integer courseLectureId, Integer topicId) {
+        if (topicId == null) {
+            requireLectureExists(courseLectureId);
+            return new QuestionContext(courseLectureId, null);
+        }
+
+        Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new IllegalArgumentException("Topic not found: " + topicId));
+        Integer resolvedLectureId = topic.getCourseLectureId();
+        if (resolvedLectureId != null) {
+            requireLectureExists(resolvedLectureId);
+        }
+        if (courseLectureId != null && resolvedLectureId != null && !courseLectureId.equals(resolvedLectureId)) {
+            throw new IllegalArgumentException("Topic " + topicId + " does not belong to lecture " + courseLectureId + ".");
+        }
+        Integer effectiveLectureId = courseLectureId != null ? courseLectureId : resolvedLectureId;
+        requireLectureExists(effectiveLectureId);
+        return new QuestionContext(effectiveLectureId, topic.getId());
     }
 
-    private String extractAnswerLetter(String s) {
-        if (s == null) return null;
-        String t = s.trim().toLowerCase(Locale.ROOT);
-        return t.isEmpty() ? null : t.substring(0, 1);
+    private void requireLectureExists(Integer courseLectureId) {
+        if (courseLectureId != null && !lectureRepository.existsById(courseLectureId)) {
+            throw new IllegalArgumentException("Course lecture not found: " + courseLectureId);
+        }
+    }
+
+    private boolean ordinalExists(Integer testId, Integer topicId, int ordinal, Long excludedQuestionId) {
+        if (testId != null) {
+            return excludedQuestionId == null
+                    ? questionRepository.existsByTestIdAndOrdinal(testId, ordinal)
+                    : questionRepository.existsByTestIdAndOrdinalAndIdNot(testId, ordinal, excludedQuestionId);
+        }
+        if (topicId == null) {
+            throw new IllegalArgumentException("TopicId is required for topic question bank.");
+        }
+        return excludedQuestionId == null
+                ? questionRepository.existsByTopicIdAndTestIdIsNullAndOrdinal(topicId, ordinal)
+                : questionRepository.existsByTopicIdAndTestIdIsNullAndOrdinalAndIdNot(topicId, ordinal, excludedQuestionId);
+    }
+
+    private int nextOrdinal(Integer testId, Integer topicId) {
+        if (testId != null) {
+            return questionRepository.findMaxOrdinalByTestId(testId) + 1;
+        }
+        if (topicId == null) {
+            throw new IllegalArgumentException("TopicId is required for topic question bank.");
+        }
+        return questionRepository.findMaxOrdinalByTopicId(topicId) + 1;
+    }
+
+    private static void requireQuestionType(int type) {
+        if (!QuestionTypeSupport.isSupported(type)) {
+            throw new IllegalArgumentException("Question type must be between 1 and 4.");
+        }
+    }
+
+    private static String normalizeStoredCorrectAnswer(int type,
+                                                       String correctAnswer,
+                                                       List<QuestionTypeSupport.MatchingPair> matchingPairs) {
+        if (QuestionTypeSupport.isMatching(type)) {
+            List<QuestionTypeSupport.MatchingPair> normalizedPairs = normalizeMatchingPairs(matchingPairs);
+            if (normalizedPairs.size() < 2) {
+                throw new IllegalArgumentException("Matching question must contain at least two pairs.");
+            }
+            return QuestionTypeSupport.serializeMatchingPairs(normalizedPairs);
+        }
+        return FacultyService.trimToNull(correctAnswer);
+    }
+
+    private static List<QuestionTypeSupport.MatchingPair> normalizeMatchingPairs(List<QuestionTypeSupport.MatchingPair> matchingPairs) {
+        if (matchingPairs == null || matchingPairs.isEmpty()) {
+            return List.of();
+        }
+
+        List<QuestionTypeSupport.MatchingPair> normalizedPairs = new ArrayList<>();
+        java.util.Set<String> normalizedLeftValues = new java.util.HashSet<>();
+        java.util.Set<String> normalizedRightValues = new java.util.HashSet<>();
+        int nextOrdinal = 1;
+
+        for (QuestionTypeSupport.MatchingPair rawPair : matchingPairs) {
+            if (rawPair == null) {
+                continue;
+            }
+            String left = FacultyService.trimToNull(rawPair.left());
+            String right = FacultyService.trimToNull(rawPair.right());
+            if (left == null && right == null) {
+                continue;
+            }
+            if (left == null || right == null) {
+                throw new IllegalArgumentException("Matching pair must contain both left and right values.");
+            }
+
+            String normalizedLeft = QuestionTypeSupport.normalizeComparable(left);
+            String normalizedRight = QuestionTypeSupport.normalizeComparable(right);
+            if (normalizedLeft == null || normalizedRight == null) {
+                throw new IllegalArgumentException("Matching pair values must not be blank.");
+            }
+            if (!normalizedLeftValues.add(normalizedLeft)) {
+                throw new IllegalArgumentException("Matching pair left values must be unique.");
+            }
+            if (!normalizedRightValues.add(normalizedRight)) {
+                throw new IllegalArgumentException("Matching pair right values must be unique.");
+            }
+
+            int ordinal = rawPair.ordinal() > 0 ? rawPair.ordinal() : nextOrdinal;
+            normalizedPairs.add(new QuestionTypeSupport.MatchingPair(ordinal, left, right));
+            nextOrdinal++;
+        }
+
+        return normalizedPairs.stream()
+                .sorted(java.util.Comparator.comparingInt(QuestionTypeSupport.MatchingPair::ordinal))
+                .toList();
+    }
+
+    private static void requireNonNegative(BigDecimal value, String field) {
+        if (value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(field + " must be non-negative.");
+        }
+    }
+
+    private static void requireDocxFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("DOCX file is required.");
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".docx")) {
+            throw new IllegalArgumentException("Only .docx files are supported.");
+        }
+    }
+
+    public record QuestionImportResult(List<Question> questions, int importedOptions) {
+    }
+
+    private record QuestionTarget(Integer testId) {
+    }
+
+    private record QuestionContext(Integer courseLectureId, Integer topicId) {
     }
 }
