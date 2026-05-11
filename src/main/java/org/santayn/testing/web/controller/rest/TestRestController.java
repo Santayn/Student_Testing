@@ -11,14 +11,7 @@ import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,6 +19,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 @RestController
+@CrossOrigin
 @RequestMapping({"/api/tests", "/api/v1/tests"})
 public class TestRestController {
 

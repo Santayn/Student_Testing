@@ -40,10 +40,7 @@ import org.santayn.testing.service.UserRegisterService;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -57,6 +54,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
+@CrossOrigin
 @RequestMapping({"/api/results", "/api/v1/results"})
 public class ResultRestController {
 

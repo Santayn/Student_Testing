@@ -3,15 +3,12 @@ package org.santayn.testing.web.controller.rest;
 import jakarta.validation.Valid;
 import org.santayn.testing.service.UserRoleService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 
 @RestController
+@CrossOrigin
 @RequestMapping({"/api/users", "/api/v1/users"})
 public class UserRoleRestController {
 

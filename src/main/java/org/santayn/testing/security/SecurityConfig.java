@@ -39,17 +39,23 @@ public class SecurityConfig {
     private static final String[] ADMIN_AUTHORITIES = {
             "ROLE_ADMIN", "ADMIN", "roles.manage", "ROLES.MANAGE"
     };
+
     private static final String[] USER_READ_AUTHORITIES = {
             "ROLE_ADMIN", "ADMIN", "users.read", "USERS.READ"
     };
+
     private static final String[] USER_WRITE_AUTHORITIES = {
             "ROLE_ADMIN", "ADMIN", "users.write", "USERS.WRITE"
     };
+
     private static final String[] PEOPLE_READ_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER", "people.read", "PEOPLE.READ", "users.read", "USERS.READ"
+            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
+            "people.read", "PEOPLE.READ", "users.read", "USERS.READ"
     };
+
     private static final String[] PEOPLE_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER", "people.write", "PEOPLE.WRITE", "users.write", "USERS.WRITE"
+            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
+            "people.write", "PEOPLE.WRITE", "users.write", "USERS.WRITE"
     };
 
     @Bean
@@ -62,43 +68,56 @@ public class SecurityConfig {
                 .securityMatcher("/api/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(sessionManagementConfigurer ->
+                        sessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(ex -> ex
+                .exceptionHandling(exceptionHandlingConfigurer -> exceptionHandlingConfigurer
                         .authenticationEntryPoint((request, response, authException) ->
-                                writeSecurityError(response, request, objectMapper,
+                                writeSecurityError(
+                                        response,
+                                        request,
+                                        objectMapper,
                                         HttpServletResponse.SC_UNAUTHORIZED,
                                         "unauthorized",
-                                        "Authentication is required."))
+                                        "Authentication is required."
+                                )
+                        )
                         .accessDeniedHandler((request, response, accessDeniedException) ->
-                                writeSecurityError(response, request, objectMapper,
+                                writeSecurityError(
+                                        response,
+                                        request,
+                                        objectMapper,
                                         HttpServletResponse.SC_FORBIDDEN,
                                         "forbidden",
-                                        "Not enough permissions."))
+                                        "Not enough permissions."
+                                )
+                        )
                 )
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/register",
-                                "/api/auth/refresh",
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/refresh"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/public/**", "/api/v1/public/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasAnyAuthority(ADMIN_AUTHORITIES)
-                        .requestMatchers("/api/v1/roles/**", "/api/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
-                        .requestMatchers(HttpMethod.GET, "/api/users/me", "/api/v1/users/me").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_READ_AUTHORITIES)
-                        .requestMatchers(HttpMethod.POST, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
-                        .requestMatchers(HttpMethod.PUT, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
-                        .requestMatchers(HttpMethod.PUT, "/api/users/*/roles", "/api/v1/users/*/roles").hasAnyAuthority(ADMIN_AUTHORITIES)
-                        .requestMatchers(HttpMethod.PUT, "/api/users/*/permissions", "/api/v1/users/*/permissions").hasAnyAuthority(ADMIN_AUTHORITIES)
-                        .requestMatchers(HttpMethod.PUT, "/api/users/*/active", "/api/v1/users/*/active").hasAnyAuthority(USER_WRITE_AUTHORITIES)
-                        .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/v1/users/**").hasAnyAuthority(USER_READ_AUTHORITIES)
-                        .anyRequest().authenticated()
+                .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry ->
+                        authorizationManagerRequestMatcherRegistry
+                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                .requestMatchers(
+                                        "/api/auth/login",
+                                        "/api/auth/register",
+                                        "/api/auth/refresh",
+                                        "/api/v1/auth/login",
+                                        "/api/v1/auth/register",
+                                        "/api/v1/auth/refresh"
+                                ).permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/public/**", "/api/v1/public/**").permitAll()
+                                .requestMatchers("/api/admin/**").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers("/api/v1/roles/**", "/api/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/users/me", "/api/v1/users/me").authenticated()
+                                .requestMatchers(HttpMethod.GET, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_READ_AUTHORITIES)
+                                .requestMatchers(HttpMethod.POST, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/users/people/**", "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/users/*/roles", "/api/v1/users/*/roles").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/users/*/permissions", "/api/v1/users/*/permissions").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/users/*/active", "/api/v1/users/*/active").hasAnyAuthority(USER_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/v1/users/**").hasAnyAuthority(USER_READ_AUTHORITIES)
+                                .anyRequest().authenticated()
                 );
 
         return http.build();
@@ -110,29 +129,31 @@ public class SecurityConfig {
         http
                 .securityMatcher("/**")
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                        .requestMatchers(
-                                "/",
-                                "/login",
-                                "/register",
-                                "/kubstuTest/**",
-                                "/index.html",
-                                "/login.html",
-                                "/register.html",
-                                "/main.html",
-                                "/about.html",
-                                "/students.html",
-                                "/student-details.html",
-                                "/profile.html",
-                                "/subjects.html",
-                                "/css/**",
-                                "/js/**",
-                                "/images/**",
-                                "/webjars/**",
-                                "/favicon.ico"
-                        ).permitAll()
-                        .anyRequest().permitAll()
+                .cors(Customizer.withDefaults())
+                .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry ->
+                        authorizationManagerRequestMatcherRegistry
+                                .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                                .requestMatchers(
+                                        "/",
+                                        "/login",
+                                        "/register",
+                                        "/kubstuTest/**",
+                                        "/index.html",
+                                        "/login.html",
+                                        "/register.html",
+                                        "/main.html",
+                                        "/about.html",
+                                        "/students.html",
+                                        "/student-details.html",
+                                        "/profile.html",
+                                        "/subjects.html",
+                                        "/css/**",
+                                        "/js/**",
+                                        "/images/**",
+                                        "/webjars/**",
+                                        "/favicon.ico"
+                                ).permitAll()
+                                .anyRequest().permitAll()
                 );
 
         return http.build();
@@ -141,34 +162,41 @@ public class SecurityConfig {
     @Bean
     public AuthenticationProvider authenticationProvider(UserRegisterService userRegisterService,
                                                          PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userRegisterService);
-        provider.setPasswordEncoder(passwordEncoder);
-        return provider;
+        DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
+        authenticationProvider.setUserDetailsService(userRegisterService);
+        authenticationProvider.setPasswordEncoder(passwordEncoder);
+        return authenticationProvider;
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
-        ));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(false);
+        CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
-        return source;
+        corsConfiguration.setAllowedOriginPatterns(List.of("*"));
+        corsConfiguration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS"
+        ));
+        corsConfiguration.setAllowedHeaders(List.of("*"));
+        corsConfiguration.setExposedHeaders(List.of(
+                "Authorization",
+                "Content-Type"
+        ));
+        corsConfiguration.setAllowCredentials(false);
+        corsConfiguration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource = new UrlBasedCorsConfigurationSource();
+        urlBasedCorsConfigurationSource.registerCorsConfiguration("/**", corsConfiguration);
+        return urlBasedCorsConfigurationSource;
     }
 
     private void writeSecurityError(HttpServletResponse response,
@@ -181,7 +209,7 @@ public class SecurityConfig {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-        Map<String, Object> body = Map.of(
+        Map<String, Object> responseBody = Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", status,
                 "error", error,
@@ -189,6 +217,6 @@ public class SecurityConfig {
                 "path", request.getRequestURI()
         );
 
-        objectMapper.writeValue(response.getWriter(), body);
+        objectMapper.writeValue(response.getWriter(), responseBody);
     }
 }
