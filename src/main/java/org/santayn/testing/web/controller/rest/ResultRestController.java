@@ -138,6 +138,23 @@ public class ResultRestController {
                 .toList();
     }
 
+    @GetMapping("/student/subjects")
+    @Transactional(readOnly = true)
+    public List<ResultSubjectResponse> studentSubjects(Authentication authentication) {
+        Integer studentPersonId = currentPersonId(authentication);
+        Set<Integer> subjectIds = subjectIdsForCurrentStudent(studentPersonId);
+        return subjectIds.stream()
+                .map(subjectRepository::findById)
+                .flatMap(Optional::stream)
+                .map(subject -> new ResultSubjectResponse(
+                        subject.getId(),
+                        subject.getName(),
+                        subject.getDescription(),
+                        null
+                ))
+                .toList();
+    }
+
     @GetMapping("/teacher/lectures")
     @Transactional(readOnly = true)
     public List<ResultLectureResponse> lectures(@RequestParam Integer subjectId, Authentication authentication) {
@@ -221,9 +238,9 @@ public class ResultRestController {
                 .filter(membership -> membership.getRole() == GROUP_ROLE_STUDENT)
                 .map(membership -> personRepository.findById(membership.getPersonId())
                         .map(person -> new ResultPersonResponse(
-                        person.getId(),
-                        person.getFirstName(),
-                        person.getLastName(),
+                                person.getId(),
+                                person.getFirstName(),
+                                person.getLastName(),
                                 fullName(person),
                                 person.getEmail()
                         )))
@@ -239,10 +256,66 @@ public class ResultRestController {
                                    @RequestParam(required = false) Integer groupId,
                                    @RequestParam(required = false) Integer studentId,
                                    Authentication authentication) {
-        Integer teacherPersonId = currentPersonId(authentication);
-        Set<Integer> allowedPersonIds = personIdsForFilter(groupId, studentId);
-        Set<Integer> allowedTestIds = testIdsForFilters(subjectId, lectureId, testId, teacherPersonId);
-        boolean filterByTestContext = subjectId != null || lectureId != null || testId != null;
+        UserRegisterService.CurrentUser user = currentUser(authentication);
+
+        if (!hasRole(user, "TEACHER") && !hasRole(user, "ADMIN")) {
+            Integer studentPersonId = requireCurrentPersonId(user);
+            return buildResultData(
+                    subjectId,
+                    null,
+                    testId,
+                    null,
+                    studentPersonId,
+                    null,
+                    false
+            );
+        }
+
+        Integer teacherPersonId = requireCurrentPersonId(user);
+        return buildResultData(
+                subjectId,
+                lectureId,
+                testId,
+                groupId,
+                studentId,
+                teacherPersonId,
+                true
+        );
+    }
+
+    @GetMapping("/student/data")
+    @Transactional(readOnly = true)
+    public ResultDataResponse studentData(@RequestParam(required = false) Integer subjectId,
+                                          @RequestParam(required = false) Integer testId,
+                                          Authentication authentication) {
+        Integer studentPersonId = currentPersonId(authentication);
+        return buildResultData(
+                subjectId,
+                null,
+                testId,
+                null,
+                studentPersonId,
+                null,
+                false
+        );
+    }
+
+    private ResultDataResponse buildResultData(Integer subjectId,
+                                               Integer lectureId,
+                                               Integer testId,
+                                               Integer groupId,
+                                               Integer studentId,
+                                               Integer teacherPersonId,
+                                               boolean teacherMode) {
+        Set<Integer> allowedPersonIds = teacherMode
+                ? personIdsForFilter(groupId, studentId)
+                : personIdsForCurrentStudent(studentId);
+        Set<Integer> allowedTestIds = teacherMode
+                ? testIdsForFilters(subjectId, lectureId, testId, teacherPersonId)
+                : testIdsForCurrentStudent(subjectId, testId);
+        boolean filterByTestContext = teacherMode
+                ? subjectId != null || lectureId != null || testId != null
+                : subjectId != null || testId != null;
         Map<Integer, TestAssignment> assignmentCache = new LinkedHashMap<>();
         Map<Integer, String> testNameCache = new LinkedHashMap<>();
         Map<Integer, String> personNameCache = new LinkedHashMap<>();
@@ -383,6 +456,74 @@ public class ResultRestController {
         return personIds;
     }
 
+    private Set<Integer> personIdsForCurrentStudent(Integer studentPersonId) {
+        if (studentPersonId == null) {
+            return Set.of();
+        }
+        return Set.of(studentPersonId);
+    }
+
+    private Set<Integer> subjectIdsForCurrentStudent(Integer studentPersonId) {
+        Set<Integer> subjectIds = new LinkedHashSet<>();
+
+        subjectMembershipRepository.findByPersonIdAndRemovedAtUtcIsNull(studentPersonId)
+                .stream()
+                .map(SubjectMembership::getSubjectId)
+                .forEach(subjectIds::add);
+
+        for (TestAttempt attempt : testAttemptRepository.findByPersonId(studentPersonId)) {
+            if (attempt.getStatus() == 1) {
+                continue;
+            }
+            TestAssignment assignment = testAssignmentRepository.findById(attempt.getTestAssignmentId()).orElse(null);
+            if (assignment == null) {
+                continue;
+            }
+            subjectIdsForAssignment(assignment).forEach(subjectIds::add);
+        }
+
+        return subjectIds;
+    }
+
+    private Set<Integer> testIdsForCurrentStudent(Integer subjectId, Integer testId) {
+        if (testId != null) {
+            return Set.of(testId);
+        }
+        if (subjectId == null) {
+            return Set.of();
+        }
+        return testService.findAll(subjectId)
+                .stream()
+                .map(Test::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Integer> subjectIdsForAssignment(TestAssignment assignment) {
+        Set<Integer> subjectIds = new LinkedHashSet<>();
+
+        if (assignment.getCourseLectureId() != null) {
+            lectureRepository.findById(assignment.getCourseLectureId())
+                    .map(Lecture::getSubjectId)
+                    .ifPresent(subjectIds::add);
+        }
+
+        if (assignment.getCourseVersionId() != null) {
+            courseVersionRepository.findById(assignment.getCourseVersionId())
+                    .flatMap(version -> courseTemplateRepository.findById(version.getCourseTemplateId()))
+                    .map(CourseTemplate::getSubjectId)
+                    .ifPresent(subjectIds::add);
+        }
+
+        if (assignment.getTeachingAssignmentId() != null) {
+            teachingAssignmentRepository.findById(assignment.getTeachingAssignmentId())
+                    .flatMap(teachingAssignment -> subjectMembershipRepository.findById(teachingAssignment.getSubjectMembershipId()))
+                    .map(SubjectMembership::getSubjectId)
+                    .ifPresent(subjectIds::add);
+        }
+
+        return subjectIds;
+    }
+
     private Set<Integer> testIdsForFilters(Integer subjectId, Integer lectureId, Integer testId, Integer teacherPersonId) {
         Set<Integer> testIds = new LinkedHashSet<>();
         if (testId != null) {
@@ -440,8 +581,8 @@ public class ResultRestController {
                                 != 0
                                 ? Integer.compare(resultLectureVersionNumber(right), resultLectureVersionNumber(left))
                                 : (left.getOrdinal() != right.getOrdinal()
-                                    ? Integer.compare(left.getOrdinal(), right.getOrdinal())
-                                    : String.valueOf(left.getTitle()).compareToIgnoreCase(String.valueOf(right.getTitle())))
+                                   ? Integer.compare(left.getOrdinal(), right.getOrdinal())
+                                   : String.valueOf(left.getTitle()).compareToIgnoreCase(String.valueOf(right.getTitle())))
                 )
                 .toList();
     }
@@ -510,7 +651,7 @@ public class ResultRestController {
 
     private String givenAnswerDisplay(QuestionResponse response, Question question) {
         if (QuestionTypeSupport.isMatching(question.getType())) {
-            return QuestionTypeSupport.displayMatchingPairs(response.getAnswerText());
+            return QuestionTypeSupport.displaySubmittedMatchingPairs(question.getCorrectAnswer(), response.getAnswerText());
         }
         List<Long> selectedOptionIds = selectedOptionRepository.findByQuestionResponseId(response.getId())
                 .stream()
@@ -547,14 +688,33 @@ public class ResultRestController {
     }
 
     private Integer currentPersonId(Authentication authentication) {
+        return requireCurrentPersonId(currentUser(authentication));
+    }
+
+    private UserRegisterService.CurrentUser currentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new BadCredentialsException("Authentication is required.");
         }
-        Integer personId = userRegisterService.currentUser(authentication.getName()).personId();
-        if (personId == null) {
+        return userRegisterService.currentUser(authentication.getName());
+    }
+
+    private Integer requireCurrentPersonId(UserRegisterService.CurrentUser user) {
+        if (user.personId() == null) {
             throw new IllegalArgumentException("Current user is not bound to a person.");
         }
-        return personId;
+        return user.personId();
+    }
+
+    private boolean hasRole(UserRegisterService.CurrentUser user, String roleName) {
+        if (user == null || user.roles() == null || roleName == null) {
+            return false;
+        }
+        String normalizedRoleName = roleName.trim().toUpperCase(java.util.Locale.ROOT);
+        return user.roles()
+                .stream()
+                .filter(role -> role != null && !role.isBlank())
+                .map(role -> role.trim().toUpperCase(java.util.Locale.ROOT))
+                .anyMatch(role -> role.equals(normalizedRoleName) || role.equals("ROLE_" + normalizedRoleName));
     }
 
     private String fullName(Person person) {

@@ -120,7 +120,7 @@ public class QuestionUploadRestController {
             @NotBlank @Size(max = 2000) String question,
             BigDecimal points,
             @Positive int ordinal,
-            @Size(max = 2000) String correctAnswer,
+            @Size(max = 4000) String correctAnswer,
             List<@Valid MatchingPairRequest> matchingPairs
     ) {
     }
@@ -132,7 +132,7 @@ public class QuestionUploadRestController {
             @NotBlank @Size(max = 2000) String question,
             BigDecimal points,
             @Positive int ordinal,
-            @Size(max = 2000) String correctAnswer,
+            @Size(max = 4000) String correctAnswer,
             List<@Valid MatchingPairRequest> matchingPairs,
             boolean active
     ) {

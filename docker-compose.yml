@@ -3,50 +3,48 @@ name: student-test
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: student-test-postgres
     environment:
-      POSTGRES_DB: Test
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: student_test
+      POSTGRES_USER: student_test
+      POSTGRES_PASSWORD: student_test_password
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d Test"]
+      test: ["CMD-SHELL", "pg_isready -U student_test -d student_test"]
       interval: 5s
       timeout: 5s
-      retries: 20
-      start_period: 5s
+      retries: 30
+      start_period: 10s
     volumes:
       - postgres-data:/var/lib/postgresql/data
-
-  db-migrator:
-    build:
-      context: .
-      dockerfile: Dockerfile.migrator
-    environment:
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=Test;Username=postgres;Password=postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
+    restart: unless-stopped
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    image: student-test-app:latest
+    container_name: student-test-app
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/Test
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/student_test
+      SPRING_DATASOURCE_USERNAME: student_test
+      SPRING_DATASOURCE_PASSWORD: student_test_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_SQL_INIT_MODE: always
       APP_DATA_LOADER_ENABLED: "true"
       SERVER_PORT: 8081
+      APP_STORAGE_LECTURE_MATERIALS_DIR: /app/uploads/lecture-materials
     depends_on:
       postgres:
         condition: service_healthy
-      db-migrator:
-        condition: service_completed_successfully
     ports:
       - "8081:8081"
+    volumes:
+      - lecture-uploads:/app/uploads/lecture-materials
     restart: unless-stopped
 
 volumes:
   postgres-data:
+  lecture-uploads:

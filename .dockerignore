@@ -1,9 +1,27 @@
 .git
+.gitignore
+.gitattributes
 .idea
-.mvn
+.vscode
+*.iml
+
+# Build output
 target
-TestPlatformBackend/.vs
-TestPlatformBackend/bin
-TestPlatformBackend/obj
-**/*.log
-**/*.user
+out
+build
+
+# Runtime/user files
+uploads
+logs
+*.log
+
+# Local secrets/config
+.env
+.env.*
+application-local.yml
+application-dev-local.yml
+application-prod-local.yml
+
+# OS/editor files
+.DS_Store
+Thumbs.db

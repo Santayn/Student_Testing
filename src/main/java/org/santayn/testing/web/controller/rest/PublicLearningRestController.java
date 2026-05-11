@@ -792,13 +792,13 @@ public class PublicLearningRestController {
 
     private String givenAnswerDisplay(Question question, String answer, List<Long> selectedOptionIds) {
         if (QuestionTypeSupport.isMatching(question.getType())) {
-            String display = QuestionTypeSupport.displayMatchingPairs(answer);
+            String display = QuestionTypeSupport.displaySubmittedMatchingPairs(question.getCorrectAnswer(), answer);
             return display.isBlank() ? null : display;
         }
         List<QuestionOption> selectedOptions = questionOptionRepository.findAllById(
                 selectedOptionIds == null ? Set.of() : selectedOptionIds.stream()
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toCollection(LinkedHashSet::new))
+                                                       .filter(Objects::nonNull)
+                                                       .collect(Collectors.toCollection(LinkedHashSet::new))
         );
         if (!selectedOptions.isEmpty()) {
             return selectedOptions.stream()

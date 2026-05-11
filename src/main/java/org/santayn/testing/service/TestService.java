@@ -27,8 +27,6 @@ import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.santayn.testing.repository.TopicRepository;
-import org.apache.commons.text.similarity.JaroWinklerSimilarity;
-import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,8 +49,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TestService {
 
-    private static final JaroWinklerSimilarity JARO_WINKLER = new JaroWinklerSimilarity();
-    private static final LevenshteinDistance LEVENSHTEIN = LevenshteinDistance.getDefaultInstance();
 
     private final TestRepository testRepository;
     private final TestAssignmentRepository testAssignmentRepository;
@@ -504,80 +500,7 @@ public class TestService {
     }
 
     private boolean isTextAnswerCorrect(String expectedRaw, String actualRaw) {
-        String actualNormalized = QuestionTypeSupport.normalizeComparable(actualRaw);
-        if (actualNormalized == null) {
-            return false;
-        }
-
-        for (String expectedVariant : QuestionTypeSupport.splitAcceptedTextAnswers(expectedRaw)) {
-            String expectedNormalized = QuestionTypeSupport.normalizeComparable(expectedVariant);
-            if (expectedNormalized == null) {
-                continue;
-            }
-            if (expectedNormalized.equals(actualNormalized)) {
-                return true;
-            }
-            if (tokenSequenceEquals(expectedNormalized, actualNormalized)) {
-                return true;
-            }
-            if (fuzzyEquivalent(expectedNormalized, actualNormalized)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean fuzzyEquivalent(String expectedNormalized, String actualNormalized) {
-        if (expectedNormalized.length() < 5 || actualNormalized.length() < 5) {
-            return false;
-        }
-
-        double jaroWinklerScore = JARO_WINKLER.apply(expectedNormalized, actualNormalized);
-        double levenshteinScore = normalizedLevenshteinSimilarity(expectedNormalized, actualNormalized);
-        double tokenSimilarity = tokenSimilarity(expectedNormalized, actualNormalized);
-
-        if (jaroWinklerScore >= 0.96 && levenshteinScore >= 0.88) {
-            return true;
-        }
-        return tokenSimilarity >= 0.8 && Math.max(jaroWinklerScore, levenshteinScore) >= 0.9;
-    }
-
-    private static boolean tokenSequenceEquals(String expectedNormalized, String actualNormalized) {
-        return tokenize(expectedNormalized).equals(tokenize(actualNormalized));
-    }
-
-    private static double tokenSimilarity(String expectedNormalized, String actualNormalized) {
-        Set<String> expectedTokens = new HashSet<>(tokenize(expectedNormalized));
-        Set<String> actualTokens = new HashSet<>(tokenize(actualNormalized));
-        if (expectedTokens.isEmpty() || actualTokens.isEmpty()) {
-            return 0;
-        }
-
-        Set<String> intersection = new HashSet<>(expectedTokens);
-        intersection.retainAll(actualTokens);
-        Set<String> union = new HashSet<>(expectedTokens);
-        union.addAll(actualTokens);
-        return union.isEmpty() ? 0 : (double) intersection.size() / union.size();
-    }
-
-    private static List<String> tokenize(String normalizedValue) {
-        String trimmed = QuestionTypeSupport.trimToNull(normalizedValue);
-        if (trimmed == null) {
-            return List.of();
-        }
-        return List.of(trimmed.split(" "));
-    }
-
-    private static double normalizedLevenshteinSimilarity(String expectedNormalized, String actualNormalized) {
-        int maxLength = Math.max(expectedNormalized.length(), actualNormalized.length());
-        if (maxLength == 0) {
-            return 1;
-        }
-        Integer distance = LEVENSHTEIN.apply(expectedNormalized, actualNormalized);
-        if (distance == null) {
-            return 0;
-        }
-        return 1.0 - ((double) distance / maxLength);
+        return TextAnswerEvaluator.isCorrect(expectedRaw, actualRaw);
     }
 
     private BigDecimal calculateScore(Integer testAttemptId) {
@@ -618,10 +541,10 @@ public class TestService {
 
     private List<Question> randomQuestionsForRule(TestQuestionSelectionRule rule, Set<Long> alreadySelectedQuestionIds) {
         List<Question> selected = new ArrayList<>();
-        selectRequiredQuestionType(rule, QuestionTypeSupport.TYPE_TEXT, rule.getTextQuestionCount(), selected, alreadySelectedQuestionIds);
         selectRequiredQuestionType(rule, QuestionTypeSupport.TYPE_SINGLE, rule.getSingleAnswerQuestionCount(), selected, alreadySelectedQuestionIds);
         selectRequiredQuestionType(rule, QuestionTypeSupport.TYPE_MULTIPLE, rule.getMultipleAnswerQuestionCount(), selected, alreadySelectedQuestionIds);
         selectRequiredQuestionType(rule, QuestionTypeSupport.TYPE_MATCHING, rule.getMatchingQuestionCount(), selected, alreadySelectedQuestionIds);
+        selectRequiredQuestionType(rule, QuestionTypeSupport.TYPE_TEXT, rule.getTextQuestionCount(), selected, alreadySelectedQuestionIds);
 
         int remaining = rule.getQuestionCount() - selected.size();
         if (remaining > 0) {
@@ -792,27 +715,27 @@ public class TestService {
         );
         requireEnoughQuestions(
                 topicRuleTarget(testId, context),
-                "type 1",
-                questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(context.topicId(), QuestionTypeSupport.TYPE_TEXT).size(),
-                input.textQuestionCount()
-        );
-        requireEnoughQuestions(
-                topicRuleTarget(testId, context),
-                "type 2",
+                QuestionTypeSupport.label(QuestionTypeSupport.TYPE_SINGLE),
                 questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(context.topicId(), QuestionTypeSupport.TYPE_SINGLE).size(),
                 input.singleAnswerQuestionCount()
         );
         requireEnoughQuestions(
                 topicRuleTarget(testId, context),
-                "type 3",
+                QuestionTypeSupport.label(QuestionTypeSupport.TYPE_MULTIPLE),
                 questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(context.topicId(), QuestionTypeSupport.TYPE_MULTIPLE).size(),
                 input.multipleAnswerQuestionCount()
         );
         requireEnoughQuestions(
                 topicRuleTarget(testId, context),
-                "type 4",
+                QuestionTypeSupport.label(QuestionTypeSupport.TYPE_MATCHING),
                 questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(context.topicId(), QuestionTypeSupport.TYPE_MATCHING).size(),
                 input.matchingQuestionCount()
+        );
+        requireEnoughQuestions(
+                topicRuleTarget(testId, context),
+                QuestionTypeSupport.label(QuestionTypeSupport.TYPE_TEXT),
+                questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(context.topicId(), QuestionTypeSupport.TYPE_TEXT).size(),
+                input.textQuestionCount()
         );
     }
 
@@ -966,14 +889,14 @@ public class TestService {
     private List<Question> questionsForRule(TestQuestionSelectionRule rule, int questionType) {
         return rule.getTopicId() == null
                 ? questionRepository.findByTestIdAndCourseLectureIdAndTypeAndActiveTrueOrderByOrdinalAsc(
-                        rule.getTestId(),
-                        rule.getCourseLectureId(),
-                        questionType
-                )
+                rule.getTestId(),
+                rule.getCourseLectureId(),
+                questionType
+        )
                 : questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(
-                        rule.getTopicId(),
-                        questionType
-                );
+                rule.getTopicId(),
+                questionType
+        );
     }
 
     private static TestQuestionSelectionRule topicRuleTarget(Integer testId, SelectionRuleContext context) {

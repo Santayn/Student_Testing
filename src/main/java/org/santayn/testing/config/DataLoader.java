@@ -10,6 +10,7 @@ import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.person.Person;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
+import org.santayn.testing.models.question.QuestionTypeSupport;
 import org.santayn.testing.models.role.Permission;
 import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.subject.Subject;
@@ -24,6 +25,7 @@ import org.santayn.testing.repository.FacultyRepository;
 import org.santayn.testing.repository.FacultySubjectRepository;
 import org.santayn.testing.repository.GroupRepository;
 import org.santayn.testing.repository.PermissionRepository;
+import org.santayn.testing.repository.QuestionRepository;
 import org.santayn.testing.repository.PersonRepository;
 import org.santayn.testing.repository.RoleRepository;
 import org.santayn.testing.repository.SubjectRepository;
@@ -70,6 +72,7 @@ public class DataLoader implements CommandLineRunner {
     private final SubjectRepository subjectRepository;
     private final FacultySubjectRepository facultySubjectRepository;
     private final TeachingLoadTypeRepository teachingLoadTypeRepository;
+    private final QuestionRepository questionRepository;
     private final MembershipService membershipService;
     private final FacultySubjectService facultySubjectService;
     private final CourseService courseService;
@@ -405,39 +408,72 @@ public class DataLoader implements CommandLineRunner {
                 topicName,
                 "Seed topic for question selection rules."
         );
-        Question textQuestion = ensureTopicQuestion(
-                lecture.getId(),
-                topic.getId(),
-                1,
-                101,
-                textQuestionText,
-                textCorrectAnswer
-        );
+
         Question singleAnswerQuestion = ensureTopicQuestion(
                 lecture.getId(),
                 topic.getId(),
-                2,
-                102,
+                QuestionTypeSupport.TYPE_SINGLE,
+                101,
                 singleQuestionText,
-                null
+                null,
+                List.of()
         );
         ensureQuestionOption(singleAnswerQuestion.getId(), 1, wrongOptionOne, false);
         ensureQuestionOption(singleAnswerQuestion.getId(), 2, correctOption, true);
         ensureQuestionOption(singleAnswerQuestion.getId(), 3, wrongOptionTwo, false);
+
+        Question multipleAnswerQuestion = ensureTopicQuestion(
+                lecture.getId(),
+                topic.getId(),
+                QuestionTypeSupport.TYPE_MULTIPLE,
+                102,
+                "Выберите два верных утверждения по теме «" + topicName + "».",
+                null,
+                List.of()
+        );
+        ensureQuestionOption(multipleAnswerQuestion.getId(), 1, "Материал темы относится к выбранному предмету.", true);
+        ensureQuestionOption(multipleAnswerQuestion.getId(), 2, "Тест проверяет знания по материалу темы.", true);
+        ensureQuestionOption(multipleAnswerQuestion.getId(), 3, "Тема не связана с лекцией курса.", false);
+        ensureQuestionOption(multipleAnswerQuestion.getId(), 4, "Любой ответ в тесте всегда считается верным.", false);
+
+        ensureTopicQuestion(
+                lecture.getId(),
+                topic.getId(),
+                QuestionTypeSupport.TYPE_MATCHING,
+                103,
+                "Соотнесите элементы колонки А с элементами колонки Б по теме «" + topicName + "».",
+                null,
+                List.of(
+                        new QuestionTypeSupport.MatchingPair(1, "Лекция", "Учебный материал"),
+                        new QuestionTypeSupport.MatchingPair(2, "Тема", "Раздел лекции"),
+                        new QuestionTypeSupport.MatchingPair(3, "Тест", "Проверка знаний")
+                )
+        );
+
+        ensureTopicQuestion(
+                lecture.getId(),
+                topic.getId(),
+                QuestionTypeSupport.TYPE_TEXT,
+                104,
+                textQuestionText,
+                textCorrectAnswer,
+                List.of()
+        );
 
         Test test = ensureTest(
                 testTitle,
                 testDescription,
                 LocalTime.of(0, 20),
                 2,
-                2,
+                4,
                 List.of(new TestService.SelectionRuleInput(
                         null,
                         topic.getId(),
-                        2,
+                        4,
                         1,
                         1,
-                        0,
+                        1,
+                        1,
                         1
                 ))
         );
@@ -619,32 +655,83 @@ public class DataLoader implements CommandLineRunner {
                                          int type,
                                          int ordinal,
                                          String questionText,
-                                         String correctAnswer) {
-        return questionService.findAll(null, topicId)
+                                         String correctAnswer,
+                                         List<QuestionTypeSupport.MatchingPair> matchingPairs) {
+        Question existing = questionService.findAll(null, topicId)
                 .stream()
                 .filter(item -> questionText.equals(item.getQuestion()))
                 .findFirst()
-                .orElseGet(() -> questionService.create(
-                        null,
-                        courseLectureId,
-                        topicId,
-                        type,
-                        questionText,
-                        BigDecimal.ONE,
-                        ordinal,
-                        correctAnswer
-                ));
+                .orElse(null);
+
+        freeQuestionOrdinal(topicId, ordinal, existing == null ? null : existing.getId());
+
+        if (existing == null) {
+            return questionService.create(
+                    null,
+                    courseLectureId,
+                    topicId,
+                    type,
+                    questionText,
+                    BigDecimal.ONE,
+                    ordinal,
+                    correctAnswer,
+                    matchingPairs
+            );
+        }
+
+        return questionService.update(
+                existing.getId(),
+                courseLectureId,
+                topicId,
+                type,
+                questionText,
+                existing.getPoints() == null ? BigDecimal.ONE : existing.getPoints(),
+                ordinal,
+                correctAnswer,
+                matchingPairs,
+                true
+        );
+    }
+
+
+    private void freeQuestionOrdinal(Integer topicId, int ordinal, Long excludedQuestionId) {
+        List<Question> questions = questionService.findAll(null, topicId);
+        Question conflict = questions.stream()
+                .filter(item -> item.getOrdinal() == ordinal)
+                .filter(item -> excludedQuestionId == null || !excludedQuestionId.equals(item.getId()))
+                .findFirst()
+                .orElse(null);
+        if (conflict == null) {
+            return;
+        }
+
+        int maxOrdinal = questions.stream()
+                .mapToInt(Question::getOrdinal)
+                .max()
+                .orElse(ordinal);
+        conflict.setOrdinal(maxOrdinal + 100);
+        questionRepository.save(conflict);
+        questionRepository.flush();
     }
 
     private QuestionOption ensureQuestionOption(Long questionId,
                                                 int ordinal,
                                                 String text,
                                                 boolean correct) {
-        return questionService.findOptions(questionId)
+        QuestionOption existing = questionService.findOptions(questionId)
                 .stream()
-                .filter(option -> option.getOrdinal() == ordinal && text.equals(option.getText()))
+                .filter(option -> option.getOrdinal() == ordinal)
                 .findFirst()
-                .orElseGet(() -> questionService.addOption(questionId, text, ordinal, correct));
+                .orElse(null);
+
+        if (existing == null) {
+            return questionService.addOption(questionId, text, ordinal, correct);
+        }
+
+        if (!text.equals(existing.getText()) || existing.isCorrect() != correct) {
+            return questionService.updateOption(existing.getId(), text, ordinal, correct);
+        }
+        return existing;
     }
 
     private Test ensureTest(String title,

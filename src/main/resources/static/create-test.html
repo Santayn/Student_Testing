@@ -84,7 +84,7 @@
                         <input type="number" id="multipleAnswerQuestionCountInput" min="0" value="0">
                     </div>
                     <div>
-                        <label for="matchingQuestionCountInput">Matching</label>
+                        <label for="matchingQuestionCountInput">На соответствие</label>
                         <input type="number" id="matchingQuestionCountInput" min="0" value="0">
                     </div>
                 </div>
@@ -145,149 +145,147 @@
     const TEACHER_ROLE = 1;
 
     const state = {
-      user: null,
-      subjectMemberships: [],
-      subjects: [],
-      subjectAssignments: [],
-      topics: [],
-      groupTargets: [],
-      topicQuestions: []
+        user: null,
+        subjectMemberships: [],
+        subjects: [],
+        subjectAssignments: [],
+        topics: [],
+        groupTargets: [],
+        topicQuestions: []
     };
 
     const initialFilters = {
-      subjectId: StudentTestingApi.getQueryParam('subjectId'),
-      subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
-      topicId: StudentTestingApi.getQueryParam('topicId')
+        subjectId: StudentTestingApi.getQueryParam('subjectId'),
+        subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
+        topicId: StudentTestingApi.getQueryParam('topicId')
     };
 
     const el = id => document.getElementById(id);
 
     function showMessage(type, message) {
-      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+        el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
     function numberOrNull(value) {
-      return value ? Number(value) : null;
+        return value ? Number(value) : null;
     }
 
     function unique(values) {
-      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+        return [...new Set(values.filter(value => value !== null && value !== undefined))];
     }
 
     function localDateTimeValue(date) {
-      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-      return local.toISOString().slice(0, 16);
+        const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 16);
     }
 
     function instantFromInput(inputId) {
-      return new Date(el(inputId).value).toISOString();
+        return new Date(el(inputId).value).toISOString();
     }
 
     function selectedSubjectId() {
-      return numberOrNull(el('subjectSelect').value);
+        return numberOrNull(el('subjectSelect').value);
     }
 
     function selectedTopicId() {
-      return numberOrNull(el('topicSelect').value);
+        return numberOrNull(el('topicSelect').value);
     }
 
     function selectedSubjectMembership() {
-      const subjectId = selectedSubjectId();
-      if (!subjectId) {
-        return null;
-      }
-      return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
+        const subjectId = selectedSubjectId();
+        if (!subjectId) {
+            return null;
+        }
+        return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
     }
 
     function selectedGroupIds() {
-      return [...document.querySelectorAll('[data-group-checkbox]:checked')]
-        .map(input => Number(input.value))
-        .filter(Boolean);
+        return [...document.querySelectorAll('[data-group-checkbox]:checked')]
+            .map(input => Number(input.value))
+            .filter(Boolean);
     }
 
     function resolveInitialSelection(items, requestedId) {
-      if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
-        return String(requestedId);
-      }
-      if (items.length === 1) {
-        return String(items[0].id);
-      }
-      return '';
+        if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
+            return String(requestedId);
+        }
+        if (items.length === 1) {
+            return String(items[0].id);
+        }
+        return '';
     }
 
     function questionTypeLabel(type) {
-      if (Number(type) === 4) {
-        return 'Matching';
-      }
-      switch (Number(type)) {
-        case 1: return 'Текст';
-        case 2: return 'Один ответ';
-        case 3: return 'Несколько ответов';
-        default: return `Тип ${type}`;
-      }
+        switch (Number(type)) {
+            case 1: return 'Один вариант';
+            case 2: return 'Несколько вариантов';
+            case 3: return 'Соответствие';
+            case 4: return 'Текстовый ответ';
+            default: return `Тип ${type}`;
+        }
     }
 
     function buildQuestionsHref() {
-      const params = new URLSearchParams();
-      const subjectId = selectedSubjectId();
-      const membership = selectedSubjectMembership();
-      const topicId = selectedTopicId();
-      if (subjectId) {
-        params.set('subjectId', String(subjectId));
-      }
-      if (membership) {
-        params.set('subjectMembershipId', String(membership.id));
-      }
-      if (topicId) {
-        params.set('topicId', String(topicId));
-      }
-      return `/questions-page.html?${params.toString()}`;
+        const params = new URLSearchParams();
+        const subjectId = selectedSubjectId();
+        const membership = selectedSubjectMembership();
+        const topicId = selectedTopicId();
+        if (subjectId) {
+            params.set('subjectId', String(subjectId));
+        }
+        if (membership) {
+            params.set('subjectMembershipId', String(membership.id));
+        }
+        if (topicId) {
+            params.set('topicId', String(topicId));
+        }
+        return `/questions-page.html?${params.toString()}`;
     }
 
     function buildTopicLibraryHref() {
-      const params = new URLSearchParams();
-      const subjectId = selectedSubjectId();
-      const membership = selectedSubjectMembership();
-      const topicId = selectedTopicId();
-      if (subjectId) {
-        params.set('subjectId', String(subjectId));
-      }
-      if (membership) {
-        params.set('subjectMembershipId', String(membership.id));
-      }
-      if (topicId) {
-        params.set('topicId', String(topicId));
-      }
-      const query = params.toString();
-      return query ? `/manage-topic-library.html?${query}` : '/manage-topic-library.html';
+        const params = new URLSearchParams();
+        const subjectId = selectedSubjectId();
+        const membership = selectedSubjectMembership();
+        const topicId = selectedTopicId();
+        if (subjectId) {
+            params.set('subjectId', String(subjectId));
+        }
+        if (membership) {
+            params.set('subjectMembershipId', String(membership.id));
+        }
+        if (topicId) {
+            params.set('topicId', String(topicId));
+        }
+        const query = params.toString();
+        return query ? `/manage-topic-library.html?${query}` : '/manage-topic-library.html';
     }
 
     function renderTopicSelect() {
-      const select = el('topicSelect');
-      if (!state.topics.length) {
-        select.innerHTML = '<option value="">В библиотеке предмета пока нет тематик</option>';
-        select.disabled = true;
-        return;
-      }
-      select.innerHTML = '<option value="">Выберите тематику</option>' +
-        state.topics.map(topic => `<option value="${topic.id}">${html(`${topic.ordinal}. ${topic.name}`)}</option>`).join('');
-      select.disabled = false;
+        const select = el('topicSelect');
+        if (!state.topics.length) {
+            select.innerHTML = '<option value="">В библиотеке предмета пока нет тематик</option>';
+            select.disabled = true;
+            return;
+        }
+        select.innerHTML = '<option value="">Выберите тематику</option>' +
+            state.topics.map(topic => `<option value="${topic.id}">${html(`${topic.ordinal}. ${topic.name}`)}</option>`).join('');
+        select.disabled = false;
     }
 
     function renderGroupChecklist() {
-      const container = el('groupChecklist');
-      if (!selectedSubjectId()) {
-        container.className = 'selection-checklist empty';
-        container.innerHTML = 'Сначала выберите предмет.';
-        return;
-      }
-      if (!state.groupTargets.length) {
-        container.className = 'selection-checklist empty';
-        container.innerHTML = 'Для этого предмета пока нет активных назначений на учебные группы.';
-        return;
-      }
-      container.className = 'selection-checklist';
-      container.innerHTML = state.groupTargets.map(target => `
+        const container = el('groupChecklist');
+        if (!selectedSubjectId()) {
+            container.className = 'selection-checklist empty';
+            container.innerHTML = 'Сначала выберите предмет.';
+            return;
+        }
+        if (!state.groupTargets.length) {
+            container.className = 'selection-checklist empty';
+            container.innerHTML = 'Для этого предмета пока нет активных назначений на учебные группы.';
+            return;
+        }
+        container.className = 'selection-checklist';
+        container.innerHTML = state.groupTargets.map(target => `
         <label class="check selection-check">
             <input type="checkbox" data-group-checkbox value="${target.groupId}">
             <span>
@@ -299,46 +297,47 @@
     }
 
     function renderQuestionPreview() {
-      const topicId = selectedTopicId();
-      const manageQuestionsLink = el('manageQuestionsLink');
-      const manageTopicsLink = el('manageTopicsLink');
-      manageQuestionsLink.href = buildQuestionsHref();
-      manageQuestionsLink.classList.toggle('hidden', !topicId);
-      manageTopicsLink.href = buildTopicLibraryHref();
+        const topicId = selectedTopicId();
+        const manageQuestionsLink = el('manageQuestionsLink');
+        const manageTopicsLink = el('manageTopicsLink');
+        manageQuestionsLink.href = buildQuestionsHref();
+        manageQuestionsLink.classList.toggle('hidden', !topicId);
+        manageTopicsLink.href = buildTopicLibraryHref();
 
-      const questions = state.topicQuestions.slice().sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
-      el('questionCountBadge').textContent = String(questions.length);
+        const questions = state.topicQuestions.slice().sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
+        el('questionCountBadge').textContent = String(questions.length);
 
-      if (!topicId) {
-        el('topicHint').innerHTML = state.topics.length
-          ? 'Выберите тематику этого теста. Если нужно создать новую, откройте библиотеку тематик.'
-          : `Для предмета пока нет тематик. Сначала заполните их в разделе <a href="${buildTopicLibraryHref()}">Тематики</a>.`;
-        el('questionPoolSummary').textContent = 'Вопросы не выбраны.';
-        el('topicQuestionList').className = 'empty';
-        el('topicQuestionList').innerHTML = 'Список вопросов пуст.';
-        updateRuleSummary();
-        return;
-      }
+        if (!topicId) {
+            el('topicHint').innerHTML = state.topics.length
+                ? 'Выберите тематику этого теста. Если нужно создать новую, откройте библиотеку тематик.'
+                : `Для предмета пока нет тематик. Сначала заполните их в разделе <a href="${buildTopicLibraryHref()}">Тематики</a>.`;
+            el('questionPoolSummary').textContent = 'Вопросы не выбраны.';
+            el('topicQuestionList').className = 'empty';
+            el('topicQuestionList').innerHTML = 'Список вопросов пуст.';
+            updateRuleSummary();
+            return;
+        }
 
-      const activeQuestions = questions.filter(question => question.active);
-      const textCount = activeQuestions.filter(question => Number(question.type) === 1).length;
-      const singleCount = activeQuestions.filter(question => Number(question.type) === 2).length;
-      const multipleCount = activeQuestions.filter(question => Number(question.type) === 3).length;
-      const matchingCount = activeQuestions.filter(question => Number(question.type) === 4).length;
+        const activeQuestions = questions.filter(question => question.active);
+        const singleCount = activeQuestions.filter(question => Number(question.type) === 1).length;
+        const multipleCount = activeQuestions.filter(question => Number(question.type) === 2).length;
+        const matchingCount = activeQuestions.filter(question => Number(question.type) === 3).length;
+        const textCount = activeQuestions.filter(question => Number(question.type) === 4).length;
 
-      el('topicHint').innerHTML = `Управляйте вопросами темы в разделе <a href="${buildQuestionsHref()}">Вопросы</a>.`;
-      el('questionPoolSummary').textContent = `Всего вопросов: ${questions.length}. Активных: ${activeQuestions.length}. Текстовых: ${textCount}. С одним ответом: ${singleCount}. С несколькими ответами: ${multipleCount}.`;
+        el('topicHint').innerHTML = `Управляйте вопросами темы в разделе <a href="${buildQuestionsHref()}">Вопросы</a>.`;
+        el('questionPoolSummary').textContent =
+            `Всего вопросов: ${questions.length}. Активных: ${activeQuestions.length}. ` +
+            `С одним вариантом: ${singleCount}. С несколькими вариантами: ${multipleCount}. ` +
+            `На соответствие: ${matchingCount}. Текстовых: ${textCount}.`;
+        if (!questions.length) {
+            el('topicQuestionList').className = 'empty';
+            el('topicQuestionList').innerHTML = 'В выбранной тематике пока нет вопросов.';
+            updateRuleSummary();
+            return;
+        }
 
-      el('questionPoolSummary').textContent += ` Matching: ${matchingCount}.`;
-      if (!questions.length) {
-        el('topicQuestionList').className = 'empty';
-        el('topicQuestionList').innerHTML = 'В выбранной тематике пока нет вопросов.';
-        updateRuleSummary();
-        return;
-      }
-
-      el('topicQuestionList').className = 'list';
-      el('topicQuestionList').innerHTML = questions.map(question => `
+        el('topicQuestionList').className = 'list';
+        el('topicQuestionList').innerHTML = questions.map(question => `
         <div class="list-group-item">
             <div class="row-start">
                 <span class="badge ${question.active ? 'badge-ok' : ''}">${html(questionTypeLabel(question.type))}</span>
@@ -348,265 +347,268 @@
             <div class="panel-gap-sm"><b>${html(question.question)}</b></div>
         </div>
       `).join('');
-      updateRuleSummary();
+        updateRuleSummary();
     }
 
     function updateRuleSummary() {
-      const totalRequested = Number(el('questionCountInput').value || 0);
-      const textRequested = Number(el('textQuestionCountInput').value || 0);
-      const singleRequested = Number(el('singleAnswerQuestionCountInput').value || 0);
-      const multipleRequested = Number(el('multipleAnswerQuestionCountInput').value || 0);
-      const matchingRequested = Number(el('matchingQuestionCountInput').value || 0);
-      const fixedCount = textRequested + singleRequested + multipleRequested + matchingRequested;
+        const totalRequested = Number(el('questionCountInput').value || 0);
+        const textRequested = Number(el('textQuestionCountInput').value || 0);
+        const singleRequested = Number(el('singleAnswerQuestionCountInput').value || 0);
+        const multipleRequested = Number(el('multipleAnswerQuestionCountInput').value || 0);
+        const matchingRequested = Number(el('matchingQuestionCountInput').value || 0);
+        const fixedCount = textRequested + singleRequested + multipleRequested + matchingRequested;
 
-      if (!selectedTopicId()) {
-        el('ruleSummary').textContent = 'Выберите тематику. После этого можно точно настроить состав вопросов.';
-        return;
-      }
+        if (!selectedTopicId()) {
+            el('ruleSummary').textContent = 'Выберите тематику. После этого можно точно настроить состав вопросов.';
+            return;
+        }
 
-      el('ruleSummary').textContent =
-        `В тесте будет ${totalRequested} вопросов. ` +
-        `Из них: текстовых ${textRequested}, с одним ответом ${singleRequested}, ` +
-        `с несколькими ответами ${multipleRequested}. ` +
-        `Остальные ${Math.max(0, totalRequested - fixedCount)} будут выбраны автоматически из активных вопросов темы.`;
+        el('ruleSummary').textContent =
+            `В тесте будет ${totalRequested} вопросов. ` +
+            `Из них: с одним вариантом ${singleRequested}, с несколькими вариантами ${multipleRequested}, ` +
+            `на соответствие ${matchingRequested}, текстовых ${textRequested}. ` +
+            `Остальные ${Math.max(0, totalRequested - fixedCount)} будут выбраны автоматически из активных вопросов темы.`;
     }
 
     async function loadLectureTargets() {
-      state.groupTargets = [];
-      renderGroupChecklist();
+        state.groupTargets = [];
+        renderGroupChecklist();
 
-      const activeAssignments = state.subjectAssignments.filter(item => Number(item.status) === 1);
-      const groupIds = unique(activeAssignments.map(item => Number(item.groupId)));
+        const activeAssignments = state.subjectAssignments.filter(item => Number(item.status) === 1);
+        const groupIds = unique(activeAssignments.map(item => Number(item.groupId)));
 
-      const groups = groupIds.length
-        ? await Promise.all(groupIds.map(id => api(`/groups/${encodeURIComponent(id)}`)))
-        : [];
-      const groupsById = new Map(groups.map(group => [Number(group.id), group]));
+        const groups = groupIds.length
+            ? await Promise.all(groupIds.map(id => api(`/groups/${encodeURIComponent(id)}`)))
+            : [];
+        const groupsById = new Map(groups.map(group => [Number(group.id), group]));
 
-      state.groupTargets = groupIds
-        .map(groupId => {
-          const relatedAssignments = activeAssignments
-            .filter(item => Number(item.groupId) === Number(groupId));
-          const group = groupsById.get(Number(groupId));
-          return {
-            groupId: Number(groupId),
-            groupName: group ? group.name : `Группа #${groupId}`,
-            assignmentIds: unique(relatedAssignments.map(item => Number(item.id)))
-          };
-        })
-        .filter(target => target.assignmentIds.length)
-        .sort((left, right) => String(left.groupName).localeCompare(String(right.groupName), 'ru'));
+        state.groupTargets = groupIds
+            .map(groupId => {
+                const relatedAssignments = activeAssignments
+                    .filter(item => Number(item.groupId) === Number(groupId));
+                const group = groupsById.get(Number(groupId));
+                return {
+                    groupId: Number(groupId),
+                    groupName: group ? group.name : `Группа #${groupId}`,
+                    assignmentIds: unique(relatedAssignments.map(item => Number(item.id)))
+                };
+            })
+            .filter(target => target.assignmentIds.length)
+            .sort((left, right) => String(left.groupName).localeCompare(String(right.groupName), 'ru'));
 
-      renderGroupChecklist();
+        renderGroupChecklist();
     }
 
     async function loadSubjects() {
-      state.user = await StudentTestingApi.loadCurrentUser();
-      if (!state.user.personId) {
-        throw new Error('Не удалось определить преподавателя по текущему профилю.');
-      }
+        state.user = await StudentTestingApi.loadCurrentUser();
+        if (!state.user.personId) {
+            throw new Error('Не удалось определить преподавателя по текущему профилю.');
+        }
 
-      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
-      state.subjectMemberships = memberships
-        .filter(item => Number(item.role) === TEACHER_ROLE)
-        .sort((left, right) => Number(left.id) - Number(right.id));
+        const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
+        state.subjectMemberships = memberships
+            .filter(item => Number(item.role) === TEACHER_ROLE)
+            .sort((left, right) => Number(left.id) - Number(right.id));
 
-      const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
-      state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+        const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
+        state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
 
-      const select = el('subjectSelect');
-      if (!state.subjects.length) {
-        select.innerHTML = '<option value="">Нет доступных предметов</option>';
-        select.disabled = true;
-        renderGroupChecklist();
-        renderTopicSelect();
-        return;
-      }
+        const select = el('subjectSelect');
+        if (!state.subjects.length) {
+            select.innerHTML = '<option value="">Нет доступных предметов</option>';
+            select.disabled = true;
+            renderGroupChecklist();
+            renderTopicSelect();
+            return;
+        }
 
-      select.disabled = false;
-      select.innerHTML = '<option value="">Выберите предмет</option>' +
-        state.subjects
-          .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
-          .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
-          .join('');
+        select.disabled = false;
+        select.innerHTML = '<option value="">Выберите предмет</option>' +
+            state.subjects
+                .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
+                .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
+                .join('');
 
-      const preferredMembership = initialFilters.subjectMembershipId
-        ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
-        : null;
-      const selectedId = preferredMembership
-        ? String(preferredMembership.subjectId)
-        : resolveInitialSelection(state.subjects, initialFilters.subjectId);
-      if (selectedId) {
-        select.value = selectedId;
-        await loadSubjectContext();
-      } else {
-        renderGroupChecklist();
-        renderTopicSelect();
-      }
+        const preferredMembership = initialFilters.subjectMembershipId
+            ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
+            : null;
+        const selectedId = preferredMembership
+            ? String(preferredMembership.subjectId)
+            : resolveInitialSelection(state.subjects, initialFilters.subjectId);
+        if (selectedId) {
+            select.value = selectedId;
+            await loadSubjectContext();
+        } else {
+            renderGroupChecklist();
+            renderTopicSelect();
+        }
     }
 
     async function loadSubjectContext() {
-      state.subjectAssignments = [];
-      state.topics = [];
-      state.groupTargets = [];
-      state.topicQuestions = [];
-      el('topicSelect').innerHTML = '<option value="">Загрузка...</option>';
-      el('topicSelect').disabled = true;
+        state.subjectAssignments = [];
+        state.topics = [];
+        state.groupTargets = [];
+        state.topicQuestions = [];
+        el('topicSelect').innerHTML = '<option value="">Загрузка...</option>';
+        el('topicSelect').disabled = true;
 
-      const membership = selectedSubjectMembership();
-      if (!membership) {
-        renderGroupChecklist();
+        const membership = selectedSubjectMembership();
+        if (!membership) {
+            renderGroupChecklist();
+            renderTopicSelect();
+            renderQuestionPreview();
+            return;
+        }
+
+        const [topics, assignments] = await Promise.all([
+            api(`/topics?subjectMembershipId=${encodeURIComponent(membership.id)}`),
+            api(`/teaching/assignments?subjectMembershipId=${encodeURIComponent(membership.id)}&status=1`)
+        ]);
+
+        state.topics = topics.sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
+        state.subjectAssignments = assignments;
         renderTopicSelect();
-        renderQuestionPreview();
-        return;
-      }
+        await loadLectureTargets();
 
-      const [topics, assignments] = await Promise.all([
-        api(`/topics?subjectMembershipId=${encodeURIComponent(membership.id)}`),
-        api(`/teaching/assignments?subjectMembershipId=${encodeURIComponent(membership.id)}&status=1`)
-      ]);
-
-      state.topics = topics.sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
-      state.subjectAssignments = assignments;
-      renderTopicSelect();
-      await loadLectureTargets();
-
-      const selectedId = resolveInitialSelection(state.topics, initialFilters.topicId);
-      if (selectedId) {
-        el('topicSelect').value = selectedId;
-        await loadTopicQuestions();
-      } else {
-        renderQuestionPreview();
-      }
+        const selectedId = resolveInitialSelection(state.topics, initialFilters.topicId);
+        if (selectedId) {
+            el('topicSelect').value = selectedId;
+            await loadTopicQuestions();
+        } else {
+            renderQuestionPreview();
+        }
     }
 
     async function loadTopicQuestions() {
-      const topicId = selectedTopicId();
-      state.topicQuestions = topicId
-        ? await api(`/questions?topicId=${encodeURIComponent(topicId)}`)
-        : [];
-      renderQuestionPreview();
+        const topicId = selectedTopicId();
+        state.topicQuestions = topicId
+            ? await api(`/questions?topicId=${encodeURIComponent(topicId)}`)
+            : [];
+        renderQuestionPreview();
     }
 
     async function createTest(event) {
-      event.preventDefault();
-      showMessage('', '');
+        event.preventDefault();
+        showMessage('', '');
 
-      const membership = selectedSubjectMembership();
-      const topicId = selectedTopicId();
-      const groupIds = selectedGroupIds();
-      if (!membership || !topicId) {
-        showMessage('error', 'Выберите предмет и тематику.');
-        return;
-      }
-      if (!groupIds.length) {
-        showMessage('error', 'Выберите хотя бы одну группу.');
-        return;
-      }
+        const membership = selectedSubjectMembership();
+        const topicId = selectedTopicId();
+        const groupIds = selectedGroupIds();
+        if (!membership || !topicId) {
+            showMessage('error', 'Выберите предмет и тематику.');
+            return;
+        }
+        if (!groupIds.length) {
+            showMessage('error', 'Выберите хотя бы одну группу.');
+            return;
+        }
 
-      const questionCount = Number(el('questionCountInput').value || 0);
-      const textQuestionCount = Number(el('textQuestionCountInput').value || 0);
-      const singleAnswerQuestionCount = Number(el('singleAnswerQuestionCountInput').value || 0);
-      const multipleAnswerQuestionCount = Number(el('multipleAnswerQuestionCountInput').value || 0);
-      const matchingQuestionCount = Number(el('matchingQuestionCountInput').value || 0);
-      const fixedCount = textQuestionCount + singleAnswerQuestionCount + multipleAnswerQuestionCount + matchingQuestionCount;
+        const questionCount = Number(el('questionCountInput').value || 0);
+        const textQuestionCount = Number(el('textQuestionCountInput').value || 0);
+        const singleAnswerQuestionCount = Number(el('singleAnswerQuestionCountInput').value || 0);
+        const multipleAnswerQuestionCount = Number(el('multipleAnswerQuestionCountInput').value || 0);
+        const matchingQuestionCount = Number(el('matchingQuestionCountInput').value || 0);
+        const fixedCount = textQuestionCount + singleAnswerQuestionCount + multipleAnswerQuestionCount + matchingQuestionCount;
 
-      if (questionCount < 1) {
-        showMessage('error', 'Количество вопросов должно быть больше нуля.');
-        return;
-      }
-      if (fixedCount > questionCount) {
-        showMessage('error', 'Сумма вопросов по типам не может превышать общее количество.');
-        return;
-      }
+        if (questionCount < 1) {
+            showMessage('error', 'Количество вопросов должно быть больше нуля.');
+            return;
+        }
+        if (fixedCount > questionCount) {
+            showMessage('error', 'Сумма вопросов по типам не может превышать общее количество.');
+            return;
+        }
 
-      const activeQuestions = state.topicQuestions.filter(question => question.active);
-      const activeText = activeQuestions.filter(question => Number(question.type) === 1).length;
-      const activeSingle = activeQuestions.filter(question => Number(question.type) === 2).length;
-      const activeMultiple = activeQuestions.filter(question => Number(question.type) === 3).length;
-      const activeMatching = activeQuestions.filter(question => Number(question.type) === 4).length;
-      if (activeQuestions.length < questionCount) {
-        showMessage('error', 'В тематике недостаточно активных вопросов.');
-        return;
-      }
-      if (activeText < textQuestionCount || activeSingle < singleAnswerQuestionCount || activeMultiple < multipleAnswerQuestionCount) {
-        showMessage('error', 'В тематике недостаточно вопросов выбранных типов.');
-        return;
-      }
+        const activeQuestions = state.topicQuestions.filter(question => question.active);
+        const activeSingle = activeQuestions.filter(question => Number(question.type) === 1).length;
+        const activeMultiple = activeQuestions.filter(question => Number(question.type) === 2).length;
+        const activeMatching = activeQuestions.filter(question => Number(question.type) === 3).length;
+        const activeText = activeQuestions.filter(question => Number(question.type) === 4).length;
+        if (activeQuestions.length < questionCount) {
+            showMessage('error', 'В тематике недостаточно активных вопросов.');
+            return;
+        }
+        if (activeText < textQuestionCount
+            || activeSingle < singleAnswerQuestionCount
+            || activeMultiple < multipleAnswerQuestionCount
+            || activeMatching < matchingQuestionCount) {
+            showMessage('error', 'В тематике недостаточно вопросов выбранных типов.');
+            return;
+        }
 
-      const availableFromUtc = instantFromInput('availableFromInput');
-      const availableUntilUtc = instantFromInput('availableUntilInput');
-      if (new Date(availableFromUtc) >= new Date(availableUntilUtc)) {
-        showMessage('error', 'Дата окончания должна быть позже даты начала.');
-        return;
-      }
+        const availableFromUtc = instantFromInput('availableFromInput');
+        const availableUntilUtc = instantFromInput('availableUntilInput');
+        if (new Date(availableFromUtc) >= new Date(availableUntilUtc)) {
+            showMessage('error', 'Дата окончания должна быть позже даты начала.');
+            return;
+        }
 
-      const assignmentIds = unique(
-        state.groupTargets
-          .filter(target => groupIds.includes(target.groupId))
-          .flatMap(target => target.assignmentIds)
-      );
-      if (!assignmentIds.length) {
-        showMessage('error', 'Не удалось определить учебные назначения для выбранных групп.');
-        return;
-      }
-
-      el('submitBtn').disabled = true;
-      try {
-        const test = await api('/tests', {
-          method: 'POST',
-          body: JSON.stringify({
-            title: el('titleInput').value.trim(),
-            description: el('descriptionInput').value.trim() || null,
-            duration: null,
-            attemptsAllowed: Number(el('attemptsInput').value || 1),
-            questionCount,
-            selectionRules: [{
-              courseLectureId: null,
-              topicId,
-              questionCount,
-              textQuestionCount,
-              singleAnswerQuestionCount,
-              multipleAnswerQuestionCount,
-              ordinal: 1
-            }]
-          })
-        });
-
-        await Promise.all(assignmentIds.map(assignmentId => api(`/tests/${encodeURIComponent(test.id)}/assignments`, {
-          method: 'POST',
-          body: JSON.stringify({
-            scope: 4,
-            courseVersionId: null,
-            courseLectureId: null,
-            teachingAssignmentId: assignmentId,
-            availableFromUtc,
-            availableUntilUtc,
-            status: Number(el('statusSelect').value)
-          })
-        })));
-
-        showMessage(
-          'success',
-          `Тест #${html(test.id)} создан в предмете и назначен выбранным группам. ` +
-          `<a href="${buildQuestionsHref()}">Открыть вопросы темы</a>.`
+        const assignmentIds = unique(
+            state.groupTargets
+                .filter(target => groupIds.includes(target.groupId))
+                .flatMap(target => target.assignmentIds)
         );
-      } catch (error) {
-        showMessage('error', html(error.message));
-      } finally {
-        el('submitBtn').disabled = false;
-      }
+        if (!assignmentIds.length) {
+            showMessage('error', 'Не удалось определить учебные назначения для выбранных групп.');
+            return;
+        }
+
+        el('submitBtn').disabled = true;
+        try {
+            const test = await api('/tests', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title: el('titleInput').value.trim(),
+                    description: el('descriptionInput').value.trim() || null,
+                    duration: null,
+                    attemptsAllowed: Number(el('attemptsInput').value || 1),
+                    questionCount,
+                    selectionRules: [{
+                        courseLectureId: null,
+                        topicId,
+                        questionCount,
+                        textQuestionCount,
+                        singleAnswerQuestionCount,
+                        multipleAnswerQuestionCount,
+                        ordinal: 1
+                    }]
+                })
+            });
+
+            await Promise.all(assignmentIds.map(assignmentId => api(`/tests/${encodeURIComponent(test.id)}/assignments`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    scope: 4,
+                    courseVersionId: null,
+                    courseLectureId: null,
+                    teachingAssignmentId: assignmentId,
+                    availableFromUtc,
+                    availableUntilUtc,
+                    status: Number(el('statusSelect').value)
+                })
+            })));
+
+            showMessage(
+                'success',
+                `Тест #${html(test.id)} создан в предмете и назначен выбранным группам. ` +
+                `<a href="${buildQuestionsHref()}">Открыть вопросы темы</a>.`
+            );
+        } catch (error) {
+            showMessage('error', html(error.message));
+        } finally {
+            el('submitBtn').disabled = false;
+        }
     }
 
     function setDefaultDates() {
-      const now = new Date();
-      const until = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      el('availableFromInput').value = localDateTimeValue(now);
-      el('availableUntilInput').value = localDateTimeValue(until);
+        const now = new Date();
+        const until = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        el('availableFromInput').value = localDateTimeValue(now);
+        el('availableUntilInput').value = localDateTimeValue(until);
     }
 
     ['questionCountInput', 'textQuestionCountInput', 'singleAnswerQuestionCountInput', 'multipleAnswerQuestionCountInput']
-      .forEach(id => el(id).addEventListener('input', updateRuleSummary));
+        .forEach(id => el(id).addEventListener('input', updateRuleSummary));
 
     el('subjectSelect').addEventListener('change', () => loadSubjectContext().catch(error => showMessage('error', html(error.message))));
     el('topicSelect').addEventListener('change', () => loadTopicQuestions().catch(error => showMessage('error', html(error.message))));
@@ -618,10 +620,10 @@
     renderQuestionPreview();
 
     if (StudentTestingApi.requireAuth()) {
-      loadSubjects().catch(error => {
-        el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
-        showMessage('error', html(error.message));
-      });
+        loadSubjects().catch(error => {
+            el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
+            showMessage('error', html(error.message));
+        });
     }
 </script>
 </body>

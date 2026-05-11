@@ -13,7 +13,7 @@
     <a href="/main.html">Главная</a>
     <a href="/subjects.html">Предметы</a>
     <a href="/about.html">О платформе</a>
-    <a class="teacher-only" href="/manage_students.html">Управление студентами</a>
+    <a href="/manage_students.html">Студенты по группам</a>
     <a class="teacher-only" href="/manage-teachers.html">Учебная нагрузка</a>
     <a class="teacher-only" href="/users.html">Управление ролями</a>
     <a class="teacher-only" href="/manage-teachers-subject.html">Преподаватели и предметы</a>
@@ -28,7 +28,7 @@
     <button type="button" id="logoutBtn" data-sidebar-logout>Выйти</button></aside>
 
 <main class="content">
-    <h1>Назначение студентов в группы</h1>
+    <h1>Назначение студентов по группам</h1>
     <div id="message" class="message"></div>
 
     <div class="layout">
@@ -82,98 +82,111 @@
     const REMOVED_STATUS = 3;
 
     const state = {
-      groups: [],
-      people: [],
-      groupMemberships: [],
-      allStudentMemberships: [],
-      selectedGroupId: null
+        groups: [],
+        people: [],
+        groupMemberships: [],
+        allStudentMemberships: [],
+        selectedGroupId: null
     };
 
     const el = id => document.getElementById(id);
 
     function showMessage(type, message) {
-      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+        el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
     function personName(person) {
-      const fullName = [person.lastName, person.firstName].filter(Boolean).join(' ').trim();
-      return fullName || person.email || `Person #${person.id}`;
+        const fullName = [person.lastName, person.firstName].filter(Boolean).join(' ').trim();
+        return fullName || person.email || `Person #${person.id}`;
     }
 
     function personById(id) {
-      return state.people.find(person => person.id === id);
+        return state.people.find(person => person.id === id);
+    }
+
+    function hasAdminRole(user) {
+        return StudentTestingApi.normalizeRoleNames(user).some(role => role.includes('ADMIN'));
     }
 
     async function init() {
-      await StudentTestingApi.loadCurrentUser();
-      const [groups, people] = await Promise.all([
-        api('/groups'),
-        api('/users/people?role=STUDENT')
-      ]);
-      state.groups = groups.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
-      state.people = people.sort((left, right) => personName(left).localeCompare(personName(right), 'ru'));
-      renderGroups();
-      renderMemberships();
-      selectFromQuery();
+        const currentUser = await StudentTestingApi.loadCurrentUser();
+        if (!hasAdminRole(currentUser)) {
+            showMessage('error', 'Доступ к назначению студентов по группам разрешён только администратору.');
+            el('groupSelect').disabled = true;
+            el('freeStudents').disabled = true;
+            el('assignedStudents').disabled = true;
+            el('addBtn').disabled = true;
+            el('removeBtn').disabled = true;
+            return;
+        }
+        const [groups, people] = await Promise.all([
+            api('/groups'),
+            api('/users/people?role=STUDENT')
+        ]);
+        state.groups = groups.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
+        state.people = people.sort((left, right) => personName(left).localeCompare(personName(right), 'ru'));
+        renderGroups();
+        renderMemberships();
+        selectFromQuery();
     }
 
     function renderGroups() {
-      const select = el('groupSelect');
-      select.disabled = !state.groups.length;
-      select.innerHTML = state.groups.length
-        ? '<option value="">Выберите группу</option>' +
-          state.groups.map(group => `<option value="${group.id}">${html(group.name || group.code || `Группа #${group.id}`)}</option>`).join('')
-        : '<option value="">Нет групп</option>';
+        const select = el('groupSelect');
+        select.disabled = !state.groups.length;
+        select.innerHTML = state.groups.length
+            ? '<option value="">Выберите группу</option>' +
+            state.groups.map(group => `<option value="${group.id}">${html(group.name || group.code || `Группа #${group.id}`)}</option>`).join('')
+            : '<option value="">Нет групп</option>';
     }
 
     async function loadMemberships() {
-      state.selectedGroupId = el('groupSelect').value ? Number(el('groupSelect').value) : null;
-      if (!state.selectedGroupId) {
-        state.groupMemberships = [];
-        state.allStudentMemberships = [];
-        renderMemberships();
-        return;
-      }
+        state.selectedGroupId = el('groupSelect').value ? Number(el('groupSelect').value) : null;
+        if (!state.selectedGroupId) {
+            state.groupMemberships = [];
+            state.allStudentMemberships = [];
+            renderMemberships();
+            return;
+        }
 
-      const [groupMemberships, allMemberships] = await Promise.all([
-        api(`/memberships/groups?groupId=${encodeURIComponent(state.selectedGroupId)}&activeOnly=true`),
-        api('/memberships/groups?activeOnly=true')
-      ]);
-      state.groupMemberships = groupMemberships.filter(item => item.role === STUDENT_ROLE);
-      state.allStudentMemberships = allMemberships.filter(item => item.role === STUDENT_ROLE);
-      renderMemberships();
+        const [groupMemberships, allMemberships] = await Promise.all([
+            api(`/memberships/groups?groupId=${encodeURIComponent(state.selectedGroupId)}&activeOnly=true`),
+            api('/memberships/groups?activeOnly=true')
+        ]);
+        state.groupMemberships = groupMemberships.filter(item => item.role === STUDENT_ROLE);
+        state.allStudentMemberships = allMemberships.filter(item => item.role === STUDENT_ROLE);
+        renderMemberships();
     }
 
     function renderMemberships() {
-      const assigned = state.groupMemberships
-        .map(membership => ({ membership, person: personById(membership.personId) }))
-        .filter(item => item.person);
-      const occupiedPersonIds = new Set(state.allStudentMemberships.map(item => item.personId));
-      const free = state.people.filter(person => !occupiedPersonIds.has(person.id));
+        const assigned = state.groupMemberships
+            .map(membership => ({ membership, person: personById(membership.personId) }))
+            .filter(item => item.person);
+        const occupiedPersonIds = new Set(state.allStudentMemberships.map(item => item.personId));
+        const free = state.people.filter(person => !occupiedPersonIds.has(person.id));
 
-      el('freeStudents').disabled = !state.selectedGroupId || !free.length;
-      el('assignedStudents').disabled = !state.selectedGroupId || !assigned.length;
-      el('addBtn').disabled = !state.selectedGroupId || !free.length;
-      el('removeBtn').disabled = !state.selectedGroupId || !assigned.length;
+        el('freeStudents').disabled = !state.selectedGroupId || !free.length;
+        el('assignedStudents').disabled = !state.selectedGroupId || !assigned.length;
+        el('addBtn').disabled = !state.selectedGroupId || !free.length;
+        el('removeBtn').disabled = !state.selectedGroupId || !assigned.length;
 
-      el('freeStudents').innerHTML = free.map(person => `<option value="${person.id}">${html(personName(person))}</option>`).join('');
-      el('assignedStudents').innerHTML = assigned
-        .map(item => `<option value="${item.membership.id}">${html(personName(item.person))}</option>`)
-        .join('');
+        el('freeStudents').innerHTML = free.map(person => `<option value="${person.id}">${html(personName(person))}</option>`).join('');
+        el('assignedStudents').innerHTML = assigned
+            .map(item => `<option value="${item.membership.id}">${html(personName(item.person))}</option>`)
+            .join('');
 
-      if (!state.selectedGroupId) {
-        el('assignedList').className = 'empty';
-        el('assignedList').innerHTML = 'Выберите группу.';
-        return;
-      }
-      if (!assigned.length) {
-        el('assignedList').className = 'empty';
-        el('assignedList').innerHTML = 'В группе пока нет студентов.';
-        return;
-      }
+        if (!state.selectedGroupId) {
+            el('assignedList').className = 'empty';
+            el('assignedList').innerHTML = 'Выберите группу.';
+            return;
+        }
+        if (!assigned.length) {
+            el('assignedList').className = 'empty';
+            el('assignedList').innerHTML = 'В группе пока нет студентов.';
+            return;
+        }
 
-      el('assignedList').className = '';
-      el('assignedList').innerHTML = `
+        el('assignedList').className = '';
+        el('assignedList').innerHTML = `
         <table>
           <thead><tr><th>Студент</th><th>Email</th><th>Membership</th><th>Примечание</th></tr></thead>
           <tbody>
@@ -190,64 +203,64 @@
     }
 
     async function addStudents() {
-      const personIds = [...el('freeStudents').selectedOptions].map(option => Number(option.value));
-      if (!state.selectedGroupId || !personIds.length) {
-        return;
-      }
-
-      const button = el('addBtn');
-      button.disabled = true;
-      try {
-        for (const personId of personIds) {
-          await api(`/memberships/groups/${encodeURIComponent(state.selectedGroupId)}`, {
-            method: 'POST',
-            body: JSON.stringify({
-              personId,
-              role: STUDENT_ROLE,
-              notes: el('notesInput').value.trim() || null
-            })
-          });
+        const personIds = [...el('freeStudents').selectedOptions].map(option => Number(option.value));
+        if (!state.selectedGroupId || !personIds.length) {
+            return;
         }
-        el('notesInput').value = '';
-        showMessage('success', 'Студенты добавлены в группу.');
-        await loadMemberships();
-      } catch (error) {
-        showMessage('error', html(error.message));
-      } finally {
-        renderMemberships();
-      }
+
+        const button = el('addBtn');
+        button.disabled = true;
+        try {
+            for (const personId of personIds) {
+                await api(`/memberships/groups/${encodeURIComponent(state.selectedGroupId)}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        personId,
+                        role: STUDENT_ROLE,
+                        notes: el('notesInput').value.trim() || null
+                    })
+                });
+            }
+            el('notesInput').value = '';
+            showMessage('success', 'Студенты добавлены в группу.');
+            await loadMemberships();
+        } catch (error) {
+            showMessage('error', html(error.message));
+        } finally {
+            renderMemberships();
+        }
     }
 
     async function removeStudents() {
-      const membershipIds = [...el('assignedStudents').selectedOptions].map(option => Number(option.value));
-      if (!membershipIds.length) {
-        return;
-      }
-
-      const button = el('removeBtn');
-      button.disabled = true;
-      try {
-        for (const membershipId of membershipIds) {
-          await api(`/memberships/groups/memberships/${encodeURIComponent(membershipId)}/status`, {
-            method: 'PUT',
-            body: JSON.stringify({ status: REMOVED_STATUS })
-          });
+        const membershipIds = [...el('assignedStudents').selectedOptions].map(option => Number(option.value));
+        if (!membershipIds.length) {
+            return;
         }
-        showMessage('success', 'Студенты сняты с группы.');
-        await loadMemberships();
-      } catch (error) {
-        showMessage('error', html(error.message));
-      } finally {
-        renderMemberships();
-      }
+
+        const button = el('removeBtn');
+        button.disabled = true;
+        try {
+            for (const membershipId of membershipIds) {
+                await api(`/memberships/groups/memberships/${encodeURIComponent(membershipId)}/status`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: REMOVED_STATUS })
+                });
+            }
+            showMessage('success', 'Студенты сняты с группы.');
+            await loadMemberships();
+        } catch (error) {
+            showMessage('error', html(error.message));
+        } finally {
+            renderMemberships();
+        }
     }
 
     function selectFromQuery() {
-      const groupId = StudentTestingApi.getQueryParam('groupId');
-      if (groupId && state.groups.some(group => String(group.id) === groupId)) {
-        el('groupSelect').value = groupId;
-        loadMemberships().catch(error => showMessage('error', html(error.message)));
-      }
+        const groupId = StudentTestingApi.getQueryParam('groupId');
+        if (groupId && state.groups.some(group => String(group.id) === groupId)) {
+            el('groupSelect').value = groupId;
+            loadMemberships().catch(error => showMessage('error', html(error.message)));
+        }
     }
 
     el('groupSelect').addEventListener('change', () => loadMemberships().catch(error => showMessage('error', html(error.message))));
@@ -255,10 +268,10 @@
     el('removeBtn').addEventListener('click', removeStudents);
 
     if (StudentTestingApi.requireAuth()) {
-      init().catch(error => {
-        el('groupSelect').innerHTML = '<option value="">Ошибка загрузки</option>';
-        showMessage('error', html(error.message));
-      });
+        init().catch(error => {
+            el('groupSelect').innerHTML = '<option value="">Ошибка загрузки</option>';
+            showMessage('error', html(error.message));
+        });
     }
 </script>
 </body>

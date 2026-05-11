@@ -8,7 +8,7 @@
         { id: "subjects", label: "Предметы", href: "/subjects.html", aliases: ["/kubstuTest/subjects"], roles: ["STUDENT", "TEACHER"] },
         { id: "instructions", label: "Инструкция", href: "/instructions.html" },
         { id: "about", label: "О платформе", href: "/about.html", aliases: ["/kubstuTest/about"] },
-        { id: "manage-students", label: "Управление студентами", href: "/manage_students.html", aliases: ["/kubstuTest/manage-students"], roles: ["TEACHER"] },
+        { id: "manage-students", label: "Студенты по группам", href: "/manage_students.html", aliases: ["/kubstuTest/manage-students"], roles: ["ADMIN"] },
         { id: "teaching-load", label: "Персональная нагрузка", href: "/manage-teachers.html", aliases: ["/kubstuTest/manage-teachers"], roles: ["TEACHER"] },
         { id: "users", label: "Управление ролями", href: "/users.html", roles: ["ADMIN"] },
         { id: "teacher-groups-admin", label: "Шаблоны нагрузки", href: "/manage-teacher-groups.html", aliases: ["/kubstuTest/manage-teachers-groups"], roles: ["ADMIN"] },

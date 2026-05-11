@@ -72,9 +72,10 @@
                             <div>
                                 <label for="type">Тип</label>
                                 <select id="type">
-                                    <option value="1">Текст</option>
-                                    <option value="2">Один ответ</option>
-                                    <option value="3">Несколько ответов</option>
+                                    <option value="1">Один вариант ответа</option>
+                                    <option value="2">Несколько вариантов ответа</option>
+                                    <option value="3">Соответствие колонок</option>
+                                    <option value="4">Текстовый ответ</option>
                                 </select>
                             </div>
                             <div>
@@ -87,8 +88,17 @@
                             </div>
                         </div>
 
-                        <label for="correctAnswer">Правильный ответ для текстового вопроса</label>
-                        <input id="correctAnswer" maxlength="2000">
+                        <div id="textAnswerBlock" class="hidden">
+                            <label for="correctAnswer">Правильный ответ для текстового вопроса</label>
+                            <input id="correctAnswer" maxlength="2000" placeholder="Например: Central Processing Unit | CPU">
+                            <div class="muted small">Можно указать несколько допустимых вариантов через символ | или с новой строки.</div>
+                        </div>
+
+                        <div id="matchingPairsBlock" class="hidden">
+                            <label for="matchingPairsText">Пары для сопоставления</label>
+                            <textarea id="matchingPairsText" maxlength="4000" placeholder="Колонка А -> Колонка Б&#10;Лекция -> Учебный материал&#10;Тест -> Проверка знаний"></textarea>
+                            <div class="muted small">Каждая строка — одна пара. Разделители: ->, =, | или ;. Нужно минимум две пары.</div>
+                        </div>
 
                         <label class="check">
                             <input id="active" type="checkbox" checked>
@@ -152,189 +162,204 @@
     const TEACHER_ROLE = 1;
 
     const state = {
-      user: null,
-      subjectMemberships: [],
-      subjects: [],
-      topics: [],
-      questions: [],
-      currentQuestionId: null,
-      currentQuestionType: 1
+        user: null,
+        subjectMemberships: [],
+        subjects: [],
+        topics: [],
+        questions: [],
+        currentQuestionId: null,
+        currentQuestionType: 1
     };
 
     const initialFilters = {
-      subjectId: StudentTestingApi.getQueryParam('subjectId'),
-      subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
-      topicId: StudentTestingApi.getQueryParam('topicId')
+        subjectId: StudentTestingApi.getQueryParam('subjectId'),
+        subjectMembershipId: StudentTestingApi.getQueryParam('subjectMembershipId'),
+        topicId: StudentTestingApi.getQueryParam('topicId')
     };
 
     const optionControls = [
-      document.getElementById('optionText'),
-      document.getElementById('optionOrdinal'),
-      document.getElementById('optionCorrect'),
-      document.getElementById('saveOptionBtn'),
-      document.getElementById('resetOptionBtn')
+        document.getElementById('optionText'),
+        document.getElementById('optionOrdinal'),
+        document.getElementById('optionCorrect'),
+        document.getElementById('saveOptionBtn'),
+        document.getElementById('resetOptionBtn')
     ];
 
     const el = id => document.getElementById(id);
 
     function showMessage(type, message) {
-      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+        el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
     function numberOrNull(value) {
-      return value ? Number(value) : null;
+        return value ? Number(value) : null;
     }
 
     function unique(values) {
-      return [...new Set(values.filter(value => value !== null && value !== undefined))];
+        return [...new Set(values.filter(value => value !== null && value !== undefined))];
     }
 
     function selectedSubjectId() {
-      return numberOrNull(el('subjectSelect').value);
+        return numberOrNull(el('subjectSelect').value);
     }
 
     function selectedTopicId() {
-      return numberOrNull(el('topicSelect').value);
+        return numberOrNull(el('topicSelect').value);
     }
 
     function selectedImportTopicId() {
-      return numberOrNull(el('importTopicSelect').value);
+        return numberOrNull(el('importTopicSelect').value);
     }
 
     function selectedSubjectMembership() {
-      const subjectId = selectedSubjectId();
-      if (!subjectId) {
-        return null;
-      }
-      return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
+        const subjectId = selectedSubjectId();
+        if (!subjectId) {
+            return null;
+        }
+        return state.subjectMemberships.find(item => Number(item.subjectId) === subjectId) || null;
     }
 
     function resolveInitialSelection(items, requestedId) {
-      if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
-        return String(requestedId);
-      }
-      if (items.length === 1) {
-        return String(items[0].id);
-      }
-      return '';
+        if (requestedId && items.some(item => String(item.id) === String(requestedId))) {
+            return String(requestedId);
+        }
+        if (items.length === 1) {
+            return String(items[0].id);
+        }
+        return '';
     }
 
     function questionTypeLabel(type) {
-      switch (Number(type)) {
-        case 1: return 'Текст';
-        case 2: return 'Один ответ';
-        case 3: return 'Несколько ответов';
-        default: return `Тип ${type}`;
-      }
+        switch (Number(type)) {
+            case 1: return 'Один вариант';
+            case 2: return 'Несколько вариантов';
+            case 3: return 'Соответствие';
+            case 4: return 'Текстовый ответ';
+            default: return `Тип ${type}`;
+        }
+    }
+
+    function isSelectableType(type) {
+        return Number(type) === 1 || Number(type) === 2;
+    }
+
+    function isMatchingType(type) {
+        return Number(type) === 3;
+    }
+
+    function isTextType(type) {
+        return Number(type) === 4;
     }
 
     function buildCreateTestHref() {
-      const params = new URLSearchParams();
-      const subjectId = selectedSubjectId();
-      const membership = selectedSubjectMembership();
-      const topicId = selectedTopicId();
-      if (subjectId) {
-        params.set('subjectId', String(subjectId));
-      }
-      if (membership) {
-        params.set('subjectMembershipId', String(membership.id));
-      }
-      if (topicId) {
-        params.set('topicId', String(topicId));
-      }
-      return `/create-test.html?${params.toString()}`;
+        const params = new URLSearchParams();
+        const subjectId = selectedSubjectId();
+        const membership = selectedSubjectMembership();
+        const topicId = selectedTopicId();
+        if (subjectId) {
+            params.set('subjectId', String(subjectId));
+        }
+        if (membership) {
+            params.set('subjectMembershipId', String(membership.id));
+        }
+        if (topicId) {
+            params.set('topicId', String(topicId));
+        }
+        return `/create-test.html?${params.toString()}`;
     }
 
     function buildTopicLibraryHref() {
-      const params = new URLSearchParams();
-      const subjectId = selectedSubjectId();
-      const membership = selectedSubjectMembership();
-      const topicId = selectedTopicId();
-      if (subjectId) {
-        params.set('subjectId', String(subjectId));
-      }
-      if (membership) {
-        params.set('subjectMembershipId', String(membership.id));
-      }
-      if (topicId) {
-        params.set('topicId', String(topicId));
-      }
-      const query = params.toString();
-      return query ? `/manage-topic-library.html?${query}` : '/manage-topic-library.html';
+        const params = new URLSearchParams();
+        const subjectId = selectedSubjectId();
+        const membership = selectedSubjectMembership();
+        const topicId = selectedTopicId();
+        if (subjectId) {
+            params.set('subjectId', String(subjectId));
+        }
+        if (membership) {
+            params.set('subjectMembershipId', String(membership.id));
+        }
+        if (topicId) {
+            params.set('topicId', String(topicId));
+        }
+        const query = params.toString();
+        return query ? `/manage-topic-library.html?${query}` : '/manage-topic-library.html';
     }
 
     function syncImportTopicSelect() {
-      el('importTopicSelect').innerHTML = el('topicSelect').innerHTML;
-      el('importTopicSelect').disabled = el('topicSelect').disabled;
-      if (selectedTopicId()) {
-        el('importTopicSelect').value = String(selectedTopicId());
-      }
+        el('importTopicSelect').innerHTML = el('topicSelect').innerHTML;
+        el('importTopicSelect').disabled = el('topicSelect').disabled;
+        if (selectedTopicId()) {
+            el('importTopicSelect').value = String(selectedTopicId());
+        }
     }
 
     function updateContextUI() {
-      const topicId = selectedTopicId();
-      const createTestLink = el('createTestLink');
-      const manageTopicLibraryLink = el('manageTopicLibraryLink');
-      createTestLink.href = buildCreateTestHref();
-      createTestLink.classList.toggle('hidden', !topicId);
-      manageTopicLibraryLink.href = buildTopicLibraryHref();
+        const topicId = selectedTopicId();
+        const createTestLink = el('createTestLink');
+        const manageTopicLibraryLink = el('manageTopicLibraryLink');
+        createTestLink.href = buildCreateTestHref();
+        createTestLink.classList.toggle('hidden', !topicId);
+        manageTopicLibraryLink.href = buildTopicLibraryHref();
 
-      el('questionFormFields').disabled = !topicId;
-      el('importWordBtn').disabled = !topicId;
-      el('questionFormHint').textContent = topicId
-        ? 'Можно редактировать вопрос и варианты ответа.'
-        : 'Выберите тематику преподавателя.';
+        el('questionFormFields').disabled = !topicId;
+        el('importWordBtn').disabled = !topicId;
+        el('questionFormHint').textContent = topicId
+            ? 'Можно редактировать вопрос и варианты ответа.'
+            : 'Выберите тематику преподавателя.';
 
-      if (!topicId) {
-        el('topicContextHint').innerHTML = state.topics.length
-          ? 'Выберите тематику преподавателя. Вопросы можно редактировать и затем использовать при создании тестов.'
-          : `Тематики для выбранного предмета пока не созданы. Сначала заполните раздел <a href="${buildTopicLibraryHref()}">Тематики</a>.`;
-      } else {
-        el('topicContextHint').innerHTML = `Вопросы этой темы готовы к редактированию. После наполнения можно <a href="${buildCreateTestHref()}">создать тест по тематике</a>.`;
-      }
+        if (!topicId) {
+            el('topicContextHint').innerHTML = state.topics.length
+                ? 'Выберите тематику преподавателя. Вопросы можно редактировать и затем использовать при создании тестов.'
+                : `Тематики для выбранного предмета пока не созданы. Сначала заполните раздел <a href="${buildTopicLibraryHref()}">Тематики</a>.`;
+        } else {
+            el('topicContextHint').innerHTML = `Вопросы этой темы готовы к редактированию. После наполнения можно <a href="${buildCreateTestHref()}">создать тест по тематике</a>.`;
+        }
     }
 
     function fillTopicSelect() {
-      const select = el('topicSelect');
-      if (!state.topics.length) {
-        select.innerHTML = '<option value="">В библиотеке предмета пока нет тематик</option>';
-        select.disabled = true;
-      } else {
-        select.innerHTML = '<option value="">Выберите тематику</option>' +
-          state.topics.map(topic => `<option value="${topic.id}">${html(`${topic.ordinal}. ${topic.name}`)}</option>`).join('');
-        select.disabled = false;
-      }
-      syncImportTopicSelect();
+        const select = el('topicSelect');
+        if (!state.topics.length) {
+            select.innerHTML = '<option value="">В библиотеке предмета пока нет тематик</option>';
+            select.disabled = true;
+        } else {
+            select.innerHTML = '<option value="">Выберите тематику</option>' +
+                state.topics.map(topic => `<option value="${topic.id}">${html(`${topic.ordinal}. ${topic.name}`)}</option>`).join('');
+            select.disabled = false;
+        }
+        syncImportTopicSelect();
     }
 
     function renderQuestions() {
-      const topicId = selectedTopicId();
-      const questions = state.questions.slice().sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
-      const activeQuestions = questions.filter(item => item.active);
-      const textCount = activeQuestions.filter(item => Number(item.type) === 1).length;
-      const singleCount = activeQuestions.filter(item => Number(item.type) === 2).length;
-      const multipleCount = activeQuestions.filter(item => Number(item.type) === 3).length;
+        const topicId = selectedTopicId();
+        const questions = state.questions.slice().sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
+        const activeQuestions = questions.filter(item => item.active);
+        const singleCount = activeQuestions.filter(item => Number(item.type) === 1).length;
+        const multipleCount = activeQuestions.filter(item => Number(item.type) === 2).length;
+        const matchingCount = activeQuestions.filter(item => Number(item.type) === 3).length;
+        const textCount = activeQuestions.filter(item => Number(item.type) === 4).length;
 
-      el('questionCount').textContent = String(questions.length);
-      if (!topicId) {
-        el('questionStats').textContent = 'Вопросы не выбраны.';
-        el('questionsList').className = 'empty';
-        el('questionsList').innerHTML = 'Список вопросов пуст.';
-        return;
-      }
+        el('questionCount').textContent = String(questions.length);
+        if (!topicId) {
+            el('questionStats').textContent = 'Вопросы не выбраны.';
+            el('questionsList').className = 'empty';
+            el('questionsList').innerHTML = 'Список вопросов пуст.';
+            return;
+        }
 
-      el('questionStats').textContent =
-        `Всего ${questions.length}. Активных ${activeQuestions.length}. ` +
-        `Текстовых ${textCount}. С одним ответом ${singleCount}. С несколькими ответами ${multipleCount}.`;
+        el('questionStats').textContent =
+            `Всего ${questions.length}. Активных ${activeQuestions.length}. ` +
+            `С одним вариантом ${singleCount}. С несколькими вариантами ${multipleCount}. ` +
+            `На соответствие ${matchingCount}. Текстовых ${textCount}.`;
 
-      if (!questions.length) {
-        el('questionsList').className = 'empty';
-        el('questionsList').innerHTML = 'В выбранной тематике пока нет вопросов.';
-        return;
-      }
+        if (!questions.length) {
+            el('questionsList').className = 'empty';
+            el('questionsList').innerHTML = 'В выбранной тематике пока нет вопросов.';
+            return;
+        }
 
-      el('questionsList').className = 'list';
-      el('questionsList').innerHTML = questions.map(question => `
+        el('questionsList').className = 'list';
+        el('questionsList').innerHTML = questions.map(question => `
         <div class="list-group-item">
             <div class="row">
                 <div class="row-start">
@@ -350,42 +375,86 @@
                 </div>
             </div>
             <div class="panel-gap-sm"><b>${html(question.question)}</b></div>
-            <div class="muted">${html(question.correctAnswer || '')}</div>
+            <div class="muted">${html(questionDisplayAnswer(question))}</div>
         </div>
       `).join('');
     }
 
+    function questionDisplayAnswer(question) {
+        if (isMatchingType(question.type)) {
+            const pairs = Array.isArray(question.matchingPairs) ? question.matchingPairs : [];
+            return pairs.map(pair => `${pair.left || '?'} -> ${pair.right || '-'}`).join(' | ');
+        }
+        return question.correctAnswer || '';
+    }
+
+    function matchingPairsToText(pairs) {
+        return (Array.isArray(pairs) ? pairs : [])
+            .sort((left, right) => Number(left.ordinal || 0) - Number(right.ordinal || 0))
+            .map(pair => `${pair.left || ''} -> ${pair.right || ''}`.trim())
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    function parseMatchingPairsText(value) {
+        return String(value || '')
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map((line, index) => {
+                const delimiterMatch = line.match(/\s*(?:->|=>|=|\||;)\s*/);
+                if (!delimiterMatch) {
+                    return null;
+                }
+                const left = line.slice(0, delimiterMatch.index).trim();
+                const right = line.slice(delimiterMatch.index + delimiterMatch[0].length).trim();
+                if (!left || !right) {
+                    return null;
+                }
+                return { ordinal: index + 1, left, right };
+            })
+            .filter(Boolean);
+    }
+
+    function syncQuestionTypeControls() {
+        const type = Number(el('type').value || state.currentQuestionType || 1);
+        el('textAnswerBlock').classList.toggle('hidden', !isTextType(type));
+        el('matchingPairsBlock').classList.toggle('hidden', !isMatchingType(type));
+        el('correctAnswer').disabled = !isTextType(type);
+        el('matchingPairsText').disabled = !isMatchingType(type);
+    }
+
     function resetOptionForm() {
-      el('optionId').value = '';
-      el('optionText').value = '';
-      el('optionOrdinal').value = '1';
-      el('optionCorrect').checked = false;
+        el('optionId').value = '';
+        el('optionText').value = '';
+        el('optionOrdinal').value = '1';
+        el('optionCorrect').checked = false;
     }
 
     function setOptionControlsEnabled(enabled) {
-      optionControls.forEach(control => {
-        control.disabled = !enabled;
-      });
+        optionControls.forEach(control => {
+            control.disabled = !enabled;
+        });
     }
 
     async function loadOptions(questionId) {
-      if (!questionId || Number(state.currentQuestionType) === 1) {
-        el('optionsHint').textContent = questionId
-          ? 'Для текстовых вопросов варианты ответа не используются.'
-          : 'Выберите вопрос для редактирования вариантов ответа.';
-        el('optionsList').innerHTML = '';
-        setOptionControlsEnabled(false);
-        resetOptionForm();
-        return;
-      }
+        if (!questionId || !isSelectableType(state.currentQuestionType)) {
+            el('optionsHint').textContent = questionId
+                ? 'Для этого типа вопроса варианты ответа не используются.'
+                : 'Выберите вопрос для редактирования вариантов ответа.';
+            el('optionsList').innerHTML = '';
+            setOptionControlsEnabled(false);
+            resetOptionForm();
+            return;
+        }
 
-      const options = await api(`/questions/${encodeURIComponent(questionId)}/options`);
-      const maxOrdinal = options.reduce((max, option) => Math.max(max, Number(option.ordinal || 0)), 0);
-      el('optionOrdinal').value = String(maxOrdinal + 1);
-      el('optionsHint').textContent = 'Варианты ответа отсортированы по порядку вывода.';
-      setOptionControlsEnabled(true);
-      el('optionsList').innerHTML = options.length
-        ? options.map(option => `
+        const options = await api(`/questions/${encodeURIComponent(questionId)}/options`);
+        const maxOrdinal = options.reduce((max, option) => Math.max(max, Number(option.ordinal || 0)), 0);
+        el('optionOrdinal').value = String(maxOrdinal + 1);
+        el('optionsHint').textContent = 'Варианты ответа отсортированы по порядку вывода.';
+        setOptionControlsEnabled(true);
+        el('optionsList').innerHTML = options.length
+            ? options.map(option => `
             <div class="list-group-item">
                 <div class="row">
                     <div>
@@ -396,283 +465,291 @@
                 </div>
             </div>
           `).join('')
-        : '<div class="empty">У этого вопроса пока нет вариантов ответа.</div>';
+            : '<div class="empty">У этого вопроса пока нет вариантов ответа.</div>';
     }
 
     function prepareQuestionDefaults() {
-      const maxOrdinal = state.questions.reduce((max, question) => Math.max(max, Number(question.ordinal || 0)), 0);
-      el('questionId').value = '';
-      el('questionFormTitle').textContent = 'Новый вопрос';
-      el('questionText').value = '';
-      el('type').value = '1';
-      el('points').value = '1';
-      el('ordinal').value = String(maxOrdinal + 1);
-      el('correctAnswer').value = '';
-      el('active').checked = true;
-      el('resetBtn').textContent = 'Очистить';
-      state.currentQuestionId = null;
-      state.currentQuestionType = 1;
-      resetOptionForm();
-      loadOptions(null).catch(error => showMessage('error', html(error.message)));
+        const maxOrdinal = state.questions.reduce((max, question) => Math.max(max, Number(question.ordinal || 0)), 0);
+        el('questionId').value = '';
+        el('questionFormTitle').textContent = 'Новый вопрос';
+        el('questionText').value = '';
+        el('type').value = '1';
+        el('points').value = '1';
+        el('ordinal').value = String(maxOrdinal + 1);
+        el('correctAnswer').value = '';
+        el('matchingPairsText').value = '';
+        el('active').checked = true;
+        el('resetBtn').textContent = 'Очистить';
+        state.currentQuestionId = null;
+        state.currentQuestionType = 1;
+        syncQuestionTypeControls();
+        resetOptionForm();
+        loadOptions(null).catch(error => showMessage('error', html(error.message)));
     }
 
     async function loadQuestions() {
-      const topicId = selectedTopicId();
-      state.questions = topicId
-        ? await api(`/questions?topicId=${encodeURIComponent(topicId)}`)
-        : [];
-      renderQuestions();
-      if (!state.currentQuestionId) {
-        prepareQuestionDefaults();
-      }
+        const topicId = selectedTopicId();
+        state.questions = topicId
+            ? await api(`/questions?topicId=${encodeURIComponent(topicId)}`)
+            : [];
+        renderQuestions();
+        if (!state.currentQuestionId) {
+            prepareQuestionDefaults();
+        }
     }
 
     async function loadSubjectContext() {
-      state.topics = [];
-      state.questions = [];
-      prepareQuestionDefaults();
+        state.topics = [];
+        state.questions = [];
+        prepareQuestionDefaults();
 
-      const membership = selectedSubjectMembership();
-      if (!membership) {
+        const membership = selectedSubjectMembership();
+        if (!membership) {
+            fillTopicSelect();
+            renderQuestions();
+            updateContextUI();
+            return;
+        }
+
+        state.topics = (await api(`/topics?subjectMembershipId=${encodeURIComponent(membership.id)}`))
+            .sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
         fillTopicSelect();
-        renderQuestions();
+
+        const selectedId = resolveInitialSelection(state.topics, initialFilters.topicId);
+        if (selectedId) {
+            el('topicSelect').value = selectedId;
+            await loadQuestions();
+        } else {
+            renderQuestions();
+        }
         updateContextUI();
-        return;
-      }
-
-      state.topics = (await api(`/topics?subjectMembershipId=${encodeURIComponent(membership.id)}`))
-        .sort((left, right) => Number(left.ordinal) - Number(right.ordinal));
-      fillTopicSelect();
-
-      const selectedId = resolveInitialSelection(state.topics, initialFilters.topicId);
-      if (selectedId) {
-        el('topicSelect').value = selectedId;
-        await loadQuestions();
-      } else {
-        renderQuestions();
-      }
-      updateContextUI();
     }
 
     async function loadSubjects() {
-      state.user = await StudentTestingApi.loadCurrentUser();
-      if (!state.user.personId) {
-        throw new Error('Не удалось определить преподавателя по текущему профилю.');
-      }
+        state.user = await StudentTestingApi.loadCurrentUser();
+        if (!state.user.personId) {
+            throw new Error('Не удалось определить преподавателя по текущему профилю.');
+        }
 
-      const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
-      state.subjectMemberships = memberships
-        .filter(item => Number(item.role) === TEACHER_ROLE)
-        .sort((left, right) => Number(left.id) - Number(right.id));
+        const memberships = await api(`/memberships/subjects?personId=${encodeURIComponent(state.user.personId)}&activeOnly=true`);
+        state.subjectMemberships = memberships
+            .filter(item => Number(item.role) === TEACHER_ROLE)
+            .sort((left, right) => Number(left.id) - Number(right.id));
 
-      const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
-      state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
+        const subjectIds = unique(state.subjectMemberships.map(item => item.subjectId));
+        state.subjects = await Promise.all(subjectIds.map(id => api(`/subjects/${encodeURIComponent(id)}`)));
 
-      const select = el('subjectSelect');
-      if (!state.subjects.length) {
-        select.innerHTML = '<option value="">Нет доступных предметов</option>';
-        select.disabled = true;
-        fillTopicSelect();
-        renderQuestions();
-        updateContextUI();
-        return;
-      }
+        const select = el('subjectSelect');
+        if (!state.subjects.length) {
+            select.innerHTML = '<option value="">Нет доступных предметов</option>';
+            select.disabled = true;
+            fillTopicSelect();
+            renderQuestions();
+            updateContextUI();
+            return;
+        }
 
-      select.disabled = false;
-      select.innerHTML = '<option value="">Выберите предмет</option>' +
-        state.subjects
-          .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
-          .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
-          .join('');
+        select.disabled = false;
+        select.innerHTML = '<option value="">Выберите предмет</option>' +
+            state.subjects
+                .sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'))
+                .map(subject => `<option value="${subject.id}">${html(subject.name)}</option>`)
+                .join('');
 
-      const preferredMembership = initialFilters.subjectMembershipId
-        ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
-        : null;
-      const selectedId = preferredMembership
-        ? String(preferredMembership.subjectId)
-        : resolveInitialSelection(state.subjects, initialFilters.subjectId);
-      if (selectedId) {
-        select.value = selectedId;
-        await loadSubjectContext();
-      } else {
-        fillTopicSelect();
-        renderQuestions();
-        updateContextUI();
-      }
+        const preferredMembership = initialFilters.subjectMembershipId
+            ? state.subjectMemberships.find(item => String(item.id) === String(initialFilters.subjectMembershipId))
+            : null;
+        const selectedId = preferredMembership
+            ? String(preferredMembership.subjectId)
+            : resolveInitialSelection(state.subjects, initialFilters.subjectId);
+        if (selectedId) {
+            select.value = selectedId;
+            await loadSubjectContext();
+        } else {
+            fillTopicSelect();
+            renderQuestions();
+            updateContextUI();
+        }
     }
 
     async function saveQuestion(event) {
-      event.preventDefault();
-      showMessage('', '');
+        event.preventDefault();
+        showMessage('', '');
 
-      const topicId = selectedTopicId();
-      if (!topicId) {
-        showMessage('error', 'Выберите тематику преподавателя.');
-        return;
-      }
-
-      const basePayload = {
-        courseLectureId: null,
-        topicId,
-        type: Number(el('type').value),
-        question: el('questionText').value.trim(),
-        points: Number(el('points').value || 0),
-        ordinal: Number(el('ordinal').value || 1),
-        correctAnswer: el('correctAnswer').value.trim() || null
-      };
-
-      try {
-        let saved;
-        if (el('questionId').value) {
-          saved = await api(`/questions/${encodeURIComponent(el('questionId').value)}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              ...basePayload,
-              active: el('active').checked
-            })
-          });
-          showMessage('success', 'Вопрос обновлен.');
-        } else {
-          saved = await api('/questions', {
-            method: 'POST',
-            body: JSON.stringify({
-              testId: null,
-              ...basePayload
-            })
-          });
-          showMessage('success', 'Вопрос создан.');
+        const topicId = selectedTopicId();
+        if (!topicId) {
+            showMessage('error', 'Выберите тематику преподавателя.');
+            return;
         }
 
-        state.currentQuestionId = saved.id;
-        state.currentQuestionType = Number(saved.type);
-        el('questionId').value = String(saved.id);
-        await loadQuestions();
-        await loadOptions(saved.id);
-      } catch (error) {
-        showMessage('error', html(error.message));
-      }
+        const type = Number(el('type').value);
+        const matchingPairs = isMatchingType(type) ? parseMatchingPairsText(el('matchingPairsText').value) : [];
+        const basePayload = {
+            courseLectureId: null,
+            topicId,
+            type,
+            question: el('questionText').value.trim(),
+            points: Number(el('points').value || 0),
+            ordinal: Number(el('ordinal').value || 1),
+            correctAnswer: isTextType(type) ? (el('correctAnswer').value.trim() || null) : null,
+            matchingPairs
+        };
+
+        try {
+            let saved;
+            if (el('questionId').value) {
+                saved = await api(`/questions/${encodeURIComponent(el('questionId').value)}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        ...basePayload,
+                        active: el('active').checked
+                    })
+                });
+                showMessage('success', 'Вопрос обновлен.');
+            } else {
+                saved = await api('/questions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        testId: null,
+                        ...basePayload
+                    })
+                });
+                showMessage('success', 'Вопрос создан.');
+            }
+
+            state.currentQuestionId = saved.id;
+            state.currentQuestionType = Number(saved.type);
+            el('questionId').value = String(saved.id);
+            await loadQuestions();
+            await loadOptions(saved.id);
+        } catch (error) {
+            showMessage('error', html(error.message));
+        }
     }
 
     async function editQuestion(questionId) {
-      const question = state.questions.find(item => Number(item.id) === Number(questionId));
-      if (!question) {
-        return;
-      }
-      el('questionId').value = String(question.id);
-      el('questionFormTitle').textContent = 'Редактирование вопроса';
-      el('questionText').value = question.question || '';
-      el('type').value = String(question.type);
-      el('points').value = String(question.points ?? 1);
-      el('ordinal').value = String(question.ordinal || 1);
-      el('correctAnswer').value = question.correctAnswer || '';
-      el('active').checked = !!question.active;
-      state.currentQuestionId = question.id;
-      state.currentQuestionType = Number(question.type);
-      await loadOptions(question.id);
+        const question = state.questions.find(item => Number(item.id) === Number(questionId));
+        if (!question) {
+            return;
+        }
+        el('questionId').value = String(question.id);
+        el('questionFormTitle').textContent = 'Редактирование вопроса';
+        el('questionText').value = question.question || '';
+        el('type').value = String(question.type);
+        el('points').value = String(question.points ?? 1);
+        el('ordinal').value = String(question.ordinal || 1);
+        el('correctAnswer').value = question.correctAnswer || '';
+        el('matchingPairsText').value = matchingPairsToText(question.matchingPairs);
+        el('active').checked = !!question.active;
+        state.currentQuestionId = question.id;
+        state.currentQuestionType = Number(question.type);
+        syncQuestionTypeControls();
+        await loadOptions(question.id);
     }
 
     async function toggleQuestionActive(questionId, active) {
-      try {
-        await api(`/questions/${encodeURIComponent(questionId)}/active`, {
-          method: 'PUT',
-          body: JSON.stringify({ active })
-        });
-        await loadQuestions();
-      } catch (error) {
-        showMessage('error', html(error.message));
-      }
+        try {
+            await api(`/questions/${encodeURIComponent(questionId)}/active`, {
+                method: 'PUT',
+                body: JSON.stringify({ active })
+            });
+            await loadQuestions();
+        } catch (error) {
+            showMessage('error', html(error.message));
+        }
     }
 
     async function saveOption(event) {
-      event.preventDefault();
-      showMessage('', '');
+        event.preventDefault();
+        showMessage('', '');
 
-      if (!state.currentQuestionId || Number(state.currentQuestionType) === 1) {
-        showMessage('error', 'Выберите вопрос с вариантами ответа.');
-        return;
-      }
-
-      const payload = {
-        text: el('optionText').value.trim(),
-        ordinal: Number(el('optionOrdinal').value || 1),
-        correct: el('optionCorrect').checked
-      };
-
-      try {
-        if (el('optionId').value) {
-          await api(`/questions/options/${encodeURIComponent(el('optionId').value)}`, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-          });
-          showMessage('success', 'Вариант ответа обновлен.');
-        } else {
-          await api(`/questions/${encodeURIComponent(state.currentQuestionId)}/options`, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-          showMessage('success', 'Вариант ответа создан.');
+        if (!state.currentQuestionId || !isSelectableType(state.currentQuestionType)) {
+            showMessage('error', 'Выберите вопрос с вариантами ответа.');
+            return;
         }
-        resetOptionForm();
-        await loadOptions(state.currentQuestionId);
-      } catch (error) {
-        showMessage('error', html(error.message));
-      }
+
+        const payload = {
+            text: el('optionText').value.trim(),
+            ordinal: Number(el('optionOrdinal').value || 1),
+            correct: el('optionCorrect').checked
+        };
+
+        try {
+            if (el('optionId').value) {
+                await api(`/questions/options/${encodeURIComponent(el('optionId').value)}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                showMessage('success', 'Вариант ответа обновлен.');
+            } else {
+                await api(`/questions/${encodeURIComponent(state.currentQuestionId)}/options`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                showMessage('success', 'Вариант ответа создан.');
+            }
+            resetOptionForm();
+            await loadOptions(state.currentQuestionId);
+        } catch (error) {
+            showMessage('error', html(error.message));
+        }
     }
 
     async function editOption(optionId) {
-      try {
-        const option = await api(`/questions/options/${encodeURIComponent(optionId)}`);
-        el('optionId').value = String(option.id);
-        el('optionText').value = option.text || '';
-        el('optionOrdinal').value = String(option.ordinal || 1);
-        el('optionCorrect').checked = !!option.correct;
-      } catch (error) {
-        showMessage('error', html(error.message));
-      }
+        try {
+            const option = await api(`/questions/options/${encodeURIComponent(optionId)}`);
+            el('optionId').value = String(option.id);
+            el('optionText').value = option.text || '';
+            el('optionOrdinal').value = String(option.ordinal || 1);
+            el('optionCorrect').checked = !!option.correct;
+        } catch (error) {
+            showMessage('error', html(error.message));
+        }
     }
 
     async function importWord(event) {
-      event.preventDefault();
-      showMessage('', '');
+        event.preventDefault();
+        showMessage('', '');
 
-      const topicId = selectedImportTopicId();
-      const file = el('wordFile').files[0];
-      if (!topicId || !file) {
-        showMessage('error', 'Выберите тематику и файл .docx.');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('topicId', String(topicId));
-      formData.append('file', file);
-
-      try {
-        const response = await fetch('/api/questions/import', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include'
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(payload?.message || 'Не удалось импортировать вопросы.');
+        const topicId = selectedImportTopicId();
+        const file = el('wordFile').files[0];
+        if (!topicId || !file) {
+            showMessage('error', 'Выберите тематику и файл .docx.');
+            return;
         }
-        showMessage('success', `Импортировано вопросов: ${payload.importedQuestions}. Вариантов ответа: ${payload.importedOptions}.`);
-        el('wordFile').value = '';
-        await loadQuestions();
-      } catch (error) {
-        showMessage('error', html(error.message));
-      }
+
+        const formData = new FormData();
+        formData.append('topicId', String(topicId));
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/questions/import', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error(payload?.message || 'Не удалось импортировать вопросы.');
+            }
+            showMessage('success', `Импортировано вопросов: ${payload.importedQuestions}. Вариантов ответа: ${payload.importedOptions}.`);
+            el('wordFile').value = '';
+            await loadQuestions();
+        } catch (error) {
+            showMessage('error', html(error.message));
+        }
     }
 
     el('subjectSelect').addEventListener('change', () => loadSubjectContext().catch(error => showMessage('error', html(error.message))));
-    el('topicSelect').addEventListener('change', () => {
-      prepareQuestionDefaults();
-      loadQuestions().then(updateContextUI).catch(error => showMessage('error', html(error.message)));
-      syncImportTopicSelect();
-    });
     el('type').addEventListener('change', () => {
-      state.currentQuestionType = Number(el('type').value);
-      loadOptions(state.currentQuestionId).catch(error => showMessage('error', html(error.message)));
+        state.currentQuestionType = Number(el('type').value);
+        syncQuestionTypeControls();
+        loadOptions(state.currentQuestionId).catch(error => showMessage('error', html(error.message)));
+    });
+    el('topicSelect').addEventListener('change', () => {
+        prepareQuestionDefaults();
+        loadQuestions().then(updateContextUI).catch(error => showMessage('error', html(error.message)));
+        syncImportTopicSelect();
     });
     el('questionForm').addEventListener('submit', saveQuestion);
     el('optionForm').addEventListener('submit', saveOption);
@@ -680,6 +757,7 @@
     el('resetBtn').addEventListener('click', prepareQuestionDefaults);
     el('resetOptionBtn').addEventListener('click', resetOptionForm);
 
+    syncQuestionTypeControls();
     fillTopicSelect();
     renderQuestions();
     updateContextUI();
@@ -687,10 +765,10 @@
     setOptionControlsEnabled(false);
 
     if (StudentTestingApi.requireAuth()) {
-      loadSubjects().catch(error => {
-        el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
-        showMessage('error', html(error.message));
-      });
+        loadSubjects().catch(error => {
+            el('subjectSelect').innerHTML = '<option value="">Предмет недоступен</option>';
+            showMessage('error', html(error.message));
+        });
     }
 </script>
 </body>

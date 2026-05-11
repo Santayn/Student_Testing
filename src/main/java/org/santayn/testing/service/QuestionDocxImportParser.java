@@ -7,6 +7,7 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.santayn.testing.models.question.QuestionTypeSupport;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -150,7 +151,9 @@ public class QuestionDocxImportParser {
 
         applyAnswerToOptions(answer, options);
         int correctOptions = (int) options.stream().filter(RawOption::correct).count();
-        int type = options.isEmpty() ? 1 : correctOptions > 1 ? 3 : 2;
+        int type = options.isEmpty()
+                ? QuestionTypeSupport.TYPE_TEXT
+                : correctOptions > 1 ? QuestionTypeSupport.TYPE_MULTIPLE : QuestionTypeSupport.TYPE_SINGLE;
         String correctAnswer = answer;
         if (correctAnswer == null && !options.isEmpty()) {
             correctAnswer = options.stream()

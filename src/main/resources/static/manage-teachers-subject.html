@@ -13,7 +13,7 @@
     <div class="page-header">
         <div>
             <h1 class="page-title">Преподаватели и предметы</h1>
-            <p class="page-subtitle">Только обзор закреплений. Изменения выполняются во вкладке шаблонов нагрузки.</p>
+            <p class="page-subtitle">Назначение предметов преподавателям и просмотр текущих закреплений.</p>
         </div>
         <div class="actions actions-compact">
             <a class="btn btn-light" href="/manage-teacher-groups.html">Шаблоны нагрузки</a>
@@ -40,12 +40,40 @@
     <div class="layout">
         <section>
             <div class="panel">
-                <h2 class="flush-top">Фильтр</h2>
-                <label for="teacherSelect">Преподаватель</label>
+                <h2 class="flush-top">Преподаватель</h2>
+                <label for="teacherSelect">Выберите преподавателя</label>
                 <select id="teacherSelect">
                     <option value="">Все преподаватели</option>
                 </select>
-                <p class="muted">На этой странице нет действий изменения. Она показывает текущие связи преподаватель -> предмет.</p>
+                <p class="muted">
+                    Для выбранного преподавателя можно добавить предметы или снять активные закрепления.
+                </p>
+            </div>
+
+            <div class="panel">
+                <h2 class="flush-top">Назначить предмет</h2>
+                <label for="freeSubjects">Доступные предметы</label>
+                <select id="freeSubjects" multiple disabled></select>
+                <label for="notesInput">Примечание</label>
+                <textarea id="notesInput" maxlength="1000" placeholder="Например: основной преподаватель по дисциплине"></textarea>
+                <div class="actions">
+                    <button id="addBtn" class="btn" type="button" disabled>Назначить выбранные</button>
+                </div>
+                <p class="muted">
+                    Связь сохраняется в SubjectMembership с ролью преподавателя.
+                </p>
+            </div>
+
+            <div class="panel">
+                <h2 class="flush-top">Снять предмет</h2>
+                <label for="assignedSubjects">Текущие предметы преподавателя</label>
+                <select id="assignedSubjects" multiple disabled></select>
+                <div class="actions">
+                    <button id="removeBtn" class="btn-danger" type="button" disabled>Снять выбранные</button>
+                </div>
+                <p class="muted">
+                    Снятие не удаляет запись физически, а переводит membership в удалённый статус.
+                </p>
             </div>
         </section>
 
@@ -63,81 +91,126 @@
     const api = StudentTestingApi.apiFetch;
     const html = StudentTestingApi.escapeHtml;
     const TEACHER_ROLE = 1;
+    const REMOVED_STATUS = 3;
     const ADMIN_ROLE = 'ADMIN';
 
     const state = {
-      teachers: [],
-      subjectsIndex: new Map(),
-      memberships: [],
-      selectedTeacherId: null
+        teachers: [],
+        subjects: [],
+        subjectsIndex: new Map(),
+        memberships: [],
+        selectedTeacherId: null
     };
 
     const el = id => document.getElementById(id);
 
     function showMessage(type, message) {
-      el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
+        el('message').innerHTML = message ? `<div class="alert alert-${type}">${message}</div>` : '';
     }
 
     function ensureAdmin(user) {
-      const roles = StudentTestingApi.normalizeRoleNames(user);
-      if (!roles.some(role => role.includes(ADMIN_ROLE))) {
-        throw new Error('Эта страница доступна только администратору.');
-      }
+        const roles = StudentTestingApi.normalizeRoleNames(user);
+        if (!roles.some(role => role.includes(ADMIN_ROLE))) {
+            throw new Error('Эта страница доступна только администратору.');
+        }
     }
 
     function personName(person) {
-      const fullName = [person.lastName, person.firstName].filter(Boolean).join(' ').trim();
-      return fullName || person.email || `Person #${person.id}`;
+        const fullName = [person.lastName, person.firstName].filter(Boolean).join(' ').trim();
+        return fullName || person.email || `Person #${person.id}`;
     }
 
     function subjectName(subjectId) {
-      const subject = state.subjectsIndex.get(Number(subjectId));
-      return subject?.name || `Предмет #${subjectId}`;
+        const subject = state.subjectsIndex.get(Number(subjectId));
+        return subject?.name || `Предмет #${subjectId}`;
     }
 
     function formatDate(value) {
-      if (!value) {
-        return '—';
-      }
-      return new Date(value).toLocaleString('ru-RU');
+        if (!value) {
+            return '—';
+        }
+        return new Date(value).toLocaleString('ru-RU');
     }
 
     function assignmentsForTeacher(teacherId) {
-      return state.memberships
-        .filter(item => Number(item.personId) === Number(teacherId))
-        .sort((left, right) => {
-          const bySubject = subjectName(left.subjectId).localeCompare(subjectName(right.subjectId), 'ru');
-          return bySubject || Number(left.id) - Number(right.id);
-        });
+        return state.memberships
+            .filter(item => Number(item.personId) === Number(teacherId))
+            .sort((left, right) => {
+                const bySubject = subjectName(left.subjectId).localeCompare(subjectName(right.subjectId), 'ru');
+                return bySubject || Number(left.id) - Number(right.id);
+            });
+    }
+
+    function assignedSubjectIdsForTeacher(teacherId) {
+        return new Set(assignmentsForTeacher(teacherId).map(item => Number(item.subjectId)));
+    }
+
+    function freeSubjectsForTeacher(teacherId) {
+        if (!teacherId) {
+            return [];
+        }
+        const assignedSubjectIds = assignedSubjectIdsForTeacher(teacherId);
+        return state.subjects.filter(subject => !assignedSubjectIds.has(Number(subject.id)));
+    }
+
+    function selectedTeacher() {
+        if (!state.selectedTeacherId) {
+            return null;
+        }
+        return state.teachers.find(item => Number(item.id) === Number(state.selectedTeacherId)) || null;
     }
 
     function renderSummary() {
-      const subjectIds = new Set(state.memberships.map(item => Number(item.subjectId)));
-      el('summaryTeachers').textContent = String(state.teachers.length);
-      el('summarySubjects').textContent = String(subjectIds.size);
-      el('summaryAssignments').textContent = String(state.memberships.length);
+        const subjectIds = new Set(state.memberships.map(item => Number(item.subjectId)));
+        el('summaryTeachers').textContent = String(state.teachers.length);
+        el('summarySubjects').textContent = String(subjectIds.size);
+        el('summaryAssignments').textContent = String(state.memberships.length);
     }
 
     function renderTeacherSelect() {
-      const select = el('teacherSelect');
-      select.innerHTML =
-        '<option value="">Все преподаватели</option>' +
-        state.teachers.map(teacher => (
-          `<option value="${teacher.id}">${html(personName(teacher))}</option>`
-        )).join('');
+        const select = el('teacherSelect');
+        const currentValue = select.value;
+        select.innerHTML =
+            '<option value="">Все преподаватели</option>' +
+            state.teachers.map(teacher => (
+                `<option value="${teacher.id}">${html(personName(teacher))}</option>`
+            )).join('');
+        if (currentValue && state.teachers.some(teacher => String(teacher.id) === String(currentValue))) {
+            select.value = currentValue;
+        }
+    }
+
+    function renderAssignmentControls() {
+        const teacher = selectedTeacher();
+        const freeSubjects = freeSubjectsForTeacher(state.selectedTeacherId);
+        const assignments = teacher ? assignmentsForTeacher(teacher.id) : [];
+
+        el('freeSubjects').disabled = !teacher || !freeSubjects.length;
+        el('assignedSubjects').disabled = !teacher || !assignments.length;
+        el('addBtn').disabled = !teacher || !freeSubjects.length;
+        el('removeBtn').disabled = !teacher || !assignments.length;
+        el('notesInput').disabled = !teacher;
+
+        el('freeSubjects').innerHTML = freeSubjects.length
+            ? freeSubjects.map(subject => `<option value="${subject.id}">${html(subject.name || `Предмет #${subject.id}`)}</option>`).join('')
+            : `<option value="">${teacher ? 'Все предметы уже назначены' : 'Выберите преподавателя'}</option>`;
+
+        el('assignedSubjects').innerHTML = assignments.length
+            ? assignments.map(item => `<option value="${item.id}">${html(subjectName(item.subjectId))}</option>`).join('')
+            : `<option value="">${teacher ? 'Нет активных предметов' : 'Выберите преподавателя'}</option>`;
     }
 
     function renderTeacherDetails(teacher) {
-      const assignments = assignmentsForTeacher(teacher.id);
-      if (!assignments.length) {
-        return `
+        const assignments = assignmentsForTeacher(teacher.id);
+        if (!assignments.length) {
+            return `
           <div class="empty">
             Для преподавателя <strong>${html(personName(teacher))}</strong> пока нет активных закреплений.
           </div>
         `;
-      }
+        }
 
-      return `
+        return `
         <div class="panel-gap-sm">
           <strong>${html(personName(teacher))}</strong>
         </div>
@@ -165,11 +238,11 @@
     }
 
     function renderTeacherOverview() {
-      if (!state.teachers.length) {
-        return '<div class="empty">Преподаватели не найдены.</div>';
-      }
+        if (!state.teachers.length) {
+            return '<div class="empty">Преподаватели не найдены.</div>';
+        }
 
-      return `
+        return `
         <table>
           <thead>
             <tr>
@@ -180,68 +253,136 @@
           </thead>
           <tbody>
             ${state.teachers.map(teacher => {
-              const assignments = assignmentsForTeacher(teacher.id);
-              const subjectBadges = assignments.length
+            const assignments = assignmentsForTeacher(teacher.id);
+            const subjectBadges = assignments.length
                 ? assignments.map(item => `<span class="badge">${html(subjectName(item.subjectId))}</span>`).join(' ')
                 : '—';
-              return `
+            return `
                 <tr>
                   <td>${html(personName(teacher))}</td>
                   <td>${subjectBadges}</td>
                   <td>${assignments.length}</td>
                 </tr>
               `;
-            }).join('')}
+        }).join('')}
           </tbody>
         </table>
       `;
     }
 
     function renderOverview() {
-      const container = el('overview');
-      if (state.selectedTeacherId) {
-        const teacher = state.teachers.find(item => Number(item.id) === Number(state.selectedTeacherId));
-        container.className = teacher ? '' : 'empty';
-        container.innerHTML = teacher
-          ? renderTeacherDetails(teacher)
-          : 'Выбранный преподаватель не найден.';
-        return;
-      }
+        const container = el('overview');
+        const teacher = selectedTeacher();
 
-      container.className = '';
-      container.innerHTML = renderTeacherOverview();
+        if (state.selectedTeacherId) {
+            container.className = teacher ? '' : 'empty';
+            container.innerHTML = teacher
+                ? renderTeacherDetails(teacher)
+                : 'Выбранный преподаватель не найден.';
+        } else {
+            container.className = '';
+            container.innerHTML = renderTeacherOverview();
+        }
+
+        renderSummary();
+        renderAssignmentControls();
+    }
+
+    async function loadData() {
+        const [teachers, subjects, memberships] = await Promise.all([
+            api('/users/people?role=TEACHER'),
+            api('/subjects'),
+            api('/memberships/subjects?activeOnly=true')
+        ]);
+
+        state.teachers = teachers.sort((left, right) => personName(left).localeCompare(personName(right), 'ru'));
+        state.subjects = subjects.sort((left, right) => String(left.name).localeCompare(String(right.name), 'ru'));
+        state.subjectsIndex = new Map(state.subjects.map(subject => [Number(subject.id), subject]));
+        state.memberships = memberships.filter(item => Number(item.role) === TEACHER_ROLE);
+
+        renderTeacherSelect();
+        renderOverview();
+    }
+
+    async function addSubjects() {
+        const teacher = selectedTeacher();
+        const subjectIds = [...el('freeSubjects').selectedOptions]
+            .map(option => Number(option.value))
+            .filter(value => Number.isFinite(value) && value > 0);
+
+        if (!teacher || !subjectIds.length) {
+            return;
+        }
+
+        const button = el('addBtn');
+        button.disabled = true;
+        try {
+            for (const subjectId of subjectIds) {
+                await api(`/memberships/subjects/${encodeURIComponent(subjectId)}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        personId: teacher.id,
+                        role: TEACHER_ROLE,
+                        notes: el('notesInput').value.trim() || null
+                    })
+                });
+            }
+            el('notesInput').value = '';
+            showMessage('success', 'Предметы назначены преподавателю.');
+            await loadData();
+        } catch (error) {
+            showMessage('error', html(error.message));
+        } finally {
+            renderOverview();
+        }
+    }
+
+    async function removeSubjects() {
+        const membershipIds = [...el('assignedSubjects').selectedOptions]
+            .map(option => Number(option.value))
+            .filter(value => Number.isFinite(value) && value > 0);
+
+        if (!membershipIds.length) {
+            return;
+        }
+
+        const button = el('removeBtn');
+        button.disabled = true;
+        try {
+            for (const membershipId of membershipIds) {
+                await api(`/memberships/subjects/memberships/${encodeURIComponent(membershipId)}/status`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: REMOVED_STATUS })
+                });
+            }
+            showMessage('success', 'Предметы сняты с преподавателя.');
+            await loadData();
+        } catch (error) {
+            showMessage('error', html(error.message));
+        } finally {
+            renderOverview();
+        }
     }
 
     async function init() {
-      const user = await StudentTestingApi.loadCurrentUser();
-      ensureAdmin(user);
-
-      const [teachers, subjects, memberships] = await Promise.all([
-        api('/users/people?role=TEACHER'),
-        api('/subjects'),
-        api('/memberships/subjects?activeOnly=true')
-      ]);
-
-      state.teachers = teachers.sort((left, right) => personName(left).localeCompare(personName(right), 'ru'));
-      state.subjectsIndex = new Map(subjects.map(subject => [Number(subject.id), subject]));
-      state.memberships = memberships.filter(item => Number(item.role) === TEACHER_ROLE);
-
-      renderSummary();
-      renderTeacherSelect();
-      renderOverview();
+        const user = await StudentTestingApi.loadCurrentUser();
+        ensureAdmin(user);
+        await loadData();
     }
 
     el('teacherSelect').addEventListener('change', event => {
-      state.selectedTeacherId = event.target.value ? Number(event.target.value) : null;
-      renderOverview();
+        state.selectedTeacherId = event.target.value ? Number(event.target.value) : null;
+        renderOverview();
     });
+    el('addBtn').addEventListener('click', addSubjects);
+    el('removeBtn').addEventListener('click', removeSubjects);
 
     if (StudentTestingApi.requireAuth()) {
-      init().catch(error => {
-        el('overview').className = 'empty';
-        el('overview').textContent = 'Не удалось загрузить закрепления.';
-        showMessage('error', html(error.message));
-      });
+        init().catch(error => {
+            el('overview').className = 'empty';
+            el('overview').textContent = 'Не удалось загрузить закрепления.';
+            showMessage('error', html(error.message));
+        });
     }
 </script>
 </body>

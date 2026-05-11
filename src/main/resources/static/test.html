@@ -5,6 +5,74 @@
     <title>Прохождение теста</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/css/app.css">
+
+    <style>
+        .matching-board {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .matching-column {
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 14px;
+            padding: 14px;
+            background: rgba(15, 23, 42, 0.35);
+        }
+
+        .matching-column-title {
+            margin: 0 0 10px;
+            font-weight: 700;
+        }
+
+        .matching-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .matching-row {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            min-height: 38px;
+        }
+
+        .matching-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            font-weight: 700;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(30, 41, 59, 0.55);
+        }
+
+        .matching-select {
+            width: 44px;
+            min-width: 44px;
+            padding-left: 8px;
+            padding-right: 8px;
+            text-align: center;
+        }
+
+        .matching-hint {
+            margin-top: 10px;
+        }
+
+        @media (max-width: 760px) {
+            .matching-board {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
 <header class="app-topbar">
@@ -45,46 +113,47 @@
     const el = id => document.getElementById(id);
 
     function showError(message) {
-      el('error').textContent = message || 'Не удалось загрузить тест.';
-      el('error').classList.remove('hidden');
+        el('error').textContent = message || 'Не удалось загрузить тест.';
+        el('error').classList.remove('hidden');
     }
 
     async function loadTest() {
-      if (!testId && !assignmentId) {
-        throw new Error('Не указан параметр testId или assignmentId.');
-      }
-
-      let data;
-      if (assignmentId) {
-        if (!StudentTestingApi.requireAuth()) {
-          return;
+        if (!testId && !assignmentId) {
+            throw new Error('Не указан параметр testId или assignmentId.');
         }
-        data = await api(`/public/learning/test-assignments/${encodeURIComponent(assignmentId)}/attempts/start`, {
-          method: 'POST'
-        });
-        attemptId = data.attemptId;
-      } else {
-        data = await api(`/public/learning/tests/${encodeURIComponent(testId)}`);
-      }
-      questions = data.questions || [];
-      el('testTitle').textContent = data.test.title || `Тест #${data.test.id}`;
-      el('testMeta').textContent = `Вопросов: ${questions.length}, попыток: ${data.test.attemptsAllowed}`;
 
-      if (!questions.length) {
-        el('testBody').innerHTML = '<div class="muted">В этом тесте пока нет вопросов.</div>';
-        el('submitBtn').disabled = true;
-        return;
-      }
+        let data;
+        if (assignmentId) {
+            if (!StudentTestingApi.requireAuth()) {
+                return;
+            }
+            data = await api(`/public/learning/test-assignments/${encodeURIComponent(assignmentId)}/attempts/start`, {
+                method: 'POST'
+            });
+            attemptId = data.attemptId;
+        } else {
+            data = await api(`/public/learning/tests/${encodeURIComponent(testId)}`);
+        }
+        questions = data.questions || [];
+        el('testTitle').textContent = data.test.title || `Тест #${data.test.id}`;
+        el('testMeta').textContent = `Вопросов: ${questions.length}, попыток: ${data.test.attemptsAllowed}`;
 
-      el('testBody').innerHTML = questions.map((question, index) => questionMarkup(question, index)).join('');
+        if (!questions.length) {
+            el('testBody').innerHTML = '<div class="muted">В этом тесте пока нет вопросов.</div>';
+            el('submitBtn').disabled = true;
+            return;
+        }
+
+        el('testBody').innerHTML = questions.map((question, index) => questionMarkup(question, index)).join('');
     }
 
     function questionMarkup(question, index) {
-      const options = Array.isArray(question.options) ? question.options : [];
-      const hasOptions = (question.type === 2 || question.type === 3) && options.length > 0;
-      const optionMarkup = options.map(option => `
+        const options = Array.isArray(question.options) ? question.options : [];
+        const type = Number(question.type);
+        const hasOptions = (type === 1 || type === 2) && options.length > 0;
+        const optionMarkup = options.map(option => `
         <label class="option-label">
-          <input type="${question.type === 3 ? 'checkbox' : 'radio'}"
+          <input type="${type === 2 ? 'checkbox' : 'radio'}"
                  name="q_${question.id}"
                  data-qid="${question.id}"
                  data-option-id="${option.id}">
@@ -92,59 +161,120 @@
         </label>
       `).join('');
 
-      return `
+        return `
         <div class="panel panel-flat panel-gap">
           <div class="muted small">Вопрос ${index + 1}, ${html(question.points)} балл.</div>
           <p><strong>${html(question.text || question.question)}</strong></p>
           ${hasOptions
             ? `<div class="form-grid">${optionMarkup}</div>`
-            : `<input type="text" data-qid="${question.id}" data-answer-input="true" placeholder="Введите ответ">`}
+            : type === 3
+                ? matchingQuestionMarkup(question)
+                : `<input type="text" data-qid="${question.id}" data-answer-input="true" placeholder="Введите ответ">`}
         </div>`;
     }
 
-    async function submitTest() {
-      if (!StudentTestingApi.requireAuth()) {
-        return;
-      }
+    function matchingQuestionMarkup(question) {
+        const matchingPrompts = Array.isArray(question.matchingPrompts) ? question.matchingPrompts : [];
+        const matchingOptions = Array.isArray(question.matchingOptions) ? question.matchingOptions : [];
 
-      const questionIds = [];
-      const answers = [];
-      const selectedOptionIds = [];
-
-      questions.forEach(question => {
-        questionIds.push(Number(question.id));
-        const input = document.querySelector(`input[data-answer-input="true"][data-qid="${question.id}"]`);
-        answers.push(input ? input.value || '' : '');
-        selectedOptionIds.push(
-          [...document.querySelectorAll(`input[data-option-id][data-qid="${question.id}"]:checked`)]
-            .map(optionInput => Number(optionInput.dataset.optionId))
-        );
-      });
-
-      el('submitBtn').disabled = true;
-      try {
-        const submitUrl = attemptId
-          ? `/public/learning/attempts/${encodeURIComponent(attemptId)}/submit`
-          : `/public/learning/tests/${encodeURIComponent(testId)}/submit`;
-        const result = await api(submitUrl, {
-          method: 'POST',
-          body: JSON.stringify({ questionIds, answers, selectedOptionIds })
-        });
-        renderResult(result);
-        el('submitBtn').disabled = true;
-      } catch (error) {
-        showError(error.message || 'Не удалось отправить ответы на тест.');
-      } finally {
-        if (!el('result').classList.contains('hidden')) {
-          return;
+        if (!matchingPrompts.length || !matchingOptions.length) {
+            return '<div class="alert alert-error">Для вопроса на сопоставление не заданы обе колонки.</div>';
         }
-        el('submitBtn').disabled = false;
-      }
+
+        const leftColumn = matchingPrompts.map(prompt => `
+        <li class="matching-row">
+          <span class="matching-number">${html(prompt.ordinal)}</span>
+          <span>${html(prompt.text)}</span>
+        </li>
+      `).join('');
+
+        const rightColumn = matchingOptions.map((option, index) => `
+        <li class="matching-row">
+          <select class="matching-select"
+                  aria-label="Номер соответствия для варианта ${index + 1}"
+                  data-qid="${question.id}"
+                  data-matching-right="${html(option)}">
+            <option value="">№</option>
+            ${matchingPrompts.map(prompt => `<option value="${html(prompt.ordinal)}">${html(prompt.ordinal)}</option>`).join('')}
+          </select>
+          <span>${html(option)}</span>
+        </li>
+      `).join('');
+
+        return `
+        <div class="matching-board">
+          <div class="matching-column">
+            <p class="matching-column-title">Колонка А</p>
+            <ul class="matching-list">${leftColumn}</ul>
+          </div>
+          <div class="matching-column">
+            <p class="matching-column-title">Колонка Б</p>
+            <ul class="matching-list">${rightColumn}</ul>
+            <div class="muted small matching-hint">Укажите возле каждого варианта из колонки Б номер подходящего элемента из колонки А.</div>
+          </div>
+        </div>`;
+    }
+
+    function serializeMatchingAnswer(question) {
+        const matchingPrompts = Array.isArray(question.matchingPrompts) ? question.matchingPrompts : [];
+        const promptByOrdinal = new Map(matchingPrompts.map(prompt => [Number(prompt.ordinal), prompt.text || '']));
+
+        const pairs = [...document.querySelectorAll(`select[data-matching-right][data-qid="${question.id}"]`)]
+            .map(select => {
+                const ordinal = Number(select.value || 0);
+                return {
+                    ordinal,
+                    left: promptByOrdinal.get(ordinal) || '',
+                    right: select.dataset.matchingRight || ''
+                };
+            });
+
+        return JSON.stringify({ pairs });
+    }
+
+    async function submitTest() {
+        if (!StudentTestingApi.requireAuth()) {
+            return;
+        }
+
+        const questionIds = [];
+        const answers = [];
+        const selectedOptionIds = [];
+
+        questions.forEach(question => {
+            questionIds.push(Number(question.id));
+            const input = document.querySelector(`input[data-answer-input="true"][data-qid="${question.id}"]`);
+            answers.push(Number(question.type) === 3 ? serializeMatchingAnswer(question) : (input ? input.value || '' : ''));
+            selectedOptionIds.push(
+                [...document.querySelectorAll(`input[data-option-id][data-qid="${question.id}"]:checked`)]
+                    .map(optionInput => Number(optionInput.dataset.optionId))
+            );
+        });
+
+        el('submitBtn').disabled = true;
+        try {
+            const submitUrl = attemptId
+                ? `/public/learning/attempts/${encodeURIComponent(attemptId)}/submit`
+                : `/public/learning/tests/${encodeURIComponent(testId)}/submit`;
+            const result = await api(submitUrl, {
+                method: 'POST',
+                body: JSON.stringify({ questionIds, answers, selectedOptionIds })
+            });
+            renderResult(result);
+            el('submitBtn').disabled = true;
+        } catch (error) {
+            showError(error.message || 'Не удалось отправить ответы на тест.');
+        } finally {
+            if (!el('result').classList.contains('hidden')) {
+                return;
+            }
+            el('submitBtn').disabled = false;
+        }
     }
 
     function renderResult(result) {
-      el('result').classList.remove('hidden');
-      el('result').innerHTML = `
+        el('result').classList.remove('hidden');
+        el('result').innerHTML = `
         <div class="alert alert-success">
           Правильных ответов: <strong>${html(result.correctCount)}</strong> из <strong>${html(result.totalCount)}</strong>,
           итоговый балл: <strong>${html(result.score ?? 0)}</strong>
@@ -157,7 +287,7 @@
             <strong class="${detail.correct ? 'answer-correct' : 'answer-wrong'}">${detail.correct ? 'Верно' : 'Неверно'}</strong>
           </div>
         `).join('')}`;
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
     el('submitBtn').addEventListener('click', () => submitTest());

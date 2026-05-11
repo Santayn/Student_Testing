@@ -52,7 +52,7 @@ public class Question {
     private Topic topic;
 
     @Column(name = "`Type`", nullable = false)
-    private int type = 1;
+    private int type = QuestionTypeSupport.TYPE_SINGLE;
 
     @Column(name = "`Question`", nullable = false, length = 2000)
     private String question;
@@ -63,7 +63,7 @@ public class Question {
     @Column(name = "`Ordinal`", nullable = false)
     private int ordinal = 1;
 
-    @Column(name = "`CorrectAnswer`", length = 2000)
+    @Column(name = "`CorrectAnswer`", length = 4000)
     private String correctAnswer;
 
     @Column(name = "`IsActive`", nullable = false)

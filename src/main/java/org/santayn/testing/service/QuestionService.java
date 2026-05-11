@@ -128,9 +128,9 @@ public class QuestionService {
 
     @Transactional
     public QuestionOption addOption(Long questionId, String text, int ordinal, boolean correct) {
-        if (!questionRepository.existsById(questionId)) {
-            throw new IllegalArgumentException("Question not found: " + questionId);
-        }
+        Question question = get(questionId);
+        requireSelectableQuestion(question);
+        requireSingleChoiceHasOnlyOneCorrectOption(question, null, correct);
         int normalizedOrdinal = Math.max(1, ordinal);
         if (optionRepository.existsByTestQuestionIdAndOrdinal(questionId, normalizedOrdinal)) {
             throw new AuthConflictException("Question option ordinal already exists: " + questionId + "/" + normalizedOrdinal);
@@ -147,6 +147,9 @@ public class QuestionService {
     @Transactional
     public QuestionOption updateOption(Long optionId, String text, int ordinal, boolean correct) {
         QuestionOption option = getOption(optionId);
+        Question question = get(option.getTestQuestionId());
+        requireSelectableQuestion(question);
+        requireSingleChoiceHasOnlyOneCorrectOption(question, optionId, correct);
         int normalizedOrdinal = Math.max(1, ordinal);
         if (optionRepository.existsByTestQuestionIdAndOrdinalAndIdNot(option.getTestQuestionId(), normalizedOrdinal, optionId)) {
             throw new AuthConflictException("Question option ordinal already exists: " + option.getTestQuestionId() + "/" + normalizedOrdinal);
@@ -171,7 +174,7 @@ public class QuestionService {
         Test test = target.testId() == null
                 ? null
                 : testRepository.findById(target.testId())
-                .orElseThrow(() -> new IllegalArgumentException("Test not found: " + target.testId()));
+                  .orElseThrow(() -> new IllegalArgumentException("Test not found: " + target.testId()));
         QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
         requireDocxFile(file);
 
@@ -195,7 +198,7 @@ public class QuestionService {
             question.setQuestion(FacultyService.requireText(parsedQuestion.question(), "Question"));
             question.setPoints(parsedQuestion.points());
             question.setOrdinal(nextOrdinal++);
-            question.setCorrectAnswer(FacultyService.trimToNull(parsedQuestion.correctAnswer()));
+            question.setCorrectAnswer(normalizeStoredCorrectAnswer(parsedQuestion.type(), parsedQuestion.correctAnswer(), List.of()));
             question.setActive(true);
             question = questionRepository.save(question);
             savedQuestions.add(question);
@@ -216,6 +219,26 @@ public class QuestionService {
             test.setQuestionCount(Math.max(1, (int) questionRepository.countByTestId(test.getId())));
         }
         return new QuestionImportResult(savedQuestions, importedOptions);
+    }
+
+
+    private void requireSelectableQuestion(Question question) {
+        if (!QuestionTypeSupport.usesSelectableOptions(question.getType())) {
+            throw new IllegalArgumentException("Options can be edited only for single-choice and multiple-choice questions.");
+        }
+    }
+
+    private void requireSingleChoiceHasOnlyOneCorrectOption(Question question, Long editedOptionId, boolean newCorrectValue) {
+        if (!QuestionTypeSupport.isSingleChoice(question.getType()) || !newCorrectValue) {
+            return;
+        }
+
+        boolean anotherCorrectOptionExists = optionRepository.findByTestQuestionIdOrderByOrdinalAsc(question.getId())
+                .stream()
+                .anyMatch(option -> option.isCorrect() && (editedOptionId == null || !editedOptionId.equals(option.getId())));
+        if (anotherCorrectOptionExists) {
+            throw new IllegalArgumentException("Single-choice question can contain only one correct option.");
+        }
     }
 
     private QuestionTarget resolveQuestionTarget(Integer testId, Integer courseLectureId, Integer topicId) {
@@ -301,7 +324,16 @@ public class QuestionService {
             }
             return QuestionTypeSupport.serializeMatchingPairs(normalizedPairs);
         }
-        return FacultyService.trimToNull(correctAnswer);
+
+        if (QuestionTypeSupport.isText(type)) {
+            String normalizedCorrectAnswer = FacultyService.trimToNull(correctAnswer);
+            if (normalizedCorrectAnswer == null) {
+                throw new IllegalArgumentException("Text question must contain at least one accepted answer.");
+            }
+            return normalizedCorrectAnswer;
+        }
+
+        return null;
     }
 
     private static List<QuestionTypeSupport.MatchingPair> normalizeMatchingPairs(List<QuestionTypeSupport.MatchingPair> matchingPairs) {

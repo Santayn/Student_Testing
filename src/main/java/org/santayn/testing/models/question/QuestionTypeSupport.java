@@ -16,10 +16,25 @@ import java.util.stream.Collectors;
 
 public final class QuestionTypeSupport {
 
-    public static final int TYPE_TEXT = 1;
-    public static final int TYPE_SINGLE = 2;
-    public static final int TYPE_MULTIPLE = 3;
-    public static final int TYPE_MATCHING = 4;
+    /**
+     * 1 — вопрос с одним вариантом ответа.
+     */
+    public static final int TYPE_SINGLE = 1;
+
+    /**
+     * 2 — вопрос с двумя и более правильными вариантами ответа.
+     */
+    public static final int TYPE_MULTIPLE = 2;
+
+    /**
+     * 3 — вопрос на сопоставление элементов колонки А с элементами колонки Б.
+     */
+    public static final int TYPE_MATCHING = 3;
+
+    /**
+     * 4 — текстовый вопрос со свободным ответом.
+     */
+    public static final int TYPE_TEXT = 4;
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Pattern NON_LETTER_OR_DIGIT = Pattern.compile("[^\\p{L}\\p{N}]+");
@@ -29,7 +44,7 @@ public final class QuestionTypeSupport {
     }
 
     public static boolean isSupported(int type) {
-        return type >= TYPE_TEXT && type <= TYPE_MATCHING;
+        return type >= TYPE_SINGLE && type <= TYPE_TEXT;
     }
 
     public static boolean isText(int type) {
@@ -40,16 +55,24 @@ public final class QuestionTypeSupport {
         return type == TYPE_SINGLE || type == TYPE_MULTIPLE;
     }
 
+    public static boolean isSingleChoice(int type) {
+        return type == TYPE_SINGLE;
+    }
+
+    public static boolean isMultipleChoice(int type) {
+        return type == TYPE_MULTIPLE;
+    }
+
     public static boolean isMatching(int type) {
         return type == TYPE_MATCHING;
     }
 
     public static String label(int type) {
         return switch (type) {
-            case TYPE_TEXT -> "Text";
             case TYPE_SINGLE -> "Single choice";
             case TYPE_MULTIPLE -> "Multiple choice";
             case TYPE_MATCHING -> "Matching";
+            case TYPE_TEXT -> "Text";
             default -> "Type " + type;
         };
     }
@@ -132,6 +155,26 @@ public final class QuestionTypeSupport {
         } catch (Exception ignored) {
             return List.of();
         }
+    }
+
+
+    public static String displaySubmittedMatchingPairs(String expectedRawValue, String actualRawValue) {
+        List<MatchingPair> expectedPairs = parseMatchingPairs(expectedRawValue);
+        List<MatchingPair> actualPairs = parseMatchingPairs(actualRawValue);
+        if (expectedPairs.isEmpty()) {
+            return displayMatchingPairs(actualPairs);
+        }
+
+        Map<Integer, String> actualRightByOrdinal = actualPairs.stream()
+                .collect(Collectors.toMap(
+                        MatchingPair::ordinal,
+                        pair -> pair.right() == null ? "" : pair.right(),
+                        (left, right) -> left
+                ));
+        List<MatchingPair> displayPairs = expectedPairs.stream()
+                .map(pair -> new MatchingPair(pair.ordinal(), pair.left(), actualRightByOrdinal.get(pair.ordinal())))
+                .toList();
+        return displayMatchingPairs(displayPairs);
     }
 
     public static String displayMatchingPairs(String rawValue) {
