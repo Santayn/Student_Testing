@@ -1,91 +1,142 @@
-# Unified API v1
+# ProfileView.vue
 
-Все backend controller'ы унифицированы под:
+Миграция старого `profile.html` на Vue 3.
+
+## Сохранённая структура
+
+Старый профиль имел три вкладки:
+
+```text
+Пользователь
+Студент
+Преподаватель
+```
+
+Новая Vue-страница сохраняет эту модель.
+
+### Пользователь
+
+Показывает:
+
+```text
+Имя
+Фамилия
+Отчество
+Логин
+Email
+Телефон
+Роли
+Person ID
+```
+
+### Студент
+
+Показывает:
+
+```text
+Группа
+Факультет
+GroupMembership
+Предметы
+```
+
+Вкладка появляется только при роли `STUDENT`.
+
+### Преподаватель
+
+Показывает:
+
+```text
+Предметы
+Группы из учебной нагрузки
+```
+
+Вкладка появляется для:
+
+```text
+TEACHER
+ADMIN
+```
+
+## Используемые API
+
+Страница не обращается к Axios напрямую.
+
+Она использует существующие модули:
+
+```js
+membershipsApi
+teachingApi
+groupsApi
+facultiesApi
+subjectsApi
+```
+
+Все они работают через единый:
 
 ```text
 /api/v1/...
 ```
 
-Поэтому API-слой упрощён.
+## AuthStore
 
-## Удалено
+Основные данные пользователя берутся из:
+
+```js
+useAuthStore()
+```
+
+При открытии страницы выполняется:
+
+```js
+await authStore.loadCurrentUser()
+```
+
+Поэтому профиль синхронизируется с backend.
+
+## Поддержка DTO
+
+Учтены оба варианта данных пользователя:
+
+```js
+user.firstName
+```
+
+и старый:
+
+```js
+user.person.firstName
+```
+
+А Person ID может быть:
+
+```js
+user.personId
+```
+
+или:
+
+```js
+user.person.id
+```
+
+## Старый DOM-код удалён
+
+Больше нет:
 
 ```text
-.env
-.env.example
-VITE_API_BASE_URL
-VITE_API_ROOT_URL
-rootHttp
+getElementById
+querySelectorAll
+addEventListener
+innerHTML
+hidden
+classList
 ```
 
-## Единственный Axios instance
+Вкладки и списки работают через обычное Vue-состояние.
 
-```js
-const http = axios.create({
-  baseURL: '/api/v1',
-})
-```
+## Mobile
 
-## Примеры
-
-```js
-subjectsApi.getAll()
-```
-
-отправит:
-
-```text
-GET /api/v1/subjects
-```
-
-```js
-questionsApi.importFile(file)
-```
-
-отправит:
-
-```text
-POST /api/v1/questions/import
-```
-
-```js
-lecturesApi.uploadMaterial(id, file)
-```
-
-отправит:
-
-```text
-POST /api/v1/lectures/{id}/materials
-```
-
-## Vite proxy
-
-Vite проксирует весь `/api` в Spring Boot:
-
-```text
-localhost:5173/api/v1/...
-        ↓
-localhost:8080/api/v1/...
-```
-
-## JWT
-
-Связь с AuthStore не меняется:
-
-```js
-setAccessTokenProvider(
-  () => authStore.accessToken
-)
-```
-
-## Что удалить из старой версии
-
-Удалите `.env` / `.env.example`, если они использовались только для API.
-
-Также удалите любые импорты:
-
-```js
-rootHttp
-```
-
-Файлы из этого архива уже используют только единый `http`.
+- header профиля становится вертикальным;
+- сетки данных переходят в одну колонку;
+- списки корректно помещаются на узких экранах.
