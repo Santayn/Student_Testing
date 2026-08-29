@@ -11,6 +11,13 @@ import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 import AdminTable from '@/components/admin/AdminTable.vue'
 
 import {
+  UiButton,
+  UiCard,
+  UiInput,
+  UiTextarea,
+} from '@/components/ui'
+
+import {
   getApiErrorMessage,
   subjectsApi,
 } from '@/api'
@@ -217,7 +224,7 @@ onMounted(loadSubjects)
       @close="clearNotice"
     />
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>
@@ -237,25 +244,23 @@ onMounted(loadSubjects)
         <label class="admin-field">
           <span>Название *</span>
 
-          <input
+          <UiInput
             v-model="form.name"
-            class="admin-input"
             required
-          >
+          />
         </label>
 
         <label class="admin-field admin-field--wide">
           <span>Описание</span>
 
-          <textarea
+          <UiTextarea
             v-model="form.description"
-            class="admin-textarea"
           />
         </label>
 
         <div class="admin-actions admin-field--wide">
-          <button
-            class="admin-btn admin-btn--primary"
+          <UiButton
+            variant="primary"
             type="submit"
             :disabled="!canSubmit"
           >
@@ -266,21 +271,20 @@ onMounted(loadSubjects)
                   ? 'Сохранить'
                   : 'Создать'
             }}
-          </button>
+          </UiButton>
 
-          <button
+          <UiButton
             v-if="editingId"
-            class="admin-btn"
             type="button"
             @click="clearForm"
           >
             Отмена
-          </button>
+          </UiButton>
         </div>
       </form>
-    </section>
+    </UiCard>
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>Список предметов</h2>
@@ -289,14 +293,13 @@ onMounted(loadSubjects)
           </p>
         </div>
 
-        <button
-          class="admin-btn"
+        <UiButton
           type="button"
           :disabled="loading"
           @click="loadSubjects"
         >
           Обновить
-        </button>
+        </UiButton>
       </div>
 
       <AdminTable
@@ -322,24 +325,25 @@ onMounted(loadSubjects)
 
         <template #cell-actions="{ row }">
           <div class="admin-table__actions">
-            <button
-              class="admin-btn admin-btn--small"
+            <UiButton
+            size="sm"
               type="button"
               @click="editSubject(row)"
             >
               Изменить
-            </button>
+            </UiButton>
 
-            <button
-              class="admin-btn admin-btn--danger admin-btn--small"
+            <UiButton
+            variant="danger"
+            size="sm"
               type="button"
               @click="deleteSubject(row)"
             >
               Удалить
-            </button>
+            </UiButton>
           </div>
         </template>
       </AdminTable>
-    </section>
+    </UiCard>
   </AdminPageShell>
 </template>

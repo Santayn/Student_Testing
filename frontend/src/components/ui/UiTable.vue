@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 
-import { UiEmptyState } from '@/components/ui'
+import UiEmptyState from './UiEmptyState.vue'
 
 const props = defineProps({
   columns: {
@@ -62,30 +62,20 @@ const sortableColumns = computed(() => {
   )
 })
 
-function getByPath(
-  object,
-  path
-) {
-  if (
-    !object ||
-    !path
-  ) {
+function getByPath(object, path) {
+  if (!object || !path) {
     return undefined
   }
 
   return String(path)
     .split('.')
     .reduce(
-      (value, key) =>
-        value?.[key],
+      (value, key) => value?.[key],
       object
     )
 }
 
-function cellValue(
-  row,
-  column
-) {
+function cellValue(row, column) {
   if (
     typeof column.value ===
     'function'
@@ -99,10 +89,7 @@ function cellValue(
   )
 }
 
-function sortValue(
-  row,
-  column
-) {
+function sortValue(row, column) {
   if (
     typeof column.sortValue ===
     'function'
@@ -110,16 +97,10 @@ function sortValue(
     return column.sortValue(row)
   }
 
-  return cellValue(
-    row,
-    column
-  )
+  return cellValue(row, column)
 }
 
-function compareValues(
-  left,
-  right
-) {
+function compareValues(left, right) {
   const leftEmpty =
     left === null ||
     left === undefined ||
@@ -130,10 +111,7 @@ function compareValues(
     right === undefined ||
     right === ''
 
-  if (
-    leftEmpty &&
-    rightEmpty
-  ) {
+  if (leftEmpty && rightEmpty) {
     return 0
   }
 
@@ -150,13 +128,6 @@ function compareValues(
     typeof right === 'number'
   ) {
     return left - right
-  }
-
-  if (
-    typeof left === 'boolean' &&
-    typeof right === 'boolean'
-  ) {
-    return Number(left) - Number(right)
   }
 
   return String(left).localeCompare(
@@ -177,8 +148,7 @@ const sortedRows = computed(() => {
   const column =
     props.columns.find(
       (item) =>
-        item.key ===
-        sortKey.value
+        item.key === sortKey.value
     )
 
   if (!column) {
@@ -191,43 +161,28 @@ const sortedRows = computed(() => {
       : 1
 
   return props.rows
-    .map(
-      (row, index) => ({
-        row,
-        index,
-      })
-    )
-    .sort(
-      (left, right) => {
-        const result =
-          compareValues(
-            sortValue(
-              left.row,
-              column
-            ),
-            sortValue(
-              right.row,
-              column
-            )
+    .map((row, index) => ({
+      row,
+      index,
+    }))
+    .sort((left, right) => {
+      const result =
+        compareValues(
+          sortValue(
+            left.row,
+            column
+          ),
+          sortValue(
+            right.row,
+            column
           )
-
-        if (result === 0) {
-          return (
-            left.index -
-            right.index
-          )
-        }
-
-        return (
-          result *
-          direction
         )
-      }
-    )
-    .map(
-      (entry) =>
-        entry.row
-    )
+
+      return result === 0
+        ? left.index - right.index
+        : result * direction
+    })
+    .map((entry) => entry.row)
 })
 
 function toggleSort(column) {
@@ -238,33 +193,23 @@ function toggleSort(column) {
     return
   }
 
-  if (
-    sortKey.value !==
-    column.key
-  ) {
-    sortKey.value =
-      column.key
-
-    sortDirection.value =
-      'asc'
+  if (sortKey.value !== column.key) {
+    sortKey.value = column.key
+    sortDirection.value = 'asc'
   } else if (
-    sortDirection.value ===
-    'asc'
+    sortDirection.value === 'asc'
   ) {
-    sortDirection.value =
-      'desc'
+    sortDirection.value = 'desc'
   } else {
     sortKey.value = ''
-    sortDirection.value =
-      'asc'
+    sortDirection.value = 'asc'
   }
 
   emit(
     'sort-change',
     sortKey.value
       ? {
-          key:
-            sortKey.value,
+          key: sortKey.value,
           direction:
             sortDirection.value,
         }
@@ -273,19 +218,13 @@ function toggleSort(column) {
 }
 
 function sortIcon(column) {
-  if (
-    sortKey.value !==
-    column.key
-  ) {
+  if (sortKey.value !== column.key) {
     return '↕'
   }
 
-  return (
-    sortDirection.value ===
-    'asc'
-      ? '↑'
-      : '↓'
-  )
+  return sortDirection.value === 'asc'
+    ? '↑'
+    : '↓'
 }
 
 function ariaSort(column) {
@@ -296,71 +235,52 @@ function ariaSort(column) {
     return undefined
   }
 
-  if (
-    sortKey.value !==
-    column.key
-  ) {
+  if (sortKey.value !== column.key) {
     return 'none'
   }
 
-  return (
-    sortDirection.value ===
-    'asc'
-      ? 'ascending'
-      : 'descending'
-  )
+  return sortDirection.value === 'asc'
+    ? 'ascending'
+    : 'descending'
 }
 
-function rowKeyValue(
-  row,
-  index
-) {
+function rowKeyValue(row, index) {
   if (
     typeof props.rowKey ===
     'function'
   ) {
-    return props.rowKey(
-      row,
-      index
-    )
+    return props.rowKey(row, index)
   }
 
   return (
-    getByPath(
-      row,
-      props.rowKey
-    ) ??
+    getByPath(row, props.rowKey) ??
     index
   )
 }
 </script>
 
 <template>
-  <div class="admin-data-table">
+  <div class="ui-table">
     <div
-      v-if="
-        sortableColumns.length
-      "
-      class="admin-data-table__mobile-sort"
-      aria-label="Сортировка таблицы"
+      v-if="sortableColumns.length"
+      class="ui-table__mobile-sort"
     >
-      <span class="admin-data-table__mobile-sort-label">
+      <span class="ui-table__mobile-sort-label">
         Сортировка:
       </span>
 
       <button
         v-for="column in sortableColumns"
         :key="column.key"
-        class="admin-data-table__mobile-sort-button"
+        class="ui-table__mobile-sort-button"
         :class="{
-          'admin-data-table__mobile-sort-button--active':
+          'ui-table__mobile-sort-button--active':
             sortKey === column.key,
         }"
         type="button"
         @click="toggleSort(column)"
       >
         {{ column.label }}
-
         <span aria-hidden="true">
           {{ sortIcon(column) }}
         </span>
@@ -368,58 +288,41 @@ function rowKeyValue(
     </div>
 
     <UiEmptyState
-      v-if="
-        loading &&
-        !rows.length
-      "
+      v-if="loading && !rows.length"
       :description="loadingMessage"
       compact
     />
 
     <UiEmptyState
-      v-else-if="
-        !rows.length
-      "
+      v-else-if="!rows.length"
       :description="emptyMessage"
       compact
     />
 
     <div
       v-else
-      class="admin-data-table__wrap"
+      class="ui-table__wrap"
     >
-      <table class="admin-data-table__table">
+      <table class="ui-table__table">
         <thead>
           <tr>
             <th
               v-for="column in columns"
               :key="column.key"
-              :aria-sort="
-                ariaSort(column)
-              "
-              :class="{
-                'admin-data-table__heading--sortable':
-                  column.sortable !== false &&
-                  column.key,
-              }"
+              :aria-sort="ariaSort(column)"
             >
               <button
                 v-if="
                   column.sortable !== false &&
                   column.key
                 "
-                class="admin-data-table__sort-button"
+                class="ui-table__sort-button"
                 type="button"
-                @click="
-                  toggleSort(column)
-                "
+                @click="toggleSort(column)"
               >
-                <span>
-                  {{ column.label }}
-                </span>
-
+                <span>{{ column.label }}</span>
                 <span
-                  class="admin-data-table__sort-icon"
+                  class="ui-table__sort-icon"
                   aria-hidden="true"
                 >
                   {{ sortIcon(column) }}
@@ -436,38 +339,21 @@ function rowKeyValue(
         <tbody>
           <tr
             v-for="(row, index) in sortedRows"
-            :key="
-              rowKeyValue(
-                row,
-                index
-              )
-            "
+            :key="rowKeyValue(row, index)"
           >
             <td
               v-for="column in columns"
               :key="column.key"
-              :data-label="
-                column.label
-              "
+              :data-label="column.label"
             >
               <slot
-                :name="
-                  `cell-${column.key}`
-                "
+                :name="`cell-${column.key}`"
                 :row="row"
                 :column="column"
-                :value="
-                  cellValue(
-                    row,
-                    column
-                  )
-                "
+                :value="cellValue(row, column)"
               >
                 {{
-                  cellValue(
-                    row,
-                    column
-                  ) ?? '—'
+                  cellValue(row, column) ?? '—'
                 }}
               </slot>
             </td>
@@ -478,23 +364,22 @@ function rowKeyValue(
   </div>
 </template>
 
-<style>
-.admin-data-table {
+<style scoped>
+.ui-table,
+.ui-table__wrap,
+.ui-table__table {
   width: 100%;
 }
 
-.admin-data-table__wrap {
-  width: 100%;
-
+.ui-table__wrap {
   overflow-x: auto;
 
   border: 1px solid var(--border);
   border-radius: 10px;
 }
 
-.admin-data-table__table {
-  width: 100%;
-  min-width: 720px;
+.ui-table__table {
+  min-width: 700px;
 
   border-collapse: collapse;
 
@@ -502,8 +387,8 @@ function rowKeyValue(
   background: var(--surface);
 }
 
-.admin-data-table__table th,
-.admin-data-table__table td {
+.ui-table__table th,
+.ui-table__table td {
   padding: 11px 12px;
 
   border-bottom: 1px solid var(--border);
@@ -514,7 +399,7 @@ function rowKeyValue(
   font-size: 13px;
 }
 
-.admin-data-table__table th {
+.ui-table__table th {
   color: var(--text-secondary);
   background: var(--surface-secondary);
 
@@ -523,22 +408,16 @@ function rowKeyValue(
   white-space: nowrap;
 }
 
-.admin-data-table__table tbody tr:last-child td {
+.ui-table__table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-.admin-data-table__table tbody tr:hover td {
-  background: var(--surface-secondary);
-}
-
-.admin-data-table__sort-button {
+.ui-table__sort-button {
   width: 100%;
-
   padding: 0;
 
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 7px;
 
   color: inherit;
@@ -551,43 +430,29 @@ function rowKeyValue(
   cursor: pointer;
 }
 
-.admin-data-table__sort-button:hover {
+.ui-table__sort-button:hover {
   color: var(--brand);
 }
 
-.admin-data-table__sort-button:focus-visible {
+.ui-table__sort-button:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
-  border-radius: 4px;
 }
 
-.admin-data-table__sort-icon {
-  min-width: 12px;
-
+.ui-table__sort-icon {
   color: var(--brand);
-
-  font-size: 13px;
-  text-align: center;
 }
 
-.admin-data-table__mobile-sort {
+.ui-table__mobile-sort {
   display: none;
 }
 
-.admin-table__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 @media (max-width: 640px) {
-  .admin-data-table__mobile-sort {
+  .ui-table__mobile-sort {
     margin-bottom: 10px;
     padding: 9px;
 
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
     gap: 6px;
 
@@ -596,7 +461,7 @@ function rowKeyValue(
     border-radius: 9px;
   }
 
-  .admin-data-table__mobile-sort-label {
+  .ui-table__mobile-sort-label {
     width: 100%;
 
     color: var(--text-secondary);
@@ -605,17 +470,13 @@ function rowKeyValue(
     font-weight: 800;
   }
 
-  .admin-data-table__mobile-sort-button {
+  .ui-table__mobile-sort-button {
     min-height: 31px;
-
     padding: 5px 8px;
-
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
 
     color: var(--text);
     background: var(--surface);
+
     border: 1px solid var(--border);
     border-radius: 7px;
 
@@ -626,36 +487,33 @@ function rowKeyValue(
     cursor: pointer;
   }
 
-  .admin-data-table__mobile-sort-button--active {
+  .ui-table__mobile-sort-button--active {
     color: var(--brand);
-    border-color: var(--brand);
     background: var(--brand-soft);
+    border-color: var(--brand);
   }
 
-  .admin-data-table__wrap {
+  .ui-table__wrap {
     overflow: visible;
-
     border: 0;
   }
 
-  .admin-data-table__table {
+  .ui-table__table {
     min-width: 0;
-
     display: block;
-
     background: transparent;
   }
 
-  .admin-data-table__table thead {
+  .ui-table__table thead {
     display: none;
   }
 
-  .admin-data-table__table tbody {
+  .ui-table__table tbody {
     display: grid;
     gap: 10px;
   }
 
-  .admin-data-table__table tr {
+  .ui-table__table tr {
     display: block;
 
     overflow: hidden;
@@ -665,21 +523,19 @@ function rowKeyValue(
     border-radius: 10px;
   }
 
-  .admin-data-table__table td {
+  .ui-table__table td {
     min-height: 40px;
-
     padding: 9px 11px;
 
     display: grid;
     grid-template-columns:
-      minmax(100px, 38%)
-      1fr;
+      minmax(100px, 38%) 1fr;
     gap: 10px;
 
     border-bottom: 1px solid var(--border);
   }
 
-  .admin-data-table__table td::before {
+  .ui-table__table td::before {
     content: attr(data-label);
 
     color: var(--text-secondary);
@@ -688,21 +544,8 @@ function rowKeyValue(
     font-weight: 800;
   }
 
-  .admin-data-table__table tbody tr:hover td {
-    background: transparent;
-  }
-
-  .admin-data-table__table td:last-child {
+  .ui-table__table td:last-child {
     border-bottom: 0;
-  }
-
-  .admin-table__actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .admin-table__actions .admin-btn {
-    width: 100%;
   }
 }
 </style>

@@ -2,6 +2,10 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
+import {
+  UiButton,
+} from '@/components/ui'
+
 const route = useRoute()
 
 const redirect = computed(() => {
@@ -34,19 +38,18 @@ const loginRoute = computed(() => ({
     </p>
 
     <div class="auth-required__actions">
-      <RouterLink
-        class="auth-required__button auth-required__button--primary"
+      <UiButton
+        variant="primary"
         :to="loginRoute"
       >
         Войти
-      </RouterLink>
+      </UiButton>
 
-      <RouterLink
-        class="auth-required__button"
+      <UiButton
         :to="{ name: 'register' }"
       >
         Регистрация
-      </RouterLink>
+      </UiButton>
     </div>
   </div>
 </template>
@@ -112,47 +115,13 @@ const loginRoute = computed(() => ({
   gap: 10px;
 }
 
-.auth-required__button {
-  min-height: 42px;
-
-  padding: 9px 16px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface-secondary);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 9px;
-
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.auth-required__button--primary {
-  color: var(--text-on-brand);
-
-  background:
-    var(--brand);
-
-  border-color:
-    var(--brand);
-}
 
 @media (max-width: 420px) {
   .auth-required__actions {
     flex-direction: column;
   }
 
-  .auth-required__button {
+  .auth-required__actions :deep(.ui-button) {
     width: 100%;
   }
 }

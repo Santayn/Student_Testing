@@ -9,6 +9,15 @@ import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
 import {
+  UiButton,
+  UiCard,
+  UiCheckbox,
+  UiEmptyState,
+  UiSelect,
+  UiTextarea,
+} from '@/components/ui'
+
+import {
   getApiErrorMessage,
   membershipsApi,
   subjectsApi,
@@ -338,13 +347,12 @@ onMounted(loadData)
       </div>
     </section>
 
-    <section class="admin-card">
+    <UiCard>
       <label class="admin-field">
         <span>Преподаватель</span>
 
-        <select
+        <UiSelect
           v-model="teacherId"
-          class="admin-select"
         >
           <option value="">
             Выберите преподавателя
@@ -357,7 +365,7 @@ onMounted(loadData)
           >
             {{ personName(teacher) }}
           </option>
-        </select>
+        </UiSelect>
       </label>
 
       <div
@@ -378,13 +386,13 @@ onMounted(loadData)
           {{ teacherMemberships.length }}
         </span>
       </div>
-    </section>
+    </UiCard>
 
     <section
       v-if="teacherId"
       class="admin-grid admin-grid--2"
     >
-      <div class="admin-card">
+      <UiCard>
         <div class="admin-card__header">
           <div>
             <h2>
@@ -397,41 +405,27 @@ onMounted(loadData)
           </div>
         </div>
 
-        <div
+        <UiEmptyState
           v-if="!freeSubjects.length"
-          class="admin-empty"
-        >
-          Все предметы уже назначены.
-        </div>
+          description="Все предметы уже назначены."
+          compact
+        />
 
         <div
           v-else
           class="admin-checkbox-list"
         >
-          <label
+          <UiCheckbox
             v-for="subject in freeSubjects"
             :key="subject.id"
-            class="admin-checkbox"
-          >
-            <input
-              v-model="availableSelection"
-              type="checkbox"
-              :value="subject.id"
-            >
-
-            <span class="admin-checkbox__copy">
-              <span class="admin-checkbox__title">
-                {{ subject.name }}
-              </span>
-
-              <span class="admin-checkbox__meta">
-                {{
-                  subject.description ??
-                  `#${subject.id}`
-                }}
-              </span>
-            </span>
-          </label>
+            v-model="availableSelection"
+            :value="subject.id"
+            :label="subject.name"
+            :description="
+              subject.description ??
+              `#${subject.id}`
+            "
+          />
         </div>
 
         <label
@@ -440,15 +434,14 @@ onMounted(loadData)
         >
           <span>Примечание</span>
 
-          <textarea
+          <UiTextarea
             v-model="notes"
-            class="admin-textarea"
             placeholder="Необязательное примечание"
           />
         </label>
 
-        <button
-          class="admin-btn admin-btn--primary"
+        <UiButton
+            variant="primary"
           type="button"
           style="margin-top: 12px;"
           :disabled="
@@ -458,10 +451,10 @@ onMounted(loadData)
           @click="addSubjects"
         >
           Назначить выбранные
-        </button>
-      </div>
+        </UiButton>
+      </UiCard>
 
-      <div class="admin-card">
+      <UiCard>
         <div class="admin-card__header">
           <div>
             <h2>
@@ -474,54 +467,40 @@ onMounted(loadData)
           </div>
         </div>
 
-        <div
+        <UiEmptyState
           v-if="
             !teacherMemberships.length
           "
-          class="admin-empty"
-        >
-          У преподавателя пока нет предметов.
-        </div>
+          description="У преподавателя пока нет предметов."
+          compact
+        />
 
         <div
           v-else
           class="admin-checkbox-list"
         >
-          <label
+          <UiCheckbox
             v-for="
               membership in
               teacherMemberships
             "
             :key="membership.id"
-            class="admin-checkbox"
-          >
-            <input
-              v-model="assignedSelection"
-              type="checkbox"
-              :value="membership.id"
-            >
-
-            <span class="admin-checkbox__copy">
-              <span class="admin-checkbox__title">
-                {{
-                  subjectName(
-                    membership.subjectId
-                  )
-                }}
-              </span>
-
-              <span class="admin-checkbox__meta">
-                {{
-                  membership.notes ??
-                  `Назначение #${membership.id}`
-                }}
-              </span>
-            </span>
-          </label>
+            v-model="assignedSelection"
+            :value="membership.id"
+            :label="
+              subjectName(
+                membership.subjectId
+              )
+            "
+            :description="
+              membership.notes ??
+              `Назначение #${membership.id}`
+            "
+          />
         </div>
 
-        <button
-          class="admin-btn admin-btn--danger"
+        <UiButton
+            variant="danger"
           type="button"
           style="margin-top: 12px;"
           :disabled="
@@ -531,8 +510,8 @@ onMounted(loadData)
           @click="removeSubjects"
         >
           Снять выбранные
-        </button>
-      </div>
+        </UiButton>
+      </UiCard>
     </section>
   </AdminPageShell>
 </template>

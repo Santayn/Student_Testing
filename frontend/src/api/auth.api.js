@@ -1,15 +1,103 @@
-import http from './http'
+import http, {
+  authHttp,
+} from './http'
+
+function withOptionalLifetimeKind(
+  data
+) {
+  const payload = {
+    ...data,
+  }
+
+  if (
+    payload.lifetimeKind ===
+      undefined ||
+    payload.lifetimeKind ===
+      null ||
+    payload.lifetimeKind === ''
+  ) {
+    delete payload.lifetimeKind
+  }
+
+  return payload
+}
 
 export const authApi = {
-  login(login, password) {
-    return http.post('/auth/login', { login, password })
+  login({
+    login,
+    password,
+    lifetimeKind,
+  }) {
+    return authHttp.post(
+      '/auth/login',
+      withOptionalLifetimeKind({
+        login,
+        password,
+        lifetimeKind,
+      })
+    )
   },
 
-  register(data) {
-    return http.post('/auth/register', data)
+  register({
+    login,
+    password,
+    personId,
+    lifetimeKind,
+  }) {
+    return authHttp.post(
+      '/auth/register',
+      withOptionalLifetimeKind({
+        login,
+        password,
+        personId:
+          Number(personId),
+        lifetimeKind,
+      })
+    )
+  },
+
+  refresh(refreshToken) {
+    return authHttp.post(
+      '/auth/refresh',
+      {
+        refreshToken,
+      }
+    )
+  },
+
+  revoke(refreshToken) {
+    return http.post(
+      '/auth/revoke',
+      {
+        refreshToken,
+      },
+      {
+        /*
+         * Нельзя делать response-refresh + retry:
+         * refresh rotation заменит refreshToken,
+         * а body исходного revoke содержит старое значение.
+         */
+        skipAuthRefresh: true,
+      }
+    )
+  },
+
+  changePassword({
+    currentPassword,
+    newPassword,
+  }) {
+    return http.post(
+      '/auth/change-password',
+      {
+        currentPassword,
+        newPassword,
+      }
+    )
   },
 
   me() {
-    return http.get('/auth/me')
+    return http.get(
+      '/auth/me'
+    )
   },
 }

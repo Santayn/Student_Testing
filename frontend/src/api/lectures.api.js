@@ -45,6 +45,28 @@ export const lecturesApi = {
     )
   },
 
+  uploadMaterials(lectureId, files) {
+    const formData = new FormData()
+
+    Array.from(files ?? []).forEach((file) => {
+      formData.append('files', file)
+    })
+
+    return http.post(
+      `/lectures/${lectureId}/materials`,
+      formData
+    )
+  },
+
+  downloadMaterial(lectureId, materialId) {
+    return http.get(
+      `/lectures/${lectureId}/materials/${materialId}/download`,
+      {
+        responseType: 'blob',
+      }
+    )
+  },
+
   removeMaterial(lectureId, materialId) {
     return http.delete(
       `/lectures/${lectureId}/materials/${materialId}`

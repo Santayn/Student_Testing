@@ -1,9 +1,14 @@
 <script setup>
+import {
+  UiAlert,
+} from '@/components/ui'
+
 defineProps({
   type: {
     type: String,
     default: 'info',
   },
+
   message: {
     type: String,
     default: '',
@@ -16,21 +21,11 @@ const emit = defineEmits([
 </script>
 
 <template>
-  <div
+  <UiAlert
     v-if="message"
-    class="admin-notice"
-    :class="`admin-notice--${type}`"
-    role="status"
-  >
-    <span>{{ message }}</span>
-
-    <button
-      class="admin-notice__close"
-      type="button"
-      aria-label="Закрыть сообщение"
-      @click="emit('close')"
-    >
-      ×
-    </button>
-  </div>
+    :variant="type"
+    :message="message"
+    closable
+    @close="emit('close')"
+  />
 </template>

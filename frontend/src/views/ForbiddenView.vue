@@ -3,6 +3,11 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+import {
+  UiButton,
+  UiCard,
+} from '@/components/ui'
+
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -39,7 +44,7 @@ const currentRoles = computed(() => {
 
 <template>
   <section class="error-page">
-    <div class="error-card">
+    <UiCard class="error-card">
       <div class="error-code error-code--forbidden">
         403
       </div>
@@ -80,29 +85,27 @@ const currentRoles = computed(() => {
       </div>
 
       <div class="error-actions">
-        <RouterLink
-          class="error-button error-button--primary"
+        <UiButton
+          variant="primary"
           :to="{ name: 'home' }"
         >
           На главную
-        </RouterLink>
+        </UiButton>
 
-        <RouterLink
-          class="error-button"
+        <UiButton
           :to="{ name: 'profile' }"
         >
           Профиль
-        </RouterLink>
+        </UiButton>
 
-        <button
-          class="error-button"
+        <UiButton
           type="button"
           @click="$router.back()"
         >
           Назад
-        </button>
+        </UiButton>
       </div>
-    </div>
+    </UiCard>
   </section>
 </template>
 
@@ -140,6 +143,14 @@ const currentRoles = computed(() => {
 
   box-shadow:
     var(--shadow-elevated);
+}
+
+.error-card :deep(.ui-card__content) {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+
+  text-align: center;
 }
 
 .error-code {
@@ -219,47 +230,6 @@ const currentRoles = computed(() => {
   gap: 10px;
 }
 
-.error-button {
-  min-height: 42px;
-
-  padding: 9px 16px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface-secondary);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 9px;
-
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-
-  cursor: pointer;
-}
-
-.error-button:hover {
-  filter: brightness(0.98);
-}
-
-.error-button--primary {
-  color: var(--text-on-brand);
-
-  background:
-    var(--brand);
-
-  border-color:
-    var(--brand);
-}
 
 @media (max-width: 520px) {
   .error-page {
@@ -275,7 +245,7 @@ const currentRoles = computed(() => {
     width: 100%;
   }
 
-  .error-button {
+  .error-actions :deep(.ui-button) {
     width: 100%;
   }
 }

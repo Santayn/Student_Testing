@@ -1,17 +1,33 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import {
+  computed,
+  ref,
+} from 'vue'
 
+import {
+  useRoute,
+  useRouter,
+} from 'vue-router'
+
+import {
+  UiAlert,
+  UiButton,
+  UiInput,
+} from '@/components/ui'
+
+import {
+  useAuthStore,
+} from '@/stores/auth'
+
+const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
+
+const authStore =
+  useAuthStore()
 
 const form = ref({
   login: '',
-  email: '',
-  firstName: '',
-  lastName: '',
-  middleName: '',
+  personId: '',
   password: '',
   confirmPassword: '',
 })
@@ -21,9 +37,9 @@ const localError = ref('')
 const canSubmit = computed(() => {
   return (
     form.value.login.trim() &&
-    form.value.email.trim() &&
-    form.value.firstName.trim() &&
-    form.value.lastName.trim() &&
+    Number(
+      form.value.personId
+    ) > 0 &&
     form.value.password &&
     form.value.confirmPassword &&
     !authStore.loading
@@ -34,33 +50,56 @@ async function submit() {
   localError.value = ''
 
   if (!canSubmit.value) {
-    localError.value = 'Заполните обязательные поля'
+    localError.value =
+      'Заполните обязательные поля'
+
     return
   }
 
-  if (form.value.password !== form.value.confirmPassword) {
-    localError.value = 'Пароли не совпадают'
+  if (
+    form.value.password.length < 6
+  ) {
+    localError.value =
+      'Пароль должен содержать минимум 6 символов'
+
+    return
+  }
+
+  if (
+    form.value.password !==
+    form.value.confirmPassword
+  ) {
+    localError.value =
+      'Пароли не совпадают'
+
     return
   }
 
   try {
     await authStore.register({
-      login: form.value.login.trim(),
-      email: form.value.email.trim(),
-      firstName: form.value.firstName.trim(),
-      lastName: form.value.lastName.trim(),
-      middleName: form.value.middleName.trim() || null,
-      password: form.value.password,
+      login:
+        form.value.login.trim(),
+
+      password:
+        form.value.password,
+
+      personId:
+        Number(
+          form.value.personId
+        ),
     })
 
-    await router.replace({
-      name: 'login',
-      query: {
-        registered: '1',
-      },
-    })
+    const redirect =
+      typeof route.query
+        .redirect === 'string'
+        ? route.query.redirect
+        : '/'
+
+    await router.replace(
+      redirect
+    )
   } catch {
-    // backend error уже доступна через authStore.error
+    // Ошибка уже находится в authStore.error.
   }
 }
 </script>
@@ -71,7 +110,8 @@ async function submit() {
       <h1>Регистрация</h1>
 
       <p>
-        Создайте новую учётную запись.
+        Создайте учётную запись
+        для существующей персоны.
       </p>
     </header>
 
@@ -79,102 +119,86 @@ async function submit() {
       class="auth-form"
       @submit.prevent="submit"
     >
-      <label class="auth-field">
-        <span>Логин *</span>
+      <UiInput
+        v-model="form.login"
+        label="Логин"
+        autocomplete="username"
+        maxlength="100"
+        :disabled="authStore.loading"
+        required
+        size="lg"
+      />
 
-        <input
-          v-model="form.login"
-          type="text"
-          autocomplete="username"
-        >
-      </label>
+      <UiInput
+        v-model="form.personId"
+        label="Person ID"
+        hint="ID уже существующей персоны в системе."
+        type="number"
+        min="1"
+        step="1"
+        inputmode="numeric"
+        :disabled="authStore.loading"
+        required
+        size="lg"
+      />
 
-      <label class="auth-field">
-        <span>Email *</span>
+      <UiInput
+        v-model="form.password"
+        label="Пароль"
+        type="password"
+        minlength="6"
+        maxlength="200"
+        autocomplete="new-password"
+        :disabled="authStore.loading"
+        required
+        size="lg"
+      />
 
-        <input
-          v-model="form.email"
-          type="email"
-          autocomplete="email"
-        >
-      </label>
+      <UiInput
+        v-model="form.confirmPassword"
+        label="Повторите пароль"
+        type="password"
+        minlength="6"
+        maxlength="200"
+        autocomplete="new-password"
+        :disabled="authStore.loading"
+        required
+        size="lg"
+      />
 
-      <div class="auth-form__grid">
-        <label class="auth-field">
-          <span>Фамилия *</span>
+      <UiAlert
+        v-if="
+          localError ||
+          authStore.error
+        "
+        variant="danger"
+        :message="
+          localError ||
+          authStore.error
+        "
+      />
 
-          <input
-            v-model="form.lastName"
-            type="text"
-            autocomplete="family-name"
-          >
-        </label>
-
-        <label class="auth-field">
-          <span>Имя *</span>
-
-          <input
-            v-model="form.firstName"
-            type="text"
-            autocomplete="given-name"
-          >
-        </label>
-      </div>
-
-      <label class="auth-field">
-        <span>Отчество</span>
-
-        <input
-          v-model="form.middleName"
-          type="text"
-        >
-      </label>
-
-      <label class="auth-field">
-        <span>Пароль *</span>
-
-        <input
-          v-model="form.password"
-          type="password"
-          autocomplete="new-password"
-        >
-      </label>
-
-      <label class="auth-field">
-        <span>Повторите пароль *</span>
-
-        <input
-          v-model="form.confirmPassword"
-          type="password"
-          autocomplete="new-password"
-        >
-      </label>
-
-      <div
-        v-if="localError || authStore.error"
-        class="auth-alert"
-        role="alert"
-      >
-        {{ localError || authStore.error }}
-      </div>
-
-      <button
-        class="auth-submit"
+      <UiButton
+        variant="primary"
+        size="lg"
         type="submit"
+        block
         :disabled="!canSubmit"
+        :loading="authStore.loading"
+        loading-text="Регистрация..."
       >
-        {{
-          authStore.loading
-            ? 'Регистрация...'
-            : 'Зарегистрироваться'
-        }}
-      </button>
+        Зарегистрироваться
+      </UiButton>
     </form>
 
     <p class="auth-switch">
       Уже есть аккаунт?
 
-      <RouterLink :to="{ name: 'login' }">
+      <RouterLink
+        :to="{
+          name: 'login',
+        }"
+      >
         Войти
       </RouterLink>
     </p>
@@ -198,16 +222,14 @@ async function submit() {
 }
 
 .auth-view__header h1 {
-  color:
-    var(--text);
+  color: var(--text);
 
   font-size: 28px;
 }
 
 .auth-view__header p,
 .auth-switch {
-  color:
-    var(--text-secondary);
+  color: var(--text-secondary);
 
   font-size: 14px;
 }
@@ -217,109 +239,16 @@ async function submit() {
   gap: 16px;
 }
 
-.auth-form__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.auth-field {
-  display: grid;
-  gap: 7px;
-
-  color:
-    var(--text);
-
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.auth-field input {
-  width: 100%;
-  min-height: 44px;
-
-  padding: 9px 11px;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 9px;
-
-  font: inherit;
-  font-weight: 400;
-}
-
-.auth-field input:focus {
-  outline: 2px solid
-    var(--focus-ring);
-
-  border-color:
-    var(--brand);
-}
-
-.auth-alert {
-  padding: 10px 12px;
-
-  color:
-    var(--danger);
-
-  background:
-    var(--danger-soft);
-
-  border: 1px solid
-    var(--danger-border);
-
-  border-radius: 9px;
-
-  font-size: 13px;
-}
-
-.auth-submit {
-  min-height: 44px;
-
-  padding: 9px 16px;
-
-  color: var(--text-on-brand);
-
-  background:
-    var(--brand);
-
-  border: 0;
-  border-radius: 9px;
-
-  font: inherit;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.auth-submit:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
 .auth-switch {
   margin: 0;
+
   text-align: center;
 }
 
 .auth-switch a {
-  color:
-    var(--brand);
+  color: var(--brand);
 
   font-weight: 600;
   text-decoration: none;
-}
-
-@media (max-width: 520px) {
-  .auth-form__grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

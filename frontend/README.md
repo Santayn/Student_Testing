@@ -1,295 +1,316 @@
-# Vue Admin Group
+# Auth session + refresh token
 
-Миграция admin-группы старого frontend на Vue 3.
+Обновление frontend-авторизации под фактический backend контракт.
 
-## Готовые страницы
+## Backend endpoints
 
 ```text
-src/views/admin/
-├── UsersView.vue
-├── FacultiesView.vue
-├── GroupsView.vue
-├── SubjectsAdminView.vue
-├── FacultySubjectsView.vue
-├── TeacherSubjectsView.vue
-└── TeachingTemplatesView.vue
+POST /api/v1/auth/login
+POST /api/v1/auth/register
+POST /api/v1/auth/refresh
+POST /api/v1/auth/revoke
+POST /api/v1/auth/change-password
+GET  /api/v1/auth/me
 ```
 
-Они соответствуют уже созданным маршрутам:
+## Что хранит AuthStore
+
+Persisted:
 
 ```text
-/admin/users
-/admin/faculties
-/admin/groups
-/admin/subjects
-/admin/faculty-subjects
-/admin/teacher-subjects
-/admin/teaching
+tokenType
+
+accessToken
+accessTokenExpiresAtUtc
+
+refreshToken
+refreshTokenExpiresAtUtc
+
+lifetimeKind
+
+user
 ```
 
-## Общие компоненты
-
-Добавлены:
+Не persisted:
 
 ```text
-src/components/admin/
-├── AdminPageShell.vue
-└── AdminNotice.vue
+loading
+refreshing
+initialized
+error
 ```
 
-`AdminPageShell` содержит единые structural styles всей admin-группы:
-
-- header;
-- cards;
-- forms;
-- buttons;
-- tables;
-- checklists;
-- stats;
-- mobile layout.
-
-## ThemeStore / theme.css
-
-В admin-компонентах нет собственного ThemeStore.
-
-Они получают цвета только из уже созданного:
+## Login
 
 ```text
-src/assets/theme.css
-```
-
-Используются токены:
-
-```text
---bg
---surface
---surface-secondary
---text
---text-secondary
---text-on-brand
---border
---brand
---brand-hover
---brand-soft
---focus-ring
---success
---success-soft
---warning
---warning-soft
---warning-border
---danger
---danger-soft
---danger-border
-```
-
-То есть переключение:
-
-```text
-light ↔ dark
-```
-
-происходит автоматически.
-
-## Adaptive layout
-
-На desktop таблицы остаются обычными.
-
-При ширине <= 640px:
-
-```text
-table
+POST /auth/login
   ↓
-card list
+access + refresh
+  ↓
+сохранить ОБА токена
+  ↓
+GET /auth/me
+  ↓
+user + roles + permissions
 ```
 
-Каждая строка превращается в карточку:
+## Register
 
-```text
-Пользователь   admin
-ФИО            Иванов Иван
-Email          ...
-Роль           [ADMIN]
-```
+Контракт backend:
 
-Формы на tablet/mobile перестраиваются в одну колонку.
-
-## UsersView
-
-Перенесена логика старого:
-
-```text
-users.html
-```
-
-Функции:
-
-- загрузка ролей;
-- загрузка пользователей;
-- фильтр по роли;
-- изменение роли.
-
-Backend:
-
-```text
-GET /api/v1/roles
-GET /api/v1/users
-PUT /api/v1/users/{id}/roles
-```
-
-Тело смены роли:
-
-```js
+```json
 {
-  roleIds: [roleId]
+  "login": "student1",
+  "password": "password123",
+  "personId": 15
 }
 ```
 
-## FacultiesView
+`lifetimeKind` можно добавить опционально.
 
-Перенесён:
+После регистрации backend сразу возвращает токены.
 
-```text
-create-faculty.html
-```
-
-CRUD факультетов.
-
-## GroupsView
-
-Перенесён:
+Поэтому RegisterView:
 
 ```text
-groups.html
+register
+  ↓
+tokens
+  ↓
+/auth/me
+  ↓
+home
 ```
 
-CRUD групп + выбор факультета.
+Переход на Login после успешной регистрации больше не нужен.
 
-## SubjectsAdminView
+## Refresh
 
-Перенесён:
+Access token проверяется перед защищённым запросом.
+
+За 30 секунд до истечения он считается требующим обновления:
 
 ```text
-create-subject.html
+TOKEN_EXPIRY_MARGIN_MS = 30000
 ```
 
-CRUD предметов.
-
-## FacultySubjectsView
-
-Перенесён:
+Если token истёк/скоро истечёт:
 
 ```text
-manage-subject-faculty.html
+AuthStore.ensureAccessToken()
+  ↓
+AuthStore.refreshSession()
+  ↓
+POST /auth/refresh
 ```
 
-Можно массово:
-
-- добавлять предметы факультету;
-- удалять предметы факультета.
-
-## TeacherSubjectsView
-
-Перенесён:
+Backend возвращает новую пару:
 
 ```text
-manage-teachers-subject.html
+NEW accessToken
+NEW refreshToken
 ```
 
-Можно:
+Store заменяет ОБА значения.
 
-- выбрать преподавателя;
-- назначить несколько предметов;
-- оставить примечание;
-- снять предметы.
+## Refresh lock
 
-Использованы старые backend-константы:
+`refreshSession()` использует один module-level Promise:
+
+```text
+refreshPromise
+```
+
+Поэтому:
+
+```text
+Request A -> 401 ┐
+Request B -> 401 ├─> ОДИН /auth/refresh
+Request C -> 401 ┘
+```
+
+Все запросы затем используют новую пару.
+
+## Axios
+
+Есть два клиента.
+
+### authHttp
+
+Без auth interceptors:
+
+```text
+login
+register
+refresh
+```
+
+Это предотвращает рекурсивный refresh.
+
+### http
+
+Для остальных `/api/v1/**`:
+
+```text
+request
+  ↓
+ensureAccessToken()
+  ↓
+Authorization: Bearer ...
+
+response 401
+  ↓
+refreshSession()
+  ↓
+retry ОДИН раз
+```
+
+## /auth/me
+
+AuthStore больше не использует:
+
+```text
+/users/me
+```
+
+для восстановления авторизации.
+
+Используется фактический endpoint:
+
+```text
+GET /api/v1/auth/me
+```
+
+Именно он возвращает:
+
+```text
+user
+roles
+permissions
+person
+```
+
+## Logout
+
+Теперь logout является async:
 
 ```js
-TEACHER_ROLE = 1
-REMOVED_STATUS = 3
+await authStore.logout()
 ```
 
-## TeachingTemplatesView
-
-Перенесена основная логика:
+Алгоритм:
 
 ```text
-manage-teacher-groups.html
+access истёк?
+  ↓ да
+refresh, если возможно
+  ↓
+POST /auth/revoke
+  body: current refreshToken
+  ↓
+clearSession()
 ```
 
-Поддерживается:
+Даже если revoke завершится сетевой ошибкой,
+локальная сессия всё равно удаляется.
 
-- курс;
-- семестр;
-- учебный год;
-- факультет;
-- статус;
-- примечание;
-- несколько строк предмет → преподаватель;
-- отдельный набор групп для каждой строки;
-- создание `TeachingAssignment`;
-- предотвращение дублей на клиенте;
-- автоматическое обеспечение load type `Основная нагрузка`;
-- просмотр назначений периода;
-- смена преподавателя;
-- смена статуса;
-- редактирование примечания.
+## Permissions
 
-Статусы сохранены:
-
-```text
-1 Активно
-2 Черновик
-3 Закрыто
-4 В паузе
-```
-
-## API изменения
-
-В архиве обновлены:
-
-```text
-src/api/users.api.js
-src/api/teaching.api.js
-```
-
-В `usersApi.updateRoles` теперь явно передаётся объект:
+AuthStore получил:
 
 ```js
-usersApi.updateRoles(id, {
-  roleIds: [roleId],
+permissions
+hasPermission(permission)
+hasAnyPermission(...permissions)
+```
+
+Например:
+
+```js
+authStore.hasPermission(
+  'teaching.manage'
+)
+```
+
+## Change password
+
+Добавлено:
+
+```js
+await authStore.changePassword(
+  currentPassword,
+  newPassword
+)
+```
+
+которое вызывает:
+
+```text
+POST /api/v1/auth/change-password
+```
+
+## main.js
+
+Старый:
+
+```js
+setAccessTokenProvider(...)
+```
+
+заменён на:
+
+```js
+configureHttpAuth({
+  getAccessToken,
+  ensureAccessToken,
+  refreshSession,
+  onSessionInvalid,
 })
 ```
 
-В `teachingApi` добавлен:
-
-```js
-getSubjectLoadTypes(params)
-```
-
-для:
-
-```text
-GET /api/v1/teaching/subject-load-types
-```
-
-## Router
-
-Если ваш текущий `admin.js` уже содержит созданные ранее маршруты,
-его менять не требуется.
-
-Ожидаемые имена компонентов полностью совпадают с ним.
+При окончательной потере сессии защищённая страница
+перенаправляется на login с `redirect`.
 
 ## Что заменить
 
-Скопируйте из архива:
-
 ```text
-src/components/admin/
-src/views/admin/
-src/utils/apiData.js
-src/api/users.api.js
-src/api/teaching.api.js
+src/stores/auth.js
+
+src/api/http.js
+src/api/auth.api.js
+src/api/index.js
+
+src/main.js
+
+src/views/auth/LoginView.vue
+src/views/auth/RegisterView.vue
+
+src/components/layout/AppHeader.vue
 ```
 
-`theme.css`, `AuthStore`, Router и Sidebar менять не нужно.
+Остальные API modules менять не требуется.
+
+
+## Важный нюанс revoke
+
+`POST /auth/revoke` выполняется с:
+
+```js
+skipAuthRefresh: true
+```
+
+Перед ним `AuthStore.logout()` сам обеспечивает действующий access token.
+
+Это предотвращает сценарий:
+
+```text
+revoke(old refreshToken)
+  ↓ 401
+automatic refresh
+  ↓
+refresh token rotation
+  ↓
+retry revoke со СТАРЫМ body
+```
+
+То есть refresh rotation и revoke не конфликтуют.

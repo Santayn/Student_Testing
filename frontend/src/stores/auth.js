@@ -1,315 +1,641 @@
 import { defineStore } from 'pinia'
+
 import {
   authApi,
-  usersApi,
   getApiErrorMessage,
 } from '@/api'
 
-export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    accessToken: null,
-    user: null,
+const TOKEN_EXPIRY_MARGIN_MS = 30_000
 
-    loading: false,
-    initialized: false,
-    error: null,
-  }),
+let refreshPromise = null
 
-  getters: {
-    /**
-     * Сессия считается активной только если есть
-     * и access token, и текущий пользователь.
-     */
-    isAuthenticated: (state) => {
-      return Boolean(
-        state.accessToken &&
-        state.user
-      )
-    },
+function expirationTime(value) {
+  if (!value) {
+    return 0
+  }
 
-    hasUser: (state) => state.user !== null,
+  const time = new Date(value).getTime()
 
-    userId: (state) => state.user?.id ?? null,
+  return Number.isFinite(time)
+    ? time
+    : 0
+}
 
-    loginName: (state) => state.user?.login ?? '',
+function isExpired(
+  expiresAtUtc,
+  marginMs = 0
+) {
+  const expiresAt =
+    expirationTime(expiresAtUtc)
 
-    email: (state) => state.user?.email ?? '',
+  if (!expiresAt) {
+    return true
+  }
 
-    firstName: (state) => state.user?.firstName ?? '',
+  return (
+    Date.now() + marginMs >=
+    expiresAt
+  )
+}
 
-    lastName: (state) => state.user?.lastName ?? '',
+export const useAuthStore = defineStore(
+  'auth',
+  {
+    state: () => ({
+      tokenType: 'Bearer',
 
-    middleName: (state) => state.user?.middleName ?? '',
+      accessToken: null,
+      accessTokenExpiresAtUtc: null,
 
-    fullName() {
-      return [
-        this.lastName,
-        this.firstName,
-        this.middleName,
-      ]
-        .filter(Boolean)
-        .join(' ')
-    },
+      refreshToken: null,
+      refreshTokenExpiresAtUtc: null,
 
-    roles: (state) => {
-      if (!Array.isArray(state.user?.roles)) {
-        return []
-      }
+      lifetimeKind: null,
 
-      return state.user.roles
-    },
+      user: null,
 
-    hasRole() {
-      return (role) => {
-        return this.roles.some((userRole) => {
-          if (typeof userRole === 'string') {
-            return userRole === role
-          }
+      loading: false,
+      refreshing: false,
+      initialized: false,
+      error: null,
+    }),
 
-          return (
-            userRole?.name === role ||
-            userRole?.code === role ||
-            userRole?.authority === role
+    getters: {
+      isAuthenticated: (state) => {
+        return Boolean(
+          state.accessToken &&
+          state.user
+        )
+      },
+
+      hasUser: (state) => {
+        return state.user !== null
+      },
+
+      userId: (state) => {
+        return (
+          state.user?.userId ??
+          state.user?.id ??
+          null
+        )
+      },
+
+      personId: (state) => {
+        return (
+          state.user?.personId ??
+          state.user?.person?.id ??
+          null
+        )
+      },
+
+      loginName: (state) => {
+        return (
+          state.user?.login ??
+          ''
+        )
+      },
+
+      email: (state) => {
+        return (
+          state.user?.email ??
+          state.user?.person?.email ??
+          ''
+        )
+      },
+
+      firstName: (state) => {
+        return (
+          state.user?.firstName ??
+          state.user?.person?.firstName ??
+          ''
+        )
+      },
+
+      lastName: (state) => {
+        return (
+          state.user?.lastName ??
+          state.user?.person?.lastName ??
+          ''
+        )
+      },
+
+      middleName: (state) => {
+        return (
+          state.user?.middleName ??
+          state.user?.person?.middleName ??
+          ''
+        )
+      },
+
+      fullName() {
+        if (this.user?.fullName) {
+          return this.user.fullName
+        }
+
+        return [
+          this.lastName,
+          this.firstName,
+          this.middleName,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim()
+      },
+
+      roles: (state) => {
+        return Array.isArray(
+          state.user?.roles
+        )
+          ? state.user.roles
+          : []
+      },
+
+      permissions: (state) => {
+        return Array.isArray(
+          state.user?.permissions
+        )
+          ? state.user.permissions
+          : []
+      },
+
+      hasRole() {
+        return (role) => {
+          return this.roles.some(
+            (userRole) => {
+              if (
+                typeof userRole ===
+                'string'
+              ) {
+                return (
+                  userRole === role
+                )
+              }
+
+              return (
+                userRole?.name === role ||
+                userRole?.code === role ||
+                userRole?.authority === role
+              )
+            }
           )
-        })
-      }
-    },
+        }
+      },
 
-    hasAnyRole() {
-      return (...roles) => {
-        return roles.some(
-          (role) => this.hasRole(role)
+      hasAnyRole() {
+        return (...roles) => {
+          return roles.some(
+            (role) =>
+              this.hasRole(role)
+          )
+        }
+      },
+
+      hasPermission() {
+        return (permission) => {
+          return this.permissions.includes(
+            permission
+          )
+        }
+      },
+
+      hasAnyPermission() {
+        return (...permissions) => {
+          return permissions.some(
+            (permission) =>
+              this.hasPermission(
+                permission
+              )
+          )
+        }
+      },
+
+      isAdmin() {
+        return this.hasRole('ADMIN')
+      },
+
+      isTeacher() {
+        return this.hasRole('TEACHER')
+      },
+
+      isStudent() {
+        return this.hasRole('STUDENT')
+      },
+
+      isAccessTokenExpired: (
+        state
+      ) => {
+        return isExpired(
+          state.accessTokenExpiresAtUtc,
+          TOKEN_EXPIRY_MARGIN_MS
         )
-      }
-    },
+      },
 
-    isAdmin() {
-      return this.hasRole('ADMIN')
-    },
-
-    isTeacher() {
-      return this.hasRole('TEACHER')
-    },
-
-    isStudent() {
-      return this.hasRole('STUDENT')
-    },
-  },
-
-  actions: {
-    setAccessToken(token) {
-      this.accessToken = token || null
-    },
-
-    setUser(user) {
-      this.user = user || null
-      this.error = null
-    },
-
-    /**
-     * Авторизация.
-     *
-     * Поддерживает несколько распространённых имён поля токена,
-     * чтобы не привязывать frontend к одному DTO раньше времени.
-     */
-    async login(login, password) {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await authApi.login(
-          login,
-          password
+      isRefreshTokenExpired: (
+        state
+      ) => {
+        return isExpired(
+          state.refreshTokenExpiresAtUtc
         )
+      },
 
-        const data = response.data ?? {}
+      canRefresh() {
+        return Boolean(
+          this.refreshToken &&
+          !this.isRefreshTokenExpired
+        )
+      },
+    },
 
-        const token =
-          data.accessToken ??
-          data.access_token ??
-          data.token ??
+    actions: {
+      setSessionTokens(data) {
+        this.tokenType =
+          data?.tokenType ||
+          'Bearer'
+
+        this.accessToken =
+          data?.accessToken ||
           null
 
-        if (!token) {
+        this.accessTokenExpiresAtUtc =
+          data?.accessTokenExpiresAtUtc ||
+          null
+
+        this.refreshToken =
+          data?.refreshToken ||
+          null
+
+        this.refreshTokenExpiresAtUtc =
+          data?.refreshTokenExpiresAtUtc ||
+          null
+
+        this.lifetimeKind =
+          data?.lifetimeKind ??
+          null
+
+        if (
+          !this.accessToken ||
+          !this.refreshToken
+        ) {
           throw new Error(
-            'Backend не вернул access token'
+            'Backend не вернул полную пару access/refresh tokens'
           )
         }
+      },
 
-        this.accessToken = token
+      setUser(user) {
+        this.user =
+          user || null
 
-        /**
-         * Если backend сразу вернул пользователя —
-         * используем его.
-         *
-         * Иначе загружаем /users/me.
-         */
-        if (data.user) {
-          this.user = data.user
-        } else {
+        this.error = null
+      },
+
+      async login(
+        login,
+        password,
+        lifetimeKind = undefined
+      ) {
+        this.loading = true
+        this.error = null
+
+        try {
+          const response =
+            await authApi.login({
+              login,
+              password,
+              lifetimeKind,
+            })
+
+          this.setSessionTokens(
+            response.data
+          )
+
           await this.loadCurrentUser()
+
+          return {
+            user: this.user,
+            accessToken:
+              this.accessToken,
+          }
+        } catch (error) {
+          this.clearSession()
+
+          this.error =
+            getApiErrorMessage(
+              error,
+              'Не удалось войти в систему'
+            )
+
+          throw error
+        } finally {
+          this.loading = false
+        }
+      },
+
+      async register(data) {
+        this.loading = true
+        this.error = null
+
+        try {
+          const response =
+            await authApi.register(
+              data
+            )
+
+          this.setSessionTokens(
+            response.data
+          )
+
+          await this.loadCurrentUser()
+
+          return {
+            user: this.user,
+            accessToken:
+              this.accessToken,
+          }
+        } catch (error) {
+          this.clearSession()
+
+          this.error =
+            getApiErrorMessage(
+              error,
+              'Не удалось зарегистрироваться'
+            )
+
+          throw error
+        } finally {
+          this.loading = false
+        }
+      },
+
+      async loadCurrentUser() {
+        if (!this.accessToken) {
+          this.user = null
+          return null
         }
 
-        return {
-          accessToken: this.accessToken,
-          user: this.user,
-        }
-      } catch (error) {
-        /**
-         * Не оставляем частично созданную сессию,
-         * если login завершился ошибкой.
-         */
-        this.accessToken = null
-        this.user = null
+        const response =
+          await authApi.me()
 
-        this.error = getApiErrorMessage(
-          error,
-          'Не удалось войти в систему'
-        )
-
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
-    /**
-     * Регистрация.
-     *
-     * По умолчанию только создаёт пользователя.
-     * Автоматический login после регистрации не предполагается,
-     * потому что поведение backend может отличаться.
-     */
-    async register(data) {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await authApi.register(data)
-
-        return response.data
-      } catch (error) {
-        this.error = getApiErrorMessage(
-          error,
-          'Не удалось зарегистрироваться'
-        )
-
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
-    /**
-     * Получить актуального пользователя с backend.
-     */
-    async loadCurrentUser() {
-      if (!this.accessToken) {
-        this.user = null
-        return null
-      }
-
-      try {
-        const response = await usersApi.getMe()
-
-        this.user = response.data
+        this.user =
+          response.data ?? null
 
         return this.user
-      } catch (error) {
-        /**
-         * 401 означает, что сохранённая сессия
-         * больше недействительна.
-         */
-        if (error.response?.status === 401) {
-          this.clearSession()
+      },
+
+      async refreshSession() {
+        if (refreshPromise) {
+          return refreshPromise
         }
 
-        throw error
-      }
-    },
+        if (!this.refreshToken) {
+          this.clearSession()
 
-    /**
-     * Восстановление сохранённой Pinia-сессии
-     * при старте приложения.
-     */
-    async init() {
-      if (this.initialized) {
-        return
-      }
-
-      this.initialized = true
-      this.error = null
-
-      if (!this.accessToken) {
-        this.user = null
-        return
-      }
-
-      this.loading = true
-
-      try {
-        await this.loadCurrentUser()
-      } catch (error) {
-        if (error.response?.status !== 401) {
-          this.error = getApiErrorMessage(
-            error,
-            'Не удалось восстановить сессию'
+          throw new Error(
+            'Refresh token отсутствует'
           )
         }
-      } finally {
-        this.loading = false
-      }
+
+        if (
+          this.isRefreshTokenExpired
+        ) {
+          this.clearSession()
+
+          throw new Error(
+            'Сессия истекла'
+          )
+        }
+
+        /*
+         * Refresh token вращается.
+         * Сохраняем значение, которое было актуально
+         * на момент старта refresh-запроса.
+         */
+        const currentRefreshToken =
+          this.refreshToken
+
+        this.refreshing = true
+
+        refreshPromise = (async () => {
+          try {
+            const response =
+              await authApi.refresh(
+                currentRefreshToken
+              )
+
+            /*
+             * Backend возвращает НОВУЮ пару.
+             * Заменяем и access, и refresh token.
+             */
+            this.setSessionTokens(
+              response.data
+            )
+
+            return this.accessToken
+          } catch (error) {
+            this.clearSession()
+            throw error
+          } finally {
+            this.refreshing = false
+            refreshPromise = null
+          }
+        })()
+
+        return refreshPromise
+      },
+
+      async ensureAccessToken() {
+        if (!this.accessToken) {
+          return null
+        }
+
+        if (
+          !this.isAccessTokenExpired
+        ) {
+          return this.accessToken
+        }
+
+        if (!this.canRefresh) {
+          this.clearSession()
+
+          throw new Error(
+            'Сессия истекла'
+          )
+        }
+
+        return this.refreshSession()
+      },
+
+      async init() {
+        if (this.initialized) {
+          return
+        }
+
+        this.initialized = true
+        this.error = null
+
+        if (
+          !this.accessToken &&
+          !this.refreshToken
+        ) {
+          this.user = null
+          return
+        }
+
+        this.loading = true
+
+        try {
+          if (
+            !this.accessToken ||
+            this.isAccessTokenExpired
+          ) {
+            await this.refreshSession()
+          }
+
+          await this.loadCurrentUser()
+        } catch (error) {
+          this.clearSession()
+
+          /*
+           * Истёкшая/отозванная сессия —
+           * нормальная причина показать login,
+           * поэтому не держим её как UI error.
+           *
+           * Сетевую проблему сохраняем.
+           */
+          if (
+            error.response?.status !== 400 &&
+            error.response?.status !== 401
+          ) {
+            this.error =
+              getApiErrorMessage(
+                error,
+                'Не удалось восстановить сессию'
+              )
+          }
+        } finally {
+          this.loading = false
+        }
+      },
+
+      async changePassword(
+        currentPassword,
+        newPassword
+      ) {
+        this.loading = true
+        this.error = null
+
+        try {
+          await this.ensureAccessToken()
+
+          await authApi.changePassword({
+            currentPassword,
+            newPassword,
+          })
+        } catch (error) {
+          this.error =
+            getApiErrorMessage(
+              error,
+              'Не удалось изменить пароль'
+            )
+
+          throw error
+        } finally {
+          this.loading = false
+        }
+      },
+
+      updateUser(data) {
+        if (!this.user) {
+          this.user = {
+            ...data,
+          }
+
+          return
+        }
+
+        this.user = {
+          ...this.user,
+          ...data,
+        }
+      },
+
+      clearSession() {
+        this.tokenType = 'Bearer'
+
+        this.accessToken = null
+        this.accessTokenExpiresAtUtc =
+          null
+
+        this.refreshToken = null
+        this.refreshTokenExpiresAtUtc =
+          null
+
+        this.lifetimeKind = null
+        this.user = null
+      },
+
+      async logout() {
+        const hasRefreshToken =
+          Boolean(this.refreshToken)
+
+        try {
+          if (hasRefreshToken) {
+            /*
+             * revoke требует действующий Bearer.
+             *
+             * Если access token уже истёк,
+             * сначала refreshSession() получит новую
+             * пару, а revoke отправит уже НОВЫЙ
+             * refresh token.
+             */
+            if (
+              !this.accessToken ||
+              this.isAccessTokenExpired
+            ) {
+              if (this.canRefresh) {
+                await this.refreshSession()
+              }
+            }
+
+            if (
+              this.accessToken &&
+              this.refreshToken
+            ) {
+              await authApi.revoke(
+                this.refreshToken
+              )
+            }
+          }
+        } catch {
+          /*
+           * Даже если backend/revoke недоступен,
+           * локальный logout всё равно выполняется.
+           */
+        } finally {
+          this.clearSession()
+          this.error = null
+        }
+      },
+
+      clearError() {
+        this.error = null
+      },
     },
 
-    /**
-     * Локально обновить уже загруженного пользователя.
-     */
-    updateUser(data) {
-      if (!this.user) {
-        this.user = { ...data }
-        return
-      }
+    persist: {
+      pick: [
+        'tokenType',
 
-      this.user = {
-        ...this.user,
-        ...data,
-      }
+        'accessToken',
+        'accessTokenExpiresAtUtc',
+
+        'refreshToken',
+        'refreshTokenExpiresAtUtc',
+
+        'lifetimeKind',
+
+        'user',
+      ],
     },
-
-    /**
-     * Очистка данных сессии.
-     */
-    clearSession() {
-      this.accessToken = null
-      this.user = null
-      this.error = null
-    },
-
-    /**
-     * Logout.
-     *
-     * В текущем API-слое server-side logout endpoint пока
-     * не определён, поэтому очищаем локальную JWT-сессию.
-     */
-    logout() {
-      this.clearSession()
-    },
-
-    clearError() {
-      this.error = null
-    },
-  },
-
-  /**
-   * Сохраняем только данные сессии.
-   *
-   * loading / error / initialized после F5
-   * должны создаваться заново.
-   */
-  persist: {
-    pick: [
-      'accessToken',
-      'user',
-    ],
-  },
-})
+  }
+)

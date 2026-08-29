@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
+import { UiButton } from '@/components/ui'
+
 const authStore = useAuthStore()
 
 const displayName = computed(() => {
@@ -176,18 +178,14 @@ async function refreshUser() {
           </strong>
         </div>
 
-        <button
-          class="user-summary__refresh"
+        <UiButton
           type="button"
-          :disabled="authStore.loading"
+          :loading="authStore.loading"
+          loading-text="Обновление..."
           @click="refreshUser"
         >
-          {{
-            authStore.loading
-              ? 'Обновление...'
-              : 'Обновить данные'
-          }}
-        </button>
+          Обновить данные
+        </UiButton>
       </div>
     </section>
 
@@ -399,40 +397,6 @@ async function refreshUser() {
   overflow-wrap: anywhere;
 
   font-size: 14px;
-}
-
-.user-summary__refresh {
-  min-height: 38px;
-
-  margin-top: 4px;
-  padding: 7px 11px;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 8px;
-
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-
-  cursor: pointer;
-}
-
-.user-summary__refresh:hover:not(:disabled) {
-  background:
-    var(--surface-secondary);
-}
-
-.user-summary__refresh:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 .home-section {

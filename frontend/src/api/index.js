@@ -1,9 +1,13 @@
 export {
   default as http,
+  authHttp,
+  configureHttpAuth,
   setAccessTokenProvider,
 } from './http'
 
-export { getApiErrorMessage } from './error'
+export {
+  getApiErrorMessage,
+} from './error'
 
 export { authApi } from './auth.api'
 export { usersApi } from './users.api'

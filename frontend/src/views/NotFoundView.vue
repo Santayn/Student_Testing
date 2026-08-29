@@ -2,6 +2,11 @@
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
+import {
+  UiButton,
+  UiCard,
+} from '@/components/ui'
+
 const authStore = useAuthStore()
 
 const primaryRoute = computed(() => {
@@ -19,7 +24,7 @@ const primaryLabel = computed(() => {
 
 <template>
   <section class="error-page">
-    <div class="error-card">
+    <UiCard class="error-card">
       <div class="error-code">
         404
       </div>
@@ -34,22 +39,21 @@ const primaryLabel = computed(() => {
       </p>
 
       <div class="error-actions">
-        <RouterLink
-          class="error-button error-button--primary"
+        <UiButton
+          variant="primary"
           :to="primaryRoute"
         >
           {{ primaryLabel }}
-        </RouterLink>
+        </UiButton>
 
-        <button
-          class="error-button"
+        <UiButton
           type="button"
           @click="$router.back()"
         >
           Назад
-        </button>
+        </UiButton>
       </div>
-    </div>
+    </UiCard>
   </section>
 </template>
 
@@ -87,6 +91,14 @@ const primaryLabel = computed(() => {
 
   box-shadow:
     var(--shadow-elevated);
+}
+
+.error-card :deep(.ui-card__content) {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+
+  text-align: center;
 }
 
 .error-code {
@@ -128,47 +140,6 @@ const primaryLabel = computed(() => {
   gap: 10px;
 }
 
-.error-button {
-  min-height: 42px;
-
-  padding: 9px 16px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface-secondary);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 9px;
-
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-
-  cursor: pointer;
-}
-
-.error-button:hover {
-  filter: brightness(0.98);
-}
-
-.error-button--primary {
-  color: var(--text-on-brand);
-
-  background:
-    var(--brand);
-
-  border-color:
-    var(--brand);
-}
 
 @media (max-width: 520px) {
   .error-page {
@@ -184,7 +155,7 @@ const primaryLabel = computed(() => {
     width: 100%;
   }
 
-  .error-button {
+  .error-actions :deep(.ui-button) {
     width: 100%;
   }
 }

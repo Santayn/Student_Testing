@@ -4,45 +4,101 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
 import App from './App.vue'
 import '@/assets/theme.css'
+
 import router from './router'
 
-import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
+import {
+  configureHttpAuth,
+} from '@/api'
 
-import { setAccessTokenProvider } from '@/api'
+import {
+  useAuthStore,
+} from '@/stores/auth'
+
+import {
+  useThemeStore,
+} from '@/stores/theme'
 
 async function bootstrap() {
   const app = createApp(App)
 
   const pinia = createPinia()
-  pinia.use(piniaPluginPersistedstate)
+
+  pinia.use(
+    piniaPluginPersistedstate
+  )
 
   app.use(pinia)
 
-  /*
-   * Тема применяется до монтирования приложения,
-   * чтобы уменьшить мигание светлой/тёмной темы.
-   */
-  const themeStore = useThemeStore()
+  const themeStore =
+    useThemeStore()
+
   themeStore.init()
 
-  /*
-   * AuthStore становится единственным источником JWT.
-   */
-  const authStore = useAuthStore()
+  const authStore =
+    useAuthStore()
 
-  setAccessTokenProvider(
-    () => authStore.accessToken
-  )
+  let routerReady = false
+
+  configureHttpAuth({
+    getAccessToken:
+      () =>
+        authStore.accessToken,
+
+    ensureAccessToken:
+      () =>
+        authStore.ensureAccessToken(),
+
+    refreshSession:
+      () =>
+        authStore.refreshSession(),
+
+    onSessionInvalid:
+      () => {
+        authStore.clearSession()
+
+        /*
+         * Во время первоначального init()
+         * Router ещё не запущен.
+         * После app.use(router) guard сам отправит
+         * пользователя на login.
+         */
+        if (!routerReady) {
+          return
+        }
+
+        const currentRoute =
+          router.currentRoute.value
+
+        if (
+          currentRoute.meta
+            .requiresAuth
+        ) {
+          router.replace({
+            name: 'login',
+
+            query: {
+              redirect:
+                currentRoute.fullPath,
+            },
+          })
+        }
+      },
+  })
 
   /*
-   * Проверяем сохранённую сессию до первого отображения страниц.
+   * Восстанавливаем persisted session:
+   *
+   * access жив -> /auth/me
+   * access истёк -> /auth/refresh -> /auth/me
    */
   await authStore.init()
 
   app.use(router)
 
   await router.isReady()
+
+  routerReady = true
 
   app.mount('#app')
 }

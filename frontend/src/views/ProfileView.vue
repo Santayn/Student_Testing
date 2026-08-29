@@ -4,6 +4,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 import {
+  UiAlert,
+  UiButton,
+  UiEmptyState,
+} from '@/components/ui'
+
+import {
   facultiesApi,
   getApiErrorMessage,
   groupsApi,
@@ -518,43 +524,41 @@ onMounted(loadProfile)
         </p>
       </div>
 
-      <button
+      <UiButton
         class="profile-refresh"
         type="button"
-        :disabled="loading"
+        :loading="loading"
+        loading-text="Обновление..."
         @click="loadProfile"
       >
-        {{
-          loading
-            ? 'Обновление...'
-            : 'Обновить'
-        }}
-      </button>
+        Обновить
+      </UiButton>
     </header>
 
-    <div
+    <UiAlert
       v-if="error"
-      class="profile-alert"
-      role="alert"
+      variant="danger"
     >
-      <span>
-        {{ error }}
-      </span>
+      <div class="profile-alert-content">
+        <span>
+          {{ error }}
+        </span>
 
-      <button
-        type="button"
-        @click="loadProfile"
-      >
-        Повторить
-      </button>
-    </div>
+        <UiButton
+          variant="danger"
+          size="sm"
+          type="button"
+          @click="loadProfile"
+        >
+          Повторить
+        </UiButton>
+      </div>
+    </UiAlert>
 
-    <div
+    <UiEmptyState
       v-if="loading && !authStore.user"
-      class="profile-loading"
-    >
-      Загрузка профиля...
-    </div>
+      description="Загрузка профиля..."
+    />
 
     <template v-else>
       <nav
@@ -733,12 +737,11 @@ onMounted(loadProfile)
             </li>
           </ul>
 
-          <p
+          <UiEmptyState
             v-else
-            class="empty-state"
-          >
-            Предметы не найдены.
-          </p>
+            description="Предметы не найдены."
+            compact
+          />
         </div>
       </section>
 
@@ -802,12 +805,11 @@ onMounted(loadProfile)
               </li>
             </ul>
 
-            <p
+            <UiEmptyState
               v-else
-              class="empty-state"
-            >
-              Предметы не найдены.
-            </p>
+              description="Предметы не найдены."
+              compact
+            />
           </div>
 
           <div class="profile-list-block">
@@ -838,12 +840,11 @@ onMounted(loadProfile)
               </li>
             </ul>
 
-            <p
+            <UiEmptyState
               v-else
-              class="empty-state"
-            >
-              Группы не найдены.
-            </p>
+              description="Группы не найдены."
+              compact
+            />
           </div>
         </div>
       </section>
@@ -907,85 +908,6 @@ onMounted(loadProfile)
 
   font-size: 14px;
   line-height: 1.55;
-}
-
-.profile-refresh {
-  min-height: 40px;
-
-  padding: 8px 13px;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface-secondary);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 8px;
-
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.profile-refresh:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.profile-alert {
-  padding: 11px 13px;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-
-  color:
-    var(--danger);
-
-  background:
-    var(--danger-soft);
-
-  border: 1px solid
-    var(--danger-border);
-
-  border-radius: 9px;
-
-  font-size: 13px;
-}
-
-.profile-alert button {
-  color: inherit;
-
-  background: transparent;
-  border: 0;
-
-  font: inherit;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.profile-loading {
-  padding: 40px;
-
-  color:
-    var(--text-secondary);
-
-  background:
-    var(--surface);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 12px;
-
-  text-align: center;
 }
 
 .profile-tabs {
@@ -1194,24 +1116,13 @@ onMounted(loadProfile)
   text-decoration: none;
 }
 
-.empty-state {
-  margin: 0;
+.profile-alert-content {
+  width: 100%;
 
-  padding: 16px;
-
-  color:
-    var(--text-secondary);
-
-  background:
-    var(--surface-secondary);
-
-  border: 1px dashed
-    var(--border);
-
-  border-radius: 8px;
-
-  font-size: 13px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 @media (max-width: 720px) {

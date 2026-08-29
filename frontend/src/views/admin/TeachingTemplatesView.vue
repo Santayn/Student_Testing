@@ -12,6 +12,16 @@ import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 import AdminTable from '@/components/admin/AdminTable.vue'
 
 import {
+  UiButton,
+  UiCard,
+  UiCheckbox,
+  UiEmptyState,
+  UiInput,
+  UiSelect,
+  UiTextarea,
+} from '@/components/ui'
+
+import {
   facultiesApi,
   getApiErrorMessage,
   groupsApi,
@@ -831,14 +841,13 @@ onMounted(loadBaseData)
     description="Назначение преподавателей на группы по предметам и учебному периоду."
   >
     <template #actions>
-      <button
-        class="admin-btn"
+      <UiButton
         type="button"
         :disabled="loading"
         @click="loadBaseData"
       >
         Обновить справочники
-      </button>
+      </UiButton>
     </template>
 
     <AdminNotice
@@ -895,7 +904,7 @@ onMounted(loadBaseData)
       </div>
     </section>
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>Параметры шаблона</h2>
@@ -909,9 +918,8 @@ onMounted(loadBaseData)
         <label class="admin-field">
           <span>Курс</span>
 
-          <select
+          <UiSelect
             v-model="period.studyCourse"
-            class="admin-select"
           >
             <option
               v-for="course in 6"
@@ -920,15 +928,14 @@ onMounted(loadBaseData)
             >
               {{ course }}
             </option>
-          </select>
+          </UiSelect>
         </label>
 
         <label class="admin-field">
           <span>Семестр</span>
 
-          <select
+          <UiSelect
             v-model="period.semester"
-            class="admin-select"
           >
             <option value="1">
               1
@@ -937,29 +944,27 @@ onMounted(loadBaseData)
             <option value="2">
               2
             </option>
-          </select>
+          </UiSelect>
         </label>
 
         <label class="admin-field">
           <span>Учебный год</span>
 
-          <input
+          <UiInput
             v-model="period.academicYear"
-            class="admin-input"
             type="number"
             min="2000"
             step="1"
             required
             placeholder="2026"
-          >
+          />
         </label>
 
         <label class="admin-field">
           <span>Факультет</span>
 
-          <select
+          <UiSelect
             v-model="period.facultyId"
-            class="admin-select"
           >
             <option value="">
               Выберите факультет
@@ -972,15 +977,14 @@ onMounted(loadBaseData)
             >
               {{ faculty.name }}
             </option>
-          </select>
+          </UiSelect>
         </label>
 
         <label class="admin-field">
           <span>Статус новых назначений</span>
 
-          <select
+          <UiSelect
             v-model="period.status"
-            class="admin-select"
           >
             <option
               v-for="(label, value) in STATUS_LABELS"
@@ -989,21 +993,20 @@ onMounted(loadBaseData)
             >
               {{ label }}
             </option>
-          </select>
+          </UiSelect>
         </label>
 
         <label class="admin-field admin-field--wide">
           <span>Примечание</span>
 
-          <textarea
+          <UiTextarea
             v-model="period.notes"
-            class="admin-textarea"
           />
         </label>
       </div>
-    </section>
+    </UiCard>
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>Предметы и преподаватели</h2>
@@ -1012,20 +1015,19 @@ onMounted(loadBaseData)
           </p>
         </div>
 
-        <button
-          class="admin-btn"
+        <UiButton
           type="button"
           @click="addRow"
         >
           + Добавить строку
-        </button>
+        </UiButton>
       </div>
 
       <div class="admin-grid">
-        <article
+        <UiCard
           v-for="(row, index) in rows"
           :key="row.id"
-          class="admin-card admin-card--compact"
+          compact
         >
           <div class="admin-card__header">
             <div>
@@ -1034,23 +1036,23 @@ onMounted(loadBaseData)
               </h3>
             </div>
 
-            <button
+            <UiButton
+            variant="danger"
+            size="sm"
               v-if="rows.length > 1"
-              class="admin-btn admin-btn--danger admin-btn--small"
               type="button"
               @click="removeRow(row.id)"
             >
               Удалить
-            </button>
+            </UiButton>
           </div>
 
           <div class="admin-form-grid">
             <label class="admin-field">
               <span>Предмет</span>
 
-              <select
+              <UiSelect
                 v-model="row.subjectId"
-                class="admin-select"
                 @change="normalizeRow(row)"
               >
                 <option value="">
@@ -1064,15 +1066,14 @@ onMounted(loadBaseData)
                 >
                   {{ subject.name }}
                 </option>
-              </select>
+              </UiSelect>
             </label>
 
             <label class="admin-field">
               <span>Преподаватель</span>
 
-              <select
+              <UiSelect
                 v-model="row.teacherMembershipId"
-                class="admin-select"
                 :disabled="!row.subjectId"
               >
                 <option value="">
@@ -1095,56 +1096,45 @@ onMounted(loadBaseData)
                     )
                   }}
                 </option>
-              </select>
+              </UiSelect>
             </label>
 
             <div class="admin-field admin-field--wide">
               <span>Группы</span>
 
-              <div
+              <UiEmptyState
                 v-if="!groups.length"
-                class="admin-empty"
-              >
-                Для факультета нет групп.
-              </div>
+                description="Для факультета нет групп."
+                compact
+              />
 
               <div
                 v-else
                 class="admin-checkbox-list"
               >
-                <label
+                <UiCheckbox
                   v-for="group in groups"
                   :key="group.id"
-                  class="admin-checkbox"
-                >
-                  <input
-                    v-model="row.groupIds"
-                    type="checkbox"
-                    :value="group.id"
-                  >
-
-                  <span class="admin-checkbox__copy">
-                    <span class="admin-checkbox__title">
-                      {{ group.name }}
-                    </span>
-
-                    <span class="admin-checkbox__meta">
-                      {{ group.code ?? `#${group.id}` }}
-                    </span>
-                  </span>
-                </label>
+                  v-model="row.groupIds"
+                  :value="group.id"
+                  :label="group.name"
+                  :description="
+                    group.code ??
+                    `#${group.id}`
+                  "
+                />
               </div>
             </div>
           </div>
-        </article>
+        </UiCard>
       </div>
 
       <div
         class="admin-actions admin-actions--end admin-actions--mobile-stack"
         style="margin-top: 16px;"
       >
-        <button
-          class="admin-btn admin-btn--primary"
+        <UiButton
+            variant="primary"
           type="button"
           :disabled="saving || loading"
           @click="assignGroups"
@@ -1154,11 +1144,11 @@ onMounted(loadBaseData)
               ? 'Сохранение...'
               : 'Создать назначения'
           }}
-        </button>
+        </UiButton>
       </div>
-    </section>
+    </UiCard>
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>Текущие назначения</h2>
@@ -1174,13 +1164,12 @@ onMounted(loadBaseData)
           </p>
         </div>
 
-        <button
-          class="admin-btn"
+        <UiButton
           type="button"
           @click="refreshAssignments"
         >
           Обновить
-        </button>
+        </UiButton>
       </div>
 
       <AdminTable
@@ -1193,9 +1182,8 @@ onMounted(loadBaseData)
         }"
       >
         <template #cell-teacher="{ row }">
-          <select
+          <UiSelect
             v-model="row.subjectMembershipId"
-            class="admin-select"
           >
             <option
               v-for="
@@ -1215,13 +1203,12 @@ onMounted(loadBaseData)
                 )
               }}
             </option>
-          </select>
+          </UiSelect>
         </template>
 
         <template #cell-status="{ row }">
-          <select
+          <UiSelect
             v-model="row.status"
-            class="admin-select"
           >
             <option
               v-for="(label, value) in STATUS_LABELS"
@@ -1230,27 +1217,27 @@ onMounted(loadBaseData)
             >
               {{ label }}
             </option>
-          </select>
+          </UiSelect>
         </template>
 
         <template #cell-notes="{ row }">
-          <input
+          <UiInput
             v-model="row.notes"
-            class="admin-input"
-          >
+          />
         </template>
 
         <template #cell-actions="{ row }">
-          <button
-            class="admin-btn admin-btn--small admin-btn--primary"
+          <UiButton
+            variant="primary"
+            size="sm"
             type="button"
             :disabled="saving"
             @click="saveAssignment(row)"
           >
             Сохранить
-          </button>
+          </UiButton>
         </template>
       </AdminTable>
-    </section>
+    </UiCard>
   </AdminPageShell>
 </template>

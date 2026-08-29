@@ -6,6 +6,13 @@ import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 import AdminTable from '@/components/admin/AdminTable.vue'
 
 import {
+  UiButton,
+  UiCard,
+  UiInput,
+  UiTextarea,
+} from '@/components/ui'
+
+import {
   facultiesApi,
   getApiErrorMessage,
 } from '@/api'
@@ -228,7 +235,7 @@ onMounted(loadFaculties)
       @close="clearNotice"
     />
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>{{ formTitle }}</h2>
@@ -245,37 +252,34 @@ onMounted(loadFaculties)
         <label class="admin-field">
           <span>Название *</span>
 
-          <input
+          <UiInput
             v-model="form.name"
-            class="admin-input"
             type="text"
             required
-          >
+          />
         </label>
 
         <label class="admin-field">
           <span>Код *</span>
 
-          <input
+          <UiInput
             v-model="form.code"
-            class="admin-input"
             type="text"
             required
-          >
+          />
         </label>
 
         <label class="admin-field admin-field--wide">
           <span>Описание</span>
 
-          <textarea
+          <UiTextarea
             v-model="form.description"
-            class="admin-textarea"
           />
         </label>
 
         <div class="admin-actions admin-field--wide">
-          <button
-            class="admin-btn admin-btn--primary"
+          <UiButton
+            variant="primary"
             type="submit"
             :disabled="!canSubmit"
           >
@@ -286,21 +290,20 @@ onMounted(loadFaculties)
                   ? 'Сохранить'
                   : 'Создать'
             }}
-          </button>
+          </UiButton>
 
-          <button
+          <UiButton
             v-if="editingId"
-            class="admin-btn"
             type="button"
             @click="clearForm"
           >
             Отмена
-          </button>
+          </UiButton>
         </div>
       </form>
-    </section>
+    </UiCard>
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-card__header">
         <div>
           <h2>Список факультетов</h2>
@@ -309,14 +312,13 @@ onMounted(loadFaculties)
           </p>
         </div>
 
-        <button
-          class="admin-btn"
+        <UiButton
           type="button"
           :disabled="loading"
           @click="loadFaculties"
         >
           Обновить
-        </button>
+        </UiButton>
       </div>
 
       <AdminTable
@@ -342,24 +344,25 @@ onMounted(loadFaculties)
 
         <template #cell-actions="{ row }">
           <div class="admin-table__actions">
-            <button
-              class="admin-btn admin-btn--small"
+            <UiButton
+            size="sm"
               type="button"
               @click="editFaculty(row)"
             >
               Изменить
-            </button>
+            </UiButton>
 
-            <button
-              class="admin-btn admin-btn--danger admin-btn--small"
+            <UiButton
+            variant="danger"
+            size="sm"
               type="button"
               @click="deleteFaculty(row)"
             >
               Удалить
-            </button>
+            </UiButton>
           </div>
         </template>
       </AdminTable>
-    </section>
+    </UiCard>
   </AdminPageShell>
 </template>

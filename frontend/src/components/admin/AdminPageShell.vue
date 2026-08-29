@@ -51,8 +51,7 @@ defineProps({
   gap: 18px;
 }
 
-.admin-page-header,
-.admin-card {
+.admin-page-header {
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -106,14 +105,6 @@ defineProps({
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.admin-card {
-  padding: 20px;
-}
-
-.admin-card--compact {
-  padding: 16px;
 }
 
 .admin-card__header {
@@ -194,50 +185,6 @@ defineProps({
   font-weight: 700;
 }
 
-.admin-input,
-.admin-select,
-.admin-textarea {
-  width: 100%;
-
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-
-  font: inherit;
-  font-size: 14px;
-
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.admin-input,
-.admin-select {
-  min-height: 42px;
-  padding: 8px 10px;
-}
-
-.admin-textarea {
-  min-height: 92px;
-  padding: 10px;
-
-  resize: vertical;
-}
-
-.admin-input:focus,
-.admin-select:focus,
-.admin-textarea:focus {
-  outline: 2px solid var(--focus-ring);
-  border-color: var(--brand);
-}
-
-.admin-input:disabled,
-.admin-select:disabled,
-.admin-textarea:disabled {
-  opacity: 0.62;
-  cursor: not-allowed;
-}
 
 .admin-actions {
   display: flex;
@@ -250,128 +197,7 @@ defineProps({
   justify-content: flex-end;
 }
 
-.admin-btn {
-  min-height: 38px;
 
-  padding: 7px 12px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-
-  color: var(--text);
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-
-  cursor: pointer;
-
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
-}
-
-.admin-btn:hover:not(:disabled) {
-  border-color: var(--brand);
-}
-
-.admin-btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.admin-btn:disabled {
-  opacity: 0.52;
-  cursor: default;
-}
-
-.admin-btn--primary {
-  color: var(--text-on-brand);
-  background: var(--brand);
-  border-color: var(--brand);
-}
-
-.admin-btn--primary:hover:not(:disabled) {
-  background: var(--brand-hover);
-  border-color: var(--brand-hover);
-}
-
-.admin-btn--danger {
-  color: var(--danger);
-  background: var(--danger-soft);
-  border-color: var(--danger-border);
-}
-
-.admin-btn--success {
-  color: var(--success);
-  background: var(--success-soft);
-  border-color: var(--success);
-}
-
-.admin-btn--small {
-  min-height: 32px;
-  padding: 5px 9px;
-
-  font-size: 12px;
-}
-
-.admin-notice {
-  padding: 11px 13px;
-
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-
-  border: 1px solid var(--border);
-  border-radius: 9px;
-
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.admin-notice--success {
-  color: var(--success);
-  background: var(--success-soft);
-  border-color: var(--success);
-}
-
-.admin-notice--error {
-  color: var(--danger);
-  background: var(--danger-soft);
-  border-color: var(--danger-border);
-}
-
-.admin-notice--warning {
-  color: var(--warning);
-  background: var(--warning-soft);
-  border-color: var(--warning-border);
-}
-
-.admin-notice--info {
-  color: var(--brand);
-  background: var(--brand-soft);
-  border-color: var(--brand);
-}
-
-.admin-notice__close {
-  padding: 0;
-
-  color: inherit;
-  background: transparent;
-  border: 0;
-
-  font: inherit;
-  font-size: 17px;
-
-  cursor: pointer;
-}
 
 .admin-toolbar {
   display: flex;
@@ -424,17 +250,6 @@ defineProps({
   color: var(--text-secondary);
 }
 
-.admin-empty {
-  padding: 26px 16px;
-
-  color: var(--text-secondary);
-  background: var(--surface-secondary);
-  border: 1px dashed var(--border);
-  border-radius: 9px;
-
-  font-size: 13px;
-  text-align: center;
-}
 
 .admin-checkbox-list {
   max-height: 330px;
@@ -444,50 +259,6 @@ defineProps({
   gap: 7px;
 }
 
-.admin-checkbox {
-  min-height: 42px;
-
-  padding: 8px 10px;
-
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-
-  color: var(--text);
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.admin-checkbox:hover {
-  border-color: var(--brand);
-}
-
-.admin-checkbox input {
-  margin-top: 2px;
-
-  accent-color: var(--brand);
-}
-
-.admin-checkbox__copy {
-  min-width: 0;
-
-  display: grid;
-  gap: 2px;
-}
-
-.admin-checkbox__title {
-  font-weight: 700;
-}
-
-.admin-checkbox__meta {
-  color: var(--text-secondary);
-
-  font-size: 12px;
-}
 
 .admin-chip-list {
   display: flex;
@@ -536,10 +307,6 @@ defineProps({
     grid-template-columns: 1fr;
   }
 
-  .admin-card {
-    padding: 17px;
-  }
-
   .admin-card__header {
     flex-direction: column;
   }
@@ -553,9 +320,7 @@ defineProps({
     flex-direction: column;
   }
 
-  .admin-toolbar .admin-input,
-  .admin-toolbar .admin-select,
-  .admin-toolbar .admin-btn {
+  .admin-toolbar .admin-field {
     width: 100%;
   }
 
@@ -564,7 +329,7 @@ defineProps({
     flex-direction: column;
   }
 
-  .admin-actions--mobile-stack .admin-btn {
+  .admin-actions--mobile-stack > .ui-button {
     width: 100%;
   }
 }

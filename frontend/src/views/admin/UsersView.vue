@@ -6,6 +6,12 @@ import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 import AdminTable from '@/components/admin/AdminTable.vue'
 
 import {
+  UiButton,
+  UiCard,
+  UiSelect,
+} from '@/components/ui'
+
+import {
   getApiErrorMessage,
   rolesApi,
   usersApi,
@@ -234,14 +240,13 @@ onMounted(loadData)
     description="Просмотр пользователей и назначение основной роли."
   >
     <template #actions>
-      <button
-        class="admin-btn"
+      <UiButton
         type="button"
         :disabled="loading"
         @click="loadData"
       >
         {{ loading ? 'Загрузка...' : 'Обновить' }}
-      </button>
+      </UiButton>
     </template>
 
     <AdminNotice
@@ -250,7 +255,7 @@ onMounted(loadData)
       @close="clearNotice"
     />
 
-    <section class="admin-card">
+    <UiCard>
       <div class="admin-toolbar">
         <div>
           <strong>Пользователи</strong>
@@ -262,9 +267,8 @@ onMounted(loadData)
         <label class="admin-field">
           <span>Фильтр по роли</span>
 
-          <select
+          <UiSelect
             v-model="roleFilter"
-            class="admin-select"
           >
             <option value="">
               Все роли
@@ -277,12 +281,12 @@ onMounted(loadData)
             >
               {{ role.name }}
             </option>
-          </select>
+          </UiSelect>
         </label>
       </div>
-    </section>
+    </UiCard>
 
-    <section class="admin-card">
+    <UiCard>
       <AdminTable
         :columns="userColumns"
         :rows="filteredUsers"
@@ -305,9 +309,8 @@ onMounted(loadData)
         </template>
 
         <template #cell-role="{ row }">
-          <select
-            class="admin-select"
-            :value="selectedRoleId(row)"
+          <UiSelect
+            :model-value="selectedRoleId(row)"
             :disabled="
               savingUserId === row.id
             "
@@ -329,9 +332,9 @@ onMounted(loadData)
             >
               {{ role.name }}
             </option>
-          </select>
+          </UiSelect>
         </template>
       </AdminTable>
-    </section>
+    </UiCard>
   </AdminPageShell>
 </template>
