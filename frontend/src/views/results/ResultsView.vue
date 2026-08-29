@@ -75,7 +75,7 @@ const pageSubtitle = computed(() => {
 
   return (
     'Здесь отображаются только ваши собственные результаты тестирования. ' +
-    'Можно отфильтровать попытки по предмету.'
+    'Можно выбрать предмет и конкретный тест; итог теста считается по лучшей попытке.'
   )
 })
 
@@ -88,9 +88,172 @@ const attempts = computed(() => {
     : []
 })
 
-const stats = computed(() => {
+function numericStat(
+  attempt,
+  key
+) {
+  const value =
+    Number(
+      attempt?.stats?.[key]
+    )
+
+  return Number.isFinite(value)
+    ? value
+    : 0
+}
+
+function completedTime(attempt) {
+  const time =
+    new Date(
+      attempt?.completedAt ?? 0
+    ).getTime()
+
+  return Number.isFinite(time)
+    ? time
+    : 0
+}
+
+function isBetterAttempt(
+  candidate,
+  current
+) {
+  if (!current) {
+    return true
+  }
+
+  const candidatePercent =
+    numericStat(
+      candidate,
+      'percent'
+    )
+
+  const currentPercent =
+    numericStat(
+      current,
+      'percent'
+    )
+
+  if (
+    candidatePercent !==
+    currentPercent
+  ) {
+    return (
+      candidatePercent >
+      currentPercent
+    )
+  }
+
+  const candidateRight =
+    numericStat(
+      candidate,
+      'right'
+    )
+
+  const currentRight =
+    numericStat(
+      current,
+      'right'
+    )
+
+  if (
+    candidateRight !==
+    currentRight
+  ) {
+    return (
+      candidateRight >
+      currentRight
+    )
+  }
+
+  const candidateTime =
+    completedTime(candidate)
+
+  const currentTime =
+    completedTime(current)
+
+  if (
+    candidateTime !==
+    currentTime
+  ) {
+    return (
+      candidateTime >
+      currentTime
+    )
+  }
+
   return (
-    resultData.value?.stats ?? {
+    Number(
+      candidate?.attemptOrdinal
+    ) || 0
+  ) > (
+    Number(
+      current?.attemptOrdinal
+    ) || 0
+  )
+}
+
+const studentBestAttempt = computed(() => {
+  if (
+    teacherMode.value ||
+    !attempts.value.length
+  ) {
+    return null
+  }
+
+  const testIds =
+    new Set(
+      attempts.value
+        .map(
+          (attempt) =>
+            Number(
+              attempt.testId
+            )
+        )
+        .filter(
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0
+        )
+    )
+
+  /*
+   * Не сравниваем между собой результаты разных тестов.
+   * Без выбранного testId сводка показывается только если
+   * backend вернул попытки ровно одного теста.
+   */
+  if (
+    !testId.value &&
+    testIds.size > 1
+  ) {
+    return null
+  }
+
+  return attempts.value.reduce(
+    (best, attempt) =>
+      isBetterAttempt(
+        attempt,
+        best
+      )
+        ? attempt
+        : best,
+    null
+  )
+})
+
+const stats = computed(() => {
+  if (teacherMode.value) {
+    return (
+      resultData.value?.stats ?? {
+        total: 0,
+        right: 0,
+        percent: 0,
+      }
+    )
+  }
+
+  return (
+    studentBestAttempt.value
+      ?.stats ?? {
       total: 0,
       right: 0,
       percent: 0,
@@ -183,11 +346,34 @@ const statsMessage = computed(() => {
       : 'Загрузка ваших результатов...'
   }
 
+  if (teacherMode.value) {
+    return (
+      `Найдено попыток: ${attemptCount.value}. ` +
+      `Правильных ответов: ${stats.value.right ?? 0} ` +
+      `из ${stats.value.total ?? 0} ` +
+      `(${stats.value.percent ?? 0}%).`
+    )
+  }
+
+  if (!attempts.value.length) {
+    return 'Завершённых попыток по выбранным фильтрам нет.'
+  }
+
+  if (!studentBestAttempt.value) {
+    return (
+      `Найдено попыток: ${attemptCount.value}. ` +
+      'Выберите конкретный тест — итог будет показан по его лучшей попытке, ' +
+      'а не как сумма результатов разных попыток и тестов.'
+    )
+  }
+
   return (
-    `Найдено попыток: ${attemptCount.value}. ` +
-    `Правильных ответов: ${stats.value.right ?? 0} ` +
-    `из ${stats.value.total ?? 0} ` +
-    `(${stats.value.percent ?? 0}%).`
+    `Лучшая попытка: №${
+      studentBestAttempt.value.attemptOrdinal ?? '—'
+    }. ` +
+    `${stats.value.right ?? 0} из ${stats.value.total ?? 0} ` +
+    `(${stats.value.percent ?? 0}%). ` +
+    `Всего завершённых попыток по тесту: ${attemptCount.value}.`
   )
 })
 
@@ -241,6 +427,72 @@ function studentLabel(student) {
     student.fullName ||
     `Студент #${student.id}`
   )
+}
+
+function studentTestOptionsFromData(data) {
+  const source =
+    Array.isArray(data?.attempts)
+      ? data.attempts
+      : []
+
+  const unique = new Map()
+
+  source.forEach((attempt) => {
+    const id =
+      Number(attempt.testId)
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0 ||
+      unique.has(id)
+    ) {
+      return
+    }
+
+    unique.set(id, {
+      id,
+      title:
+        attempt.testName ||
+        `Тест #${id}`,
+    })
+  })
+
+  return Array.from(
+    unique.values()
+  ).sort(
+    (left, right) =>
+      String(left.title).localeCompare(
+        String(right.title),
+        'ru',
+        {
+          sensitivity: 'base',
+        }
+      )
+  )
+}
+
+function selectedStudentTestIsValid() {
+  if (!testId.value) {
+    return true
+  }
+
+  return tests.value.some(
+    (test) =>
+      String(test.id) ===
+      String(testId.value)
+  )
+}
+
+function applyStudentResultData(data) {
+  resultData.value =
+    data ?? {
+      stats: {
+        total: 0,
+        right: 0,
+        percent: 0,
+      },
+      attempts: [],
+    }
 }
 
 function resetAfterSubject() {
@@ -300,7 +552,10 @@ async function onSubjectChange() {
   error.value = ''
 
   if (!teacherMode.value) {
-    await loadResults()
+    testId.value = ''
+    tests.value = []
+
+    await loadStudentContextResults()
     return
   }
 
@@ -454,12 +709,83 @@ function teacherParams() {
 }
 
 function studentParams() {
-  return subjectId.value
-    ? {
-        subjectId:
-          subjectId.value,
-      }
-    : {}
+  const params = {}
+
+  if (subjectId.value) {
+    params.subjectId =
+      subjectId.value
+  }
+
+  if (testId.value) {
+    params.testId =
+      testId.value
+  }
+
+  return params
+}
+
+async function loadStudentContextResults() {
+  loadingResults.value = true
+  error.value = ''
+
+  try {
+    const params =
+      subjectId.value
+        ? {
+            subjectId:
+              subjectId.value,
+          }
+        : {}
+
+    const response =
+      await resultsApi
+        .getStudentData(params)
+
+    applyStudentResultData(
+      response.data
+    )
+
+    tests.value =
+      studentTestOptionsFromData(
+        resultData.value
+      )
+  } catch (requestError) {
+    resultData.value = null
+    tests.value = []
+
+    error.value =
+      getApiErrorMessage(
+        requestError,
+        'Не удалось загрузить результаты тестирования.'
+      )
+  } finally {
+    loadingResults.value = false
+  }
+}
+
+async function onStudentTestChange() {
+  error.value = ''
+
+  if (!testId.value) {
+    await loadStudentContextResults()
+    return
+  }
+
+  /*
+   * Backend при subjectId + testId фактически отдаёт приоритет testId.
+   * Поэтому обычный UI разрешает запрос только для testId,
+   * который был получен из собственных результатов текущего
+   * student/subject context.
+   */
+  if (!selectedStudentTestIsValid()) {
+    error.value =
+      'Выбранный тест не относится к текущему списку ваших результатов.'
+
+    testId.value = ''
+    return
+  }
+
+  await loadResults()
 }
 
 async function loadResults() {
@@ -467,6 +793,16 @@ async function loadResults() {
   error.value = ''
 
   try {
+    if (
+      !teacherMode.value &&
+      testId.value &&
+      !selectedStudentTestIsValid()
+    ) {
+      throw new Error(
+        'Выбранный testId отсутствует в текущем списке результатов студента.'
+      )
+    }
+
     const response =
       teacherMode.value
         ? await resultsApi
@@ -509,7 +845,7 @@ async function init() {
       await loadTeacherSubjects()
     } else {
       await loadStudentSubjects()
-      await loadResults()
+      await loadStudentContextResults()
     }
   } catch (requestError) {
     error.value =
@@ -554,7 +890,7 @@ onMounted(init)
       :description="
         teacherMode
           ? 'Фильтры преподавателя применяются последовательно.'
-          : 'Предмет можно не выбирать, чтобы показать все ваши попытки.'
+          : 'Можно выбрать предмет и тест. Сводка выбранного теста строится по лучшей попытке.'
       "
     >
       <div
@@ -580,6 +916,23 @@ onMounted(init)
             loadingOptions
           "
           @change="onSubjectChange"
+        />
+
+        <UiSelect
+          v-if="!teacherMode"
+          v-model="testId"
+          label="Тест"
+          placeholder="-- все тесты --"
+          :options="tests"
+          :option-label="testLabel"
+          option-value="id"
+          :disabled="
+            loadingInitial ||
+            loadingOptions ||
+            loadingResults ||
+            !tests.length
+          "
+          @change="onStudentTestChange"
         />
 
         <template v-if="teacherMode">
@@ -676,11 +1029,20 @@ onMounted(init)
       />
 
       <div
-        v-if="resultData"
+        v-if="
+          resultData &&
+          (teacherMode || studentBestAttempt)
+        "
         class="results-stat-grid"
       >
         <div class="results-stat">
-          <span>Попыток</span>
+          <span>
+            {{
+              teacherMode
+                ? 'Попыток'
+                : 'Попыток по тесту'
+            }}
+          </span>
 
           <strong>
             {{ attemptCount }}
@@ -718,7 +1080,7 @@ onMounted(init)
       :description="
         teacherMode
           ? 'Каждую попытку можно раскрыть и посмотреть ответы.'
-          : 'Показаны только ваши завершённые попытки.'
+          : 'Показаны все ваши завершённые попытки; лучшая попытка выбранного теста отмечена отдельно.'
       "
     >
       <UiEmptyState
@@ -753,6 +1115,12 @@ onMounted(init)
           "
           :attempt="attempt"
           :mode="resultMode"
+          :best="
+            !teacherMode &&
+            studentBestAttempt &&
+            String(attempt.attemptId) ===
+              String(studentBestAttempt.attemptId)
+          "
           :open="
             attempts.length === 1 &&
             index === 0
@@ -779,7 +1147,7 @@ onMounted(init)
 
 .results-filters--student {
   grid-template-columns:
-    minmax(0, 1fr)
+    repeat(2, minmax(0, 1fr))
     minmax(180px, 260px);
 }
 

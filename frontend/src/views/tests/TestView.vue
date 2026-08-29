@@ -656,6 +656,9 @@ onMounted(loadTest)
                   String(question.id)
                 ]
               "
+              :id="
+                `question-${question.id}-option-${option.id}`
+              "
               :value="option.id"
               :name="
                 `question-${question.id}`
@@ -681,6 +684,9 @@ onMounted(loadTest)
                 multipleAnswers[
                   String(question.id)
                 ]
+              "
+              :id="
+                `question-${question.id}-option-${option.id}`
               "
               :value="option.id"
               :label="

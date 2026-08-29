@@ -1,5 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import {
+  computed,
+} from 'vue'
 
 let checkboxSequence = 0
 
@@ -47,72 +49,31 @@ const controlId = computed(() => {
   return props.id || generatedId
 })
 
-const checked = computed(() => {
-  if (
-    Array.isArray(
-      props.modelValue
-    )
-  ) {
-    return props.modelValue.some(
-      (item) =>
-        item === props.value ||
-        String(item) ===
-          String(props.value)
-    )
-  }
+/*
+ * Нативный checkbox умеет работать через v-model как:
+ *
+ *   Boolean
+ *   Array + :value
+ *
+ * Для multiple-choice TestView передаёт массив option.id.
+ * Vue сама добавляет/удаляет конкретный :value из массива,
+ * поэтому checkbox больше не управляется вручную через
+ * :checked/@change и не может переключить соседнюю опцию.
+ */
+const model = computed({
+  get() {
+    return props.modelValue
+  },
 
-  return Boolean(
-    props.modelValue
-  )
+  set(value) {
+    emit(
+      'update:modelValue',
+      value
+    )
+  },
 })
 
-function toggle(event) {
-  const isChecked =
-    event.target.checked
-
-  if (
-    Array.isArray(
-      props.modelValue
-    )
-  ) {
-    const next =
-      [...props.modelValue]
-
-    const index =
-      next.findIndex(
-        (item) =>
-          item === props.value ||
-          String(item) ===
-            String(props.value)
-      )
-
-    if (
-      isChecked &&
-      index === -1
-    ) {
-      next.push(
-        props.value
-      )
-    }
-
-    if (
-      !isChecked &&
-      index !== -1
-    ) {
-      next.splice(index, 1)
-    }
-
-    emit(
-      'update:modelValue',
-      next
-    )
-  } else {
-    emit(
-      'update:modelValue',
-      isChecked
-    )
-  }
-
+function handleChange(event) {
   emit(
     'change',
     event
@@ -131,11 +92,12 @@ function toggle(event) {
   >
     <input
       :id="controlId"
+      v-model="model"
       class="ui-checkbox__input"
       type="checkbox"
-      :checked="checked"
+      :value="value"
       :disabled="disabled"
-      @change="toggle"
+      @change="handleChange"
     >
 
     <span class="ui-checkbox__copy">

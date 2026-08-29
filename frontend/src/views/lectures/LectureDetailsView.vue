@@ -13,6 +13,7 @@ import {
 import {
   getApiErrorMessage,
   learningApi,
+  testAttemptsApi,
 } from '@/api'
 
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
@@ -26,10 +27,15 @@ import {
 } from '@/components/ui'
 
 import {
+  useAuthStore,
+} from '@/stores/auth'
+
+import {
   listFromResponse,
 } from '@/utils/apiData'
 
 const route = useRoute()
+const authStore = useAuthStore()
 
 const lecture = ref(null)
 const materials = ref([])
@@ -40,6 +46,13 @@ const error = ref('')
 
 const downloadingMaterialId =
   ref(null)
+
+const canTakeTests = computed(() => {
+  return (
+    authStore.isStudent ||
+    authStore.isAdmin
+  )
+})
 
 const lectureId = computed(() => {
   return Number(
@@ -176,17 +189,20 @@ const testColumns = [
   },
   {
     key: 'attemptsAllowed',
-    label: 'Попыток',
+    label: 'Попытки',
+    value: (row) =>
+      attemptsText(row),
+    sortValue: (row) =>
+      row.attemptsLeft ?? -1,
   },
   {
     key: 'availability',
     label: 'Доступность',
     value: (row) =>
-      row.available
-        ? 'Доступен'
-        : 'Недоступен',
+      testStatusTitle(row),
     sortValue: (row) =>
-      row.available
+      row.canResume ||
+      row.canStartNew
         ? 1
         : 0,
   },
@@ -196,6 +212,226 @@ const testColumns = [
     sortable: false,
   },
 ]
+
+function validPositiveId(value) {
+  const id = Number(value)
+
+  return (
+    Number.isInteger(id) &&
+    id > 0
+  )
+    ? id
+    : null
+}
+
+function attemptsText(test) {
+  const allowed =
+    Number(test.attemptsAllowed) ||
+    0
+
+  if (!test.attemptsChecked) {
+    return `— / ${allowed}`
+  }
+
+  return (
+    `${test.attemptsUsed} / ${allowed}` +
+    ` · осталось ${test.attemptsLeft}`
+  )
+}
+
+function testStatusTitle(test) {
+  if (!canTakeTests.value) {
+    return 'Недоступен для роли'
+  }
+
+  if (!test.available) {
+    return 'Недоступен'
+  }
+
+  if (test.availabilityCheckFailed) {
+    return 'Проверка недоступна'
+  }
+
+  if (test.canResume) {
+    return 'Можно продолжить'
+  }
+
+  if (test.canStartNew) {
+    return 'Доступен'
+  }
+
+  if (test.attemptsChecked && test.attemptsLeft <= 0) {
+    return 'Попытки закончились'
+  }
+
+  return 'Недоступен'
+}
+
+function testStatusDescription(test) {
+  if (!canTakeTests.value) {
+    return 'Для текущей роли прохождение тестов недоступно.'
+  }
+
+  if (!test.available) {
+    return (
+      test.statusMessage ||
+      'Тест сейчас недоступен.'
+    )
+  }
+
+  if (
+    test.assignmentId === null ||
+    test.assignmentId === undefined
+  ) {
+    return 'Для теста отсутствует доступное назначение.'
+  }
+
+  if (test.availabilityCheckFailed) {
+    return (
+      'Не удалось проверить использованные попытки. ' +
+      'Запуск временно заблокирован.'
+    )
+  }
+
+  if (test.canResume) {
+    return (
+      'Есть незавершённая попытка. ' +
+      `Осталось новых: ${test.attemptsLeft}.`
+    )
+  }
+
+  if (test.attemptsChecked && test.attemptsLeft <= 0) {
+    return 'Доступные попытки закончились.'
+  }
+
+  if (test.canStartNew) {
+    return `Осталось попыток: ${test.attemptsLeft}.`
+  }
+
+  return 'Тест сейчас недоступен.'
+}
+
+async function withClientAvailability(source) {
+  if (!Array.isArray(source)) {
+    return []
+  }
+
+  const personId =
+    validPositiveId(
+      authStore.personId
+    )
+
+  return Promise.all(
+    source.map(async (test) => {
+      const assignmentId =
+        validPositiveId(
+          test.assignmentId
+        )
+
+      const base = {
+        ...test,
+        attempts: [],
+        attemptsChecked: false,
+        attemptsUsed: 0,
+        attemptsLeft: null,
+        inProgressAttempt: null,
+        canResume: false,
+        canStartNew: false,
+        availabilityCheckFailed: false,
+      }
+
+      /*
+       * TEACHER не имеет tests.take в текущей ролевой модели.
+       * USER вообще не должен попадать на lecture route.
+       */
+      if (!canTakeTests.value) {
+        return base
+      }
+
+      if (!test.available || !assignmentId) {
+        return base
+      }
+
+      /*
+       * Fail closed: если identity не определена, не разрешаем
+       * frontend начать новую attempt на основании одного available.
+       */
+      if (!personId) {
+        return {
+          ...base,
+          availabilityCheckFailed: true,
+        }
+      }
+
+      try {
+        const response =
+          await testAttemptsApi
+            .getForAssignmentAndPerson(
+              assignmentId,
+              personId
+            )
+
+        const attempts =
+          listFromResponse(response)
+
+        const attemptsUsed =
+          attempts.length
+
+        const attemptsAllowed =
+          Math.max(
+            0,
+            Number(
+              test.attemptsAllowed
+            ) || 0
+          )
+
+        const attemptsLeft =
+          Math.max(
+            0,
+            attemptsAllowed -
+              attemptsUsed
+          )
+
+        const inProgressAttempt =
+          attempts.find(
+            (attempt) =>
+              Number(attempt.status) === 1
+          ) ?? null
+
+        return {
+          ...base,
+          attempts,
+          attemptsChecked: true,
+          attemptsUsed,
+          attemptsLeft,
+          inProgressAttempt,
+
+          canResume:
+            Boolean(
+              test.available &&
+              inProgressAttempt
+            ),
+
+          canStartNew:
+            Boolean(
+              test.available &&
+              !inProgressAttempt &&
+              attemptsLeft > 0
+            ),
+        }
+      } catch {
+        /*
+         * Не откатываемся к test.available=true, иначе при ошибке
+         * проверки лимита UI снова разрешит потенциально лишний start.
+         */
+        return {
+          ...base,
+          availabilityCheckFailed: true,
+        }
+      }
+    })
+  )
+}
 
 function testRoute(test) {
   const query = {}
@@ -382,8 +618,10 @@ async function loadLecture() {
       )
 
     tests.value =
-      listFromResponse(
-        testsResponse
+      await withClientAvailability(
+        listFromResponse(
+          testsResponse
+        )
       )
   } catch (requestError) {
     lecture.value = null
@@ -593,42 +831,36 @@ onMounted(loadLecture)
         </template>
 
         <template #cell-attemptsAllowed="{ row }">
-          {{
-            row.attemptsAllowed ??
-            '—'
-          }}
+          {{ attemptsText(row) }}
         </template>
 
         <template #cell-availability="{ row }">
           <div class="lecture-test">
             <strong>
-              {{
-                row.available
-                  ? 'Доступен'
-                  : 'Недоступен'
-              }}
+              {{ testStatusTitle(row) }}
             </strong>
 
-            <span
-              v-if="
-                !row.available &&
-                row.statusMessage
-              "
-              class="lecture-test__description"
-            >
-              {{ row.statusMessage }}
+            <span class="lecture-test__description">
+              {{ testStatusDescription(row) }}
             </span>
           </div>
         </template>
 
         <template #cell-actions="{ row }">
           <UiButton
-            v-if="row.available"
+            v-if="
+              row.canResume ||
+              row.canStartNew
+            "
             size="sm"
             variant="primary"
             :to="testRoute(row)"
           >
-            Пройти тест
+            {{
+              row.canResume
+                ? 'Продолжить тест'
+                : 'Пройти тест'
+            }}
           </UiButton>
 
           <UiButton
@@ -636,7 +868,7 @@ onMounted(loadLecture)
             size="sm"
             disabled
           >
-            Недоступен
+            {{ testStatusTitle(row) }}
           </UiButton>
         </template>
       </UiTable>

@@ -39,8 +39,28 @@ export function getApiErrorMessage(
     return 'Сервер слишком долго отвечает'
   }
 
-  if (!error.response) {
+  /*
+   * Важно отличать Axios network error от обычной
+   * JavaScript-ошибки клиента.
+   *
+   * Раньше TypeError вроде:
+   *   learningApi.submitAttempt is not a function
+   * попадал сюда же и показывался как:
+   *   «Не удалось связаться с сервером».
+   */
+  const isAxiosError =
+    error?.isAxiosError === true ||
+    Boolean(error?.config)
+
+  if (isAxiosError && !error.response) {
     return 'Не удалось связаться с сервером'
+  }
+
+  if (!error.response) {
+    return (
+      error?.message ||
+      fallback
+    )
   }
 
   const payload = error.response.data

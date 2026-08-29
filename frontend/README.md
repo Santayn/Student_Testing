@@ -1,316 +1,103 @@
-# Auth session + refresh token
+# Client protection + best attempt results
 
-Обновление frontend-авторизации под фактический backend контракт.
+Patch закрывает три задачи.
 
-## Backend endpoints
+## 1. Клиентская проверка доступности теста
 
-```text
-POST /api/v1/auth/login
-POST /api/v1/auth/register
-POST /api/v1/auth/refresh
-POST /api/v1/auth/revoke
-POST /api/v1/auth/change-password
-GET  /api/v1/auth/me
-```
+`LectureDetailsView.vue` больше не использует только `test.available`.
 
-## Что хранит AuthStore
-
-Persisted:
+Для STUDENT/ADMIN при доступном assignment выполняется:
 
 ```text
-tokenType
-
-accessToken
-accessTokenExpiresAtUtc
-
-refreshToken
-refreshTokenExpiresAtUtc
-
-lifetimeKind
-
-user
+GET /tests/attempts
+  ?testAssignmentId=<assignmentId>
+  &personId=<current personId>
 ```
 
-Не persisted:
+Далее:
 
 ```text
-loading
-refreshing
-initialized
-error
+attemptsUsed = attempts.length
+attemptsLeft = max(0, attemptsAllowed - attemptsUsed)
 ```
 
-## Login
+Незавершённая attempt (`status == 1`) тоже считается использованной.
+
+Состояния:
 
 ```text
-POST /auth/login
-  ↓
-access + refresh
-  ↓
-сохранить ОБА токена
-  ↓
-GET /auth/me
-  ↓
-user + roles + permissions
+есть status=1        -> Продолжить тест
+нет status=1 + left>0 -> Пройти тест
+left=0                -> кнопка disabled
+backend available=false -> кнопка disabled
+ошибка проверки attempts -> fail closed, кнопка disabled
 ```
 
-## Register
+`testAttemptsApi` намеренно НЕ содержит небезопасного `list()` без фильтров.
+Он требует одновременно assignmentId и personId.
 
-Контракт backend:
+Это только client-side защита/UX. Backend остаётся источником истины.
 
-```json
-{
-  "login": "student1",
-  "password": "password123",
-  "personId": 15
-}
-```
+## 2. Лучшая попытка вместо student aggregation
 
-`lifetimeKind` можно добавить опционально.
+Для STUDENT серверный `resultData.stats`, агрегирующий несколько attempts,
+больше не используется как итог выбранного теста.
 
-После регистрации backend сразу возвращает токены.
-
-Поэтому RegisterView:
+При выбранном test:
 
 ```text
-register
-  ↓
-tokens
-  ↓
-/auth/me
-  ↓
-home
+1. максимальный stats.percent
+2. при равенстве — максимальный stats.right
+3. при равенстве — более поздний completedAt
+4. при равенстве — больший attemptOrdinal
 ```
 
-Переход на Login после успешной регистрации больше не нужен.
+выбирается как лучшая попытка.
 
-## Refresh
+Все завершённые attempts при этом остаются на странице и доступны для
+раскрытия. Лучшая отмечается badge `Лучшая попытка`.
 
-Access token проверяется перед защищённым запросом.
+Если выбрано несколько разных тестов, frontend принципиально не строит
+общий процент между разными тестами и предлагает выбрать конкретный test.
 
-За 30 секунд до истечения он считается требующим обновления:
+Teacher/admin aggregation оставлена без изменения, потому что там сводка
+может относиться к группе/нескольким студентам.
+
+## 3. Student filter по test
+
+Добавлен selector:
 
 ```text
-TOKEN_EXPIRY_MARGIN_MS = 30000
+Предмет -> Тест
 ```
 
-Если token истёк/скоро истечёт:
+Список test строится только из собственных completed attempts, которые
+backend уже вернул через `/results/student/data` для текущего контекста.
+
+При выборе test используется:
 
 ```text
-AuthStore.ensureAccessToken()
-  ↓
-AuthStore.refreshSession()
-  ↓
-POST /auth/refresh
+GET /results/student/data?subjectId=...&testId=...
 ```
 
-Backend возвращает новую пару:
+Перед запросом frontend проверяет, что `testId` действительно присутствует
+в текущем списке результатов студента. Это частично компенсирует то, что
+backend отдаёт `testId` приоритет над `subjectId` и сам не проверяет их связь.
+
+## Файлы
 
 ```text
-NEW accessToken
-NEW refreshToken
-```
-
-Store заменяет ОБА значения.
-
-## Refresh lock
-
-`refreshSession()` использует один module-level Promise:
-
-```text
-refreshPromise
-```
-
-Поэтому:
-
-```text
-Request A -> 401 ┐
-Request B -> 401 ├─> ОДИН /auth/refresh
-Request C -> 401 ┘
-```
-
-Все запросы затем используют новую пару.
-
-## Axios
-
-Есть два клиента.
-
-### authHttp
-
-Без auth interceptors:
-
-```text
-login
-register
-refresh
-```
-
-Это предотвращает рекурсивный refresh.
-
-### http
-
-Для остальных `/api/v1/**`:
-
-```text
-request
-  ↓
-ensureAccessToken()
-  ↓
-Authorization: Bearer ...
-
-response 401
-  ↓
-refreshSession()
-  ↓
-retry ОДИН раз
-```
-
-## /auth/me
-
-AuthStore больше не использует:
-
-```text
-/users/me
-```
-
-для восстановления авторизации.
-
-Используется фактический endpoint:
-
-```text
-GET /api/v1/auth/me
-```
-
-Именно он возвращает:
-
-```text
-user
-roles
-permissions
-person
-```
-
-## Logout
-
-Теперь logout является async:
-
-```js
-await authStore.logout()
-```
-
-Алгоритм:
-
-```text
-access истёк?
-  ↓ да
-refresh, если возможно
-  ↓
-POST /auth/revoke
-  body: current refreshToken
-  ↓
-clearSession()
-```
-
-Даже если revoke завершится сетевой ошибкой,
-локальная сессия всё равно удаляется.
-
-## Permissions
-
-AuthStore получил:
-
-```js
-permissions
-hasPermission(permission)
-hasAnyPermission(...permissions)
-```
-
-Например:
-
-```js
-authStore.hasPermission(
-  'teaching.manage'
-)
-```
-
-## Change password
-
-Добавлено:
-
-```js
-await authStore.changePassword(
-  currentPassword,
-  newPassword
-)
-```
-
-которое вызывает:
-
-```text
-POST /api/v1/auth/change-password
-```
-
-## main.js
-
-Старый:
-
-```js
-setAccessTokenProvider(...)
-```
-
-заменён на:
-
-```js
-configureHttpAuth({
-  getAccessToken,
-  ensureAccessToken,
-  refreshSession,
-  onSessionInvalid,
-})
-```
-
-При окончательной потере сессии защищённая страница
-перенаправляется на login с `redirect`.
-
-## Что заменить
-
-```text
-src/stores/auth.js
-
-src/api/http.js
-src/api/auth.api.js
 src/api/index.js
-
-src/main.js
-
-src/views/auth/LoginView.vue
-src/views/auth/RegisterView.vue
-
-src/components/layout/AppHeader.vue
+src/api/results.api.js
+src/api/testAttempts.api.js
+src/views/lectures/LectureDetailsView.vue
+src/views/results/ResultsView.vue
+src/components/results/ResultAttemptCard.vue
 ```
 
-Остальные API modules менять не требуется.
+## После замены
 
-
-## Важный нюанс revoke
-
-`POST /auth/revoke` выполняется с:
-
-```js
-skipAuthRefresh: true
+```bash
+docker compose build --no-cache frontend
+docker compose up -d frontend
 ```
-
-Перед ним `AuthStore.logout()` сам обеспечивает действующий access token.
-
-Это предотвращает сценарий:
-
-```text
-revoke(old refreshToken)
-  ↓ 401
-automatic refresh
-  ↓
-refresh token rotation
-  ↓
-retry revoke со СТАРЫМ body
-```
-
-То есть refresh rotation и revoke не конфликтуют.

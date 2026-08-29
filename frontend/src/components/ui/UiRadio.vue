@@ -1,5 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import {
+  computed,
+} from 'vue'
 
 let radioSequence = 0
 
@@ -52,28 +54,30 @@ const controlId = computed(() => {
   return props.id || generatedId
 })
 
-const checked = computed(() => {
-  return (
-    props.modelValue === props.value ||
-    (
-      props.modelValue !== null &&
-      props.modelValue !== undefined &&
-      String(props.modelValue) ===
-        String(props.value)
+/*
+ * Используем стандартную Vue-модель нативного radio.
+ * Vue сама корректно сопоставляет modelValue/value и сохраняет
+ * исходный тип value (например numeric option.id).
+ *
+ * Раньше компонент вручную управлял :checked и @change.
+ * Для группы radio это приводило к рассинхронизации DOM/model,
+ * из-за которой после выбора мог визуально отмечаться первый
+ * вариант группы.
+ */
+const model = computed({
+  get() {
+    return props.modelValue
+  },
+
+  set(value) {
+    emit(
+      'update:modelValue',
+      value
     )
-  )
+  },
 })
 
-function select(event) {
-  if (!event.target.checked) {
-    return
-  }
-
-  emit(
-    'update:modelValue',
-    props.value
-  )
-
+function handleChange(event) {
   emit(
     'change',
     event
@@ -92,13 +96,13 @@ function select(event) {
   >
     <input
       :id="controlId"
+      v-model="model"
       class="ui-radio__input"
       type="radio"
       :name="name || undefined"
       :value="value"
-      :checked="checked"
       :disabled="disabled"
-      @change="select"
+      @change="handleChange"
     >
 
     <span class="ui-radio__copy">

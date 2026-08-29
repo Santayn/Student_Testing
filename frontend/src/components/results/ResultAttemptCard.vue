@@ -21,6 +21,11 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+
+  best: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const columns = [
@@ -166,6 +171,13 @@ function formatDateTime(value) {
       </div>
 
       <div class="result-attempt__stats">
+        <span
+          v-if="best"
+          class="result-attempt__badge result-attempt__badge--success"
+        >
+          Лучшая попытка
+        </span>
+
         <span
           class="result-attempt__badge"
           :class="{
