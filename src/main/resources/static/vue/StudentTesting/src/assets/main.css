@@ -16,6 +16,14 @@
   --danger: #dc2626;
 
   --shadow: 0 4px 12px rgb(0 0 0 / 8%);
+
+  --header-bg: #172033;
+  --header-text: #ffffff;
+  --header-muted-text: #cbd5e1;
+  --header-border: rgb(255 255 255 / 10%);
+  --header-hover: rgb(255 255 255 / 10%);
+  --header-button-border: rgb(255 255 255 / 18%);
+  --header-button-hover: rgb(255 255 255 / 18%);
 }
 
 html[data-theme='dark'] {
@@ -36,6 +44,14 @@ html[data-theme='dark'] {
   --danger: #ef4444;
 
   --shadow: 0 4px 12px rgb(0 0 0 / 30%);
+
+  --header-bg: #0b1220;
+  --header-text: #f8fafc;
+  --header-muted-text: #94a3b8;
+  --header-border: #243044;
+  --header-hover: #172033;
+  --header-button-border: #334155;
+  --header-button-hover: #243044;
 }
 
 html,

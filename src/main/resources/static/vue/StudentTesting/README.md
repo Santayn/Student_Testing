@@ -1,78 +1,152 @@
-# UserStore для Pinia
+# AppSidebar + mobile adaptation
 
-Архив предназначен для Vue 3 + JavaScript + Pinia.
+Ролевой Sidebar для текущей архитектуры Vue.
 
-## Файл
-
-```text
-src/stores/user.js
-```
-
-## Зависимости
-
-Store использует уже созданный API-слой:
+## Файлы
 
 ```text
-src/api/index.js
-src/api/users.api.js
-src/api/error.js
+src/
+├── components/
+│   └── layout/
+│       └── AppSidebar.vue
+│
+└── layouts/
+    └── WorkspaceLayout.vue
 ```
 
-Также должен быть подключён:
+## Роли
 
-```bash
-npm install pinia pinia-plugin-persistedstate
+### TEACHER
+
+Видит:
+
+```text
+Преподаватель
+├── Вопросы
+├── Создать тест
+├── Лекции
+├── Темы
+├── Шаблоны курса
+└── Нагрузка
 ```
 
-## Важно
+### ADMIN
 
-В `main.js` Pinia должна быть настроена с persistence:
+Видит преподавательский блок и:
 
-```js
-import { createPinia } from 'pinia'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-
-const pinia = createPinia()
-
-pinia.use(piniaPluginPersistedstate)
-
-app.use(pinia)
+```text
+Администрирование
+├── Пользователи
+├── Факультеты
+├── Группы
+├── Предметы
+├── Предметы факультета
+├── Предметы преподавателей
+└── Преподавательская нагрузка
 ```
+
+Для обычного STUDENT Sidebar вообще не отображается.
+
+## Desktop
+
+При ширине больше 960px:
+
+```text
+┌──────────── Sidebar ────────────┐  ┌──────── Page ────────┐
+│ Преподаватель                   │  │                      │
+│ Вопросы                         │  │    RouterView        │
+│ Создать тест                    │  │                      │
+│ Лекции                          │  │                      │
+└─────────────────────────────────┘  └──────────────────────┘
+```
+
+Sidebar использует:
+
+```css
+position: sticky;
+```
+
+и остаётся видимым при прокрутке.
+
+## Mobile
+
+При ширине <= 960px показывается компактная строка:
+
+```text
+☰ Разделы
+```
+
+По нажатию:
+
+```text
+┌──────────────────────────────┐
+│ Разделы                   ×  │
+├──────────────────────────────┤
+│ ПРЕПОДАВАТЕЛЬ                │
+│ Вопросы                      │
+│ Создать тест                 │
+│ Лекции                       │
+│ ...                          │
+└──────────────────────────────┘
+```
+
+Это drawer поверх страницы.
+
+Добавлено:
+
+- затемнение background;
+- закрытие по клику на overlay;
+- закрытие по `Escape`;
+- закрытие после любого Router-перехода;
+- блокировка прокрутки body при открытом drawer;
+- active state через `router-link-active`.
 
 ## Использование
 
-```js
-import { useUserStore } from '@/stores/user'
+Для рабочих страниц можно использовать:
 
-const userStore = useUserStore()
-
-await userStore.loadCurrentUser()
-
-console.log(userStore.fullName)
-console.log(userStore.roles)
-console.log(userStore.isAdmin)
+```vue
+<WorkspaceLayout />
 ```
 
-Проверка роли:
+или просто:
 
-```js
-if (userStore.hasRole('ADMIN')) {
-  // ...
-}
+```vue
+<AppSidebar />
 ```
 
-Несколько ролей:
+в собственном layout.
 
-```js
-if (userStore.hasAnyRole('ADMIN', 'TEACHER')) {
-  // ...
-}
+## Требуемые route names
+
+Sidebar использует уже созданные маршруты:
+
+```text
+teacher-questions
+teacher-test-create
+teacher-lectures
+teacher-topics
+teacher-courses
+teacher-workload
+
+admin-users
+admin-faculties
+admin-groups
+admin-subjects
+admin-faculty-subjects
+admin-teacher-subjects
+admin-teaching
 ```
 
-Очистка:
+## Почему Sidebar скрыт для Student
 
-```js
-userStore.clearUser()
+Студенту достаточно Header:
+
+```text
+Главная
+Профиль
+Предметы
+Результаты
 ```
 
-JWT здесь намеренно не хранится. Позже токен и login/logout лучше вынести в отдельный AuthStore.
+Поэтому sidebar не занимает экран там, где он не нужен.
