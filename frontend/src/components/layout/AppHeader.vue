@@ -268,13 +268,13 @@ onBeforeUnmount(() => {
   width: 100%;
 
   color:
-    var(--header-text, #ffffff);
+    var(--header-text);
 
   background:
-    var(--header-bg, #172033);
+    var(--header-bg);
 
   border-bottom: 1px solid
-    var(--header-border, rgb(255 255 255 / 10%));
+    var(--header-border);
 }
 
 .app-header__inner {
@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
   padding: 8px 10px;
 
   color:
-    var(--header-muted-text, #dbe4f0);
+    var(--header-muted-text);
 
   border-radius: 8px;
 
@@ -349,10 +349,10 @@ onBeforeUnmount(() => {
 .app-header__nav-link:hover,
 .app-header__nav-link.router-link-active {
   color:
-    var(--header-text, #ffffff);
+    var(--header-text);
 
   background:
-    var(--header-hover, rgb(255 255 255 / 10%));
+    var(--header-hover);
 }
 
 .app-header__login-link {
@@ -369,13 +369,13 @@ onBeforeUnmount(() => {
   place-items: center;
 
   color:
-    var(--header-text, #ffffff);
+    var(--header-text);
 
   background:
-    var(--header-hover, rgb(255 255 255 / 10%));
+    var(--header-hover);
 
   border: 1px solid
-    var(--header-button-border, rgb(255 255 255 / 18%));
+    var(--header-button-border);
 
   border-radius: 9px;
 
@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
 
 .theme-toggle:hover {
   background:
-    var(--header-button-hover, rgb(255 255 255 / 18%));
+    var(--header-button-hover);
 }
 
 .theme-toggle:active {
@@ -420,7 +420,7 @@ onBeforeUnmount(() => {
 
 .user-badge:hover {
   background:
-    var(--header-hover, rgb(255 255 255 / 10%));
+    var(--header-hover);
 }
 
 .user-badge__name,
@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
 
 .user-badge__role {
   color:
-    var(--header-muted-text, #cbd5e1);
+    var(--header-muted-text);
 
   font-size: 12px;
 }
@@ -452,13 +452,13 @@ onBeforeUnmount(() => {
   justify-content: center;
 
   color:
-    var(--header-text, #ffffff);
+    var(--header-text);
 
   background:
-    var(--header-hover, rgb(255 255 255 / 10%));
+    var(--header-hover);
 
   border: 1px solid
-    var(--header-button-border, rgb(255 255 255 / 18%));
+    var(--header-button-border);
 
   border-radius: 8px;
 
@@ -475,7 +475,7 @@ onBeforeUnmount(() => {
 
 .app-header__button:hover:not(:disabled) {
   background:
-    var(--header-button-hover, rgb(255 255 255 / 18%));
+    var(--header-button-hover);
 }
 
 .app-header__button:disabled {
@@ -485,15 +485,15 @@ onBeforeUnmount(() => {
 
 .app-header__button--primary {
   background:
-    var(--brand, #2563eb);
+    var(--brand);
 
   border-color:
-    var(--brand, #2563eb);
+    var(--brand);
 }
 
 .app-header__button--primary:hover {
   background:
-    var(--brand-dark, #1d4ed8);
+    var(--brand-hover);
 }
 
 .mobile-menu-button {
@@ -521,7 +521,7 @@ onBeforeUnmount(() => {
 
 .mobile-menu-button:hover {
   background:
-    var(--header-hover, rgb(255 255 255 / 10%));
+    var(--header-hover);
 }
 
 .mobile-menu-button__line {
@@ -622,7 +622,7 @@ onBeforeUnmount(() => {
     padding-top: 10px;
 
     border-top: 1px solid
-      var(--header-border, rgb(255 255 255 / 10%));
+      var(--header-border);
   }
 
   .theme-toggle {
@@ -649,7 +649,7 @@ onBeforeUnmount(() => {
     padding: 9px 12px;
 
     background:
-      var(--header-hover, rgb(255 255 255 / 7%));
+      var(--header-hover);
   }
 
   .app-header__button {

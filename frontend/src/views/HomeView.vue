@@ -312,18 +312,18 @@ async function refreshUser() {
   gap: 28px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 16px;
 
   box-shadow:
-    var(--shadow, 0 8px 24px rgb(0 0 0 / 6%));
+    var(--shadow);
 }
 
 .welcome-panel__content {
@@ -334,7 +334,7 @@ async function refreshUser() {
   margin: 0 0 8px;
 
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   font-size: 13px;
   font-weight: 800;
@@ -359,7 +359,7 @@ async function refreshUser() {
   margin: 14px 0 0;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 16px;
   line-height: 1.65;
@@ -375,10 +375,10 @@ async function refreshUser() {
   gap: 14px;
 
   background:
-    var(--surface-secondary, #f7f8fa);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 12px;
 }
@@ -390,7 +390,7 @@ async function refreshUser() {
 
 .user-summary__label {
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 12px;
 }
@@ -408,13 +408,13 @@ async function refreshUser() {
   padding: 7px 11px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 8px;
 
@@ -427,7 +427,7 @@ async function refreshUser() {
 
 .user-summary__refresh:hover:not(:disabled) {
   background:
-    var(--surface-secondary, #f3f4f6);
+    var(--surface-secondary);
 }
 
 .user-summary__refresh:disabled {
@@ -442,10 +442,10 @@ async function refreshUser() {
   gap: 16px;
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 14px;
 }
@@ -457,7 +457,7 @@ async function refreshUser() {
 
 .home-section__header h2 {
   color:
-    var(--text, #111827);
+    var(--text);
 
   font-size: 20px;
 }
@@ -466,7 +466,7 @@ async function refreshUser() {
   margin-top: 5px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 14px;
 }
@@ -487,13 +487,13 @@ async function refreshUser() {
   flex-direction: column;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface-secondary, #f8fafc);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 11px;
 
@@ -509,10 +509,10 @@ async function refreshUser() {
   transform: translateY(-2px);
 
   border-color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   box-shadow:
-    0 8px 18px rgb(0 0 0 / 7%);
+    var(--shadow-hover);
 }
 
 .action-card__title {
@@ -523,7 +523,7 @@ async function refreshUser() {
   margin-top: 7px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 13px;
   line-height: 1.5;
@@ -534,7 +534,7 @@ async function refreshUser() {
   padding-top: 14px;
 
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   font-size: 13px;
   font-weight: 700;

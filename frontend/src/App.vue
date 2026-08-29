@@ -45,10 +45,10 @@ body {
   margin: 0;
 
   background:
-    var(--bg, #f5f7fa);
+    var(--bg);
 
   color:
-    var(--text, #111827);
+    var(--text);
 }
 
 #app {

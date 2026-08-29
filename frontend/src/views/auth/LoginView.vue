@@ -135,7 +135,7 @@ async function submit() {
 
 .auth-view__header h1 {
   color:
-    var(--text, #111827);
+    var(--text);
 
   font-size: 28px;
 }
@@ -143,7 +143,7 @@ async function submit() {
 .auth-view__header p,
 .auth-switch {
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 14px;
 }
@@ -158,7 +158,7 @@ async function submit() {
   gap: 7px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   font-size: 14px;
   font-weight: 600;
@@ -171,13 +171,13 @@ async function submit() {
   padding: 9px 11px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #d1d5db);
+    var(--border);
 
   border-radius: 9px;
 
@@ -187,10 +187,10 @@ async function submit() {
 
 .auth-field input:focus {
   outline: 2px solid
-    color-mix(in srgb, var(--brand, #2563eb) 28%, transparent);
+    var(--focus-ring);
 
   border-color:
-    var(--brand, #2563eb);
+    var(--brand);
 }
 
 .password-field {
@@ -209,7 +209,7 @@ async function submit() {
   transform: translateY(-50%);
 
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   background: transparent;
   border: 0;
@@ -225,13 +225,13 @@ async function submit() {
   padding: 10px 12px;
 
   color:
-    var(--danger, #dc2626);
+    var(--danger);
 
   background:
-    var(--danger-soft, #fef2f2);
+    var(--danger-soft);
 
   border: 1px solid
-    color-mix(in srgb, var(--danger, #dc2626) 28%, transparent);
+    var(--danger-border);
 
   border-radius: 9px;
 
@@ -243,10 +243,10 @@ async function submit() {
 
   padding: 9px 16px;
 
-  color: #ffffff;
+  color: var(--text-on-brand);
 
   background:
-    var(--brand, #2563eb);
+    var(--brand);
 
   border: 0;
   border-radius: 9px;
@@ -270,7 +270,7 @@ async function submit() {
 
 .auth-switch a {
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   font-weight: 600;
   text-decoration: none;

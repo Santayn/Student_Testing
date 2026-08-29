@@ -68,13 +68,13 @@ const loginRoute = computed(() => ({
   place-items: center;
 
   color:
-    var(--warning, #d97706);
+    var(--warning);
 
   background:
-    var(--warning-soft, #fffbeb);
+    var(--warning-soft);
 
   border: 1px solid
-    color-mix(in srgb, var(--warning, #d97706) 26%, transparent);
+    var(--warning-border);
 
   border-radius: 50%;
 
@@ -89,7 +89,7 @@ const loginRoute = computed(() => ({
 
 .auth-required h1 {
   color:
-    var(--text, #111827);
+    var(--text);
 
   font-size: 27px;
 }
@@ -98,7 +98,7 @@ const loginRoute = computed(() => ({
   max-width: 360px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 14px;
   line-height: 1.6;
@@ -122,13 +122,13 @@ const loginRoute = computed(() => ({
   justify-content: center;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface-secondary, #f3f4f6);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 9px;
 
@@ -138,13 +138,13 @@ const loginRoute = computed(() => ({
 }
 
 .auth-required__button--primary {
-  color: #ffffff;
+  color: var(--text-on-brand);
 
   background:
-    var(--brand, #2563eb);
+    var(--brand);
 
   border-color:
-    var(--brand, #2563eb);
+    var(--brand);
 }
 
 @media (max-width: 420px) {

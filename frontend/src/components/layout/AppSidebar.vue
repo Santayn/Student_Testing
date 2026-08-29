@@ -228,10 +228,10 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 12px;
 }
@@ -245,14 +245,14 @@ onBeforeUnmount(() => {
   padding-top: 14px;
 
   border-top: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 }
 
 .app-sidebar__title {
   margin: 0 8px 7px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 12px;
   font-weight: 700;
@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
   align-items: center;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   border-radius: 8px;
 
@@ -285,15 +285,15 @@ onBeforeUnmount(() => {
 
 .app-sidebar__link:hover {
   background:
-    var(--surface-secondary, #f3f4f6);
+    var(--surface-secondary);
 }
 
 .app-sidebar__link.router-link-active {
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   background:
-    var(--brand-soft, #eff6ff);
+    var(--brand-soft);
 
   font-weight: 600;
 }
@@ -325,14 +325,14 @@ onBeforeUnmount(() => {
     gap: 9px;
 
     color:
-      var(--text, #111827);
+      var(--text);
 
     background:
-      var(--surface, #ffffff);
+      var(--surface);
 
     border: 0;
     border-bottom: 1px solid
-      var(--border, #e5e7eb);
+      var(--border);
 
     font: inherit;
     font-size: 14px;
@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
 
     display: block;
 
-    background: rgb(0 0 0 / 45%);
+    background: var(--overlay);
   }
 
   .app-sidebar {
@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
 
     border: 0;
     border-right: 1px solid
-      var(--border, #e5e7eb);
+      var(--border);
 
     border-radius: 0;
 
@@ -398,10 +398,10 @@ onBeforeUnmount(() => {
     justify-content: space-between;
 
     background:
-      var(--surface, #ffffff);
+      var(--surface);
 
     border-bottom: 1px solid
-      var(--border, #e5e7eb);
+      var(--border);
   }
 
   .app-sidebar__close {
@@ -413,7 +413,7 @@ onBeforeUnmount(() => {
     justify-content: center;
 
     color:
-      var(--text, #111827);
+      var(--text);
 
     background: transparent;
 
@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
 
   .app-sidebar__close:hover {
     background:
-      var(--surface-secondary, #f3f4f6);
+      var(--surface-secondary);
   }
 
   .app-sidebar__nav {

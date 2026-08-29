@@ -1,141 +1,111 @@
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-export const useThemeStore = defineStore('theme', {
-  state: () => ({
-    // light | dark | system
-    theme: 'system',
+const THEMES = ['system', 'light', 'dark']
 
-    // Фактически применённая тема
-    resolvedTheme: 'light',
+export const useThemeStore = defineStore(
+  'theme',
+  () => {
+    const theme = ref('system')
+    const resolvedTheme = ref('light')
+    const initialized = ref(false)
 
-    initialized: false,
+    let mediaQuery = null
 
-    mediaQuery: null,
-  }),
+    const isDark = computed(() => {
+      return resolvedTheme.value === 'dark'
+    })
 
-  getters: {
-    isDark: (state) => state.resolvedTheme === 'dark',
-
-    isLight: (state) => state.resolvedTheme === 'light',
-
-    isSystem: (state) => state.theme === 'system',
-  },
-
-  actions: {
-    /**
-     * Установить тему.
-     *
-     * @param {'light'|'dark'|'system'} theme
-     */
-    setTheme(theme) {
-      const allowedThemes = [
-        'light',
-        'dark',
-        'system',
-      ]
-
-      if (!allowedThemes.includes(theme)) {
-        console.warn(`Неизвестная тема: ${theme}`)
-        return
+    function getSystemTheme() {
+      if (typeof window === 'undefined') {
+        return 'light'
       }
 
-      this.theme = theme
-
-      this.resolveTheme()
-      this.applyTheme()
-    },
-
-    /**
-     * Определяет реальную тему.
-     *
-     * system -> светлая/тёмная тема ОС.
-     */
-    resolveTheme() {
-      if (this.theme === 'system') {
-        const prefersDark = window.matchMedia(
-          '(prefers-color-scheme: dark)'
-        ).matches
-
-        this.resolvedTheme = prefersDark
-          ? 'dark'
-          : 'light'
-
-        return
-      }
-
-      this.resolvedTheme = this.theme
-    },
-
-    /**
-     * Применяет тему к HTML.
-     */
-    applyTheme() {
-      const html = document.documentElement
-
-      html.setAttribute(
-        'data-theme',
-        this.resolvedTheme
-      )
-
-      html.style.colorScheme = this.resolvedTheme
-    },
-
-    /**
-     * Переключение light <-> dark.
-     *
-     * Если сейчас system, переключаемся
-     * на противоположную от текущей системной.
-     */
-    toggleTheme() {
-      if (this.resolvedTheme === 'dark') {
-        this.setTheme('light')
-      } else {
-        this.setTheme('dark')
-      }
-    },
-
-    /**
-     * Обработчик изменения системной темы.
-     */
-    handleSystemThemeChange(event) {
-      if (this.theme !== 'system') {
-        return
-      }
-
-      this.resolvedTheme = event.matches
+      return window.matchMedia(
+        '(prefers-color-scheme: dark)'
+      ).matches
         ? 'dark'
         : 'light'
+    }
 
-      this.applyTheme()
-    },
+    function resolveTheme() {
+      return theme.value === 'system'
+        ? getSystemTheme()
+        : theme.value
+    }
 
-    /**
-     * Инициализация ThemeStore.
-     *
-     * Вызывать один раз при запуске приложения.
-     */
-    init() {
-      if (this.initialized) {
+    function applyTheme() {
+      const resolved = resolveTheme()
+      resolvedTheme.value = resolved
+
+      if (typeof document === 'undefined') {
         return
       }
 
-      this.mediaQuery = window.matchMedia(
-        '(prefers-color-scheme: dark)'
+      document.documentElement.dataset.theme = resolved
+      document.documentElement.style.colorScheme = resolved
+    }
+
+    function setTheme(value) {
+      if (!THEMES.includes(value)) {
+        throw new Error(`Неизвестная тема: ${value}`)
+      }
+
+      theme.value = value
+      applyTheme()
+    }
+
+    function toggleTheme() {
+      setTheme(
+        resolvedTheme.value === 'dark'
+          ? 'light'
+          : 'dark'
       )
+    }
 
-      this.resolveTheme()
-      this.applyTheme()
+    function handleSystemThemeChange() {
+      if (theme.value === 'system') {
+        applyTheme()
+      }
+    }
 
-      this.mediaQuery.addEventListener(
-        'change',
-        this.handleSystemThemeChange
-      )
+    function init() {
+      if (!THEMES.includes(theme.value)) {
+        theme.value = 'system'
+      }
 
-      this.initialized = true
+      applyTheme()
+
+      if (
+        typeof window !== 'undefined' &&
+        !mediaQuery
+      ) {
+        mediaQuery = window.matchMedia(
+          '(prefers-color-scheme: dark)'
+        )
+
+        mediaQuery.addEventListener(
+          'change',
+          handleSystemThemeChange
+        )
+      }
+
+      initialized.value = true
+    }
+
+    return {
+      theme,
+      resolvedTheme,
+      initialized,
+      isDark,
+      setTheme,
+      toggleTheme,
+      init,
+    }
+  },
+  {
+    persist: {
+      pick: ['theme'],
     },
-  },
-
-  persist: {
-    pick: ['theme'],
-  },
-})
+  }
+)

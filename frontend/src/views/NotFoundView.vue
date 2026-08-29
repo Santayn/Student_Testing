@@ -75,18 +75,18 @@ const primaryLabel = computed(() => {
   text-align: center;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 16px;
 
   box-shadow:
-    var(--shadow, 0 12px 30px rgb(0 0 0 / 8%));
+    var(--shadow-elevated);
 }
 
 .error-code {
@@ -95,7 +95,7 @@ const primaryLabel = computed(() => {
   line-height: 0.9;
 
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   letter-spacing: -0.05em;
 }
@@ -113,7 +113,7 @@ const primaryLabel = computed(() => {
   margin: 0;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 15px;
   line-height: 1.6;
@@ -138,13 +138,13 @@ const primaryLabel = computed(() => {
   justify-content: center;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface-secondary, #f3f4f6);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 9px;
 
@@ -161,13 +161,13 @@ const primaryLabel = computed(() => {
 }
 
 .error-button--primary {
-  color: #ffffff;
+  color: var(--text-on-brand);
 
   background:
-    var(--brand, #2563eb);
+    var(--brand);
 
   border-color:
-    var(--brand, #2563eb);
+    var(--brand);
 }
 
 @media (max-width: 520px) {

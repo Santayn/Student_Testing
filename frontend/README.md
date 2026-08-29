@@ -1,142 +1,63 @@
-# ProfileView.vue
+# Theme refactor
 
-Миграция старого `profile.html` на Vue 3.
+Единая система тем для всех уже созданных Vue-компонентов и страниц.
 
-## Сохранённая структура
-
-Старый профиль имел три вкладки:
+## Новое
 
 ```text
-Пользователь
-Студент
-Преподаватель
+src/assets/theme.css
+src/stores/theme.js
 ```
 
-Новая Vue-страница сохраняет эту модель.
+`ThemeStore` отвечает только за выбор темы (`system`, `light`, `dark`) и записывает фактически применённую тему в `data-theme` у `<html>`.
 
-### Пользователь
+Все цвета находятся только в `theme.css`. Компоненты используют семантические токены вида:
 
-Показывает:
+```css
+background: var(--surface);
+color: var(--text);
+border-color: var(--border);
+```
+
+Fallback-цветы вроде `var(--surface, #fff)` из компонентов удалены.
+
+## Обновлены
 
 ```text
-Имя
-Фамилия
-Отчество
-Логин
-Email
-Телефон
-Роли
-Person ID
+App.vue
+AppHeader.vue
+AppSidebar.vue
+AppFooter.vue
+AuthLayout.vue
+LoginView.vue
+RegisterView.vue
+RequireAuthView.vue
+NotFoundView.vue
+ForbiddenView.vue
+HomeView.vue
+ProfileView.vue
+main.js
 ```
 
-### Студент
+## main.js
 
-Показывает:
-
-```text
-Группа
-Факультет
-GroupMembership
-Предметы
-```
-
-Вкладка появляется только при роли `STUDENT`.
-
-### Преподаватель
-
-Показывает:
-
-```text
-Предметы
-Группы из учебной нагрузки
-```
-
-Вкладка появляется для:
-
-```text
-TEACHER
-ADMIN
-```
-
-## Используемые API
-
-Страница не обращается к Axios напрямую.
-
-Она использует существующие модули:
+Глобальная тема подключается один раз:
 
 ```js
-membershipsApi
-teachingApi
-groupsApi
-facultiesApi
-subjectsApi
+import '@/assets/theme.css'
 ```
 
-Все они работают через единый:
-
-```text
-/api/v1/...
-```
-
-## AuthStore
-
-Основные данные пользователя берутся из:
+После установки Pinia вызывается:
 
 ```js
-useAuthStore()
+const themeStore = useThemeStore()
+themeStore.init()
 ```
 
-При открытии страницы выполняется:
+## Header
 
-```js
-await authStore.loadCurrentUser()
-```
+Только Header импортирует ThemeStore, потому что именно там находится кнопка переключения темы. Остальным компонентам ThemeStore не нужен: они автоматически меняют оформление через CSS variables.
 
-Поэтому профиль синхронизируется с backend.
+## Новые страницы
 
-## Поддержка DTO
-
-Учтены оба варианта данных пользователя:
-
-```js
-user.firstName
-```
-
-и старый:
-
-```js
-user.person.firstName
-```
-
-А Person ID может быть:
-
-```js
-user.personId
-```
-
-или:
-
-```js
-user.person.id
-```
-
-## Старый DOM-код удалён
-
-Больше нет:
-
-```text
-getElementById
-querySelectorAll
-addEventListener
-innerHTML
-hidden
-classList
-```
-
-Вкладки и списки работают через обычное Vue-состояние.
-
-## Mobile
-
-- header профиля становится вертикальным;
-- сетки данных переходят в одну колонку;
-- списки корректно помещаются на узких экранах.
+Для новых компонентов не пишите цвета напрямую. Используйте токены из `theme.css`. Если появляется новый семантический цвет, сначала добавьте токен для light/dark в `theme.css`, а уже затем используйте его в компоненте.

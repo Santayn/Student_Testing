@@ -38,13 +38,13 @@ const currentYear = new Date().getFullYear()
   margin-top: auto;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border-top: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 }
 
 .app-footer__inner {
@@ -84,7 +84,7 @@ const currentYear = new Date().getFullYear()
 .app-footer__link:hover,
 .app-footer__link.router-link-active {
   color:
-    var(--text, #111827);
+    var(--text);
 }
 
 @media (max-width: 520px) {

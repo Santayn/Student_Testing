@@ -1,0 +1,114 @@
+/*
+ * Global design tokens.
+ *
+ * ThemeStore writes the resolved value to:
+ * <html data-theme="light|dark">
+ *
+ * Vue components consume ONLY these variables and do not own colors.
+ */
+
+:root,
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-secondary: #f8fafc;
+
+  --text: #111827;
+  --text-secondary: #6b7280;
+  --text-on-brand: #ffffff;
+
+  --border: #e5e7eb;
+
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-soft: #eff6ff;
+  --focus-ring: rgb(37 99 235 / 28%);
+
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --warning-border: #fcd34d;
+
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --danger-border: #fecaca;
+
+  --overlay: rgb(0 0 0 / 45%);
+
+  --shadow: 0 8px 24px rgb(0 0 0 / 6%);
+  --shadow-elevated: 0 12px 30px rgb(0 0 0 / 8%);
+  --shadow-hover: 0 8px 18px rgb(0 0 0 / 7%);
+
+  --header-bg: #172033;
+  --header-text: #ffffff;
+  --header-muted-text: #cbd5e1;
+  --header-border: rgb(255 255 255 / 10%);
+  --header-hover: rgb(255 255 255 / 10%);
+  --header-button-border: rgb(255 255 255 / 18%);
+  --header-button-hover: rgb(255 255 255 / 18%);
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0f172a;
+  --surface: #182235;
+  --surface-secondary: #202c40;
+
+  --text: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-on-brand: #ffffff;
+
+  --border: #334155;
+
+  --brand: #3b82f6;
+  --brand-hover: #2563eb;
+  --brand-soft: #172554;
+  --focus-ring: rgb(59 130 246 / 38%);
+
+  --success: #22c55e;
+  --success-soft: #052e16;
+
+  --warning: #f59e0b;
+  --warning-soft: #451a03;
+  --warning-border: #92400e;
+
+  --danger: #ef4444;
+  --danger-soft: #450a0a;
+  --danger-border: #7f1d1d;
+
+  --overlay: rgb(0 0 0 / 62%);
+
+  --shadow: 0 8px 24px rgb(0 0 0 / 26%);
+  --shadow-elevated: 0 12px 30px rgb(0 0 0 / 34%);
+  --shadow-hover: 0 8px 18px rgb(0 0 0 / 30%);
+
+  --header-bg: #0b1220;
+  --header-text: #f8fafc;
+  --header-muted-text: #94a3b8;
+  --header-border: #243044;
+  --header-hover: #172033;
+  --header-button-border: #334155;
+  --header-button-hover: #243044;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+::selection {
+  color: var(--text-on-brand);
+  background: var(--brand);
+}

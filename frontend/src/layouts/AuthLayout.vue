@@ -29,15 +29,15 @@
   padding: 32px;
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 16px;
 
   box-shadow:
-    var(--shadow, 0 12px 30px rgb(0 0 0 / 8%));
+    var(--shadow-elevated);
 }
 
 .auth-layout__brand {
@@ -46,7 +46,7 @@
   display: inline-block;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   font-size: 19px;
   font-weight: 800;

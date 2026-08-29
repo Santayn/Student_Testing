@@ -866,13 +866,13 @@ onMounted(loadProfile)
   gap: 20px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 14px;
 }
@@ -881,7 +881,7 @@ onMounted(loadProfile)
   margin: 0 0 6px;
 
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   font-size: 12px;
   font-weight: 800;
@@ -903,7 +903,7 @@ onMounted(loadProfile)
   margin: 8px 0 0;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 14px;
   line-height: 1.55;
@@ -915,13 +915,13 @@ onMounted(loadProfile)
   padding: 8px 13px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface-secondary, #f3f4f6);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 8px;
 
@@ -946,17 +946,13 @@ onMounted(loadProfile)
   gap: 12px;
 
   color:
-    var(--danger, #dc2626);
+    var(--danger);
 
   background:
-    var(--danger-soft, #fef2f2);
+    var(--danger-soft);
 
   border: 1px solid
-    color-mix(
-      in srgb,
-      var(--danger, #dc2626) 28%,
-      transparent
-    );
+    var(--danger-border);
 
   border-radius: 9px;
 
@@ -979,13 +975,13 @@ onMounted(loadProfile)
   padding: 40px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 12px;
 
@@ -1001,10 +997,10 @@ onMounted(loadProfile)
   overflow-x: auto;
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 10px;
 }
@@ -1017,7 +1013,7 @@ onMounted(loadProfile)
   flex: 0 0 auto;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   background: transparent;
 
@@ -1033,24 +1029,24 @@ onMounted(loadProfile)
 
 .profile-tab:hover {
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface-secondary, #f3f4f6);
+    var(--surface-secondary);
 }
 
 .profile-tab--active {
-  color: #ffffff;
+  color: var(--text-on-brand);
 
   background:
-    var(--brand, #2563eb);
+    var(--brand);
 }
 
 .profile-tab--active:hover {
-  color: #ffffff;
+  color: var(--text-on-brand);
 
   background:
-    var(--brand, #2563eb);
+    var(--brand);
 }
 
 .profile-panel {
@@ -1060,13 +1056,13 @@ onMounted(loadProfile)
   gap: 20px;
 
   color:
-    var(--text, #111827);
+    var(--text);
 
   background:
-    var(--surface, #ffffff);
+    var(--surface);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 14px;
 }
@@ -1084,7 +1080,7 @@ onMounted(loadProfile)
   margin-top: 5px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 13px;
 }
@@ -1105,17 +1101,17 @@ onMounted(loadProfile)
   gap: 4px;
 
   background:
-    var(--surface-secondary, #f8fafc);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 9px;
 }
 
 .data-item dt {
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 12px;
 }
@@ -1167,10 +1163,10 @@ onMounted(loadProfile)
   gap: 12px;
 
   background:
-    var(--surface-secondary, #f8fafc);
+    var(--surface-secondary);
 
   border: 1px solid
-    var(--border, #e5e7eb);
+    var(--border);
 
   border-radius: 8px;
 
@@ -1179,7 +1175,7 @@ onMounted(loadProfile)
 
 .entity-list li > span:last-child {
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   font-size: 12px;
 }
@@ -1192,7 +1188,7 @@ onMounted(loadProfile)
   white-space: nowrap;
 
   color:
-    var(--brand, #2563eb);
+    var(--brand);
 
   font-weight: 700;
   text-decoration: none;
@@ -1204,13 +1200,13 @@ onMounted(loadProfile)
   padding: 16px;
 
   color:
-    var(--text-secondary, #6b7280);
+    var(--text-secondary);
 
   background:
-    var(--surface-secondary, #f8fafc);
+    var(--surface-secondary);
 
   border: 1px dashed
-    var(--border, #d1d5db);
+    var(--border);
 
   border-radius: 8px;
 
