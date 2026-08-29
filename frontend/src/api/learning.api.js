@@ -6,9 +6,7 @@ export const learningApi = {
   },
 
   getSubjectLectures(subjectId) {
-    return http.get(
-      `/public/learning/subjects/${subjectId}/lectures`,
-    )
+    return http.get(`/public/learning/subjects/${subjectId}/lectures`)
   },
 
   getLecture(lectureId) {
@@ -16,15 +14,11 @@ export const learningApi = {
   },
 
   getLectureMaterials(lectureId) {
-    return http.get(
-      `/public/learning/lectures/${lectureId}/materials`,
-    )
+    return http.get(`/public/learning/lectures/${lectureId}/materials`)
   },
 
   getLectureTests(lectureId) {
-    return http.get(
-      `/public/learning/lectures/${lectureId}/tests`,
-    )
+    return http.get(`/public/learning/lectures/${lectureId}/tests`)
   },
 
   getTest(testId) {
@@ -34,7 +28,7 @@ export const learningApi = {
   startAttempt(assignmentId, data = undefined) {
     return http.post(
       `/public/learning/test-assignments/${assignmentId}/attempts/start`,
-      data,
+      data
     )
   },
 
@@ -43,7 +37,7 @@ export const learningApi = {
       `/public/learning/lectures/${lectureId}/materials/${materialId}/download`,
       {
         responseType: 'blob',
-      },
+      }
     )
   },
 }

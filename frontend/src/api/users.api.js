@@ -10,9 +10,7 @@ export const usersApi = {
   },
 
   getPeople(params = {}) {
-    return http.get('/users/people', {
-      params,
-    })
+    return http.get('/users/people', { params })
   },
 
   getPerson(personId) {

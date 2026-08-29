@@ -2,9 +2,7 @@ import http from './http'
 
 export const membershipsApi = {
   getGroupMemberships(params = {}) {
-    return http.get('/memberships/groups', {
-      params,
-    })
+    return http.get('/memberships/groups', { params })
   },
 
   addPersonToGroup(groupId, data) {
@@ -14,19 +12,17 @@ export const membershipsApi = {
   updateGroupMembershipStatus(membershipId, data) {
     return http.put(
       `/memberships/groups/memberships/${membershipId}/status`,
-      data,
+      data
     )
   },
 
   getSubjectMemberships(params = {}) {
-    return http.get('/memberships/subjects', {
-      params,
-    })
+    return http.get('/memberships/subjects', { params })
   },
 
   getSubjectMembership(membershipId) {
     return http.get(
-      `/memberships/subjects/memberships/${membershipId}`,
+      `/memberships/subjects/memberships/${membershipId}`
     )
   },
 
@@ -37,7 +33,7 @@ export const membershipsApi = {
   updateSubjectMembershipStatus(membershipId, data) {
     return http.put(
       `/memberships/subjects/memberships/${membershipId}/status`,
-      data,
+      data
     )
   },
 }

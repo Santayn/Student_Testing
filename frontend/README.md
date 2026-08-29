@@ -1,107 +1,91 @@
-# AppHeader — theme button
+# Unified API v1
 
-Обновлённый Header.
-
-## Изменения
-
-Старый select:
+Все backend controller'ы унифицированы под:
 
 ```text
-Тема [Системная ▼]
+/api/v1/...
 ```
 
-удалён.
+Поэтому API-слой упрощён.
 
-Теперь используется одна кнопка:
+## Удалено
 
 ```text
-☾
+.env
+.env.example
+VITE_API_BASE_URL
+VITE_API_ROOT_URL
+rootHttp
 ```
 
-или:
-
-```text
-☀
-```
-
-Она вызывает:
+## Единственный Axios instance
 
 ```js
-themeStore.toggleTheme()
+const http = axios.create({
+  baseURL: '/api/v1',
+})
 ```
 
-## Поведение
+## Примеры
 
-Если сейчас светлая тема:
+```js
+subjectsApi.getAll()
+```
+
+отправит:
 
 ```text
-☾
+GET /api/v1/subjects
 ```
 
-нажатие включает тёмную.
+```js
+questionsApi.importFile(file)
+```
 
-Если сейчас тёмная:
+отправит:
 
 ```text
-☀
+POST /api/v1/questions/import
 ```
 
-нажатие включает светлую.
+```js
+lecturesApi.uploadMaterial(id, file)
+```
 
-Если ThemeStore находится в режиме `system`,
-его существующий `toggleTheme()` переключит тему
-относительно фактически применённой `resolvedTheme`.
-
-## Desktop
-
-Структура Header:
+отправит:
 
 ```text
-Student Testing | Главная | Профиль | Предметы | Результаты
-
-                                         ☾  Войти  Регистрация
+POST /api/v1/lectures/{id}/materials
 ```
 
-или после авторизации:
+## Vite proxy
+
+Vite проксирует весь `/api` в Spring Boot:
 
 ```text
-                                         ☾  Пользователь  Выйти
+localhost:5173/api/v1/...
+        ↓
+localhost:8080/api/v1/...
 ```
 
-Правый блок формируется через:
+## JWT
 
-```css
-.app-header__actions {
-  margin-left: auto;
-}
+Связь с AuthStore не меняется:
+
+```js
+setAccessTokenProvider(
+  () => authStore.accessToken
+)
 ```
 
-## Mobile
+## Что удалить из старой версии
 
-Внутри burger-меню правый блок отображается вертикально:
+Удалите `.env` / `.env.example`, если они использовались только для API.
 
-```text
-[☾ Переключить тему]
-Пользователь
-[Выйти]
+Также удалите любые импорты:
+
+```js
+rootHttp
 ```
 
-или:
-
-```text
-[☾ Переключить тему]
-Войти
-[Регистрация]
-```
-
-## Замена
-
-Замените:
-
-```text
-src/components/layout/AppHeader.vue
-```
-
-файлом из архива.
-
-Другие компоненты менять не нужно.
+Файлы из этого архива уже используют только единый `http`.

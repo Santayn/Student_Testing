@@ -1,4 +1,8 @@
-export { default as http, rootHttp, setAccessTokenProvider } from './http'
+export {
+  default as http,
+  setAccessTokenProvider,
+} from './http'
+
 export { getApiErrorMessage } from './error'
 
 export { authApi } from './auth.api'

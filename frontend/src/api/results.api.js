@@ -11,33 +11,25 @@ export const resultsApi = {
 
   getTeacherLectures(subjectId) {
     return http.get('/results/teacher/lectures', {
-      params: {
-        subjectId,
-      },
+      params: { subjectId },
     })
   },
 
   getTeacherTests(lectureId) {
     return http.get('/results/teacher/tests', {
-      params: {
-        lectureId,
-      },
+      params: { lectureId },
     })
   },
 
   getTeacherGroups(testId) {
     return http.get('/results/teacher/groups', {
-      params: {
-        testId,
-      },
+      params: { testId },
     })
   },
 
   getTeacherStudents(groupId) {
     return http.get('/results/teacher/students', {
-      params: {
-        groupId,
-      },
+      params: { groupId },
     })
   },
 }

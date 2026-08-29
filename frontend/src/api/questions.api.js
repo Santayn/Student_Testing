@@ -1,10 +1,8 @@
-import http, { rootHttp } from './http'
+import http from './http'
 
 export const questionsApi = {
   getAll(params = {}) {
-    return http.get('/questions', {
-      params,
-    })
+    return http.get('/questions', { params })
   },
 
   create(data) {
@@ -35,9 +33,6 @@ export const questionsApi = {
     return http.put(`/questions/options/${optionId}`, data)
   },
 
-  /**
-   * В существующем backend импорт Word находится под /api/questions/import.
-   */
   importFile(file, extraFields = {}) {
     const formData = new FormData()
     formData.append('file', file)
@@ -48,6 +43,6 @@ export const questionsApi = {
       }
     })
 
-    return rootHttp.post('/questions/import', formData)
+    return http.post('/questions/import', formData)
   },
 }

@@ -28,13 +28,13 @@ export const facultiesApi = {
   addSubject(facultyId, subjectId, data = undefined) {
     return http.post(
       `/faculties/${facultyId}/subjects/${subjectId}`,
-      data,
+      data
     )
   },
 
   removeSubject(facultyId, subjectId) {
     return http.delete(
-      `/faculties/${facultyId}/subjects/${subjectId}`,
+      `/faculties/${facultyId}/subjects/${subjectId}`
     )
   },
 }

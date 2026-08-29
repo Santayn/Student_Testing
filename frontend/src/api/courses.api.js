@@ -2,9 +2,7 @@ import http from './http'
 
 export const coursesApi = {
   getTemplates(params = {}) {
-    return http.get('/courses/templates', {
-      params,
-    })
+    return http.get('/courses/templates', { params })
   },
 
   createTemplate(data) {
@@ -24,10 +22,7 @@ export const coursesApi = {
   },
 
   createVersion(templateId, data) {
-    return http.post(
-      `/courses/templates/${templateId}/versions`,
-      data,
-    )
+    return http.post(`/courses/templates/${templateId}/versions`, data)
   },
 
   updateVersion(versionId, data) {

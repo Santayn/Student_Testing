@@ -2,10 +2,7 @@ import http from './http'
 
 export const authApi = {
   login(login, password) {
-    return http.post('/auth/login', {
-      login,
-      password,
-    })
+    return http.post('/auth/login', { login, password })
   },
 
   register(data) {

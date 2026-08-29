@@ -1,10 +1,8 @@
-import http, { rootHttp } from './http'
+import http from './http'
 
 export const lecturesApi = {
   getAll(params = {}) {
-    return http.get('/lectures', {
-      params,
-    })
+    return http.get('/lectures', { params })
   },
 
   create(data) {
@@ -31,10 +29,6 @@ export const lecturesApi = {
     return http.get(`/lectures/${lectureId}/materials`)
   },
 
-  /**
-   * В текущем backend загрузка материала находится под /api,
-   * а не /api/v1.
-   */
   uploadMaterial(lectureId, file, extraFields = {}) {
     const formData = new FormData()
     formData.append('file', file)
@@ -45,15 +39,15 @@ export const lecturesApi = {
       }
     })
 
-    return rootHttp.post(
+    return http.post(
       `/lectures/${lectureId}/materials`,
-      formData,
+      formData
     )
   },
 
   removeMaterial(lectureId, materialId) {
     return http.delete(
-      `/lectures/${lectureId}/materials/${materialId}`,
+      `/lectures/${lectureId}/materials/${materialId}`
     )
   },
 }

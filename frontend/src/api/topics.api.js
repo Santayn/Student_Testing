@@ -2,9 +2,7 @@ import http from './http'
 
 export const topicsApi = {
   getAll(params = {}) {
-    return http.get('/topics', {
-      params,
-    })
+    return http.get('/topics', { params })
   },
 
   create(data) {
