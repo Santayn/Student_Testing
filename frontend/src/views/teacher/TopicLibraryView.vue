@@ -39,10 +39,11 @@ const route = useRoute()
 
 const {
   loadingSubjects,
+  selectedMembershipId,
+  selectedMembership,
   selectedSubjectId,
   selectedSubject,
-  selectedMembership,
-  subjectOptions,
+  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -71,7 +72,7 @@ const topicColumns = [
   },
   {
     key: 'name',
-    label: 'Тематика',
+    label: 'Тема',
   },
   {
     key: 'actions',
@@ -87,15 +88,19 @@ const canEdit = computed(() => {
 })
 
 const contextHint = computed(() => {
+  if (!selectedMembership.value) {
+    return 'Выберите предмет преподавателя. Темы группируют вопросы банка и используются в правилах формирования тестов.'
+  }
+
   if (!selectedSubject.value) {
-    return 'Выберите предмет преподавателя. Тематики используются при создании вопросов и тестов.'
+    return `Выбрано назначение #${selectedMembership.value.id}.`
   }
 
   if (!topics.value.length) {
-    return `У предмета «${selectedSubject.value.name}» пока нет тематик.`
+    return `У предмета «${selectedSubject.value.name}» в выбранном назначении пока нет тем.`
   }
 
-  return `У предмета «${selectedSubject.value.name}» тематик: ${topics.value.length}.`
+  return `У предмета «${selectedSubject.value.name}» в выбранном назначении тем: ${topics.value.length}.`
 })
 
 function routeQuery(topicId = null) {
@@ -181,14 +186,51 @@ async function loadTopics() {
       route.query.topicId
 
     if (topicId) {
-      const topic = topics.value.find(
+      let topic = topics.value.find(
         (item) =>
           String(item.id) ===
           String(topicId)
       )
 
+      if (!topic) {
+        try {
+          const topicResponse =
+            await topicsApi.getOne(
+              topicId
+            )
+
+          const candidate =
+            topicResponse.data
+
+          if (
+            candidate &&
+            String(
+              candidate
+                .subjectMembershipId
+            ) ===
+              String(
+                selectedMembership
+                  .value.id
+              )
+          ) {
+            topic = candidate
+          }
+        } catch {
+          /*
+           * GET /topics/{id} возвращает 400, если темы нет.
+           * Для страницы достаточно оставить форму новой темы.
+           */
+        }
+      }
+
       if (topic) {
         editTopic(topic)
+      } else {
+        notice.value = {
+          type: 'warning',
+          message:
+            'Тема из ссылки не относится к выбранному назначению преподавателя или больше не существует.',
+        }
       }
     }
   } catch (error) {
@@ -196,7 +238,7 @@ async function loadTopics() {
       type: 'danger',
       message: getApiErrorMessage(
         error,
-        'Не удалось загрузить тематики'
+        'Не удалось загрузить темы'
       ),
     }
   } finally {
@@ -204,32 +246,152 @@ async function loadTopics() {
   }
 }
 
-async function saveTopic() {
+
+function topicSaveErrorMessage(error) {
+  const status =
+    error?.response?.status
+
+  const backendMessage =
+    String(
+      error?.response?.data
+        ?.message ?? ''
+    )
+
   if (
-    !selectedSubject.value ||
-    !selectedMembership.value ||
-    !form.value.name.trim()
+    status === 409 &&
+    backendMessage
+      .toLowerCase()
+      .includes('ordinal')
+  ) {
+    return (
+      'Тема с таким порядковым номером уже существует ' +
+      'в выбранном назначении преподавателя.'
+    )
+  }
+
+  return getApiErrorMessage(
+    error,
+    'Не удалось сохранить тему'
+  )
+}
+
+function topicDeleteErrorMessage(error) {
+  if (
+    error?.response?.status === 409
+  ) {
+    return (
+      'Тему не удалось удалить из-за конфликта связанных данных. ' +
+      'Проверьте, используется ли она в вопросах или правилах формирования тестов.'
+    )
+  }
+
+  return getApiErrorMessage(
+    error,
+    'Не удалось удалить тему'
+  )
+}
+
+async function saveTopic() {
+  const membership =
+    selectedMembership.value
+
+  const ordinal =
+    Number(form.value.ordinal)
+
+  const name =
+    form.value.name.trim()
+
+  const description =
+    form.value.description.trim()
+
+  if (!membership) {
+    notice.value = {
+      type: 'danger',
+      message:
+        'Выберите предмет преподавателя.',
+    }
+    return
+  }
+
+  if (
+    !Number.isInteger(ordinal) ||
+    ordinal <= 0
   ) {
     notice.value = {
       type: 'danger',
       message:
-        'Заполните название темы и выберите предмет.',
+        'Порядковый номер темы должен быть целым числом больше нуля.',
+    }
+    return
+  }
+
+  if (!name) {
+    notice.value = {
+      type: 'danger',
+      message:
+        'Введите название темы.',
+    }
+    return
+  }
+
+  if (name.length > 200) {
+    notice.value = {
+      type: 'danger',
+      message:
+        'Название темы не может быть длиннее 200 символов.',
+    }
+    return
+  }
+
+  if (description.length > 2000) {
+    notice.value = {
+      type: 'danger',
+      message:
+        'Описание темы не может быть длиннее 2000 символов.',
+    }
+    return
+  }
+
+  const duplicateOrdinal =
+    topics.value.find(
+      (topic) =>
+        Number(topic.ordinal) ===
+          ordinal &&
+        String(topic.id) !==
+          String(
+            form.value.id ?? ''
+          )
+    )
+
+  if (duplicateOrdinal) {
+    notice.value = {
+      type: 'danger',
+      message:
+        'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.',
     }
     return
   }
 
   const payload = {
+    /*
+     * subjectId и subjectMembershipId всегда берутся
+     * из одного membership-контекста.
+     */
     subjectId:
-      Number(selectedSubject.value.id),
+      Number(
+        membership.subjectId
+      ),
+
     courseLectureId: null,
+
     subjectMembershipId:
-      Number(selectedMembership.value.id),
-    ordinal:
-      Number(form.value.ordinal) || 1,
-    name: form.value.name.trim(),
+      Number(membership.id),
+
+    ordinal,
+    name,
+
     description:
-      form.value.description.trim() ||
-      null,
+      description || null,
   }
 
   saving.value = true
@@ -243,14 +405,14 @@ async function saveTopic() {
 
       notice.value = {
         type: 'success',
-        message: 'Тематика обновлена.',
+        message: 'Тема обновлена.',
       }
     } else {
       await topicsApi.create(payload)
 
       notice.value = {
         type: 'success',
-        message: 'Тематика создана.',
+        message: 'Тема создана.',
       }
     }
 
@@ -258,10 +420,10 @@ async function saveTopic() {
   } catch (error) {
     notice.value = {
       type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось сохранить тематику'
-      ),
+      message:
+        topicSaveErrorMessage(
+          error
+        ),
     }
   } finally {
     saving.value = false
@@ -271,7 +433,7 @@ async function saveTopic() {
 async function deleteTopic(topic) {
   if (
     !window.confirm(
-      `Удалить тематику «${topic.name}»?`
+      `Удалить тему «${topic.name}»?`
     )
   ) {
     return
@@ -284,17 +446,17 @@ async function deleteTopic(topic) {
 
     notice.value = {
       type: 'success',
-      message: 'Тематика удалена.',
+      message: 'Тема удалена.',
     }
 
     await loadTopics()
   } catch (error) {
     notice.value = {
       type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось удалить тематику'
-      ),
+      message:
+        topicDeleteErrorMessage(
+          error
+        ),
     }
   } finally {
     deletingId.value = null
@@ -302,7 +464,7 @@ async function deleteTopic(topic) {
 }
 
 watch(
-  selectedSubjectId,
+  selectedMembershipId,
   () => {
     if (initialized.value) {
       loadTopics()
@@ -322,15 +484,15 @@ onMounted(async () => {
 
     initialized.value = true
 
-    if (selectedSubjectId.value) {
+    if (selectedMembershipId.value) {
       await loadTopics()
     }
 
-    if (!subjectOptions.value.length) {
+    if (!membershipOptions.value.length) {
       notice.value = {
         type: 'info',
         message:
-          'Нет предметов преподавателя для управления тематикой.',
+          'Нет активных назначений преподавателя на предметы для управления темами.',
       }
     }
   } catch (error) {
@@ -347,8 +509,8 @@ onMounted(async () => {
 
 <template>
   <TeacherPageShell
-    title="Тематики предмета"
-    subtitle="Создание и редактирование тематик, на которых строятся вопросы и тесты преподавателя."
+    title="Темы предмета"
+    subtitle="Темы группируют вопросы банка и используются в правилах формирования тестов по разделам предмета."
   >
     <UiAlert
       v-if="notice.message"
@@ -366,14 +528,19 @@ onMounted(async () => {
         >
           <div class="teacher-stack">
             <UiSelect
-              v-model="selectedSubjectId"
+              v-model="selectedMembershipId"
               label="Предмет преподавателя"
-              :options="subjectOptions"
+              :options="membershipOptions"
               placeholder="Выберите предмет"
               :disabled="
                 loadingSubjects ||
-                !subjectOptions.length
+                !membershipOptions.length
               "
+            />
+
+            <UiAlert
+              variant="info"
+              message="Тема — это раздел предмета для группировки вопросов банка. При создании теста тема может использоваться как правило, из какого раздела и сколько вопросов выбрать."
             />
 
             <div
@@ -408,8 +575,8 @@ onMounted(async () => {
         <UiCard
           :title="
             form.id
-              ? 'Редактирование тематики'
-              : 'Новая тематика'
+              ? 'Редактирование темы'
+              : 'Новая тема'
           "
         >
           <div class="teacher-stack">
@@ -425,7 +592,7 @@ onMounted(async () => {
 
               <UiInput
                 v-model="form.name"
-                label="Название тематики"
+                label="Название темы"
                 maxlength="200"
                 :disabled="!canEdit"
                 required
@@ -447,7 +614,7 @@ onMounted(async () => {
                 :disabled="!canEdit"
                 @click="saveTopic"
               >
-                Сохранить тематику
+                Сохранить тему
               </UiButton>
 
               <UiButton
@@ -462,10 +629,10 @@ onMounted(async () => {
       </div>
 
       <UiCard
-        title="Тематики предмета"
+        title="Темы предмета"
         :description="
-          selectedSubject
-            ? `Предмет: ${selectedSubject.name}. Всего: ${topics.length}.`
+          selectedSubject && selectedMembership
+            ? `Предмет: ${selectedSubject.name}. Всего тем: ${topics.length}.`
             : 'Предмет не выбран.'
         "
       >
@@ -473,8 +640,8 @@ onMounted(async () => {
           :columns="topicColumns"
           :rows="topics"
           :loading="loading"
-          loading-message="Загрузка тематик..."
-          empty-message="Для выбранного предмета пока нет тематик."
+          loading-message="Загрузка тем..."
+          empty-message="Для выбранного назначения преподавателя пока нет тем."
           :default-sort="{
             key: 'ordinal',
             direction: 'asc',

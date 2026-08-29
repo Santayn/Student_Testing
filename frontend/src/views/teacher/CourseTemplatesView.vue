@@ -45,9 +45,10 @@ const authStore = useAuthStore()
 
 const {
   loadingSubjects,
+  selectedMembershipId,
   selectedSubjectId,
   selectedMembership,
-  subjectOptions,
+  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -562,7 +563,7 @@ async function publishVersion(version) {
 }
 
 watch(
-  selectedSubjectId,
+  selectedMembershipId,
   () => {
     if (initialized.value) {
       loadTemplates()
@@ -586,7 +587,7 @@ onMounted(async () => {
       await loadTemplates()
     }
 
-    if (!subjectOptions.value.length) {
+    if (!membershipOptions.value.length) {
       notice.value = {
         type: 'info',
         message:
@@ -626,13 +627,13 @@ onMounted(async () => {
         >
           <div class="teacher-stack">
             <UiSelect
-              v-model="selectedSubjectId"
+              v-model="selectedMembershipId"
               label="Предмет преподавателя"
-              :options="subjectOptions"
+              :options="membershipOptions"
               placeholder="Выберите предмет"
               :disabled="
                 loadingSubjects ||
-                !subjectOptions.length
+                !membershipOptions.length
               "
             />
 
@@ -642,7 +643,7 @@ onMounted(async () => {
                 query: routeQuery(),
               }"
             >
-              Тематики
+              Темы предмета
             </UiButton>
           </div>
         </UiCard>

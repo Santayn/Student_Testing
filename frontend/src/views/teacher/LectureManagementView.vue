@@ -43,10 +43,11 @@ const route = useRoute()
 
 const {
   loadingSubjects,
+  selectedMembershipId,
   selectedSubjectId,
   selectedSubject,
   selectedMembership,
-  subjectOptions,
+  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -600,7 +601,7 @@ async function downloadMaterial(material) {
 }
 
 watch(
-  selectedSubjectId,
+  selectedMembershipId,
   () => {
     if (initialized.value) {
       loadLectures()
@@ -624,7 +625,7 @@ onMounted(async () => {
       await loadLectures()
     }
 
-    if (!subjectOptions.value.length) {
+    if (!membershipOptions.value.length) {
       notice.value = {
         type: 'info',
         message:
@@ -664,13 +665,13 @@ onMounted(async () => {
         >
           <div class="teacher-stack">
             <UiSelect
-              v-model="selectedSubjectId"
+              v-model="selectedMembershipId"
               label="Предмет"
-              :options="subjectOptions"
+              :options="membershipOptions"
               placeholder="Выберите предмет"
               :disabled="
                 loadingSubjects ||
-                !subjectOptions.length
+                !membershipOptions.length
               "
             />
 
@@ -681,7 +682,7 @@ onMounted(async () => {
                   query: routeQuery(),
                 }"
               >
-                Тематики
+                Темы предмета
               </UiButton>
 
               <UiButton

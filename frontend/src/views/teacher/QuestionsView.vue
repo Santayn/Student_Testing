@@ -43,9 +43,10 @@ const route = useRoute()
 
 const {
   loadingSubjects,
+  selectedMembershipId,
   selectedSubjectId,
   selectedMembership,
-  subjectOptions,
+  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -457,7 +458,7 @@ async function loadTopics() {
       type: 'danger',
       message: getApiErrorMessage(
         error,
-        'Не удалось загрузить тематики'
+        'Не удалось загрузить темы'
       ),
     }
   }
@@ -574,7 +575,7 @@ async function saveQuestion() {
     notice.value = {
       type: 'danger',
       message:
-        'Выберите тематику и заполните текст вопроса.',
+        'Выберите тему и заполните текст вопроса.',
     }
     return
   }
@@ -789,7 +790,7 @@ async function importWord() {
     notice.value = {
       type: 'danger',
       message:
-        'Выберите тематику и файл .docx.',
+        'Выберите тему и файл .docx.',
     }
     return
   }
@@ -840,7 +841,7 @@ async function importWord() {
 }
 
 watch(
-  selectedSubjectId,
+  selectedMembershipId,
   () => {
     if (initialized.value) {
       loadTopics()
@@ -891,7 +892,7 @@ onMounted(async () => {
       await loadTopics()
     }
 
-    if (!subjectOptions.value.length) {
+    if (!membershipOptions.value.length) {
       notice.value = {
         type: 'info',
         message:
@@ -913,7 +914,7 @@ onMounted(async () => {
 <template>
   <TeacherPageShell
     title="Вопросы предмета"
-    subtitle="Создание, редактирование, включение вопросов и управление вариантами ответа внутри тематик преподавателя."
+    subtitle="Создание, редактирование и управление вариантами ответов в банке вопросов по темам предмета."
   >
     <UiAlert
       v-if="notice.message"
@@ -925,26 +926,26 @@ onMounted(async () => {
 
     <UiCard
       title="Контекст вопросов"
-      description="Выберите предмет и тематику преподавателя."
+      description="Выберите предмет и тему."
     >
       <div class="teacher-stack">
         <div class="teacher-grid">
           <UiSelect
-            v-model="selectedSubjectId"
+            v-model="selectedMembershipId"
             label="Предмет"
-            :options="subjectOptions"
+            :options="membershipOptions"
             placeholder="Выберите предмет"
             :disabled="
               loadingSubjects ||
-              !subjectOptions.length
+              !membershipOptions.length
             "
           />
 
           <UiSelect
             v-model="selectedTopicId"
-            label="Тематика"
+            label="Тема"
             :options="topicOptions"
-            placeholder="Выберите тематику"
+            placeholder="Выберите тему"
             :disabled="!topicOptions.length"
           />
         </div>
@@ -956,7 +957,7 @@ onMounted(async () => {
               query: routeQuery(),
             }"
           >
-            Тематики
+            Темы предмета
           </UiButton>
 
           <UiButton
@@ -974,14 +975,14 @@ onMounted(async () => {
 
     <UiCard
       title="Импорт из Word"
-      description="Файл .docx разбирается внутри выбранной тематики; импортируются вопросы и варианты ответа, если они присутствуют в документе."
+      description="Файл .docx импортируется в выбранную тему; вопросы и варианты ответа создаются по содержимому документа."
     >
       <div class="teacher-stack">
         <UiSelect
           v-model="selectedImportTopicId"
-          label="Тематика для импорта"
+          label="Тема для импорта"
           :options="topicOptions"
-          placeholder="Выберите тематику"
+          placeholder="Выберите тему"
           :disabled="!topicOptions.length"
         />
 
@@ -1187,14 +1188,14 @@ onMounted(async () => {
       </div>
 
       <UiCard
-        title="Вопросы выбранной тематики"
+        title="Вопросы выбранной темы"
         :description="questionStats"
       >
         <UiTable
           :columns="questionColumns"
           :rows="questions"
           :loading="loading"
-          empty-message="В выбранной тематике пока нет вопросов."
+          empty-message="В выбранной теме пока нет вопросов."
           :default-sort="{
             key: 'ordinal',
             direction: 'asc',

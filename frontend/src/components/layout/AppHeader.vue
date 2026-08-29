@@ -171,13 +171,6 @@ onBeforeUnmount(() => {
           </RouterLink>
 
           <RouterLink
-            class="app-header__nav-link"
-            :to="{ name: 'profile' }"
-          >
-            Профиль
-          </RouterLink>
-
-          <RouterLink
             v-if="authStore.isStudent || authStore.isTeacher"
             class="app-header__nav-link"
             :to="{ name: 'subjects' }"

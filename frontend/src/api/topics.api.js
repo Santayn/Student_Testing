@@ -5,6 +5,10 @@ export const topicsApi = {
     return http.get('/topics', { params })
   },
 
+  getOne(topicId) {
+    return http.get(`/topics/${topicId}`)
+  },
+
   create(data) {
     return http.post('/topics', data)
   },

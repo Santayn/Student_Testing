@@ -52,7 +52,7 @@ export const studentRoutes = [
     name: 'subject-lectures',
     component: () =>
       import(
-        '@/views/subjects/SubjectLecturesView.vue'
+        '@/views/lectures/SubjectLecturesView.vue'
       ),
     meta: {
       requiresAuth: true,

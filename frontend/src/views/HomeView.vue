@@ -101,8 +101,8 @@ const teacherActions = [
     route: { name: 'teacher-lectures' },
   },
   {
-    title: 'Темы',
-    description: 'Работа с библиотекой учебных тем.',
+    title: 'Темы предмета',
+    description: 'Группировка вопросов банка по разделам предмета.',
     route: { name: 'teacher-topics' },
   },
 ]

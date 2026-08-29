@@ -1,3 +1,34 @@
+function validationDetails(payload) {
+  if (!Array.isArray(payload?.details)) {
+    return ''
+  }
+
+  return payload.details
+    .map((detail) => {
+      if (!detail || typeof detail !== 'object') {
+        return ''
+      }
+
+      const field =
+        detail.field
+          ? String(detail.field)
+          : ''
+
+      const issue =
+        detail.issue
+          ? String(detail.issue)
+          : ''
+
+      if (field && issue) {
+        return `${field}: ${issue}`
+      }
+
+      return issue || field
+    })
+    .filter(Boolean)
+    .join('; ')
+}
+
 export function getApiErrorMessage(
   error,
   fallback = 'Не удалось выполнить запрос'
@@ -14,15 +45,30 @@ export function getApiErrorMessage(
 
   const payload = error.response.data
 
-  if (typeof payload === 'string' && payload.trim()) {
+  if (
+    typeof payload === 'string' &&
+    payload.trim()
+  ) {
     return payload
   }
 
-  if (payload?.message) return payload.message
-  if (payload?.detail) return payload.detail
-  if (payload?.title) return payload.title
-  if (payload?.error_description) return payload.error_description
-  if (typeof payload?.error === 'string') return payload.error
+  const details =
+    validationDetails(payload)
 
-  return fallback
+  const baseMessage =
+    payload?.message ||
+    payload?.detail ||
+    payload?.title ||
+    payload?.error_description ||
+    (
+      typeof payload?.error ===
+      'string'
+        ? payload.error
+        : ''
+    ) ||
+    fallback
+
+  return details
+    ? `${baseMessage}: ${details}`
+    : baseMessage
 }

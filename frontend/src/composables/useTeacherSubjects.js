@@ -24,31 +24,149 @@ export function useTeacherSubjects() {
   const loadingSubjects = ref(false)
   const subjectMemberships = ref([])
   const subjects = ref([])
-  const selectedSubjectId = ref('')
 
-  const selectedSubject = computed(() => {
-    return subjects.value.find(
-      (subject) =>
-        Number(subject.id) ===
-        Number(selectedSubjectId.value)
-    ) ?? null
-  })
+  /*
+   * SubjectMembership — основной контекст преподавателя.
+   * Именно membership нужен Topics API и другим teacher-сценариям,
+   * поэтому храним выбранным прежде всего его ID.
+   */
+  const selectedMembershipId = ref('')
 
   const selectedMembership = computed(() => {
     return subjectMemberships.value.find(
       (membership) =>
-        Number(membership.subjectId) ===
-        Number(selectedSubjectId.value)
+        String(membership.id) ===
+        String(selectedMembershipId.value)
     ) ?? null
+  })
+
+  const selectedSubject = computed(() => {
+    const membership =
+      selectedMembership.value
+
+    if (!membership) {
+      return null
+    }
+
+    return subjects.value.find(
+      (subject) =>
+        Number(subject.id) ===
+        Number(membership.subjectId)
+    ) ?? null
+  })
+
+  /*
+   * Совместимость с уже существующими teacher views.
+   * Они по-прежнему могут работать через selectedSubjectId,
+   * но setter всегда переводит выбор в конкретный membership.
+   */
+  const selectedSubjectId = computed({
+    get() {
+      return selectedMembership.value
+        ? String(
+            selectedMembership.value
+              .subjectId
+          )
+        : ''
+    },
+
+    set(value) {
+      if (
+        value === null ||
+        value === undefined ||
+        value === ''
+      ) {
+        selectedMembershipId.value = ''
+        return
+      }
+
+      const current =
+        selectedMembership.value
+
+      if (
+        current &&
+        String(current.subjectId) ===
+          String(value)
+      ) {
+        return
+      }
+
+      const membership =
+        subjectMemberships.value.find(
+          (item) =>
+            String(item.subjectId) ===
+            String(value)
+        )
+
+      selectedMembershipId.value =
+        membership
+          ? String(membership.id)
+          : ''
+    },
   })
 
   const subjectOptions = computed(() => {
     return subjects.value.map(
       (subject) => ({
         value: subject.id,
-        label: subject.name ??
+        label:
+          subject.name ??
           `Предмет #${subject.id}`,
       })
+    )
+  })
+
+  const membershipOptions = computed(() => {
+    const membershipCountBySubject =
+      subjectMemberships.value.reduce(
+        (map, membership) => {
+          const key =
+            String(
+              membership.subjectId
+            )
+
+          map.set(
+            key,
+            (map.get(key) ?? 0) + 1
+          )
+
+          return map
+        },
+        new Map()
+      )
+
+    return subjectMemberships.value.map(
+      (membership) => {
+        const subject =
+          subjects.value.find(
+            (item) =>
+              Number(item.id) ===
+              Number(
+                membership.subjectId
+              )
+          )
+
+        const baseLabel =
+          subject?.name ??
+          `Предмет #${membership.subjectId}`
+
+        const duplicates =
+          membershipCountBySubject.get(
+            String(
+              membership.subjectId
+            )
+          ) ?? 0
+
+        return {
+          value: membership.id,
+          subjectId:
+            membership.subjectId,
+          label:
+            duplicates > 1
+              ? `${baseLabel} — назначение #${membership.id}`
+              : baseLabel,
+        }
+      }
     )
   })
 
@@ -125,7 +243,10 @@ export function useTeacherSubjects() {
                   String(
                     right.name ?? ''
                   ),
-                  'ru'
+                  'ru',
+                  {
+                    sensitivity: 'base',
+                  }
                 )
           )
 
@@ -141,27 +262,59 @@ export function useTeacherSubjects() {
               )
           : null
 
-      const preferredId =
-        preferredMembership?.subjectId ??
-        preferredSubjectId
+      if (preferredMembership) {
+        selectedMembershipId.value =
+          String(
+            preferredMembership.id
+          )
 
-      if (
-        preferredId &&
-        subjects.value.some(
-          (item) =>
-            String(item.id) ===
-            String(preferredId)
-        )
-      ) {
-        selectedSubjectId.value =
-          String(preferredId)
+        return subjects.value
+      }
+
+      const preferredBySubject =
+        preferredSubjectId
+          ? subjectMemberships.value
+              .find(
+                (item) =>
+                  String(
+                    item.subjectId
+                  ) ===
+                  String(
+                    preferredSubjectId
+                  )
+              )
+          : null
+
+      if (preferredBySubject) {
+        selectedMembershipId.value =
+          String(
+            preferredBySubject.id
+          )
       } else if (
-        subjects.value.length === 1
+        subjectMemberships.value
+          .length === 1
       ) {
-        selectedSubjectId.value =
-          String(subjects.value[0].id)
+        selectedMembershipId.value =
+          String(
+            subjectMemberships.value[0]
+              .id
+          )
+      } else if (
+        subjects.value.length === 1 &&
+        subjectMemberships.value.length
+      ) {
+        /*
+         * Сохраняем старое удобство для экранов,
+         * где выбор идёт по предмету. TopicLibrary при наличии
+         * дубликатов всё равно показывает membershipOptions.
+         */
+        selectedMembershipId.value =
+          String(
+            subjectMemberships.value[0]
+              .id
+          )
       } else {
-        selectedSubjectId.value = ''
+        selectedMembershipId.value = ''
       }
 
       return subjects.value
@@ -174,10 +327,12 @@ export function useTeacherSubjects() {
     loadingSubjects,
     subjectMemberships,
     subjects,
+    selectedMembershipId,
+    selectedMembership,
     selectedSubjectId,
     selectedSubject,
-    selectedMembership,
     subjectOptions,
+    membershipOptions,
     loadTeacherSubjects,
   }
 }

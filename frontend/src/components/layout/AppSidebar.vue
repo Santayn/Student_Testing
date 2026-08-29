@@ -22,7 +22,7 @@ const teacherItems = [
     route: { name: 'teacher-lectures' },
   },
   {
-    label: 'Темы',
+    label: 'Темы предмета',
     route: { name: 'teacher-topics' },
   },
   {

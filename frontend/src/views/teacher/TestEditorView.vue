@@ -1,7 +1,14 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 
-import { useRoute } from 'vue-router'
+import {
+  useRoute,
+} from 'vue-router'
 
 import {
   getApiErrorMessage,
@@ -26,17 +33,22 @@ import {
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
-import { useTeacherSubjects } from '@/composables/useTeacherSubjects'
+import {
+  useTeacherSubjects,
+} from '@/composables/useTeacherSubjects'
 
-import { listFromResponse } from '@/utils/apiData'
+import {
+  listFromResponse,
+} from '@/utils/apiData'
 
 const route = useRoute()
 
 const {
   loadingSubjects,
+  selectedMembershipId,
   selectedSubjectId,
   selectedMembership,
-  subjectOptions,
+  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -78,14 +90,19 @@ const statusOptions = [
 ]
 
 const topicOptions = computed(() => {
-  return topics.value.map((topic) => ({
-    value: topic.id,
-    label: `${topic.ordinal}. ${topic.name}`,
-  }))
+  return topics.value.map(
+    (topic) => ({
+      value: topic.id,
+      label:
+        `${topic.ordinal}. ${topic.name}`,
+    })
+  )
 })
 
 const activeQuestions = computed(() => {
-  return questions.value.filter((question) => question.active)
+  return questions.value.filter(
+    (question) => question.active
+  )
 })
 
 const questionCounts = computed(() => {
@@ -93,28 +110,52 @@ const questionCounts = computed(() => {
 
   return {
     total: active.length,
-    single: active.filter((item) => Number(item.type) === 1).length,
-    multiple: active.filter((item) => Number(item.type) === 2).length,
-    matching: active.filter((item) => Number(item.type) === 3).length,
-    text: active.filter((item) => Number(item.type) === 4).length,
+    single: active.filter(
+      (item) =>
+        Number(item.type) === 1
+    ).length,
+    multiple: active.filter(
+      (item) =>
+        Number(item.type) === 2
+    ).length,
+    matching: active.filter(
+      (item) =>
+        Number(item.type) === 3
+    ).length,
+    text: active.filter(
+      (item) =>
+        Number(item.type) === 4
+    ).length,
   }
 })
 
 const fixedQuestionCount = computed(() => {
   return (
-    Number(form.value.textQuestionCount) +
-    Number(form.value.singleAnswerQuestionCount) +
-    Number(form.value.multipleAnswerQuestionCount) +
-    Number(form.value.matchingQuestionCount)
+    Number(
+      form.value.textQuestionCount
+    ) +
+    Number(
+      form.value.singleAnswerQuestionCount
+    ) +
+    Number(
+      form.value.multipleAnswerQuestionCount
+    ) +
+    Number(
+      form.value.matchingQuestionCount
+    )
   )
 })
 
 const ruleSummary = computed(() => {
   if (!selectedTopicId.value) {
-    return 'Выберите тематику. После этого можно точно настроить состав вопросов.'
+    return 'Выберите тему. После этого можно точно настроить состав вопросов.'
   }
 
-  const automatic = Math.max(0, Number(form.value.questionCount) - fixedQuestionCount.value)
+  const automatic = Math.max(
+    0,
+    Number(form.value.questionCount) -
+      fixedQuestionCount.value
+  )
 
   return (
     `Активных вопросов: ${questionCounts.value.total}. ` +
@@ -131,7 +172,8 @@ const questionColumns = [
   {
     key: 'type',
     label: 'Тип',
-    value: (row) => questionTypeLabel(row.type),
+    value: (row) =>
+      questionTypeLabel(row.type),
   },
   {
     key: 'question',
@@ -140,7 +182,10 @@ const questionColumns = [
   {
     key: 'active',
     label: 'Статус',
-    value: (row) => (row.active ? 'Активен' : 'Скрыт'),
+    value: (row) =>
+      row.active
+        ? 'Активен'
+        : 'Скрыт',
   },
 ]
 
@@ -160,43 +205,67 @@ function questionTypeLabel(type) {
 }
 
 function localDateTimeValue(date) {
-  const offset = date.getTimezoneOffset() * 60_000
+  const offset =
+    date.getTimezoneOffset() * 60_000
 
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+  return new Date(
+    date.getTime() - offset
+  )
+    .toISOString()
+    .slice(0, 16)
 }
 
 function setDefaultDates() {
   const now = new Date()
-  const until = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const until = new Date(
+    now.getTime() +
+      30 * 24 * 60 * 60 * 1000
+  )
 
-  form.value.availableFrom = localDateTimeValue(now)
+  form.value.availableFrom =
+    localDateTimeValue(now)
 
-  form.value.availableUntil = localDateTimeValue(until)
+  form.value.availableUntil =
+    localDateTimeValue(until)
 }
 
 function routeQuery() {
   const query = {}
 
   if (selectedSubjectId.value) {
-    query.subjectId = selectedSubjectId.value
+    query.subjectId =
+      selectedSubjectId.value
   }
 
   if (selectedMembership.value) {
-    query.subjectMembershipId = selectedMembership.value.id
+    query.subjectMembershipId =
+      selectedMembership.value.id
   }
 
   if (selectedTopicId.value) {
-    query.topicId = selectedTopicId.value
+    query.topicId =
+      selectedTopicId.value
   }
 
   return query
 }
 
 async function loadGroups(assignments) {
-  const activeAssignments = assignments.filter((item) => Number(item.status) === 1)
+  const activeAssignments =
+    assignments.filter(
+      (item) =>
+        Number(item.status) === 1
+    )
 
   const groupIds = [
-    ...new Set(activeAssignments.map((item) => Number(item.groupId)).filter(Boolean)),
+    ...new Set(
+      activeAssignments
+        .map(
+          (item) =>
+            Number(item.groupId)
+        )
+        .filter(Boolean)
+    ),
   ]
 
   if (!groupIds.length) {
@@ -205,28 +274,64 @@ async function loadGroups(assignments) {
     return
   }
 
-  const responses = await Promise.all(groupIds.map((groupId) => groupsApi.getById(groupId)))
+  const responses =
+    await Promise.all(
+      groupIds.map(
+        (groupId) =>
+          groupsApi.getById(groupId)
+      )
+    )
 
   const groupsById = new Map(
     responses
       .map((response) => response.data)
       .filter(Boolean)
-      .map((group) => [Number(group.id), group]),
+      .map(
+        (group) => [
+          Number(group.id),
+          group,
+        ]
+      )
   )
 
-  groupTargets.value = groupIds
-    .map((groupId) => {
-      const related = activeAssignments.filter((item) => Number(item.groupId) === Number(groupId))
+  groupTargets.value =
+    groupIds
+      .map((groupId) => {
+        const related =
+          activeAssignments.filter(
+            (item) =>
+              Number(item.groupId) ===
+              Number(groupId)
+          )
 
-      const group = groupsById.get(Number(groupId))
+        const group =
+          groupsById.get(
+            Number(groupId)
+          )
 
-      return {
-        groupId,
-        groupName: group?.name ?? `Группа #${groupId}`,
-        assignmentIds: [...new Set(related.map((item) => Number(item.id)))],
-      }
-    })
-    .sort((left, right) => String(left.groupName).localeCompare(String(right.groupName), 'ru'))
+        return {
+          groupId,
+          groupName:
+            group?.name ??
+            `Группа #${groupId}`,
+          assignmentIds: [
+            ...new Set(
+              related.map(
+                (item) =>
+                  Number(item.id)
+              )
+            ),
+          ],
+        }
+      })
+      .sort(
+        (left, right) =>
+          String(left.groupName)
+            .localeCompare(
+              String(right.groupName),
+              'ru'
+            )
+      )
 
   selectedGroupIds.value = []
 }
@@ -245,36 +350,60 @@ async function loadSubjectContext() {
   loadingContext.value = true
 
   try {
-    const [topicsResponse, assignmentsResponse] = await Promise.all([
-      topicsApi.getAll({
-        subjectMembershipId: selectedMembership.value.id,
-      }),
-      teachingApi.getAssignments({
-        subjectMembershipId: selectedMembership.value.id,
-        status: 1,
-      }),
-    ])
+    const [topicsResponse, assignmentsResponse] =
+      await Promise.all([
+        topicsApi.getAll({
+          subjectMembershipId:
+            selectedMembership.value.id,
+        }),
+        teachingApi.getAssignments({
+          subjectMembershipId:
+            selectedMembership.value.id,
+          status: 1,
+        }),
+      ])
 
-    topics.value = listFromResponse(topicsResponse).sort(
-      (left, right) => Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0),
+    topics.value =
+      listFromResponse(topicsResponse)
+        .sort(
+          (left, right) =>
+            Number(left.ordinal ?? 0) -
+            Number(right.ordinal ?? 0)
+        )
+
+    await loadGroups(
+      listFromResponse(
+        assignmentsResponse
+      )
     )
 
-    await loadGroups(listFromResponse(assignmentsResponse))
-
-    const preferredTopicId = route.query.topicId
+    const preferredTopicId =
+      route.query.topicId
 
     if (
       preferredTopicId &&
-      topics.value.some((item) => String(item.id) === String(preferredTopicId))
+      topics.value.some(
+        (item) =>
+          String(item.id) ===
+          String(preferredTopicId)
+      )
     ) {
-      selectedTopicId.value = String(preferredTopicId)
-    } else if (topics.value.length === 1) {
-      selectedTopicId.value = String(topics.value[0].id)
+      selectedTopicId.value =
+        String(preferredTopicId)
+    } else if (
+      topics.value.length === 1
+    ) {
+      selectedTopicId.value =
+        String(topics.value[0].id)
     }
+
   } catch (error) {
     notice.value = {
       type: 'danger',
-      message: getApiErrorMessage(error, 'Не удалось загрузить контекст теста'),
+      message: getApiErrorMessage(
+        error,
+        'Не удалось загрузить контекст теста'
+      ),
     }
   } finally {
     loadingContext.value = false
@@ -291,17 +420,26 @@ async function loadQuestions() {
   loadingQuestions.value = true
 
   try {
-    const response = await questionsApi.getAll({
-      topicId: Number(selectedTopicId.value),
-    })
+    const response =
+      await questionsApi.getAll({
+        topicId:
+          Number(selectedTopicId.value),
+      })
 
-    questions.value = listFromResponse(response).sort(
-      (left, right) => Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0),
-    )
+    questions.value =
+      listFromResponse(response)
+        .sort(
+          (left, right) =>
+            Number(left.ordinal ?? 0) -
+            Number(right.ordinal ?? 0)
+        )
   } catch (error) {
     notice.value = {
       type: 'danger',
-      message: getApiErrorMessage(error, 'Не удалось загрузить вопросы темы'),
+      message: getApiErrorMessage(
+        error,
+        'Не удалось загрузить вопросы темы'
+      ),
     }
   } finally {
     loadingQuestions.value = false
@@ -309,46 +447,74 @@ async function loadQuestions() {
 }
 
 function validationError() {
-  if (!selectedMembership.value || !selectedTopicId.value) {
-    return 'Выберите предмет и тематику.'
+  if (
+    !selectedMembership.value ||
+    !selectedTopicId.value
+  ) {
+    return 'Выберите предмет и тему.'
   }
 
   if (!selectedGroupIds.value.length) {
     return 'Выберите хотя бы одну группу.'
   }
 
-  const total = Number(form.value.questionCount)
+  const total =
+    Number(form.value.questionCount)
 
   if (total < 1) {
     return 'Количество вопросов должно быть больше нуля.'
   }
 
-  if (fixedQuestionCount.value > total) {
+  if (
+    fixedQuestionCount.value > total
+  ) {
     return 'Сумма вопросов по типам не может превышать общее количество.'
   }
 
-  if (questionCounts.value.total < total) {
-    return 'В тематике недостаточно активных вопросов.'
+  if (
+    questionCounts.value.total < total
+  ) {
+    return 'В теме недостаточно активных вопросов.'
   }
 
   if (
-    questionCounts.value.text < Number(form.value.textQuestionCount) ||
-    questionCounts.value.single < Number(form.value.singleAnswerQuestionCount) ||
-    questionCounts.value.multiple < Number(form.value.multipleAnswerQuestionCount) ||
-    questionCounts.value.matching < Number(form.value.matchingQuestionCount)
+    questionCounts.value.text <
+      Number(
+        form.value.textQuestionCount
+      ) ||
+    questionCounts.value.single <
+      Number(
+        form.value.singleAnswerQuestionCount
+      ) ||
+    questionCounts.value.multiple <
+      Number(
+        form.value.multipleAnswerQuestionCount
+      ) ||
+    questionCounts.value.matching <
+      Number(
+        form.value.matchingQuestionCount
+      )
   ) {
-    return 'В тематике недостаточно вопросов выбранных типов.'
+    return 'В теме недостаточно вопросов выбранных типов.'
   }
 
-  if (!form.value.title.trim()) {
+  if (
+    !form.value.title.trim()
+  ) {
     return 'Введите название теста.'
   }
 
-  if (!form.value.availableFrom || !form.value.availableUntil) {
+  if (
+    !form.value.availableFrom ||
+    !form.value.availableUntil
+  ) {
     return 'Укажите период доступности теста.'
   }
 
-  if (new Date(form.value.availableFrom) >= new Date(form.value.availableUntil)) {
+  if (
+    new Date(form.value.availableFrom) >=
+    new Date(form.value.availableUntil)
+  ) {
     return 'Дата окончания должна быть позже даты начала.'
   }
 
@@ -356,7 +522,8 @@ function validationError() {
 }
 
 async function createTest() {
-  const errorMessage = validationError()
+  const errorMessage =
+    validationError()
 
   if (errorMessage) {
     notice.value = {
@@ -369,17 +536,26 @@ async function createTest() {
   const assignmentIds = [
     ...new Set(
       groupTargets.value
-        .filter((target) =>
-          selectedGroupIds.value.some((id) => Number(id) === Number(target.groupId)),
+        .filter(
+          (target) =>
+            selectedGroupIds.value.some(
+              (id) =>
+                Number(id) ===
+                Number(target.groupId)
+            )
         )
-        .flatMap((target) => target.assignmentIds),
+        .flatMap(
+          (target) =>
+            target.assignmentIds
+        )
     ),
   ]
 
   if (!assignmentIds.length) {
     notice.value = {
       type: 'danger',
-      message: 'Не удалось определить учебные назначения для выбранных групп.',
+      message:
+        'Не удалось определить учебные назначения для выбранных групп.',
     }
     return
   }
@@ -387,78 +563,130 @@ async function createTest() {
   saving.value = true
 
   try {
-    const testResponse = await testsApi.create({
-      title: form.value.title.trim(),
-      description: form.value.description.trim() || null,
-      duration: null,
-      attemptsAllowed: Number(form.value.attemptsAllowed) || 1,
-      questionCount: Number(form.value.questionCount),
-      selectionRules: [
-        {
-          courseLectureId: null,
-          topicId: Number(selectedTopicId.value),
-          questionCount: Number(form.value.questionCount),
-          textQuestionCount: Number(form.value.textQuestionCount),
-          singleAnswerQuestionCount: Number(form.value.singleAnswerQuestionCount),
-          multipleAnswerQuestionCount: Number(form.value.multipleAnswerQuestionCount),
-          ordinal: 1,
-        },
-      ],
-    })
+    const testResponse =
+      await testsApi.create({
+        title: form.value.title.trim(),
+        description:
+          form.value.description.trim() ||
+          null,
+        duration: null,
+        attemptsAllowed:
+          Number(
+            form.value.attemptsAllowed
+          ) || 1,
+        questionCount:
+          Number(
+            form.value.questionCount
+          ),
+        selectionRules: [
+          {
+            courseLectureId: null,
+            topicId:
+              Number(
+                selectedTopicId.value
+              ),
+            questionCount:
+              Number(
+                form.value.questionCount
+              ),
+            textQuestionCount:
+              Number(
+                form.value
+                  .textQuestionCount
+              ),
+            singleAnswerQuestionCount:
+              Number(
+                form.value
+                  .singleAnswerQuestionCount
+              ),
+            multipleAnswerQuestionCount:
+              Number(
+                form.value
+                  .multipleAnswerQuestionCount
+              ),
+            ordinal: 1,
+          },
+        ],
+      })
 
     const test = testResponse.data
 
-    const availableFromUtc = new Date(form.value.availableFrom).toISOString()
+    const availableFromUtc =
+      new Date(
+        form.value.availableFrom
+      ).toISOString()
 
-    const availableUntilUtc = new Date(form.value.availableUntil).toISOString()
+    const availableUntilUtc =
+      new Date(
+        form.value.availableUntil
+      ).toISOString()
 
     await Promise.all(
-      assignmentIds.map((assignmentId) =>
-        testsApi.createAssignments(test.id, {
-          scope: 4,
-          courseVersionId: null,
-          courseLectureId: null,
-          teachingAssignmentId: Number(assignmentId),
-          availableFromUtc,
-          availableUntilUtc,
-          status: Number(form.value.status),
-        }),
-      ),
+      assignmentIds.map(
+        (assignmentId) =>
+          testsApi.createAssignments(
+            test.id,
+            {
+              scope: 4,
+              courseVersionId: null,
+              courseLectureId: null,
+              teachingAssignmentId:
+                Number(assignmentId),
+              availableFromUtc,
+              availableUntilUtc,
+              status:
+                Number(form.value.status),
+            }
+          )
+      )
     )
 
     notice.value = {
       type: 'success',
-      message: `Тест #${test.id} создан и назначен выбранным группам.`,
+      message:
+        `Тест #${test.id} создан и назначен выбранным группам.`,
     }
   } catch (error) {
     notice.value = {
       type: 'danger',
-      message: getApiErrorMessage(error, 'Не удалось создать тест'),
+      message: getApiErrorMessage(
+        error,
+        'Не удалось создать тест'
+      ),
     }
   } finally {
     saving.value = false
   }
 }
 
-watch(selectedSubjectId, () => {
-  if (initialized.value) {
-    loadSubjectContext()
+watch(
+  selectedMembershipId,
+  () => {
+    if (initialized.value) {
+      loadSubjectContext()
+    }
   }
-})
+)
 
-watch(selectedTopicId, () => {
-  if (initialized.value) {
-    loadQuestions()
+watch(
+  selectedTopicId,
+  () => {
+    if (initialized.value) {
+      loadQuestions()
+    }
   }
-})
+)
 
 onMounted(async () => {
   setDefaultDates()
 
   try {
     await loadTeacherSubjects({
-      preferredSubjectId: route.query.subjectId,
-      preferredMembershipId: route.query.subjectMembershipId,
+      preferredSubjectId:
+        route.query.subjectId,
+      preferredMembershipId:
+        route.query
+          .subjectMembershipId,
     })
 
     initialized.value = true
@@ -467,16 +695,20 @@ onMounted(async () => {
       await loadSubjectContext()
     }
 
-    if (!subjectOptions.value.length) {
+    if (!membershipOptions.value.length) {
       notice.value = {
         type: 'info',
-        message: 'Нет предметов преподавателя для создания тестов.',
+        message:
+          'Нет предметов преподавателя для создания тестов.',
       }
     }
   } catch (error) {
     notice.value = {
       type: 'danger',
-      message: getApiErrorMessage(error, error.message),
+      message: getApiErrorMessage(
+        error,
+        error.message
+      ),
     }
   }
 })
@@ -485,7 +717,7 @@ onMounted(async () => {
 <template>
   <TeacherPageShell
     title="Создание теста"
-    subtitle="Тест создаётся на уровне предмета, собирается из вопросов выбранной тематики и назначается активным учебным группам преподавателя."
+    subtitle="Тест создаётся на уровне предмета, собирается из вопросов выбранной темы и назначается активным учебным группам преподавателя."
   >
     <UiAlert
       v-if="notice.message"
@@ -497,18 +729,26 @@ onMounted(async () => {
 
     <div class="teacher-layout">
       <div class="teacher-stack">
-        <UiCard title="Контекст теста" description="Выберите предмет, группы и тематику.">
+        <UiCard
+          title="Контекст теста"
+          description="Выберите предмет, группы и тему."
+        >
           <div class="teacher-stack">
             <UiSelect
-              v-model="selectedSubjectId"
+              v-model="selectedMembershipId"
               label="Предмет"
-              :options="subjectOptions"
+              :options="membershipOptions"
               placeholder="Выберите предмет"
-              :disabled="loadingSubjects || !subjectOptions.length"
+              :disabled="
+                loadingSubjects ||
+                !membershipOptions.length
+              "
             />
 
             <div>
-              <span class="teacher-field-label"> Группы, которым назначается тест </span>
+              <span class="teacher-field-label">
+                Группы, которым назначается тест
+              </span>
 
               <UiEmptyState
                 v-if="!selectedSubjectId"
@@ -516,22 +756,35 @@ onMounted(async () => {
                 compact
               />
 
-              <UiEmptyState v-else-if="loadingContext" description="Загрузка групп..." compact />
+              <UiEmptyState
+                v-else-if="
+                  loadingContext
+                "
+                description="Загрузка групп..."
+                compact
+              />
 
               <UiEmptyState
-                v-else-if="!groupTargets.length"
+                v-else-if="
+                  !groupTargets.length
+                "
                 description="Для этого предмета пока нет активных назначений на учебные группы."
                 compact
               />
 
-              <div v-else class="teacher-selection-grid">
+              <div
+                v-else
+                class="teacher-selection-grid"
+              >
                 <UiCheckbox
                   v-for="target in groupTargets"
                   :key="target.groupId"
                   v-model="selectedGroupIds"
                   :value="target.groupId"
                   :label="target.groupName"
-                  :description="`Назначений: ${target.assignmentIds.length}`"
+                  :description="
+                    `Назначений: ${target.assignmentIds.length}`
+                  "
                 />
               </div>
             </div>
@@ -539,9 +792,9 @@ onMounted(async () => {
             <div class="teacher-grid">
               <UiSelect
                 v-model="selectedTopicId"
-                label="Тематика"
+                label="Тема"
                 :options="topicOptions"
-                placeholder="Выберите тематику"
+                placeholder="Выберите тему"
                 :disabled="!topicOptions.length"
               />
 
@@ -552,7 +805,7 @@ onMounted(async () => {
                     query: routeQuery(),
                   }"
                 >
-                  Тематики
+                  Темы предмета
                 </UiButton>
 
                 <UiButton
@@ -571,13 +824,25 @@ onMounted(async () => {
 
         <UiCard title="Параметры теста">
           <div class="teacher-stack">
-            <UiInput v-model="form.title" label="Название теста" maxlength="200" required />
+            <UiInput
+              v-model="form.title"
+              label="Название теста"
+              maxlength="200"
+              required
+            />
 
-            <UiTextarea v-model="form.description" label="Описание" maxlength="4000" />
+            <UiTextarea
+              v-model="form.description"
+              label="Описание"
+              maxlength="4000"
+            />
           </div>
         </UiCard>
 
-        <UiCard title="Правила отбора вопросов" :description="ruleSummary">
+        <UiCard
+          title="Правила отбора вопросов"
+          :description="ruleSummary"
+        >
           <div class="teacher-publication-fields">
             <UiInput
               v-model="form.questionCount"
@@ -633,8 +898,12 @@ onMounted(async () => {
 
         <UiCard title="Публикация">
           <div class="teacher-stack">
-            <div class="teacher-grid-3 teacher-grid">
-              <UiSelect v-model="form.status" label="Статус назначения" :options="statusOptions" />
+            <div class="teacher-grid--3 teacher-grid">
+              <UiSelect
+                v-model="form.status"
+                label="Статус назначения"
+                :options="statusOptions"
+              />
 
               <UiInput
                 v-model="form.availableFrom"
@@ -665,8 +934,10 @@ onMounted(async () => {
       </div>
 
       <UiCard
-        title="Вопросы выбранной тематики"
-        :description="`Всего: ${questions.length}. Активных: ${activeQuestions.length}.`"
+        title="Вопросы выбранной темы"
+        :description="
+          `Всего: ${questions.length}. Активных: ${activeQuestions.length}.`
+        "
       >
         <UiTable
           :columns="questionColumns"
@@ -686,7 +957,8 @@ onMounted(async () => {
             <span
               class="teacher-status"
               :class="{
-                'teacher-status--success': row.active,
+                'teacher-status--success':
+                  row.active,
               }"
             >
               {{ row.active ? 'Активен' : 'Скрыт' }}
