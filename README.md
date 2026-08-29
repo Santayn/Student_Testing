@@ -1,52 +1,70 @@
-# Student Testing
+# Student Test: Vue frontend Docker integration
 
-Проект разделён на backend и frontend. Docker-конфигурация находится в корне репозитория.
+Текущий корневой `docker-compose.yml` уже имеет backend service:
 
-```text
-Student_Testing/
-├── backend/              # Spring Boot REST API
-│   ├── src/
-│   ├── pom.xml
-│   ├── mvnw
-│   ├── mvnw.cmd
-│   ├── docs/
-│   └── scripts/
-├── frontend/             # отдельный frontend
-│   └── legacy-static/    # прежний встроенный HTML/CSS/JS интерфейс
-├── Dockerfile            # сборка backend
-├── docker-compose.yml    # PostgreSQL + backend
-├── .dockerignore
-└── .env.example
+```yaml
+backend:
+  ...
+  environment:
+    SERVER_PORT: 8080
 ```
 
-## REST API
+Поэтому frontend использует:
 
-Backend публикует только версионированный API:
-
-```text
-/api/v1/**
+```yaml
+BACKEND_HOST: backend
+BACKEND_PORT: "8080"
 ```
 
-Старые aliases `/api/**` удалены.
+Итоговая структура:
+
+```text
+project-root/
+├── docker-compose.yml
+├── Dockerfile              # существующий backend Dockerfile
+├── backend/                # backend source
+└── frontend/
+    ├── package.json
+    ├── package-lock.json
+    ├── vite.config.js
+    ├── src/
+    ├── Dockerfile
+    ├── .dockerignore
+    └── docker/
+        ├── nginx.conf.template
+        └── 40-render-backend.sh
+```
+
+Запуск:
+
+```bash
+docker compose up -d --build
+```
 
 После запуска:
 
-- Backend: `http://localhost:8081`
-- Swagger UI: `http://localhost:8081/swagger-ui.html`
-- OpenAPI: `http://localhost:8081/v3/api-docs`
-- Health/status API: `GET http://localhost:8081/api/v1/status`
-
-## Docker
-
-Из корня проекта:
-
-```bash
-docker compose up --build
+```text
+Frontend: http://localhost/
+Backend:  http://localhost:8080/
+Postgres: localhost:5432
 ```
 
-Сервисы:
+Nginx frontend автоматически проксирует:
 
-- `postgres` — PostgreSQL 16
-- `backend` — Spring Boot backend
+```text
+/api/** -> http://backend:8080/api/**
+```
 
-Frontend полностью исключён из Docker. Compose запускает только PostgreSQL и Spring Boot backend, а `.dockerignore` исключает каталог `frontend/` из build context. Текущий `frontend/legacy-static` хранится отдельно и запускается вне Docker.
+Поэтому Vue/Axios должен продолжать работать с:
+
+```text
+/api/v1
+```
+
+без `.env` и без production URL backend.
+
+Vue Router history mode поддерживается через:
+
+```nginx
+try_files $uri $uri/ /index.html;
+```
