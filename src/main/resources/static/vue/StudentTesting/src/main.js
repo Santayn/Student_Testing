@@ -1,27 +1,54 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
 import App from './App.vue'
 import router from './router'
 
+import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 
-import './assets/main.css'
+import { setAccessTokenProvider } from '@/api'
 
-const app = createApp(App)
+async function bootstrap() {
+  const app = createApp(App)
 
-const pinia = createPinia()
+  const pinia = createPinia()
+  pinia.use(piniaPluginPersistedstate)
 
-pinia.use(piniaPluginPersistedstate)
+  app.use(pinia)
 
-app.use(pinia)
-app.use(router)
+  /*
+   * Тема применяется до монтирования приложения,
+   * чтобы уменьшить мигание светлой/тёмной темы.
+   */
+  const themeStore = useThemeStore()
+  themeStore.init()
 
-// ThemeStore можно использовать только после установки Pinia
-const themeStore = useThemeStore()
+  /*
+   * AuthStore становится единственным источником JWT.
+   */
+  const authStore = useAuthStore()
 
-themeStore.init()
+  setAccessTokenProvider(
+    () => authStore.accessToken
+  )
 
-app.mount('#app')
+  /*
+   * Проверяем сохранённую сессию до первого отображения страниц.
+   */
+  await authStore.init()
+
+  app.use(router)
+
+  await router.isReady()
+
+  app.mount('#app')
+}
+
+bootstrap().catch((error) => {
+  console.error(
+    'Не удалось запустить приложение:',
+    error
+  )
+})

@@ -1,152 +1,131 @@
-# AppSidebar + mobile adaptation
+# Auth group
 
-Ролевой Sidebar для текущей архитектуры Vue.
+Готовая группа страниц авторизации.
 
-## Файлы
+## Структура
 
 ```text
 src/
-├── components/
-│   └── layout/
-│       └── AppSidebar.vue
+├── layouts/
+│   └── AuthLayout.vue
 │
-└── layouts/
-    └── WorkspaceLayout.vue
+├── views/
+│   └── auth/
+│       ├── LoginView.vue
+│       ├── RegisterView.vue
+│       └── RequireAuthView.vue
+│
+└── router/
+    └── routes/
+        └── public.js
 ```
 
-## Роли
+## Маршруты
 
-### TEACHER
-
-Видит:
+Основные URL:
 
 ```text
-Преподаватель
-├── Вопросы
-├── Создать тест
-├── Лекции
-├── Темы
-├── Шаблоны курса
-└── Нагрузка
+/auth/login
+/auth/register
+/auth/required
 ```
 
-### ADMIN
-
-Видит преподавательский блок и:
+Старые URL сохраняются через redirect:
 
 ```text
-Администрирование
-├── Пользователи
-├── Факультеты
-├── Группы
-├── Предметы
-├── Предметы факультета
-├── Предметы преподавателей
-└── Преподавательская нагрузка
+/login
+/register
+/auth-required
 ```
 
-Для обычного STUDENT Sidebar вообще не отображается.
+поэтому существующий код Router Guard менять не нужно.
 
-## Desktop
+## Login
 
-При ширине больше 960px:
+Использует:
+
+```js
+authStore.login(login, password)
+```
+
+После авторизации:
 
 ```text
-┌──────────── Sidebar ────────────┐  ┌──────── Page ────────┐
-│ Преподаватель                   │  │                      │
-│ Вопросы                         │  │    RouterView        │
-│ Создать тест                    │  │                      │
-│ Лекции                          │  │                      │
-└─────────────────────────────────┘  └──────────────────────┘
+/auth/login?redirect=/subjects
 ```
 
-Sidebar использует:
+пользователь возвращается на:
 
-```css
-position: sticky;
+```text
+/subjects
 ```
 
-и остаётся видимым при прокрутке.
+## Register
+
+Использует:
+
+```js
+authStore.register(data)
+```
+
+После успешной регистрации выполняется переход на login.
+
+DTO сейчас формируется так:
+
+```js
+{
+  login,
+  email,
+  firstName,
+  lastName,
+  middleName,
+  password
+}
+```
+
+Если backend DTO немного отличается,
+достаточно изменить объект в `RegisterView.vue`.
+
+## RequireAuth
+
+Использует query:
+
+```text
+/auth/required?redirect=/admin/users
+```
+
+и передаёт этот redirect в login.
+
+## AuthLayout
+
+Все auth-страницы используют один компактный layout:
+
+```text
+Student Testing
+---------------------
+RouterView auth page
+```
+
+Поэтому Login/Register/RequireAuth имеют единый размер и стиль.
+
+## Theme
+
+Используются CSS variables:
+
+```text
+--surface
+--surface-secondary
+--text
+--text-secondary
+--border
+--brand
+--danger
+--warning
+--shadow
+```
+
+Страницы автоматически работают с текущим ThemeStore.
 
 ## Mobile
 
-При ширине <= 960px показывается компактная строка:
-
-```text
-☰ Разделы
-```
-
-По нажатию:
-
-```text
-┌──────────────────────────────┐
-│ Разделы                   ×  │
-├──────────────────────────────┤
-│ ПРЕПОДАВАТЕЛЬ                │
-│ Вопросы                      │
-│ Создать тест                 │
-│ Лекции                       │
-│ ...                          │
-└──────────────────────────────┘
-```
-
-Это drawer поверх страницы.
-
-Добавлено:
-
-- затемнение background;
-- закрытие по клику на overlay;
-- закрытие по `Escape`;
-- закрытие после любого Router-перехода;
-- блокировка прокрутки body при открытом drawer;
-- active state через `router-link-active`.
-
-## Использование
-
-Для рабочих страниц можно использовать:
-
-```vue
-<WorkspaceLayout />
-```
-
-или просто:
-
-```vue
-<AppSidebar />
-```
-
-в собственном layout.
-
-## Требуемые route names
-
-Sidebar использует уже созданные маршруты:
-
-```text
-teacher-questions
-teacher-test-create
-teacher-lectures
-teacher-topics
-teacher-courses
-teacher-workload
-
-admin-users
-admin-faculties
-admin-groups
-admin-subjects
-admin-faculty-subjects
-admin-teacher-subjects
-admin-teaching
-```
-
-## Почему Sidebar скрыт для Student
-
-Студенту достаточно Header:
-
-```text
-Главная
-Профиль
-Предметы
-Результаты
-```
-
-Поэтому sidebar не занимает экран там, где он не нужен.
+На телефоне формы перестраиваются в одну колонку.
