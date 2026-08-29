@@ -2,41 +2,79 @@ import http from './http'
 
 export const teachingApi = {
   getAssignments(params = {}) {
-    return http.get('/teaching/assignments', { params })
+    return http.get(
+      '/teaching/assignments',
+      { params }
+    )
   },
 
   getAssignment(assignmentId) {
-    return http.get(`/teaching/assignments/${assignmentId}`)
+    return http.get(
+      `/teaching/assignments/${assignmentId}`
+    )
   },
 
   createAssignment(data) {
-    return http.post('/teaching/assignments', data)
+    return http.post(
+      '/teaching/assignments',
+      data
+    )
   },
 
-  updateAssignment(assignmentId, data) {
-    return http.put(`/teaching/assignments/${assignmentId}`, data)
+  updateAssignment(
+    assignmentId,
+    data
+  ) {
+    return http.put(
+      `/teaching/assignments/${assignmentId}`,
+      data
+    )
   },
 
   getEnrollments(params = {}) {
-    return http.get('/teaching/enrollments', { params })
+    return http.get(
+      '/teaching/enrollments',
+      { params }
+    )
   },
 
   getLoadTypes() {
-    return http.get('/teaching/load-types')
+    return http.get(
+      '/teaching/load-types'
+    )
   },
 
   createLoadType(data) {
-    return http.post('/teaching/load-types', data)
+    return http.post(
+      '/teaching/load-types',
+      data
+    )
   },
 
-  addLoadTypeToSubjectMembership(subjectMembershipId, data) {
+  getSubjectLoadTypes(
+    params = {}
+  ) {
+    return http.get(
+      '/teaching/subject-load-types',
+      { params }
+    )
+  },
+
+  addLoadTypeToSubjectMembership(
+    subjectMembershipId,
+    data
+  ) {
     return http.post(
       `/teaching/subject-memberships/${subjectMembershipId}/load-types`,
       data
     )
   },
 
-  createSubjectLoadType(subjectMembershipId, teachingLoadTypeId, data = undefined) {
+  createSubjectLoadType(
+    subjectMembershipId,
+    teachingLoadTypeId,
+    data = undefined
+  ) {
     return http.post(
       '/teaching/subject-load-types',
       data,
@@ -49,18 +87,29 @@ export const teachingApi = {
     )
   },
 
-  getLectureAssignments(params = {}) {
-    return http.get('/teaching/lecture-assignments', { params })
+  getLectureAssignments(
+    params = {}
+  ) {
+    return http.get(
+      '/teaching/lecture-assignments',
+      { params }
+    )
   },
 
-  createLectureAssignment(teachingAssignmentId, data) {
+  createLectureAssignment(
+    teachingAssignmentId,
+    data
+  ) {
     return http.post(
       `/teaching/assignments/${teachingAssignmentId}/lecture-assignments`,
       data
     )
   },
 
-  updateLectureAssignmentStatus(lectureAssignmentId, data) {
+  updateLectureAssignmentStatus(
+    lectureAssignmentId,
+    data
+  ) {
     return http.put(
       `/teaching/lecture-assignments/${lectureAssignmentId}/status`,
       data
