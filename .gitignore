@@ -38,3 +38,10 @@ build/
 **/obj/
 *.user
 *.suo
+
+# Split project build/runtime output
+backend/target/
+backend/uploads/
+frontend/node_modules/
+frontend/dist/
+.env

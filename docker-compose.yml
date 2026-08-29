@@ -20,12 +20,12 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    image: student-test-app:latest
-    container_name: student-test-app
+    image: student-test-backend:latest
+    container_name: student-test-backend
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/student_test
       SPRING_DATASOURCE_USERNAME: student_test
