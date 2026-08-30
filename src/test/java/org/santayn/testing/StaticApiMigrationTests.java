@@ -81,7 +81,10 @@ class StaticApiMigrationTests {
                 .contains("topicQuestionList")
                 .contains("topicId")
                 .contains("teachingAssignmentId")
-                .contains("singleAnswerQuestionCount");
+                .contains("singleAnswerQuestionCount")
+                .contains("matchingQuestionCount")
+                .containsPattern("selectionRules:\\s*\\[\\{[\\s\\S]*matchingQuestionCount,[\\s\\S]*ordinal: 1")
+                .contains("['questionCountInput', 'textQuestionCountInput', 'singleAnswerQuestionCountInput', 'multipleAnswerQuestionCountInput', 'matchingQuestionCountInput']");
 
         assertThat(questionsPage)
                 .contains("topicSelect")

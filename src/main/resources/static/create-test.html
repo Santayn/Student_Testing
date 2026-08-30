@@ -570,6 +570,7 @@
                         textQuestionCount,
                         singleAnswerQuestionCount,
                         multipleAnswerQuestionCount,
+                        matchingQuestionCount,
                         ordinal: 1
                     }]
                 })
@@ -607,7 +608,7 @@
         el('availableUntilInput').value = localDateTimeValue(until);
     }
 
-    ['questionCountInput', 'textQuestionCountInput', 'singleAnswerQuestionCountInput', 'multipleAnswerQuestionCountInput']
+    ['questionCountInput', 'textQuestionCountInput', 'singleAnswerQuestionCountInput', 'multipleAnswerQuestionCountInput', 'matchingQuestionCountInput']
         .forEach(id => el(id).addEventListener('input', updateRuleSummary));
 
     el('subjectSelect').addEventListener('change', () => loadSubjectContext().catch(error => showMessage('error', html(error.message))));
@@ -628,4 +629,3 @@
 </script>
 </body>
 </html>
-
