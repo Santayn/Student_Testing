@@ -604,6 +604,11 @@ async function createTest() {
                 form.value
                   .multipleAnswerQuestionCount
               ),
+            matchingQuestionCount:
+              Number(
+                form.value
+                  .matchingQuestionCount
+              ),
             ordinal: 1,
           },
         ],
