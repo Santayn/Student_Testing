@@ -71,7 +71,7 @@ public class DotNetPasswordHasher {
             }
 
             return VerificationResult.failed();
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             return VerificationResult.failed();
         }
     }
@@ -98,14 +98,16 @@ public class DotNetPasswordHasher {
         int iterationCount = readNetworkByteOrder(decoded, 5);
         int saltLength = readNetworkByteOrder(decoded, 9);
 
-        if (saltLength < 0 || decoded.length < 13 + saltLength) {
+        if (iterationCount <= 0
+                || saltLength < SALT_SIZE
+                || decoded.length < 13 + saltLength) {
             return VerificationResult.failed();
         }
 
         byte[] salt = Arrays.copyOfRange(decoded, 13, 13 + saltLength);
         byte[] expectedSubkey = Arrays.copyOfRange(decoded, 13 + saltLength, decoded.length);
 
-        if (expectedSubkey.length == 0) {
+        if (expectedSubkey.length < 16) {
             return VerificationResult.failed();
         }
 
@@ -117,14 +119,14 @@ public class DotNetPasswordHasher {
     }
 
     private static byte[] pbkdf2(String password, byte[] salt, int prf, int iterationCount, int derivedKeyLength) {
-        try {
-            String algorithm = switch (prf) {
-                case PRF_HMACSHA1 -> "HmacSHA1";
-                case PRF_HMACSHA256 -> "HmacSHA256";
-                case PRF_HMACSHA512 -> "HmacSHA512";
-                default -> throw new IllegalArgumentException("Unsupported PBKDF2 PRF: " + prf);
-            };
+        String algorithm = switch (prf) {
+            case PRF_HMACSHA1 -> "HmacSHA1";
+            case PRF_HMACSHA256 -> "HmacSHA256";
+            case PRF_HMACSHA512 -> "HmacSHA512";
+            default -> throw new IllegalArgumentException("Unsupported PBKDF2 PRF: " + prf);
+        };
 
+        try {
             Mac mac = Mac.getInstance(algorithm);
             SecretKeySpec key = new SecretKeySpec(password.getBytes(StandardCharsets.UTF_8), algorithm);
             mac.init(key);
