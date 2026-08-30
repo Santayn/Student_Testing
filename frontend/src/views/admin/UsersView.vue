@@ -8,6 +8,7 @@ import AdminTable from '@/components/admin/AdminTable.vue'
 import {
   UiButton,
   UiCard,
+  UiCheckbox,
   UiSelect,
 } from '@/components/ui'
 
@@ -23,6 +24,7 @@ import {
 
 const roles = ref([])
 const users = ref([])
+const roleSelectionByUser = ref({})
 
 const roleFilter = ref('')
 const loading = ref(false)
@@ -89,22 +91,19 @@ function userRoleIds(user) {
   return []
 }
 
-function selectedRoleId(user) {
-  return userRoleIds(user)[0] ?? ''
-}
+function roleNames(user) {
+  const names = userRoleIds(user)
+    .map(
+      (roleId) =>
+        roles.value.find(
+          (role) =>
+            Number(role.id) ===
+            Number(roleId)
+        )?.name
+    )
+    .filter(Boolean)
 
-function roleName(user) {
-  const roleId =
-    selectedRoleId(user)
-
-  return (
-    roles.value.find(
-      (role) =>
-        Number(role.id) ===
-        Number(roleId)
-    )?.name ??
-    '—'
-  )
+  return names.join(', ') || '—'
 }
 
 const userColumns = [
@@ -123,10 +122,10 @@ const userColumns = [
     label: 'Email',
   },
   {
-    key: 'role',
-    label: 'Роль',
-    value: roleName,
-    sortValue: roleName,
+    key: 'roles',
+    label: 'Роли',
+    value: roleNames,
+    sortValue: roleNames,
   },
 ]
 
@@ -177,6 +176,14 @@ async function loadData() {
           'ru'
         )
     )
+
+    roleSelectionByUser.value =
+      Object.fromEntries(
+        users.value.map((user) => [
+          user.id,
+          userRoleIds(user),
+        ])
+      )
   } catch (error) {
     showNotice(
       'error',
@@ -190,15 +197,28 @@ async function loadData() {
   }
 }
 
-async function applyRole(
-  user,
-  event
-) {
-  const roleId = Number(
-    event.target.value
-  )
+async function applyRoles(user) {
+  const roleIds = [
+    ...new Set(
+      (
+        roleSelectionByUser.value[
+          user.id
+        ] ?? []
+      )
+        .map(Number)
+        .filter(Number.isFinite)
+    )
+  ]
 
-  if (!roleId) {
+  if (!roleIds.length) {
+    roleSelectionByUser.value[user.id] =
+      userRoleIds(user)
+
+    showNotice(
+      'warning',
+      'У пользователя должна остаться хотя бы одна роль.'
+    )
+
     return
   }
 
@@ -208,13 +228,13 @@ async function applyRole(
     await usersApi.updateRoles(
       user.id,
       {
-        roleIds: [roleId],
+        roleIds,
       }
     )
 
     showNotice(
       'success',
-      `Роль пользователя ${user.login} обновлена.`
+      `Роли пользователя ${user.login} обновлены.`
     )
 
     await loadData()
@@ -223,7 +243,7 @@ async function applyRole(
       'error',
       getApiErrorMessage(
         error,
-        'Не удалось изменить роль'
+        'Не удалось изменить роли'
       )
     )
   } finally {
@@ -237,7 +257,7 @@ onMounted(loadData)
 <template>
   <AdminPageShell
     title="Роли пользователей"
-    description="Просмотр пользователей и назначение основной роли."
+    description="Просмотр пользователей и назначение одной или нескольких ролей."
   >
     <template #actions>
       <UiButton
@@ -308,33 +328,41 @@ onMounted(loadData)
           </div>
         </template>
 
-        <template #cell-role="{ row }">
-          <UiSelect
-            :model-value="selectedRoleId(row)"
-            :disabled="
-              savingUserId === row.id
-            "
-            @change="
-              applyRole(row, $event)
-            "
-          >
-            <option
-              value=""
-              disabled
-            >
-              Выберите роль
-            </option>
-
-            <option
+        <template #cell-roles="{ row }">
+          <div class="user-role-list">
+            <UiCheckbox
               v-for="role in roles"
               :key="role.id"
-              :value="role.id"
-            >
-              {{ role.name }}
-            </option>
-          </UiSelect>
+              v-model="
+                roleSelectionByUser[
+                  row.id
+                ]
+              "
+              :value="Number(role.id)"
+              :label="role.name"
+              :disabled="
+                savingUserId === row.id
+              "
+              @change="applyRoles(row)"
+            />
+          </div>
         </template>
       </AdminTable>
     </UiCard>
   </AdminPageShell>
 </template>
+
+<style scoped>
+.user-role-list {
+  min-width: 260px;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-role-list :deep(.ui-checkbox) {
+  min-height: auto;
+  padding: 6px 9px;
+}
+</style>

@@ -30,6 +30,8 @@ import {
 } from '@/utils/apiData'
 
 const TEACHER_ROLE = 1
+const TEACHER_APP_ROLE = 'TEACHER'
+const ADMIN_APP_ROLE = 'ADMIN'
 const REMOVED_STATUS = 3
 
 const teachers = ref([])
@@ -86,6 +88,25 @@ function subjectName(subjectId) {
   )
 }
 
+function mergePeopleById(...peopleLists) {
+  const peopleById = new Map()
+
+  peopleLists
+    .flat()
+    .forEach((person) => {
+      if (person?.id) {
+        peopleById.set(
+          Number(person.id),
+          person
+        )
+      }
+    })
+
+  return [
+    ...peopleById.values(),
+  ]
+}
+
 const selectedTeacher = computed(() => {
   return teachers.value.find(
     (item) =>
@@ -132,11 +153,15 @@ async function loadData() {
   try {
     const [
       teachersResponse,
+      adminsResponse,
       subjectsResponse,
       membershipsResponse,
     ] = await Promise.all([
       usersApi.getPeople({
-        role: 'TEACHER',
+        role: TEACHER_APP_ROLE,
+      }),
+      usersApi.getPeople({
+        role: ADMIN_APP_ROLE,
       }),
       subjectsApi.getAll(),
       membershipsApi
@@ -146,8 +171,13 @@ async function loadData() {
     ])
 
     teachers.value =
-      listFromResponse(
-        teachersResponse
+      mergePeopleById(
+        listFromResponse(
+          teachersResponse
+        ),
+        listFromResponse(
+          adminsResponse
+        )
       ).sort(
         (a, b) =>
           personName(a).localeCompare(
