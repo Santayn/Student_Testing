@@ -81,7 +81,7 @@ public class TestService {
     @Transactional(readOnly = true)
     public Test get(Integer id) {
         return testRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Test not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + id));
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +94,7 @@ public class TestService {
 
     @Transactional
     public Test create(String title, String description, LocalTime duration, int attemptsAllowed, int questionCount) {
-        return create(title, description, duration, attemptsAllowed, questionCount, List.of());
+        return create(title, description, duration, attemptsAllowed, questionCount, List.of(), null);
     }
 
     @Transactional
@@ -104,12 +104,24 @@ public class TestService {
                        int attemptsAllowed,
                        int questionCount,
                        List<SelectionRuleInput> selectionRules) {
+        return create(title, description, duration, attemptsAllowed, questionCount, selectionRules, null);
+    }
+
+    @Transactional
+    public Test create(String title,
+                       String description,
+                       LocalTime duration,
+                       int attemptsAllowed,
+                       int questionCount,
+                       List<SelectionRuleInput> selectionRules,
+                       Integer authorPersonId) {
         Test test = new Test();
         test.setTitle(FacultyService.requireText(title, "Title"));
         test.setDescription(FacultyService.trimToNull(description));
         test.setDuration(duration);
         test.setAttemptsAllowed(Math.max(1, attemptsAllowed));
         test.setQuestionCount(Math.max(1, questionCount));
+        test.setAuthorPersonId(authorPersonId);
         test = testRepository.save(test);
         replaceSelectionRules(test, selectionRules);
         return test;
@@ -140,6 +152,11 @@ public class TestService {
         return test;
     }
 
+    @Transactional
+    public void delete(Integer testId) {
+        testRepository.delete(get(testId));
+    }
+
     @Transactional(readOnly = true)
     public List<TestQuestionSelectionRule> findSelectionRules(Integer testId) {
         if (!testRepository.existsById(testId)) {
@@ -151,7 +168,14 @@ public class TestService {
     @Transactional
     public List<TestQuestionSelectionRule> replaceSelectionRules(Integer testId, List<SelectionRuleInput> selectionRules) {
         Test test = get(testId);
-        return replaceSelectionRules(test, selectionRules);
+        List<TestQuestionSelectionRule> rules = replaceSelectionRules(test, selectionRules);
+        if (rules.isEmpty()) {
+            int activeDirectQuestions = questionRepository
+                    .findByTestIdAndActiveTrueOrderByOrdinalAsc(testId)
+                    .size();
+            test.setQuestionCount(Math.max(1, activeDirectQuestions));
+        }
+        return rules;
     }
 
     @Transactional(readOnly = true)
@@ -159,6 +183,7 @@ public class TestService {
                                                 Integer courseVersionId,
                                                 Integer courseLectureId,
                                                 Integer teachingAssignmentId) {
+        requireAtMostOneFilter("test assignment", testId, courseVersionId, courseLectureId, teachingAssignmentId);
         if (testId != null) {
             return testAssignmentRepository.findByTestId(testId);
         }
@@ -177,7 +202,7 @@ public class TestService {
     @Transactional(readOnly = true)
     public TestAssignment getAssignment(Integer id) {
         return testAssignmentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + id));
     }
 
     @Transactional
@@ -256,13 +281,31 @@ public class TestService {
     @Transactional(readOnly = true)
     public TestAttempt getAttempt(Integer id) {
         return testAttemptRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Test attempt not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Test attempt not found: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public int attemptsRemaining(Integer testAssignmentId, Integer personId) {
+        TestAssignment assignment = getAssignment(testAssignmentId);
+        Test test = get(assignment.getTestId());
+        long used = testAttemptRepository.countByTestIdAndPersonId(test.getId(), personId);
+        return Math.max(0, test.getAttemptsAllowed() - (int) used);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasInProgressAttempt(Integer testAssignmentId, Integer personId) {
+        TestAssignment assignment = getAssignment(testAssignmentId);
+        return testAttemptRepository.findByTestIdAndPersonId(assignment.getTestId(), personId)
+                .stream()
+                .anyMatch(attempt -> attempt.getStatus() == 1);
     }
 
     @Transactional
     public TestAttempt startAttempt(Integer testAssignmentId, Integer personId, Integer teachingAssignmentEnrollmentId) {
-        TestAssignment assignment = testAssignmentRepository.findById(testAssignmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + testAssignmentId));
+        TestAssignment assignment = testAssignmentRepository.findByIdForUpdate(testAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + testAssignmentId));
+        Test test = testRepository.findByIdForUpdate(assignment.getTestId())
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + assignment.getTestId()));
         if (!personRepository.existsById(personId)) {
             throw new IllegalArgumentException("Person not found: " + personId);
         }
@@ -273,44 +316,35 @@ public class TestService {
                             "Teaching assignment enrollment not found: " + teachingAssignmentEnrollmentId
                     ));
             requireEnrollmentBelongsToPerson(enrollment, personId);
+            requireEnrollmentMatchesAssignment(enrollment, assignment);
         }
         requireAssignmentAvailable(assignment);
-
-        Test test = get(assignment.getTestId());
-        long startedAttempts = testAttemptRepository.countByTestAssignmentIdAndPersonId(testAssignmentId, personId);
-        if (startedAttempts >= test.getAttemptsAllowed()) {
-            throw new IllegalArgumentException("Attempt limit exceeded for test assignment: " + testAssignmentId);
-        }
-
-        TestAttempt attempt = new TestAttempt();
-        attempt.setTestAssignmentId(testAssignmentId);
-        attempt.setPersonId(personId);
-        attempt.setTeachingAssignmentEnrollmentId(enrollment == null ? null : enrollment.getId());
-        attempt.setOrdinal((int) startedAttempts + 1);
-        attempt.setStatus(1);
-        attempt.setStartedAt(Instant.now());
-        return testAttemptRepository.save(attempt);
+        return createAttemptWhileTestLocked(assignment, test, personId, enrollment);
     }
 
     @Transactional
     public TestAttemptQuestionSet startOrResumeAttemptWithRandomQuestions(Integer testAssignmentId,
                                                                           Integer personId,
                                                                           Integer teachingAssignmentEnrollmentId) {
-        TestAssignment assignment = testAssignmentRepository.findById(testAssignmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + testAssignmentId));
+        TestAssignment assignment = testAssignmentRepository.findByIdForUpdate(testAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + testAssignmentId));
+        Test test = testRepository.findByIdForUpdate(assignment.getTestId())
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + assignment.getTestId()));
         if (!personRepository.existsById(personId)) {
             throw new IllegalArgumentException("Person not found: " + personId);
         }
+        TeachingAssignmentEnrollment enrollment = null;
         if (teachingAssignmentEnrollmentId != null) {
-            TeachingAssignmentEnrollment enrollment = teachingAssignmentEnrollmentRepository.findById(teachingAssignmentEnrollmentId)
+            enrollment = teachingAssignmentEnrollmentRepository.findById(teachingAssignmentEnrollmentId)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Teaching assignment enrollment not found: " + teachingAssignmentEnrollmentId
                     ));
             requireEnrollmentBelongsToPerson(enrollment, personId);
+            requireEnrollmentMatchesAssignment(enrollment, assignment);
         }
         requireAssignmentAvailable(assignment);
 
-        TestAttempt existingAttempt = testAttemptRepository.findByTestAssignmentIdAndPersonId(testAssignmentId, personId)
+        TestAttempt existingAttempt = testAttemptRepository.findByTestIdAndPersonId(test.getId(), personId)
                 .stream()
                 .filter(attempt -> attempt.getStatus() == 1)
                 .min(Comparator.comparing(TestAttempt::getStartedAt))
@@ -325,10 +359,32 @@ public class TestService {
             return new TestAttemptQuestionSet(existingAttempt, selectedQuestions);
         }
 
-        TestAttempt attempt = startAttempt(testAssignmentId, personId, teachingAssignmentEnrollmentId);
+        TestAttempt attempt = createAttemptWhileTestLocked(assignment, test, personId, enrollment);
         List<Question> selectedQuestions = randomQuestionsForTest(assignment.getTestId());
         createEmptyResponses(attempt.getId(), selectedQuestions);
         return new TestAttemptQuestionSet(attempt, selectedQuestions);
+    }
+
+    private TestAttempt createAttemptWhileTestLocked(TestAssignment assignment,
+                                                     Test test,
+                                                     Integer personId,
+                                                     TeachingAssignmentEnrollment enrollment) {
+        List<TestAttempt> attempts = testAttemptRepository.findByTestIdAndPersonId(test.getId(), personId);
+        if (attempts.stream().anyMatch(attempt -> attempt.getStatus() == 1)) {
+            throw new AuthConflictException("An in-progress attempt already exists for test: " + test.getId());
+        }
+        if (attempts.size() >= test.getAttemptsAllowed()) {
+            throw new IllegalArgumentException("Attempt limit exceeded for test: " + test.getId());
+        }
+
+        TestAttempt attempt = new TestAttempt();
+        attempt.setTestAssignmentId(assignment.getId());
+        attempt.setPersonId(personId);
+        attempt.setTeachingAssignmentEnrollmentId(enrollment == null ? null : enrollment.getId());
+        attempt.setOrdinal(attempts.size() + 1);
+        attempt.setStatus(1);
+        attempt.setStartedAt(Instant.now());
+        return testAttemptRepository.save(attempt);
     }
 
     @Transactional(readOnly = true)
@@ -350,9 +406,7 @@ public class TestService {
     public QuestionResponse submitResponse(Integer testAttemptId,
                                            Long testQuestionId,
                                            String answerText,
-                                           List<Long> selectedOptionIds,
-                                           BigDecimal awardedPoints,
-                                           Boolean correct) {
+                                           List<Long> selectedOptionIds) {
         TestAttempt attempt = getAttempt(testAttemptId);
         if (attempt.getStatus() != 1) {
             throw new IllegalArgumentException("Test attempt is not in progress: " + testAttemptId);
@@ -364,43 +418,34 @@ public class TestService {
 
         QuestionResponse response = questionResponseRepository
                 .findByTestAttemptIdAndTestQuestionId(testAttemptId, testQuestionId)
-                .orElse(null);
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Question was not selected for this attempt: " + testQuestionId
+                ));
         if (!questionBelongsToAssignmentTest(question, assignment)) {
             throw new IllegalArgumentException("Question does not belong to attempt test.");
         }
-        if (response == null) {
-            response = new QuestionResponse();
-            response.setTestAttemptId(testAttemptId);
-            response.setTestQuestionId(testQuestionId);
-        }
         response.setAnswerText(FacultyService.trimToNull(answerText));
-        applyAutomaticScore(response, question, selectedOptionIds, awardedPoints, correct);
+        applyAutomaticScore(response, question, selectedOptionIds);
         response = questionResponseRepository.save(response);
         replaceSelectedOptions(response.getId(), question, selectedOptionIds);
         return response;
     }
 
     @Transactional
-    public TestAttempt completeAttempt(Integer testAttemptId, BigDecimal score, Integer status) {
+    public TestAttempt completeAttempt(Integer testAttemptId) {
         TestAttempt attempt = getAttempt(testAttemptId);
-        int normalizedStatus = normalizeStatus(status, 2, 3, 2);
-        attempt.setStatus(normalizedStatus);
+        if (attempt.getStatus() != 1) {
+            throw new IllegalArgumentException("Test attempt is not in progress: " + testAttemptId);
+        }
+        attempt.setStatus(2);
         attempt.setCompletedAt(Instant.now());
-        attempt.setScore(score == null ? calculateScore(testAttemptId) : requireNonNegative(score, "Score"));
+        attempt.setScore(calculateScore(testAttemptId));
         return attempt;
     }
 
     private void applyAutomaticScore(QuestionResponse response,
                                      Question question,
-                                     List<Long> selectedOptionIds,
-                                     BigDecimal awardedPoints,
-                                     Boolean correct) {
-        if (awardedPoints != null || correct != null) {
-            response.setAwardedPoints(awardedPoints == null ? null : requireNonNegative(awardedPoints, "AwardedPoints"));
-            response.setCorrect(correct);
-            return;
-        }
-
+                                     List<Long> selectedOptionIds) {
         if (QuestionTypeSupport.usesSelectableOptions(question.getType())) {
             List<QuestionOption> questionOptions = questionOptionRepository.findByTestQuestionIdOrderByOrdinalAsc(question.getId());
             if (questionOptions.isEmpty()) {
@@ -599,7 +644,7 @@ public class TestService {
         return questionResponseRepository.findByTestAttemptIdOrderByIdAsc(testAttemptId)
                 .stream()
                 .map(response -> questionRepository.findById(response.getTestQuestionId()).orElse(null))
-                .filter(question -> question != null && question.isActive())
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -704,6 +749,55 @@ public class TestService {
                                                       SelectionRuleContext context,
                                                       SelectionRuleInput input) {
         if (context.topicId() == null) {
+            requireEnoughQuestions(
+                    lectureRuleTarget(testId, context),
+                    "any",
+                    questionRepository.findByTestIdAndCourseLectureIdAndActiveTrueOrderByOrdinalAsc(
+                            testId,
+                            context.courseLectureId()
+                    ).size(),
+                    input.questionCount()
+            );
+            requireEnoughQuestions(
+                    lectureRuleTarget(testId, context),
+                    QuestionTypeSupport.label(QuestionTypeSupport.TYPE_SINGLE),
+                    questionRepository.findByTestIdAndCourseLectureIdAndTypeAndActiveTrueOrderByOrdinalAsc(
+                            testId,
+                            context.courseLectureId(),
+                            QuestionTypeSupport.TYPE_SINGLE
+                    ).size(),
+                    input.singleAnswerQuestionCount()
+            );
+            requireEnoughQuestions(
+                    lectureRuleTarget(testId, context),
+                    QuestionTypeSupport.label(QuestionTypeSupport.TYPE_MULTIPLE),
+                    questionRepository.findByTestIdAndCourseLectureIdAndTypeAndActiveTrueOrderByOrdinalAsc(
+                            testId,
+                            context.courseLectureId(),
+                            QuestionTypeSupport.TYPE_MULTIPLE
+                    ).size(),
+                    input.multipleAnswerQuestionCount()
+            );
+            requireEnoughQuestions(
+                    lectureRuleTarget(testId, context),
+                    QuestionTypeSupport.label(QuestionTypeSupport.TYPE_MATCHING),
+                    questionRepository.findByTestIdAndCourseLectureIdAndTypeAndActiveTrueOrderByOrdinalAsc(
+                            testId,
+                            context.courseLectureId(),
+                            QuestionTypeSupport.TYPE_MATCHING
+                    ).size(),
+                    input.matchingQuestionCount()
+            );
+            requireEnoughQuestions(
+                    lectureRuleTarget(testId, context),
+                    QuestionTypeSupport.label(QuestionTypeSupport.TYPE_TEXT),
+                    questionRepository.findByTestIdAndCourseLectureIdAndTypeAndActiveTrueOrderByOrdinalAsc(
+                            testId,
+                            context.courseLectureId(),
+                            QuestionTypeSupport.TYPE_TEXT
+                    ).size(),
+                    input.textQuestionCount()
+            );
             return;
         }
 
@@ -737,6 +831,14 @@ public class TestService {
                 questionRepository.findByTopicIdAndTestIdIsNullAndTypeAndActiveTrueOrderByOrdinalAsc(context.topicId(), QuestionTypeSupport.TYPE_TEXT).size(),
                 input.textQuestionCount()
         );
+    }
+
+    private static TestQuestionSelectionRule lectureRuleTarget(Integer testId,
+                                                               SelectionRuleContext context) {
+        TestQuestionSelectionRule rule = new TestQuestionSelectionRule();
+        rule.setTestId(testId);
+        rule.setCourseLectureId(context.courseLectureId());
+        return rule;
     }
 
     private void requireAssignmentScope(int scope,
@@ -840,19 +942,60 @@ public class TestService {
         }
     }
 
+    private void requireEnrollmentMatchesAssignment(TeachingAssignmentEnrollment enrollment,
+                                                    TestAssignment assignment) {
+        if (assignment.getTeachingAssignmentId() != null
+                && !Objects.equals(assignment.getTeachingAssignmentId(), enrollment.getTeachingAssignmentId())) {
+            throw new IllegalArgumentException(
+                    "Teaching assignment enrollment does not match test assignment: " + enrollment.getId()
+            );
+        }
+
+        var teachingAssignment = teachingAssignmentRepository.findById(enrollment.getTeachingAssignmentId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Teaching assignment not found: " + enrollment.getTeachingAssignmentId()
+                ));
+        if (assignment.getCourseVersionId() != null
+                && teachingAssignment.getCourseVersionId() != null
+                && !Objects.equals(assignment.getCourseVersionId(), teachingAssignment.getCourseVersionId())) {
+            throw new IllegalArgumentException(
+                    "Enrollment course version does not match test assignment: " + enrollment.getId()
+            );
+        }
+        if (assignment.getCourseLectureId() != null) {
+            var lecture = lectureRepository.findById(assignment.getCourseLectureId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Course lecture not found: " + assignment.getCourseLectureId()
+                    ));
+            if (lecture.getSubjectMembershipId() != null
+                    && !Objects.equals(lecture.getSubjectMembershipId(), teachingAssignment.getSubjectMembershipId())) {
+                throw new IllegalArgumentException(
+                        "Enrollment teacher does not match lecture test assignment: " + enrollment.getId()
+                );
+            }
+            if (lecture.getCourseVersionId() != null
+                    && teachingAssignment.getCourseVersionId() != null
+                    && !Objects.equals(lecture.getCourseVersionId(), teachingAssignment.getCourseVersionId())) {
+                throw new IllegalArgumentException(
+                        "Enrollment course version does not match lecture test assignment: " + enrollment.getId()
+                );
+            }
+        }
+    }
+
+    private static void requireAtMostOneFilter(String target, Object... filters) {
+        long supplied = java.util.Arrays.stream(filters).filter(Objects::nonNull).count();
+        if (supplied > 1) {
+            throw new IllegalArgumentException("Only one " + target + " filter may be supplied.");
+        }
+    }
+
     private static int normalizeStatus(Integer status, int min, int max, int defaultStatus) {
         int actual = status == null || status == 0 ? defaultStatus : status;
         if (actual < min || actual > max) {
             throw new IllegalArgumentException("Status must be between " + min + " and " + max + ".");
         }
         return actual;
-    }
-
-    private static BigDecimal requireNonNegative(BigDecimal value, String field) {
-        if (value.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException(field + " must be non-negative.");
-        }
-        return value;
     }
 
     private boolean questionBelongsToAssignmentTest(Question question, TestAssignment assignment) {

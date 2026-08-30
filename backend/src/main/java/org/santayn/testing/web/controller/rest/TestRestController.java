@@ -1,7 +1,6 @@
 package org.santayn.testing.web.controller.rest;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,50 +8,78 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.TestService;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/tests")
 public class TestRestController {
 
     private final TestService testService;
+    private final CurrentUserAccessService accessService;
 
-    public TestRestController(TestService testService) {
+    public TestRestController(TestService testService, CurrentUserAccessService accessService) {
         this.testService = testService;
+        this.accessService = accessService;
     }
 
     @GetMapping
-    public List<ApiResponses.TestResponse> all(@RequestParam(required = false) Integer subjectId) {
-        return ApiResponses.list(testService.findAll(subjectId), ApiResponses::test);
+    public List<ApiResponses.TestResponse> all(@RequestParam(required = false) Integer subjectId,
+                                               Authentication authentication) {
+        boolean admin = accessService.isAdmin(authentication);
+        if (!admin) {
+            if (subjectId == null) {
+                throw new AccessDeniedException("Teacher test queries require subjectId.");
+            }
+            accessService.requireSubjectOwner(authentication, subjectId);
+        }
+        var tests = testService.findAll(subjectId);
+        if (!admin) {
+            tests = tests.stream()
+                    .filter(test -> accessService.canManageTest(authentication, test.getId()))
+                    .toList();
+        }
+        return ApiResponses.list(tests, ApiResponses::test);
     }
 
     @GetMapping("/{id}")
-    public ApiResponses.TestResponse one(@PathVariable Integer id) {
+    public ApiResponses.TestResponse one(@PathVariable Integer id, Authentication authentication) {
+        accessService.requireTestOwner(authentication, id);
         return ApiResponses.test(testService.get(id));
     }
 
     @PostMapping
-    public ApiResponses.TestResponse create(@Valid @RequestBody TestRequest request) {
+    public ApiResponses.TestResponse create(@Valid @RequestBody TestRequest request, Authentication authentication) {
+        requireSelectionRuleOwners(request.selectionRules(), authentication);
+        Integer authorPersonId = accessService.isAdmin(authentication)
+                ? null
+                : accessService.currentPersonId(authentication);
         return ApiResponses.test(testService.create(
                 request.title(),
                 request.description(),
                 request.duration(),
                 request.attemptsAllowed(),
                 request.questionCount(),
-                selectionRuleInputs(request.selectionRules())
+                selectionRuleInputs(request.selectionRules()),
+                authorPersonId
         ));
     }
 
     @PutMapping("/{id}")
-    public ApiResponses.TestResponse update(@PathVariable Integer id, @Valid @RequestBody TestRequest request) {
+    public ApiResponses.TestResponse update(@PathVariable Integer id,
+                                            @Valid @RequestBody TestRequest request,
+                                            Authentication authentication) {
+        accessService.requireTestOwner(authentication, id);
+        requireSelectionRuleOwners(request.selectionRules(), authentication);
         return ApiResponses.test(testService.update(
                 id,
                 request.title(),
@@ -64,15 +91,27 @@ public class TestRestController {
         ));
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Integer id, Authentication authentication) {
+        accessService.requireTestOwner(authentication, id);
+        testService.delete(id);
+    }
+
     @GetMapping("/{testId}/selection-rules")
-    public List<ApiResponses.TestQuestionSelectionRuleResponse> selectionRules(@PathVariable Integer testId) {
+    public List<ApiResponses.TestQuestionSelectionRuleResponse> selectionRules(@PathVariable Integer testId,
+                                                                               Authentication authentication) {
+        accessService.requireTestOwner(authentication, testId);
         return ApiResponses.list(testService.findSelectionRules(testId), ApiResponses::testQuestionSelectionRule);
     }
 
     @PutMapping("/{testId}/selection-rules")
     public List<ApiResponses.TestQuestionSelectionRuleResponse> replaceSelectionRules(
             @PathVariable Integer testId,
-            @Valid @RequestBody List<@Valid SelectionRuleRequest> request) {
+            @Valid @RequestBody List<@Valid SelectionRuleRequest> request,
+            Authentication authentication) {
+        accessService.requireTestOwner(authentication, testId);
+        requireSelectionRuleOwners(request, authentication);
         return ApiResponses.list(
                 testService.replaceSelectionRules(testId, selectionRuleInputs(request)),
                 ApiResponses::testQuestionSelectionRule
@@ -83,7 +122,14 @@ public class TestRestController {
     public List<ApiResponses.TestAssignmentResponse> assignments(@RequestParam(required = false) Integer testId,
                                                                  @RequestParam(required = false) Integer courseVersionId,
                                                                  @RequestParam(required = false) Integer courseLectureId,
-                                                                 @RequestParam(required = false) Integer teachingAssignmentId) {
+                                                                 @RequestParam(required = false) Integer teachingAssignmentId,
+                                                                 Authentication authentication) {
+        if (!accessService.isAdmin(authentication)) {
+            if (testId == null) {
+                throw new AccessDeniedException("Teacher assignment queries require testId.");
+            }
+            accessService.requireTestOwner(authentication, testId);
+        }
         return ApiResponses.list(
                 testService.findAssignments(testId, courseVersionId, courseLectureId, teachingAssignmentId),
                 ApiResponses::testAssignment
@@ -91,12 +137,19 @@ public class TestRestController {
     }
 
     @GetMapping("/assignments/{assignmentId}")
-    public ApiResponses.TestAssignmentResponse assignment(@PathVariable Integer assignmentId) {
-        return ApiResponses.testAssignment(testService.getAssignment(assignmentId));
+    public ApiResponses.TestAssignmentResponse assignment(@PathVariable Integer assignmentId,
+                                                          Authentication authentication) {
+        var assignment = testService.getAssignment(assignmentId);
+        accessService.requireTestOwner(authentication, assignment.getTestId());
+        return ApiResponses.testAssignment(assignment);
     }
 
     @PostMapping("/{testId}/assignments")
-    public ApiResponses.TestAssignmentResponse assign(@PathVariable Integer testId, @Valid @RequestBody AssignmentRequest request) {
+    public ApiResponses.TestAssignmentResponse assign(@PathVariable Integer testId,
+                                                      @Valid @RequestBody AssignmentRequest request,
+                                                      Authentication authentication) {
+        accessService.requireTestOwner(authentication, testId);
+        requireAssignmentTargetOwner(request, authentication);
         return ApiResponses.testAssignment(testService.assign(
                 testId,
                 request.scope(),
@@ -111,7 +164,10 @@ public class TestRestController {
 
     @PutMapping("/assignments/{assignmentId}")
     public ApiResponses.TestAssignmentResponse updateAssignment(@PathVariable Integer assignmentId,
-                                                                @Valid @RequestBody AssignmentRequest request) {
+                                                                @Valid @RequestBody AssignmentRequest request,
+                                                                Authentication authentication) {
+        accessService.requireTestOwner(authentication, testService.getAssignment(assignmentId).getTestId());
+        requireAssignmentTargetOwner(request, authentication);
         return ApiResponses.testAssignment(testService.updateAssignment(
                 assignmentId,
                 request.scope(),
@@ -126,7 +182,9 @@ public class TestRestController {
 
     @PutMapping("/assignments/{assignmentId}/status")
     public ApiResponses.TestAssignmentResponse updateAssignmentStatus(@PathVariable Integer assignmentId,
-                                                                      @Valid @RequestBody AssignmentStatusRequest request) {
+                                                                      @Valid @RequestBody AssignmentStatusRequest request,
+                                                                      Authentication authentication) {
+        accessService.requireTestOwner(authentication, testService.getAssignment(assignmentId).getTestId());
         return ApiResponses.testAssignment(testService.updateAssignmentStatus(assignmentId, request.status()));
     }
 
@@ -163,9 +221,7 @@ public class TestRestController {
                 attemptId,
                 request.testQuestionId(),
                 request.answerText(),
-                request.selectedOptionIds(),
-                request.awardedPoints(),
-                request.correct()
+                request.selectedOptionIds()
         ));
     }
 
@@ -175,9 +231,8 @@ public class TestRestController {
     }
 
     @PostMapping("/attempts/{attemptId}/complete")
-    public ApiResponses.TestAttemptResponse completeAttempt(@PathVariable Integer attemptId,
-                                                            @Valid @RequestBody CompleteAttemptRequest request) {
-        return ApiResponses.testAttempt(testService.completeAttempt(attemptId, request.score(), request.status()));
+    public ApiResponses.TestAttemptResponse completeAttempt(@PathVariable Integer attemptId) {
+        return ApiResponses.testAttempt(testService.completeAttempt(attemptId));
     }
 
     public record TestRequest(
@@ -229,15 +284,7 @@ public class TestRestController {
     public record ResponseRequest(
             @NotNull Long testQuestionId,
             @Size(max = 4000) String answerText,
-            List<Long> selectedOptionIds,
-            @DecimalMin("0.00") BigDecimal awardedPoints,
-            Boolean correct
-    ) {
-    }
-
-    public record CompleteAttemptRequest(
-            @DecimalMin("0.00") BigDecimal score,
-            @Min(2) @Max(3) Integer status
+            List<Long> selectedOptionIds
     ) {
     }
 
@@ -257,5 +304,38 @@ public class TestRestController {
                         rule.ordinal()
                 ))
                 .toList();
+    }
+
+    private void requireSelectionRuleOwners(List<SelectionRuleRequest> rules, Authentication authentication) {
+        if (rules == null || accessService.isAdmin(authentication)) {
+            return;
+        }
+        for (SelectionRuleRequest rule : rules) {
+            boolean hasTarget = false;
+            if (rule.topicId() != null) {
+                accessService.requireTopicOwner(authentication, rule.topicId());
+                hasTarget = true;
+            }
+            if (rule.courseLectureId() != null) {
+                accessService.requireLectureOwner(authentication, rule.courseLectureId());
+                hasTarget = true;
+            }
+            if (!hasTarget) {
+                throw new AccessDeniedException("Selection rule must target an owned topic or lecture.");
+            }
+        }
+    }
+
+    private void requireAssignmentTargetOwner(AssignmentRequest request, Authentication authentication) {
+        if (accessService.isAdmin(authentication)) {
+            return;
+        }
+        switch (request.scope()) {
+            case 1 -> throw new AccessDeniedException("Only an administrator may create global test assignments.");
+            case 2 -> accessService.requireCourseVersionOwner(authentication, request.courseVersionId());
+            case 3 -> accessService.requireLectureOwner(authentication, request.courseLectureId());
+            case 4 -> accessService.requireTeachingAssignmentOwner(authentication, request.teachingAssignmentId());
+            default -> throw new IllegalArgumentException("Scope must be between 1 and 4.");
+        }
     }
 }

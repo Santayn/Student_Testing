@@ -1,14 +1,14 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/Test}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:20040725}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-init-sql: CREATE EXTENSION IF NOT EXISTS citext
   sql:
     init:
-      mode: always
+      mode: ${SPRING_SQL_INIT_MODE:never}
   servlet:
     multipart:
       max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:50MB}
@@ -17,15 +17,22 @@ spring:
     defer-datasource-initialization: true
     open-in-view: false
     hibernate:
-        ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+        ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
         naming:
           physical-strategy: org.santayn.testing.config.QuotedIdentifierNamingStrategy
-    show-sql: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
 server:
   port: ${SERVER_PORT:8081}
 app:
   data-loader:
-    enabled: ${APP_DATA_LOADER_ENABLED:true}
+    enabled: ${APP_DATA_LOADER_ENABLED:false}
+  registration:
+    public-enabled: ${APP_PUBLIC_REGISTRATION_ENABLED:false}
+  security:
+    jwt:
+      secret: ${APP_JWT_SECRET}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:[*],http://127.0.0.1:[*]}
   storage:
     lecture-materials-dir: ${APP_STORAGE_LECTURE_MATERIALS_DIR:uploads/lecture-materials}
 springdoc:

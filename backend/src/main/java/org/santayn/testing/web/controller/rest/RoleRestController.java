@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Set;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/roles")
 public class RoleRestController {
 

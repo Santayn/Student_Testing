@@ -4,38 +4,50 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.MembershipService;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/memberships")
 public class MembershipRestController {
 
     private final MembershipService membershipService;
+    private final CurrentUserAccessService accessService;
 
-    public MembershipRestController(MembershipService membershipService) {
+    public MembershipRestController(MembershipService membershipService, CurrentUserAccessService accessService) {
         this.membershipService = membershipService;
+        this.accessService = accessService;
     }
 
     @GetMapping("/faculties")
     public List<ApiResponses.FacultyMembershipResponse> facultyMembers(@RequestParam(required = false) Integer facultyId,
                                                                        @RequestParam(required = false) Integer personId,
                                                                        @RequestParam(required = false) Integer status,
-                                                                       @RequestParam(defaultValue = "true") boolean activeOnly) {
-        return ApiResponses.list(membershipService.facultyMembers(facultyId, personId, status, activeOnly), ApiResponses::facultyMembership);
+                                                                       @RequestParam(defaultValue = "true") boolean activeOnly,
+                                                                       Authentication authentication) {
+        return ApiResponses.list(membershipService.facultyMembers(
+                facultyId, scopedPersonId(authentication, personId), status, activeOnly
+        ), ApiResponses::facultyMembership);
     }
 
     @GetMapping("/faculties/{facultyId}")
-    public List<ApiResponses.FacultyMembershipResponse> facultyMembersByFaculty(@PathVariable Integer facultyId) {
+    public List<ApiResponses.FacultyMembershipResponse> facultyMembersByFaculty(@PathVariable Integer facultyId,
+                                                                                Authentication authentication) {
+        requireStaff(authentication);
         return ApiResponses.list(membershipService.facultyMembers(facultyId, null, null, true), ApiResponses::facultyMembership);
     }
 
     @GetMapping("/faculties/memberships/{membershipId}")
-    public ApiResponses.FacultyMembershipResponse facultyMembership(@PathVariable Integer membershipId) {
-        return ApiResponses.facultyMembership(membershipService.getFacultyMembership(membershipId));
+    public ApiResponses.FacultyMembershipResponse facultyMembership(@PathVariable Integer membershipId,
+                                                                    Authentication authentication) {
+        var membership = membershipService.getFacultyMembership(membershipId);
+        requirePersonOrStaff(authentication, membership.getPersonId());
+        return ApiResponses.facultyMembership(membership);
     }
 
     @PostMapping("/faculties/{facultyId}")
@@ -60,8 +72,11 @@ public class MembershipRestController {
     public List<ApiResponses.GroupMembershipResponse> groupMembers(@RequestParam(required = false) Integer groupId,
                                                                    @RequestParam(required = false) Integer personId,
                                                                    @RequestParam(required = false) Integer status,
-                                                                   @RequestParam(defaultValue = "true") boolean activeOnly) {
-        return ApiResponses.list(membershipService.groupMembers(groupId, personId, status, activeOnly), ApiResponses::groupMembership);
+                                                                   @RequestParam(defaultValue = "true") boolean activeOnly,
+                                                                   Authentication authentication) {
+        return ApiResponses.list(membershipService.groupMembers(
+                groupId, scopedPersonId(authentication, personId), status, activeOnly
+        ), ApiResponses::groupMembership);
     }
 
     @PostMapping("/groups/{groupId}")
@@ -71,13 +86,18 @@ public class MembershipRestController {
     }
 
     @GetMapping("/groups/{groupId}")
-    public List<ApiResponses.GroupMembershipResponse> groupMembers(@PathVariable Integer groupId) {
+    public List<ApiResponses.GroupMembershipResponse> groupMembers(@PathVariable Integer groupId,
+                                                                   Authentication authentication) {
+        requireStaff(authentication);
         return ApiResponses.list(membershipService.groupMembers(groupId, null, null, true), ApiResponses::groupMembership);
     }
 
     @GetMapping("/groups/memberships/{membershipId}")
-    public ApiResponses.GroupMembershipResponse groupMembership(@PathVariable Integer membershipId) {
-        return ApiResponses.groupMembership(membershipService.getGroupMembership(membershipId));
+    public ApiResponses.GroupMembershipResponse groupMembership(@PathVariable Integer membershipId,
+                                                                Authentication authentication) {
+        var membership = membershipService.getGroupMembership(membershipId);
+        requirePersonOrStaff(authentication, membership.getPersonId());
+        return ApiResponses.groupMembership(membership);
     }
 
     @PutMapping("/groups/memberships/{membershipId}/status")
@@ -96,18 +116,26 @@ public class MembershipRestController {
     public List<ApiResponses.SubjectMembershipResponse> subjectMembers(@RequestParam(required = false) Integer subjectId,
                                                                        @RequestParam(required = false) Integer personId,
                                                                        @RequestParam(required = false) Integer status,
-                                                                       @RequestParam(defaultValue = "true") boolean activeOnly) {
-        return ApiResponses.list(membershipService.subjectMembers(subjectId, personId, status, activeOnly), ApiResponses::subjectMembership);
+                                                                       @RequestParam(defaultValue = "true") boolean activeOnly,
+                                                                       Authentication authentication) {
+        return ApiResponses.list(membershipService.subjectMembers(
+                subjectId, scopedPersonId(authentication, personId), status, activeOnly
+        ), ApiResponses::subjectMembership);
     }
 
     @GetMapping("/subjects/{subjectId}")
-    public List<ApiResponses.SubjectMembershipResponse> subjectMembersBySubject(@PathVariable Integer subjectId) {
+    public List<ApiResponses.SubjectMembershipResponse> subjectMembersBySubject(@PathVariable Integer subjectId,
+                                                                                Authentication authentication) {
+        requireStaff(authentication);
         return ApiResponses.list(membershipService.subjectMembers(subjectId, null, null, true), ApiResponses::subjectMembership);
     }
 
     @GetMapping("/subjects/memberships/{membershipId}")
-    public ApiResponses.SubjectMembershipResponse subjectMembership(@PathVariable Integer membershipId) {
-        return ApiResponses.subjectMembership(membershipService.getSubjectMembership(membershipId));
+    public ApiResponses.SubjectMembershipResponse subjectMembership(@PathVariable Integer membershipId,
+                                                                    Authentication authentication) {
+        var membership = membershipService.getSubjectMembership(membershipId);
+        accessService.requireSubjectMembershipRead(authentication, membershipId);
+        return ApiResponses.subjectMembership(membership);
     }
 
     @PostMapping("/subjects/{subjectId}")
@@ -142,5 +170,29 @@ public class MembershipRestController {
             int status,
             @Size(max = 1000) String notes
     ) {
+    }
+
+    private Integer scopedPersonId(Authentication authentication, Integer requestedPersonId) {
+        if (accessService.isAdmin(authentication)) {
+            return requestedPersonId;
+        }
+        Integer currentPersonId = accessService.currentPersonId(authentication);
+        if (requestedPersonId != null && !currentPersonId.equals(requestedPersonId)) {
+            throw new AccessDeniedException("Memberships of another person are not available.");
+        }
+        return currentPersonId;
+    }
+
+    private void requireStaff(Authentication authentication) {
+        if (!accessService.isAdmin(authentication)) {
+            throw new AccessDeniedException("This membership list is available to administrators only.");
+        }
+    }
+
+    private void requirePersonOrStaff(Authentication authentication, Integer personId) {
+        if (!accessService.isAdmin(authentication)
+                && !accessService.currentPersonId(authentication).equals(personId)) {
+            throw new AccessDeniedException("Membership belongs to another person.");
+        }
     }
 }

@@ -101,7 +101,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/Test
     username: postgres
-    password: 20040725
+    password: ${SPRING_DATASOURCE_PASSWORD}
 server:
   port: 8081
 ```

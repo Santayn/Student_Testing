@@ -83,10 +83,10 @@ const form = ref({
 })
 
 const statusOptions = [
-  { value: 2, label: 'Черновик' },
-  { value: 1, label: 'Активно' },
+  { value: 1, label: 'Черновик' },
+  { value: 2, label: 'Активно' },
   { value: 3, label: 'Закрыто' },
-  { value: 4, label: 'В паузе' },
+  { value: 4, label: 'Приостановлено' },
 ]
 
 const topicOptions = computed(() => {

@@ -62,7 +62,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/public/learning")
 public class PublicLearningRestController {
 
@@ -163,15 +162,23 @@ public class PublicLearningRestController {
                 lectureTestLinkService.ensureLectureTestAvailability(lecture.getId(), test.getId());
                 assignment = accessibleAssignmentForLinkedTest(context, test.getId());
             }
+            int attemptsRemaining = assignment
+                    .map(value -> testService.attemptsRemaining(value.getId(), context.personId()))
+                    .orElse(0);
+            boolean canResume = assignment
+                    .map(value -> testService.hasInProgressAttempt(value.getId(), context.personId()))
+                    .orElse(false);
+            boolean available = assignment.isPresent() && (attemptsRemaining > 0 || canResume);
             responsesByTestId.putIfAbsent(
                     test.getId(),
                     testResponse(
                             test,
                             assignment.map(TestAssignment::getId).orElse(null),
-                            assignment.isPresent(),
-                            assignment.isPresent()
-                                    ? null
-                                    : "Тест привязан к лекции, но сейчас недоступен студенту."
+                            available,
+                            assignment.isEmpty()
+                                    ? "Тест привязан к лекции, но сейчас недоступен студенту."
+                                    : (available ? null : "Доступные попытки исчерпаны."),
+                            attemptsRemaining
                     )
             );
         }
@@ -212,17 +219,30 @@ public class PublicLearningRestController {
     }
 
     @GetMapping("/tests/{testId}")
-    @Transactional(readOnly = true)
-    public PublicTestLoadResponse test(@PathVariable Integer testId, Authentication authentication) {
+    @Transactional
+    public PublicTestAttemptLoadResponse test(@PathVariable Integer testId, Authentication authentication) {
         StudentLearningContext context = studentLearningContext(authentication);
         TestAssignment assignment = activeAccessibleAssignment(context, testId);
         Test test = testRepository.findById(assignment.getTestId())
                 .orElseThrow(() -> new IllegalArgumentException("Test not found: " + assignment.getTestId()));
-        List<PublicQuestionResponse> questions = testService.randomQuestionsForTest(test.getId())
+        Integer enrollmentId = findEnrollmentIdForTestAssignment(context, assignment).orElse(null);
+        TestService.TestAttemptQuestionSet questionSet = testService.startOrResumeAttemptWithRandomQuestions(
+                assignment.getId(),
+                context.personId(),
+                enrollmentId
+        );
+        Integer actualAssignmentId = questionSet.attempt().getTestAssignmentId();
+        List<PublicQuestionResponse> questions = questionSet.questions()
                 .stream()
                 .map(this::questionResponse)
                 .toList();
-        return new PublicTestLoadResponse(testResponse(test, assignment.getId()), questions);
+        return new PublicTestAttemptLoadResponse(
+                questionSet.attempt().getId(),
+                actualAssignmentId,
+                testResponse(test, actualAssignmentId, true, null,
+                        testService.attemptsRemaining(actualAssignmentId, context.personId())),
+                questions
+        );
     }
 
     @PostMapping("/test-assignments/{assignmentId}/attempts/start")
@@ -238,14 +258,16 @@ public class PublicLearningRestController {
                 context.personId(),
                 enrollmentId
         );
+        Integer actualAssignmentId = questionSet.attempt().getTestAssignmentId();
         List<PublicQuestionResponse> questions = questionSet.questions()
                 .stream()
                 .map(this::questionResponse)
                 .toList();
         return new PublicTestAttemptLoadResponse(
                 questionSet.attempt().getId(),
-                assignment.getId(),
-                testResponse(test, assignment.getId()),
+                actualAssignmentId,
+                testResponse(test, actualAssignmentId, true, null,
+                        testService.attemptsRemaining(actualAssignmentId, context.personId())),
                 questions
         );
     }
@@ -258,8 +280,13 @@ public class PublicLearningRestController {
         StudentLearningContext context = studentLearningContext(authentication);
         TestAssignment assignment = activeAccessibleAssignment(context, testId);
         Integer enrollmentId = findEnrollmentIdForTestAssignment(context, assignment).orElse(null);
-        TestAttempt attempt = testService.startAttempt(assignment.getId(), context.personId(), enrollmentId);
-        return submitAttemptResponses(attempt, null, request);
+        TestService.TestAttemptQuestionSet questionSet = testService.startOrResumeAttemptWithRandomQuestions(
+                assignment.getId(),
+                context.personId(),
+                enrollmentId
+        );
+        List<Long> selectedQuestionIds = questionSet.questions().stream().map(Question::getId).toList();
+        return submitAttemptResponses(questionSet.attempt(), selectedQuestionIds, request);
     }
 
     @PostMapping("/attempts/{attemptId}/submit")
@@ -318,9 +345,7 @@ public class PublicLearningRestController {
                     attempt.getId(),
                     questionId,
                     answer,
-                    selectedIds,
-                    null,
-                    null
+                    selectedIds
             );
             if (Boolean.TRUE.equals(response.getCorrect())) {
                 correctCount++;
@@ -328,12 +353,12 @@ public class PublicLearningRestController {
             details.add(new PublicSubmitDetailResponse(
                     question.getQuestion(),
                     givenAnswerDisplay(question, answer, selectedIds),
-                    correctAnswerDisplay(question),
+                    null,
                     Boolean.TRUE.equals(response.getCorrect())
             ));
         }
 
-        TestAttempt completed = testService.completeAttempt(attempt.getId(), null, 2);
+        TestAttempt completed = testService.completeAttempt(attempt.getId());
         return new PublicSubmitResponse(attempt.getId(), completed.getScore(), correctCount, actualQuestionIds.size(), details);
     }
 
@@ -724,7 +749,8 @@ public class PublicLearningRestController {
     private PublicTestResponse testResponse(Test test,
                                             Integer assignmentId,
                                             boolean available,
-                                            String statusMessage) {
+                                            String statusMessage,
+                                            int attemptsRemaining) {
         return new PublicTestResponse(
                 test.getId(),
                 assignmentId,
@@ -734,12 +760,13 @@ public class PublicLearningRestController {
                 test.getAttemptsAllowed(),
                 test.getQuestionCount(),
                 available,
-                statusMessage
+                statusMessage,
+                attemptsRemaining
         );
     }
 
     private PublicTestResponse testResponse(Test test, Integer assignmentId) {
-        return testResponse(test, assignmentId, true, null);
+        return testResponse(test, assignmentId, true, null, test.getAttemptsAllowed());
     }
 
     private PublicLectureMaterialResponse lectureMaterialResponse(LectureMaterial material) {
@@ -805,25 +832,6 @@ public class PublicLearningRestController {
         return answer == null || answer.isBlank() ? null : answer.trim();
     }
 
-    private String correctAnswerDisplay(Question question) {
-        if (QuestionTypeSupport.isMatching(question.getType())) {
-            return QuestionTypeSupport.displayMatchingPairs(question.getCorrectAnswer());
-        }
-        if (!QuestionTypeSupport.usesSelectableOptions(question.getType())) {
-            return question.getCorrectAnswer();
-        }
-        List<QuestionOption> correctOptions = questionOptionRepository.findByTestQuestionIdOrderByOrdinalAsc(question.getId())
-                .stream()
-                .filter(QuestionOption::isCorrect)
-                .toList();
-        if (!correctOptions.isEmpty()) {
-            return correctOptions.stream()
-                    .map(QuestionOption::getText)
-                    .collect(Collectors.joining(", "));
-        }
-        return question.getCorrectAnswer();
-    }
-
     private Integer currentPersonId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new BadCredentialsException("Authentication is required.");
@@ -869,7 +877,8 @@ public class PublicLearningRestController {
                                      int attemptsAllowed,
                                      int questionCount,
                                      boolean available,
-                                     String statusMessage) {
+                                     String statusMessage,
+                                     int attemptsRemaining) {
     }
 
     public record PublicLectureMaterialResponse(Integer id,
@@ -877,9 +886,6 @@ public class PublicLearningRestController {
                                                 String contentType,
                                                 long sizeBytes,
                                                 Instant uploadedAtUtc) {
-    }
-
-    public record PublicTestLoadResponse(PublicTestResponse test, List<PublicQuestionResponse> questions) {
     }
 
     public record PublicTestAttemptLoadResponse(Integer attemptId,

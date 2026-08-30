@@ -38,6 +38,8 @@ project-root/
 Запуск:
 
 ```bash
+cp .env.example .env
+# Обязательно замените POSTGRES_PASSWORD и APP_JWT_SECRET в .env.
 docker compose up -d --build
 ```
 
@@ -46,7 +48,7 @@ docker compose up -d --build
 ```text
 Frontend: http://localhost/
 Backend:  http://localhost:8080/
-Postgres: localhost:5432
+Postgres: localhost:5432 (доступен только с этого компьютера)
 ```
 
 Nginx frontend автоматически проксирует:
@@ -61,7 +63,8 @@ Nginx frontend автоматически проксирует:
 /api/v1
 ```
 
-без `.env` и без production URL backend.
+без отдельного production URL backend. Секреты запуска хранятся в локальном
+`.env`, который исключён из Git.
 
 Vue Router history mode поддерживается через:
 

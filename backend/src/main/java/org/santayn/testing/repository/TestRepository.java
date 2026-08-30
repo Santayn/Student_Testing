@@ -1,13 +1,21 @@
 package org.santayn.testing.repository;
 
 import org.santayn.testing.models.test.Test;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+
 import java.util.List;
+import java.util.Optional;
 
 public interface TestRepository extends JpaRepository<Test, Integer> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select test from Test test where test.id = :id")
+    Optional<Test> findByIdForUpdate(@Param("id") Integer id);
 
     @Query("""
             select distinct test

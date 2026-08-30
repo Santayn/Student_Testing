@@ -38,4 +38,7 @@ public class Test {
 
     @Column(name = "`QuestionCount`", nullable = false)
     private int questionCount = 1;
+
+    @Column(name = "`AuthorPersonId`")
+    private Integer authorPersonId;
 }

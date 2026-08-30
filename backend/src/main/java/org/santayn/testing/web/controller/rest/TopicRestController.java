@@ -2,41 +2,62 @@ package org.santayn.testing.web.controller.rest;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.service.TopicService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/topics")
 public class TopicRestController {
 
     private final TopicService topicService;
+    private final CurrentUserAccessService accessService;
 
-    public TopicRestController(TopicService topicService) {
+    public TopicRestController(TopicService topicService, CurrentUserAccessService accessService) {
         this.topicService = topicService;
+        this.accessService = accessService;
     }
 
     @GetMapping
     public List<ApiResponses.TopicResponse> all(@RequestParam(required = false) Integer subjectId,
                                                 @RequestParam(required = false) Integer courseLectureId,
-                                                @RequestParam(required = false) Integer subjectMembershipId) {
+                                                @RequestParam(required = false) Integer subjectMembershipId,
+                                                Authentication authentication) {
+        if (!accessService.isAdmin(authentication)) {
+            if (subjectMembershipId == null) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Teacher topic queries require subjectMembershipId."
+                );
+            }
+            accessService.requireSubjectMembershipOwner(authentication, subjectMembershipId);
+            if (courseLectureId != null) {
+                accessService.requireLectureOwner(authentication, courseLectureId);
+            }
+        }
         return ApiResponses.list(topicService.findAll(subjectId, courseLectureId, subjectMembershipId), ApiResponses::topic);
     }
 
     @GetMapping("/{id}")
-    public ApiResponses.TopicResponse one(@PathVariable Integer id) {
+    public ApiResponses.TopicResponse one(@PathVariable Integer id, Authentication authentication) {
+        accessService.requireTopicOwner(authentication, id);
         return ApiResponses.topic(topicService.get(id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponses.TopicResponse create(@Valid @RequestBody TopicRequest request) {
+    public ApiResponses.TopicResponse create(@Valid @RequestBody TopicRequest request, Authentication authentication) {
+        accessService.requireSubjectMembershipOwner(authentication, request.subjectMembershipId());
+        if (request.courseLectureId() != null) {
+            accessService.requireLectureOwner(authentication, request.courseLectureId());
+        }
         return ApiResponses.topic(topicService.create(
                 request.subjectId(),
                 request.courseLectureId(),
@@ -48,7 +69,14 @@ public class TopicRestController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponses.TopicResponse update(@PathVariable Integer id, @Valid @RequestBody TopicRequest request) {
+    public ApiResponses.TopicResponse update(@PathVariable Integer id,
+                                             @Valid @RequestBody TopicRequest request,
+                                             Authentication authentication) {
+        accessService.requireTopicOwner(authentication, id);
+        accessService.requireSubjectMembershipOwner(authentication, request.subjectMembershipId());
+        if (request.courseLectureId() != null) {
+            accessService.requireLectureOwner(authentication, request.courseLectureId());
+        }
         return ApiResponses.topic(topicService.update(
                 id,
                 request.subjectId(),
@@ -62,14 +90,15 @@ public class TopicRestController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Integer id) {
+    public void delete(@PathVariable Integer id, Authentication authentication) {
+        accessService.requireTopicOwner(authentication, id);
         topicService.delete(id);
     }
 
     public record TopicRequest(
             Integer subjectId,
             Integer courseLectureId,
-            Integer subjectMembershipId,
+            @NotNull Integer subjectMembershipId,
             @Positive int ordinal,
             @NotBlank @Size(max = 200) String name,
             @Size(max = 2000) String description

@@ -10,6 +10,8 @@ import org.santayn.testing.repository.UserRepository;
 import org.santayn.testing.security.DotNetPasswordHasher;
 import org.santayn.testing.security.JwtService;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -39,17 +41,20 @@ public class UserRegisterService implements UserDetailsService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final DotNetPasswordHasher passwordHasher;
     private final JwtService jwtService;
+    private final boolean publicRegistrationEnabled;
 
     public UserRegisterService(UserRepository userRepository,
                                PersonRepository personRepository,
                                RefreshTokenRepository refreshTokenRepository,
                                DotNetPasswordHasher passwordHasher,
-                               JwtService jwtService) {
+                               JwtService jwtService,
+                               @Value("${app.registration.public-enabled:false}") boolean publicRegistrationEnabled) {
         this.userRepository = userRepository;
         this.personRepository = personRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordHasher = passwordHasher;
         this.jwtService = jwtService;
+        this.publicRegistrationEnabled = publicRegistrationEnabled;
     }
 
     @Transactional
@@ -80,6 +85,9 @@ public class UserRegisterService implements UserDetailsService {
                                Integer lifetimeKind,
                                String ipAddress,
                                String userAgent) {
+        if (!publicRegistrationEnabled) {
+            throw new AccessDeniedException("Public registration is disabled. Contact an administrator.");
+        }
         String normalizedLogin = normalizeLogin(login);
         validatePassword(password, "Password");
 

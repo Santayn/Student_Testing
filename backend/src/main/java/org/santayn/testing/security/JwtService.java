@@ -41,7 +41,7 @@ public class JwtService {
 
     public JwtService(
             ObjectMapper objectMapper,
-            @Value("${app.security.jwt.secret:CHANGE_ME_DEV_SECRET_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ}") String secret,
+            @Value("${app.security.jwt.secret}") String secret,
             @Value("${app.security.jwt.issuer:org.santayn.testing}") String issuer,
             @Value("${app.security.jwt.audience:org.santayn.testing}") String audience,
             @Value("${app.security.jwt.short-access-token-minutes:15}") long shortAccessTokenMinutes,
@@ -49,6 +49,9 @@ public class JwtService {
             @Value("${app.security.jwt.short-refresh-days:7}") long shortRefreshDays,
             @Value("${app.security.jwt.long-refresh-days:30}") long longRefreshDays) {
         this.objectMapper = objectMapper;
+        if (secret == null || secret.isBlank() || secret.length() < 32) {
+            throw new IllegalStateException("APP_JWT_SECRET must contain at least 32 characters.");
+        }
         this.secret = secret;
         this.issuer = issuer;
         this.audience = audience;

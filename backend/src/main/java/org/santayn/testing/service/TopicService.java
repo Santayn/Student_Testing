@@ -29,6 +29,15 @@ public class TopicService {
                 throw new IllegalArgumentException("Subject membership " + subjectMembershipId
                         + " does not belong to subject " + subjectId + ".");
             }
+            if (courseLectureId != null) {
+                LecturePlacement lecturePlacement = requireLecturePlacement(courseLectureId);
+                if (!membership.getSubjectId().equals(lecturePlacement.subjectId())
+                        || (lecturePlacement.subjectMembershipId() != null
+                        && !subjectMembershipId.equals(lecturePlacement.subjectMembershipId()))) {
+                    throw new IllegalArgumentException("Lecture and subject membership filters do not match.");
+                }
+                return topicRepository.findByCourseLectureIdOrderByOrdinalAsc(courseLectureId);
+            }
             return topicRepository.findBySubjectMembershipIdOrderByOrdinalAsc(subjectMembershipId);
         }
         if (courseLectureId != null) {
@@ -37,10 +46,7 @@ public class TopicService {
                 throw new IllegalArgumentException("Lecture " + courseLectureId
                         + " does not belong to subject " + subjectId + ".");
             }
-            if (lecturePlacement.subjectMembershipId() != null) {
-                return topicRepository.findBySubjectMembershipIdOrderByOrdinalAsc(lecturePlacement.subjectMembershipId());
-            }
-            return topicRepository.findBySubjectIdOrderByOrdinalAsc(lecturePlacement.subjectId());
+            return topicRepository.findByCourseLectureIdOrderByOrdinalAsc(courseLectureId);
         }
         if (subjectId != null) {
             requireSubjectExists(subjectId);
@@ -72,7 +78,7 @@ public class TopicService {
         Topic topic = new Topic();
         topic.setSubjectId(placement.subjectId());
         topic.setSubjectMembershipId(placement.subjectMembershipId());
-        topic.setCourseLectureId(null);
+        topic.setCourseLectureId(placement.courseLectureId());
         topic.setOrdinal(normalizedOrdinal);
         topic.setName(FacultyService.requireText(name, "Name"));
         topic.setDescription(FacultyService.trimToNull(description));
@@ -97,7 +103,7 @@ public class TopicService {
 
         topic.setSubjectId(placement.subjectId());
         topic.setSubjectMembershipId(placement.subjectMembershipId());
-        topic.setCourseLectureId(null);
+        topic.setCourseLectureId(placement.courseLectureId());
         topic.setOrdinal(normalizedOrdinal);
         topic.setName(FacultyService.requireText(name, "Name"));
         topic.setDescription(FacultyService.trimToNull(description));
@@ -136,7 +142,7 @@ public class TopicService {
         }
 
         requireSubjectExists(membership.getSubjectId());
-        return new TopicPlacement(membership.getSubjectId(), membership.getId(), null);
+        return new TopicPlacement(membership.getSubjectId(), membership.getId(), courseLectureId);
     }
 
     private SubjectMembership requireSubjectMembership(Integer subjectMembershipId) {

@@ -14,7 +14,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/users")
 public class UserProfileRestController {
 

@@ -290,3 +290,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IX_TestQuestionSelectionRules_Test_Lecture"
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_TestQuestionSelectionRules_Test_Topic"
     ON "TestQuestionSelectionRules" ("TestId", "TopicId")
     WHERE "TopicId" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_TestAttempts_Assignment_Person_Ordinal"
+    ON "TestAttempts" ("TestAssignmentId", "PersonId", "Ordinal");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_TestAttempts_One_InProgress"
+    ON "TestAttempts" ("TestAssignmentId", "PersonId")
+    WHERE "Status" = 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_QuestionResponses_Attempt_Question"
+    ON "QuestionResponses" ("TestAttemptId", "TestQuestionId");
+
+ALTER TABLE "Tests"
+    ADD COLUMN IF NOT EXISTS "AuthorPersonId" integer REFERENCES "People" ("Id") ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS "IX_Tests_AuthorPersonId"
+    ON "Tests" ("AuthorPersonId");

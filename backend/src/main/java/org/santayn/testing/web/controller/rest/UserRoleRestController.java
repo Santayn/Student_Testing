@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Set;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/users")
 public class UserRoleRestController {
 

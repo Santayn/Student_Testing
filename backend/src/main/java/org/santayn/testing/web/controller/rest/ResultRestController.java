@@ -38,6 +38,7 @@ import org.santayn.testing.service.LectureTestLinkService;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.service.UserRegisterService;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -54,7 +55,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/results")
 public class ResultRestController {
 
@@ -187,7 +187,13 @@ public class ResultRestController {
 
     @GetMapping("/teacher/groups")
     @Transactional(readOnly = true)
-    public List<ResultGroupResponse> groups(@RequestParam Integer testId) {
+    public List<ResultGroupResponse> groups(@RequestParam Integer testId, Authentication authentication) {
+        UserRegisterService.CurrentUser user = currentUser(authentication);
+        boolean admin = hasRole(user, "ADMIN");
+        Integer teacherPersonId = admin ? null : requireCurrentPersonId(user);
+        if (!admin && !teacherTestIds(teacherPersonId).contains(testId)) {
+            throw new AccessDeniedException("Test does not belong to current teacher.");
+        }
         Set<Integer> groupIds = new LinkedHashSet<>();
         for (TestAssignment testAssignment : testAssignmentRepository.findByTestId(testId)) {
             if (testAssignment.getCourseLectureId() != null) {
@@ -221,6 +227,9 @@ public class ResultRestController {
                             .map(GroupMembership::getGroupId)
                             .forEach(groupIds::add));
         }
+        if (!admin) {
+            groupIds.retainAll(teacherGroupIds(teacherPersonId));
+        }
         return groupIds.stream()
                 .map(groupRepository::findById)
                 .flatMap(Optional::stream)
@@ -230,7 +239,11 @@ public class ResultRestController {
 
     @GetMapping("/teacher/students")
     @Transactional(readOnly = true)
-    public List<ResultPersonResponse> students(@RequestParam Integer groupId) {
+    public List<ResultPersonResponse> students(@RequestParam Integer groupId, Authentication authentication) {
+        UserRegisterService.CurrentUser user = currentUser(authentication);
+        if (!hasRole(user, "ADMIN") && !teacherGroupIds(requireCurrentPersonId(user)).contains(groupId)) {
+            throw new AccessDeniedException("Group does not belong to current teacher.");
+        }
         return groupMembershipRepository.findByGroupIdAndRemovedAtUtcIsNull(groupId)
                 .stream()
                 .filter(membership -> membership.getRole() == GROUP_ROLE_STUDENT)
@@ -256,20 +269,11 @@ public class ResultRestController {
                                    Authentication authentication) {
         UserRegisterService.CurrentUser user = currentUser(authentication);
 
-        if (!hasRole(user, "TEACHER") && !hasRole(user, "ADMIN")) {
-            Integer studentPersonId = requireCurrentPersonId(user);
-            return buildResultData(
-                    subjectId,
-                    null,
-                    testId,
-                    null,
-                    studentPersonId,
-                    null,
-                    false
-            );
+        boolean admin = hasRole(user, "ADMIN");
+        Integer teacherPersonId = admin ? null : requireCurrentPersonId(user);
+        if (!admin) {
+            requireTeacherResultFilters(teacherPersonId, subjectId, lectureId, testId, groupId, studentId);
         }
-
-        Integer teacherPersonId = requireCurrentPersonId(user);
         return buildResultData(
                 subjectId,
                 lectureId,
@@ -306,22 +310,26 @@ public class ResultRestController {
                                                Integer teacherPersonId,
                                                boolean teacherMode) {
         Set<Integer> allowedPersonIds = teacherMode
-                ? personIdsForFilter(groupId, studentId)
+                ? personIdsForFilter(groupId, studentId, teacherPersonId)
                 : personIdsForCurrentStudent(studentId);
         Set<Integer> allowedTestIds = teacherMode
                 ? testIdsForFilters(subjectId, lectureId, testId, teacherPersonId)
                 : testIdsForCurrentStudent(subjectId, testId);
         boolean filterByTestContext = teacherMode
-                ? subjectId != null || lectureId != null || testId != null
+                ? teacherPersonId != null || subjectId != null || lectureId != null || testId != null
                 : subjectId != null || testId != null;
         Map<Integer, TestAssignment> assignmentCache = new LinkedHashMap<>();
         Map<Integer, String> testNameCache = new LinkedHashMap<>();
         Map<Integer, String> personNameCache = new LinkedHashMap<>();
         Map<Long, Question> questionCache = new LinkedHashMap<>();
         List<ResultAttemptAggregate> attempts = new ArrayList<>();
+        boolean filterByPersonContext = !teacherMode
+                || teacherPersonId != null
+                || groupId != null
+                || studentId != null;
 
         for (TestAttempt attempt : testAttemptRepository.findAll()) {
-            if (!allowedPersonIds.isEmpty() && !allowedPersonIds.contains(attempt.getPersonId())) {
+            if (filterByPersonContext && !allowedPersonIds.contains(attempt.getPersonId())) {
                 continue;
             }
             if (attempt.getStatus() == 1) {
@@ -352,7 +360,7 @@ public class ResultRestController {
                 results.add(new ResultItemResponse(
                         question.getQuestion(),
                         givenAnswerDisplay(response, question),
-                        correctAnswerDisplay(question),
+                        teacherMode ? correctAnswerDisplay(question) : null,
                         Boolean.TRUE.equals(response.getCorrect())
                 ));
             }
@@ -438,18 +446,29 @@ public class ResultRestController {
         return new ResultStatsResponse(total, right, percent);
     }
 
-    private Set<Integer> personIdsForFilter(Integer groupId, Integer studentId) {
-        Set<Integer> personIds = new LinkedHashSet<>();
+    private Set<Integer> personIdsForFilter(Integer groupId, Integer studentId, Integer teacherPersonId) {
+        Set<Integer> personIds = teacherPersonId == null
+                ? new LinkedHashSet<>()
+                : personIdsForTeacher(teacherPersonId);
         if (groupId != null) {
-            groupMembershipRepository.findByGroupIdAndRemovedAtUtcIsNull(groupId)
+            Set<Integer> groupPersonIds = groupMembershipRepository.findByGroupIdAndRemovedAtUtcIsNull(groupId)
                     .stream()
                     .filter(membership -> membership.getRole() == GROUP_ROLE_STUDENT)
                     .map(GroupMembership::getPersonId)
-                    .forEach(personIds::add);
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (teacherPersonId == null) {
+                personIds.addAll(groupPersonIds);
+            } else {
+                personIds.retainAll(groupPersonIds);
+            }
         }
         if (studentId != null) {
-            personIds.clear();
-            personIds.add(studentId);
+            if (teacherPersonId == null || personIds.contains(studentId)) {
+                personIds.clear();
+                personIds.add(studentId);
+            } else {
+                personIds.clear();
+            }
         }
         return personIds;
     }
@@ -484,16 +503,20 @@ public class ResultRestController {
     }
 
     private Set<Integer> testIdsForCurrentStudent(Integer subjectId, Integer testId) {
-        if (testId != null) {
-            return Set.of(testId);
-        }
-        if (subjectId == null) {
+        if (subjectId == null && testId == null) {
             return Set.of();
         }
-        return testService.findAll(subjectId)
-                .stream()
-                .map(Test::getId)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Integer> ids = subjectId == null
+                ? testRepository.findAll().stream()
+                    .map(Test::getId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new))
+                : testService.findAll(subjectId).stream()
+                    .map(Test::getId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (testId != null) {
+            ids.retainAll(Set.of(testId));
+        }
+        return ids;
     }
 
     private Set<Integer> subjectIdsForAssignment(TestAssignment assignment) {
@@ -523,33 +546,114 @@ public class ResultRestController {
     }
 
     private Set<Integer> testIdsForFilters(Integer subjectId, Integer lectureId, Integer testId, Integer teacherPersonId) {
-        Set<Integer> testIds = new LinkedHashSet<>();
-        if (testId != null) {
-            testIds.add(testId);
-            return testIds;
+        Set<Integer> testIds = teacherPersonId == null
+                ? testRepository.findAll().stream()
+                    .map(Test::getId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new))
+                : teacherTestIds(teacherPersonId);
+        if (subjectId != null) {
+            Set<Integer> subjectTestIds = testService.findAll(subjectId).stream()
+                    .map(Test::getId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            testIds.retainAll(subjectTestIds);
         }
         if (lectureId != null) {
+            Set<Integer> lectureTestIds = new LinkedHashSet<>();
             Lecture lecture = lectureRepository.findById(lectureId).orElse(null);
-            if (lecture != null && lectureOwnedByTeacher(lecture, teacherPersonId)) {
+            if (lecture != null
+                    && (teacherPersonId == null || lectureOwnedByTeacher(lecture, teacherPersonId))) {
                 lectureTestLinkService.findTestIdsByLectureId(lectureId)
-                        .forEach(testIds::add);
+                        .forEach(lectureTestIds::add);
                 testAssignmentRepository.findByCourseLectureId(lectureId)
                         .stream()
                         .map(TestAssignment::getTestId)
-                        .forEach(testIds::add);
+                        .forEach(lectureTestIds::add);
                 if (lecture.getLinkedTestId() != null) {
-                    testIds.add(lecture.getLinkedTestId());
+                    lectureTestIds.add(lecture.getLinkedTestId());
                 }
             }
-            return testIds;
+            testIds.retainAll(lectureTestIds);
         }
-        if (subjectId != null) {
-            testService.findAll(subjectId)
-                    .stream()
-                    .map(Test::getId)
-                    .forEach(testIds::add);
+        if (testId != null) {
+            testIds.retainAll(Set.of(testId));
         }
         return testIds;
+    }
+
+    private void requireTeacherResultFilters(Integer teacherPersonId,
+                                             Integer subjectId,
+                                             Integer lectureId,
+                                             Integer testId,
+                                             Integer groupId,
+                                             Integer studentId) {
+        Set<Integer> subjectIds = teacherSubjectIds(teacherPersonId);
+        if (subjectId != null && !subjectIds.contains(subjectId)) {
+            throw new AccessDeniedException("Subject does not belong to current teacher.");
+        }
+        if (lectureId != null) {
+            Lecture lecture = lectureRepository.findById(lectureId)
+                    .orElseThrow(() -> new org.santayn.testing.service.ResourceNotFoundException(
+                            "Course lecture not found: " + lectureId
+                    ));
+            if (!lectureOwnedByTeacher(lecture, teacherPersonId)) {
+                throw new AccessDeniedException("Lecture does not belong to current teacher.");
+            }
+        }
+        if (testId != null && !teacherTestIds(teacherPersonId).contains(testId)) {
+            throw new AccessDeniedException("Test does not belong to current teacher.");
+        }
+        if (groupId != null && !teacherGroupIds(teacherPersonId).contains(groupId)) {
+            throw new AccessDeniedException("Group does not belong to current teacher.");
+        }
+        if (studentId != null && !personIdsForTeacher(teacherPersonId).contains(studentId)) {
+            throw new AccessDeniedException("Student is not taught by current teacher.");
+        }
+    }
+
+    private Set<Integer> teacherSubjectIds(Integer teacherPersonId) {
+        return subjectMembershipRepository.findByPersonIdAndRemovedAtUtcIsNull(teacherPersonId)
+                .stream()
+                .filter(membership -> membership.getRole() == SUBJECT_ROLE_TEACHER)
+                .map(SubjectMembership::getSubjectId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Integer> teacherGroupIds(Integer teacherPersonId) {
+        Set<Integer> membershipIds = subjectMembershipRepository.findByPersonIdAndRemovedAtUtcIsNull(teacherPersonId)
+                .stream()
+                .filter(membership -> membership.getRole() == SUBJECT_ROLE_TEACHER)
+                .map(SubjectMembership::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return teachingAssignmentRepository.findAll().stream()
+                .filter(assignment -> membershipIds.contains(assignment.getSubjectMembershipId()))
+                .map(TeachingAssignment::getGroupId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Integer> personIdsForTeacher(Integer teacherPersonId) {
+        return teacherGroupIds(teacherPersonId).stream()
+                .flatMap(groupId -> groupMembershipRepository.findByGroupIdAndRemovedAtUtcIsNull(groupId).stream())
+                .filter(membership -> membership.getRole() == GROUP_ROLE_STUDENT)
+                .map(GroupMembership::getPersonId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Integer> teacherTestIds(Integer teacherPersonId) {
+        Set<Integer> ids = testRepository.findAll().stream()
+                .filter(test -> teacherPersonId.equals(test.getAuthorPersonId()))
+                .map(Test::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        for (Integer subjectId : teacherSubjectIds(teacherPersonId)) {
+            teacherLectures(subjectId, teacherPersonId).forEach(lecture -> {
+                lectureTestLinkService.findTestIdsByLectureId(lecture.getId()).forEach(ids::add);
+                testAssignmentRepository.findByCourseLectureId(lecture.getId())
+                        .stream().map(TestAssignment::getTestId).forEach(ids::add);
+                if (lecture.getLinkedTestId() != null) {
+                    ids.add(lecture.getLinkedTestId());
+                }
+            });
+        }
+        return ids;
     }
 
     private List<CourseTemplate> teacherTemplates(Integer subjectId, Integer teacherPersonId) {
@@ -588,14 +692,14 @@ public class ResultRestController {
     private boolean lectureOwnedByTeacher(Lecture lecture, Integer teacherPersonId) {
         if (lecture.getSubjectMembershipId() != null) {
             SubjectMembership membership = subjectMembershipRepository.findById(lecture.getSubjectMembershipId()).orElse(null);
-            return membership != null && membership.getPersonId().equals(teacherPersonId);
+            return membership != null && Objects.equals(membership.getPersonId(), teacherPersonId);
         }
         CourseVersion version = courseVersionRepository.findById(lecture.getCourseVersionId()).orElse(null);
         if (version == null) {
             return false;
         }
         CourseTemplate template = courseTemplateRepository.findById(version.getCourseTemplateId()).orElse(null);
-        return template != null && template.getAuthorPersonId().equals(teacherPersonId);
+        return template != null && Objects.equals(template.getAuthorPersonId(), teacherPersonId);
     }
 
     private ResultLectureResponse resultLectureResponse(Lecture lecture, Integer subjectId, String subjectName) {

@@ -6,40 +6,53 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.CourseService;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/courses")
 public class CourseRestController {
 
     private final CourseService courseService;
+    private final CurrentUserAccessService accessService;
 
-    public CourseRestController(CourseService courseService) {
+    public CourseRestController(CourseService courseService, CurrentUserAccessService accessService) {
         this.courseService = courseService;
+        this.accessService = accessService;
     }
 
     @GetMapping("/templates")
     public List<ApiResponses.CourseTemplateResponse> templates(@RequestParam(required = false) Integer subjectId,
                                                                @RequestParam(required = false) Integer authorPersonId,
-                                                               @RequestParam(defaultValue = "false") boolean publicOnly) {
-        return ApiResponses.list(courseService.findTemplates(subjectId, authorPersonId, publicOnly), ApiResponses::courseTemplate);
+                                                               @RequestParam(defaultValue = "false") boolean publicOnly,
+                                                               Authentication authentication) {
+        Integer effectiveAuthorId = accessService.isAdmin(authentication)
+                ? authorPersonId
+                : accessService.currentPersonId(authentication);
+        if (!accessService.isAdmin(authentication) && subjectId != null) {
+            accessService.requireSubjectOwner(authentication, subjectId);
+        }
+        return ApiResponses.list(courseService.findTemplates(subjectId, effectiveAuthorId, publicOnly), ApiResponses::courseTemplate);
     }
 
     @GetMapping("/templates/{templateId}")
-    public ApiResponses.CourseTemplateResponse template(@PathVariable Integer templateId) {
+    public ApiResponses.CourseTemplateResponse template(@PathVariable Integer templateId, Authentication authentication) {
+        accessService.requireCourseTemplateOwner(authentication, templateId);
         return ApiResponses.courseTemplate(courseService.getTemplate(templateId));
     }
 
     @PostMapping("/templates")
-    public ApiResponses.CourseTemplateResponse createTemplate(@Valid @RequestBody CourseTemplateRequest request) {
+    public ApiResponses.CourseTemplateResponse createTemplate(@Valid @RequestBody CourseTemplateRequest request,
+                                                              Authentication authentication) {
+        accessService.requireSubjectOwner(authentication, request.subjectId());
         return ApiResponses.courseTemplate(courseService.createTemplate(
                 request.subjectId(),
-                request.authorPersonId(),
+                accessService.currentPersonId(authentication),
                 request.name(),
                 request.publicVisible()
         ));
@@ -47,11 +60,17 @@ public class CourseRestController {
 
     @PutMapping("/templates/{templateId}")
     public ApiResponses.CourseTemplateResponse updateTemplate(@PathVariable Integer templateId,
-                                                              @Valid @RequestBody CourseTemplateRequest request) {
+                                                              @Valid @RequestBody CourseTemplateRequest request,
+                                                              Authentication authentication) {
+        accessService.requireCourseTemplateOwner(authentication, templateId);
+        accessService.requireSubjectOwner(authentication, request.subjectId());
+        Integer authorPersonId = accessService.isAdmin(authentication)
+                ? courseService.getTemplate(templateId).getAuthorPersonId()
+                : accessService.currentPersonId(authentication);
         return ApiResponses.courseTemplate(courseService.updateTemplate(
                 templateId,
                 request.subjectId(),
-                request.authorPersonId(),
+                authorPersonId,
                 request.name(),
                 request.publicVisible()
         ));
@@ -59,62 +78,76 @@ public class CourseRestController {
 
     @DeleteMapping("/templates/{templateId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTemplate(@PathVariable Integer templateId) {
+    public void deleteTemplate(@PathVariable Integer templateId, Authentication authentication) {
+        accessService.requireCourseTemplateOwner(authentication, templateId);
         courseService.deleteTemplate(templateId);
     }
 
     @PutMapping("/versions/{versionId}/publish")
     public ApiResponses.CourseVersionResponse publishVersion(@PathVariable Integer versionId,
-                                                             @Valid @RequestBody PublishVersionRequest request) {
-        return ApiResponses.courseVersion(courseService.publishVersion(versionId, request.publishedByPersonId()));
+                                                             @Valid @RequestBody PublishVersionRequest request,
+                                                             Authentication authentication) {
+        accessService.requireCourseVersionOwner(authentication, versionId);
+        return ApiResponses.courseVersion(courseService.publishVersion(
+                versionId, accessService.currentPersonId(authentication)
+        ));
     }
 
     @PutMapping("/versions/{versionId}/unpublish")
-    public ApiResponses.CourseVersionResponse unpublishVersion(@PathVariable Integer versionId) {
+    public ApiResponses.CourseVersionResponse unpublishVersion(@PathVariable Integer versionId,
+                                                               Authentication authentication) {
+        accessService.requireCourseVersionOwner(authentication, versionId);
         return ApiResponses.courseVersion(courseService.unpublishVersion(versionId));
     }
 
     @GetMapping("/templates/{templateId}/versions")
-    public List<ApiResponses.CourseVersionResponse> versions(@PathVariable Integer templateId) {
+    public List<ApiResponses.CourseVersionResponse> versions(@PathVariable Integer templateId,
+                                                             Authentication authentication) {
+        accessService.requireCourseTemplateOwner(authentication, templateId);
         return ApiResponses.list(courseService.findVersions(templateId), ApiResponses::courseVersion);
     }
 
     @GetMapping("/versions/{versionId}")
-    public ApiResponses.CourseVersionResponse version(@PathVariable Integer versionId) {
+    public ApiResponses.CourseVersionResponse version(@PathVariable Integer versionId, Authentication authentication) {
+        accessService.requireCourseVersionOwner(authentication, versionId);
         return ApiResponses.courseVersion(courseService.getVersion(versionId));
     }
 
     @PostMapping("/templates/{templateId}/versions")
     public ApiResponses.CourseVersionResponse createVersion(@PathVariable Integer templateId,
-                                                            @Valid @RequestBody CourseVersionRequest request) {
+                                                            @Valid @RequestBody CourseVersionRequest request,
+                                                            Authentication authentication) {
+        accessService.requireCourseTemplateOwner(authentication, templateId);
+        Integer actorPersonId = accessService.currentPersonId(authentication);
         return ApiResponses.courseVersion(courseService.createVersion(
                 templateId,
                 request.versionNumber(),
                 request.title(),
                 request.description(),
-                request.createdByPersonId(),
+                actorPersonId,
                 request.published(),
-                request.publishedByPersonId(),
+                request.published() ? actorPersonId : null,
                 request.changeNotes()
         ));
     }
 
     @PutMapping("/versions/{versionId}")
     public ApiResponses.CourseVersionResponse updateVersion(@PathVariable Integer versionId,
-                                                            @Valid @RequestBody CourseVersionUpdateRequest request) {
+                                                            @Valid @RequestBody CourseVersionUpdateRequest request,
+                                                            Authentication authentication) {
+        accessService.requireCourseVersionOwner(authentication, versionId);
         return ApiResponses.courseVersion(courseService.updateVersion(
                 versionId,
                 request.versionNumber(),
                 request.title(),
                 request.description(),
-                request.createdByPersonId(),
+                accessService.currentPersonId(authentication),
                 request.changeNotes()
         ));
     }
 
     public record CourseTemplateRequest(
             @NotNull Integer subjectId,
-            @NotNull Integer authorPersonId,
             @NotBlank @Size(max = 200) String name,
             boolean publicVisible
     ) {
@@ -124,9 +157,7 @@ public class CourseRestController {
             @Positive int versionNumber,
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description,
-            @NotNull Integer createdByPersonId,
             boolean published,
-            Integer publishedByPersonId,
             @Size(max = 2000) String changeNotes
     ) {
     }
@@ -135,13 +166,10 @@ public class CourseRestController {
             @Positive int versionNumber,
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description,
-            @NotNull Integer createdByPersonId,
             @Size(max = 2000) String changeNotes
     ) {
     }
 
-    public record PublishVersionRequest(
-            @NotNull Integer publishedByPersonId
-    ) {
+    public record PublishVersionRequest() {
     }
     }

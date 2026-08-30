@@ -5,9 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.santayn.testing.models.question.QuestionTypeSupport;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.service.QuestionService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,29 +18,42 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/v1/questions")
 public class QuestionUploadRestController {
 
     private final QuestionService questionService;
+    private final CurrentUserAccessService accessService;
 
-    public QuestionUploadRestController(QuestionService questionService) {
+    public QuestionUploadRestController(QuestionService questionService, CurrentUserAccessService accessService) {
         this.questionService = questionService;
+        this.accessService = accessService;
     }
 
     @GetMapping
     public List<ApiResponses.QuestionResponseDto> questions(@RequestParam(required = false) Integer testId,
-                                                            @RequestParam(required = false) Integer topicId) {
+                                                            @RequestParam(required = false) Integer topicId,
+                                                            Authentication authentication) {
+        if (!accessService.isAdmin(authentication)) {
+            if (topicId != null) {
+                accessService.requireTopicOwner(authentication, topicId);
+            } else if (testId != null) {
+                accessService.requireTestOwner(authentication, testId);
+            } else {
+                throw new AccessDeniedException("Teacher question queries require an owned topicId or testId.");
+            }
+        }
         return ApiResponses.list(questionService.findAll(testId, topicId), ApiResponses::question);
     }
 
     @GetMapping("/{questionId}")
-    public ApiResponses.QuestionResponseDto one(@PathVariable Long questionId) {
+    public ApiResponses.QuestionResponseDto one(@PathVariable Long questionId, Authentication authentication) {
+        accessService.requireQuestionOwner(authentication, questionId);
         return ApiResponses.question(questionService.get(questionId));
     }
 
     @GetMapping("/{questionId}/options")
-    public List<ApiResponses.QuestionOptionResponse> options(@PathVariable Long questionId) {
+    public List<ApiResponses.QuestionOptionResponse> options(@PathVariable Long questionId, Authentication authentication) {
+        accessService.requireQuestionOwner(authentication, questionId);
         return ApiResponses.list(questionService.findOptions(questionId), ApiResponses::questionOption);
     }
 
@@ -45,7 +61,9 @@ public class QuestionUploadRestController {
     public QuestionImportResponse importDocx(@RequestParam(required = false) Integer testId,
                                              @RequestParam(required = false) Integer courseLectureId,
                                              @RequestParam(required = false) Integer topicId,
-                                             @RequestParam("file") MultipartFile file) {
+                                             @RequestParam("file") MultipartFile file,
+                                             Authentication authentication) {
+        accessService.requireQuestionContextOwner(authentication, topicId, courseLectureId, testId);
         QuestionService.QuestionImportResult result = questionService.importDocx(testId, courseLectureId, topicId, file);
         return new QuestionImportResponse(
                 result.questions().size(),
@@ -55,7 +73,11 @@ public class QuestionUploadRestController {
     }
 
     @PostMapping
-    public ApiResponses.QuestionResponseDto create(@Valid @RequestBody QuestionRequest request) {
+    public ApiResponses.QuestionResponseDto create(@Valid @RequestBody QuestionRequest request,
+                                                   Authentication authentication) {
+        accessService.requireQuestionContextOwner(
+                authentication, request.topicId(), request.courseLectureId(), request.testId()
+        );
         return ApiResponses.question(questionService.create(
                 request.testId(),
                 request.courseLectureId(),
@@ -71,7 +93,17 @@ public class QuestionUploadRestController {
 
     @PutMapping("/{questionId}")
     public ApiResponses.QuestionResponseDto update(@PathVariable Long questionId,
-                                                   @Valid @RequestBody QuestionUpdateRequest request) {
+                                                   @Valid @RequestBody QuestionUpdateRequest request,
+                                                   Authentication authentication) {
+        accessService.requireQuestionOwner(authentication, questionId);
+        if (request.topicId() != null || request.courseLectureId() != null) {
+            accessService.requireQuestionContextOwner(
+                    authentication, request.topicId(), request.courseLectureId(), null
+            );
+        } else if (!accessService.isAdmin(authentication)
+                && questionService.get(questionId).getTestId() == null) {
+            throw new AccessDeniedException("Teacher question cannot be detached from its owned topic or lecture.");
+        }
         return ApiResponses.question(questionService.update(
                 questionId,
                 request.courseLectureId(),
@@ -87,22 +119,32 @@ public class QuestionUploadRestController {
     }
 
     @GetMapping("/options/{optionId}")
-    public ApiResponses.QuestionOptionResponse option(@PathVariable Long optionId) {
+    public ApiResponses.QuestionOptionResponse option(@PathVariable Long optionId, Authentication authentication) {
+        accessService.requireOptionOwner(authentication, optionId);
         return ApiResponses.questionOption(questionService.getOption(optionId));
     }
 
     @PostMapping("/{questionId}/options")
-    public ApiResponses.QuestionOptionResponse addOption(@PathVariable Long questionId, @Valid @RequestBody OptionRequest request) {
+    public ApiResponses.QuestionOptionResponse addOption(@PathVariable Long questionId,
+                                                         @Valid @RequestBody OptionRequest request,
+                                                         Authentication authentication) {
+        accessService.requireQuestionOwner(authentication, questionId);
         return ApiResponses.questionOption(questionService.addOption(questionId, request.text(), request.ordinal(), request.correct()));
     }
 
     @PutMapping("/options/{optionId}")
-    public ApiResponses.QuestionOptionResponse updateOption(@PathVariable Long optionId, @Valid @RequestBody OptionRequest request) {
+    public ApiResponses.QuestionOptionResponse updateOption(@PathVariable Long optionId,
+                                                            @Valid @RequestBody OptionRequest request,
+                                                            Authentication authentication) {
+        accessService.requireOptionOwner(authentication, optionId);
         return ApiResponses.questionOption(questionService.updateOption(optionId, request.text(), request.ordinal(), request.correct()));
     }
 
     @PutMapping("/{questionId}/active")
-    public ApiResponses.QuestionResponseDto setActive(@PathVariable Long questionId, @Valid @RequestBody QuestionActiveRequest request) {
+    public ApiResponses.QuestionResponseDto setActive(@PathVariable Long questionId,
+                                                      @Valid @RequestBody QuestionActiveRequest request,
+                                                      Authentication authentication) {
+        accessService.requireQuestionOwner(authentication, questionId);
         return ApiResponses.question(questionService.setActive(questionId, request.active()));
     }
 

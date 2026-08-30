@@ -2,11 +2,13 @@ package org.santayn.testing.web.advice;
 
 import jakarta.validation.ConstraintViolationException;
 import org.santayn.testing.service.AuthConflictException;
+import org.santayn.testing.service.ResourceNotFoundException;
 import org.santayn.testing.web.dto.common.ErrorResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -62,6 +64,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
         String trace = UUID.randomUUID().toString();
+        if (ex.getMessage() != null
+                && ex.getMessage().toLowerCase(java.util.Locale.ROOT).contains("not found")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ErrorResponse.of("not_found", ex.getMessage(), trace));
+        }
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of("bad_request", ex.getMessage(), trace));
     }
@@ -71,6 +78,20 @@ public class ApiExceptionHandler {
         String trace = UUID.randomUUID().toString();
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorResponse.of("unauthorized", ex.getMessage(), trace));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(AccessDeniedException ex) {
+        String trace = UUID.randomUUID().toString();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of("forbidden", "Not enough permissions.", trace));
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
+        String trace = UUID.randomUUID().toString();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("not_found", ex.getMessage(), trace));
     }
 
     @ExceptionHandler(AuthConflictException.class)

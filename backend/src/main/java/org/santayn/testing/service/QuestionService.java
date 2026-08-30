@@ -35,6 +35,9 @@ public class QuestionService {
 
     @Transactional(readOnly = true)
     public List<Question> findAll(Integer testId, Integer topicId) {
+        if (testId != null && topicId != null) {
+            throw new IllegalArgumentException("Only one question filter may be supplied.");
+        }
         if (topicId != null) {
             return questionRepository.findByTopicIdAndTestIdIsNullOrderByOrdinalAsc(topicId);
         }
@@ -106,6 +109,9 @@ public class QuestionService {
                            List<QuestionTypeSupport.MatchingPair> matchingPairs,
                            boolean active) {
         Question question = get(questionId);
+        if (question.getTestId() != null && topicId != null) {
+            throw new IllegalArgumentException("Test question cannot be moved into a topic question bank.");
+        }
         QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
         requireQuestionType(type);
         BigDecimal normalizedPoints = points == null ? BigDecimal.ONE : points;
@@ -242,6 +248,9 @@ public class QuestionService {
     }
 
     private QuestionTarget resolveQuestionTarget(Integer testId, Integer courseLectureId, Integer topicId) {
+        if (testId != null && topicId != null) {
+            throw new IllegalArgumentException("Question cannot belong to a test and topic bank at the same time.");
+        }
         if (testId != null) {
             if (!testRepository.existsById(testId)) {
                 throw new IllegalArgumentException("Test not found: " + testId);
