@@ -24,7 +24,9 @@ import {
 
 const roles = ref([])
 const users = ref([])
+const people = ref([])
 const roleSelectionByUser = ref({})
+const personSelectionByUser = ref({})
 
 const roleFilter = ref('')
 const loading = ref(false)
@@ -47,7 +49,14 @@ function clearNotice() {
 }
 
 function personName(user) {
-  const person = user?.person ?? {}
+  const person =
+    people.value.find(
+      (item) =>
+        Number(item.id) ===
+        Number(user?.personId)
+    ) ??
+    user?.person ??
+    {}
 
   const value = [
     person.lastName ?? user?.lastName,
@@ -59,6 +68,41 @@ function personName(user) {
     .trim()
 
   return value || '—'
+}
+
+function personEmail(user) {
+  return (
+    people.value.find(
+      (item) =>
+        Number(item.id) ===
+        Number(user?.personId)
+    )?.email ??
+    user?.person?.email ??
+    '—'
+  )
+}
+
+function availablePeopleFor(user) {
+  const boundPersonIds = new Set(
+    users.value
+      .filter(
+        (item) =>
+          Number(item.id) !==
+          Number(user.id)
+      )
+      .map(
+        (item) =>
+          Number(item.personId)
+      )
+      .filter(Number.isFinite)
+  )
+
+  return people.value.filter(
+    (person) =>
+      !boundPersonIds.has(
+        Number(person.id)
+      )
+  )
 }
 
 function userRoleIds(user) {
@@ -120,6 +164,12 @@ const userColumns = [
   {
     key: 'email',
     label: 'Email',
+    value: personEmail,
+    sortValue: personEmail,
+  },
+  {
+    key: 'personBinding',
+    label: 'Привязка профиля',
   },
   {
     key: 'roles',
@@ -152,9 +202,11 @@ async function loadData() {
     const [
       rolesResponse,
       usersResponse,
+      peopleResponse,
     ] = await Promise.all([
       rolesApi.getAll(),
       usersApi.getAll(),
+      usersApi.getPeople(),
     ])
 
     roles.value = listFromResponse(
@@ -177,11 +229,31 @@ async function loadData() {
         )
     )
 
+    people.value = listFromResponse(
+      peopleResponse
+    ).sort(
+      (a, b) =>
+        personName(a).localeCompare(
+          personName(b),
+          'ru'
+        )
+    )
+
     roleSelectionByUser.value =
       Object.fromEntries(
         users.value.map((user) => [
           user.id,
           userRoleIds(user),
+        ])
+      )
+
+    personSelectionByUser.value =
+      Object.fromEntries(
+        users.value.map((user) => [
+          user.id,
+          user.personId == null
+            ? ''
+            : String(user.personId),
         ])
       )
   } catch (error) {
@@ -244,6 +316,54 @@ async function applyRoles(user) {
       getApiErrorMessage(
         error,
         'Не удалось изменить роли'
+      )
+    )
+  } finally {
+    savingUserId.value = null
+  }
+}
+
+async function applyPersonBinding(
+  user,
+  event
+) {
+  const rawValue =
+    event.target.value
+
+  const personId =
+    rawValue === ''
+      ? null
+      : Number(rawValue)
+
+  savingUserId.value = user.id
+
+  try {
+    await usersApi.updatePersonBinding(
+      user.id,
+      personId
+    )
+
+    showNotice(
+      'success',
+      personId == null
+        ? `Профиль пользователя ${user.login} отвязан.`
+        : `Профиль пользователя ${user.login} обновлён.`
+    )
+
+    await loadData()
+  } catch (error) {
+    personSelectionByUser.value[
+      user.id
+    ] =
+      user.personId == null
+        ? ''
+        : String(user.personId)
+
+    showNotice(
+      'error',
+      getApiErrorMessage(
+        error,
+        'Не удалось изменить привязку профиля'
       )
     )
   } finally {
@@ -346,6 +466,39 @@ onMounted(loadData)
               @change="applyRoles(row)"
             />
           </div>
+        </template>
+
+        <template #cell-personBinding="{ row }">
+          <UiSelect
+            v-model="
+              personSelectionByUser[
+                row.id
+              ]
+            "
+            :disabled="
+              savingUserId === row.id
+            "
+            @change="
+              applyPersonBinding(
+                row,
+                $event
+              )
+            "
+          >
+            <option value="">
+              Без профиля
+            </option>
+
+            <option
+              v-for="person in availablePeopleFor(row)"
+              :key="person.id"
+              :value="String(person.id)"
+            >
+              {{ person.lastName }}
+              {{ person.firstName }}
+              (#{{ person.id }})
+            </option>
+          </UiSelect>
         </template>
       </AdminTable>
     </UiCard>

@@ -27,7 +27,6 @@ const authStore =
 
 const form = ref({
   login: '',
-  personId: '',
   password: '',
   confirmPassword: '',
 })
@@ -37,9 +36,6 @@ const localError = ref('')
 const canSubmit = computed(() => {
   return (
     form.value.login.trim() &&
-    Number(
-      form.value.personId
-    ) > 0 &&
     form.value.password &&
     form.value.confirmPassword &&
     !authStore.loading
@@ -82,11 +78,6 @@ async function submit() {
 
       password:
         form.value.password,
-
-      personId:
-        Number(
-          form.value.personId
-        ),
     })
 
     const redirect =
@@ -110,8 +101,8 @@ async function submit() {
       <h1>Регистрация</h1>
 
       <p>
-        Создайте учётную запись
-        для существующей персоны.
+        Создайте учётную запись.
+        Привязку профиля выполняет администратор.
       </p>
     </header>
 
@@ -124,19 +115,6 @@ async function submit() {
         label="Логин"
         autocomplete="username"
         maxlength="100"
-        :disabled="authStore.loading"
-        required
-        size="lg"
-      />
-
-      <UiInput
-        v-model="form.personId"
-        label="Person ID"
-        hint="ID уже существующей персоны в системе."
-        type="number"
-        min="1"
-        step="1"
-        inputmode="numeric"
         :disabled="authStore.loading"
         required
         size="lg"

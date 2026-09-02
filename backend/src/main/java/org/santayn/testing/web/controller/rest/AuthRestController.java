@@ -3,7 +3,6 @@ package org.santayn.testing.web.controller.rest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.UserRegisterService;
 import org.springframework.http.HttpStatus;
@@ -40,7 +39,6 @@ public class AuthRestController {
         return userRegisterService.register(
                 request.login(),
                 request.password(),
-                request.personId(),
                 request.lifetimeKind(),
                 httpRequest.getRemoteAddr(),
                 httpRequest.getHeader("User-Agent")
@@ -100,7 +98,6 @@ public class AuthRestController {
     public record RegisterRequest(
             @NotBlank @Size(max = 100) String login,
             @NotBlank @Size(min = 6, max = 200) String password,
-            @Positive Integer personId,
             Integer lifetimeKind
     ) {
     }

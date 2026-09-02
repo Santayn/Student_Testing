@@ -41,7 +41,6 @@ export const authApi = {
   register({
     login,
     password,
-    personId,
     lifetimeKind,
   }) {
     return authHttp.post(
@@ -49,8 +48,6 @@ export const authApi = {
       withOptionalLifetimeKind({
         login,
         password,
-        personId:
-          Number(personId),
         lifetimeKind,
       })
     )

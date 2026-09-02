@@ -3,6 +3,7 @@ package org.santayn.testing.web.controller.rest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.santayn.testing.service.UserRegisterService;
 import org.santayn.testing.service.UserService;
@@ -78,6 +79,13 @@ public class UserProfileRestController {
         return ApiResponses.user(userService.setActive(id, request.active()));
     }
 
+    @PutMapping("/{id}/person")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void setPersonBinding(@PathVariable Integer id,
+                                 @Valid @RequestBody UserPersonRequest request) {
+        userService.setPersonBinding(id, request.personId());
+    }
+
     public record PersonRequest(
             @NotBlank @Size(max = 100) String firstName,
             @NotBlank @Size(max = 100) String lastName,
@@ -88,5 +96,8 @@ public class UserProfileRestController {
     }
 
     public record UserActiveRequest(boolean active) {
+    }
+
+    public record UserPersonRequest(@Positive Integer personId) {
     }
 }

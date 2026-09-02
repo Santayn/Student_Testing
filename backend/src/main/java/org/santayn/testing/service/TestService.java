@@ -129,26 +129,26 @@ public class TestService {
 
     @Transactional
     public Test update(Integer testId, String title, String description, LocalTime duration, int attemptsAllowed, int questionCount) {
-        return update(testId, title, description, duration, attemptsAllowed, questionCount, null);
-    }
-
-    @Transactional
-    public Test update(Integer testId,
-                       String title,
-                       String description,
-                       LocalTime duration,
-                       int attemptsAllowed,
-                       int questionCount,
-                       List<SelectionRuleInput> selectionRules) {
         Test test = get(testId);
         test.setTitle(FacultyService.requireText(title, "Title"));
         test.setDescription(FacultyService.trimToNull(description));
         test.setDuration(duration);
         test.setAttemptsAllowed(Math.max(1, attemptsAllowed));
-        test.setQuestionCount(Math.max(1, questionCount));
-        if (selectionRules != null) {
-            replaceSelectionRules(test, selectionRules);
+        int normalizedQuestionCount = Math.max(1, questionCount);
+        List<TestQuestionSelectionRule> rules =
+                selectionRuleRepository.findByTestIdOrderByOrdinalAsc(testId);
+        if (!rules.isEmpty()) {
+            int rulesQuestionCount = rules.stream()
+                    .mapToInt(TestQuestionSelectionRule::getQuestionCount)
+                    .sum();
+            if (normalizedQuestionCount != rulesQuestionCount) {
+                throw new IllegalArgumentException(
+                        "QuestionCount must equal the total count from selection rules: "
+                                + rulesQuestionCount
+                );
+            }
         }
+        test.setQuestionCount(normalizedQuestionCount);
         return test;
     }
 

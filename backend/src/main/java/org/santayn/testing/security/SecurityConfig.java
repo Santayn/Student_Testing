@@ -172,6 +172,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_READ_AUTHORITIES)
                                 .requestMatchers(HttpMethod.POST, "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/person").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/roles").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/permissions").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/active").hasAnyAuthority(USER_WRITE_AUTHORITIES)

@@ -76,18 +76,16 @@ public class TestRestController {
 
     @PutMapping("/{id}")
     public ApiResponses.TestResponse update(@PathVariable Integer id,
-                                            @Valid @RequestBody TestRequest request,
+                                            @Valid @RequestBody TestUpdateRequest request,
                                             Authentication authentication) {
         accessService.requireTestOwner(authentication, id);
-        requireSelectionRuleOwners(request.selectionRules(), authentication);
         return ApiResponses.test(testService.update(
                 id,
                 request.title(),
                 request.description(),
                 request.duration(),
                 request.attemptsAllowed(),
-                request.questionCount(),
-                request.selectionRules() == null ? null : selectionRuleInputs(request.selectionRules())
+                request.questionCount()
         ));
     }
 
@@ -242,6 +240,15 @@ public class TestRestController {
             @Positive int attemptsAllowed,
             @Positive int questionCount,
             List<@Valid SelectionRuleRequest> selectionRules
+    ) {
+    }
+
+    public record TestUpdateRequest(
+            @NotBlank @Size(max = 200) String title,
+            @Size(max = 4000) String description,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime duration,
+            @Positive int attemptsAllowed,
+            @Positive int questionCount
     ) {
     }
 

@@ -4,7 +4,6 @@ import org.santayn.testing.models.role.Permission;
 import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.user.RefreshToken;
 import org.santayn.testing.models.user.User;
-import org.santayn.testing.repository.PersonRepository;
 import org.santayn.testing.repository.RefreshTokenRepository;
 import org.santayn.testing.repository.UserRepository;
 import org.santayn.testing.security.DotNetPasswordHasher;
@@ -37,20 +36,17 @@ public class UserRegisterService implements UserDetailsService {
     private static final int PASSWORD_MAX_LENGTH = 200;
 
     private final UserRepository userRepository;
-    private final PersonRepository personRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final DotNetPasswordHasher passwordHasher;
     private final JwtService jwtService;
     private final boolean publicRegistrationEnabled;
 
     public UserRegisterService(UserRepository userRepository,
-                               PersonRepository personRepository,
                                RefreshTokenRepository refreshTokenRepository,
                                DotNetPasswordHasher passwordHasher,
                                JwtService jwtService,
                                @Value("${app.registration.public-enabled:false}") boolean publicRegistrationEnabled) {
         this.userRepository = userRepository;
-        this.personRepository = personRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordHasher = passwordHasher;
         this.jwtService = jwtService;
@@ -81,7 +77,6 @@ public class UserRegisterService implements UserDetailsService {
     @Transactional
     public AuthTokens register(String login,
                                String password,
-                               Integer personId,
                                Integer lifetimeKind,
                                String ipAddress,
                                String userAgent) {
@@ -95,23 +90,13 @@ public class UserRegisterService implements UserDetailsService {
             throw new AuthConflictException("A user with this login already exists.");
         }
 
-        if (personId != null) {
-            if (personId <= 0) {
-                throw new IllegalArgumentException("PersonId must be greater than 0.");
-            }
-            if (!personRepository.existsById(personId)) {
-                throw new IllegalArgumentException("The specified person was not found.");
-            }
-            if (userRepository.existsByPersonId(personId)) {
-                throw new AuthConflictException("The specified person is already bound to another user.");
-            }
-        }
-
         User user = new User();
         user.setLogin(normalizedLogin);
         user.setPasswordHash(passwordHasher.hashPassword(password));
         user.setActive(true);
-        user.setPersonId(personId);
+        // Public callers cannot prove ownership of an existing Person record.
+        // An administrator can bind the account later through /users/{id}/person.
+        user.setPersonId(null);
 
         User saved = userRepository.save(user);
         return issueTokenPair(saved, jwtService.normalizeLifetimeKind(lifetimeKind), ipAddress, userAgent);

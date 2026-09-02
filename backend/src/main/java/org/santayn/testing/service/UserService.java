@@ -116,6 +116,30 @@ public class UserService {
         return user;
     }
 
+    @Transactional
+    public void setPersonBinding(Integer userId, Integer personId) {
+        User user = getUser(userId);
+
+        if (personId == null) {
+            user.setPersonId(null);
+            return;
+        }
+
+        if (!personRepository.existsById(personId)) {
+            throw new ResourceNotFoundException("Person not found: " + personId);
+        }
+
+        userRepository.findByPersonId(personId)
+                .filter(boundUser -> !Objects.equals(boundUser.getId(), userId))
+                .ifPresent(boundUser -> {
+                    throw new AuthConflictException(
+                            "The specified person is already bound to another user."
+                    );
+                });
+
+        user.setPersonId(personId);
+    }
+
     private static LocalDate normalizeDateOfBirth(LocalDate dateOfBirth) {
         LocalDate actual = dateOfBirth == null ? MIN_DATE_OF_BIRTH : dateOfBirth;
         if (actual.isBefore(MIN_DATE_OF_BIRTH)) {

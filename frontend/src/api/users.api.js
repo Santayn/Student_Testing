@@ -20,4 +20,13 @@ export const usersApi = {
   updateRoles(userId, roles) {
     return http.put(`/users/${userId}/roles`, roles)
   },
+
+  updatePersonBinding(userId, personId) {
+    return http.put(
+      `/users/${userId}/person`,
+      {
+        personId,
+      }
+    )
+  },
 }
