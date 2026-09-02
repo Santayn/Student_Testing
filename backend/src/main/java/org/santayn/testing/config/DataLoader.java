@@ -750,14 +750,15 @@ public class DataLoader implements CommandLineRunner {
             return testService.create(title, description, duration, attemptsAllowed, questionCount, selectionRules);
         }
 
+        testService.replaceSelectionRules(existing.getId(), selectionRules);
+
         return testService.update(
                 existing.getId(),
                 title,
                 description,
                 duration,
                 attemptsAllowed,
-                questionCount,
-                selectionRules
+                questionCount
         );
     }
 
