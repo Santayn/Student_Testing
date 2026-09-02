@@ -2,41 +2,41 @@
 
 Patch закрывает три задачи.
 
-## 1. Клиентская проверка доступности теста
+## 1. Серверная проверка доступности теста
 
-`LectureDetailsView.vue` больше не использует только `test.available`.
-
-Для STUDENT/ADMIN при доступном assignment выполняется:
+`LectureDetailsView.vue` использует данные публичного учебного API:
 
 ```text
-GET /tests/attempts
-  ?testAssignmentId=<assignmentId>
-  &personId=<current personId>
+GET /public/learning/lectures/{lectureId}/tests
 ```
 
-Далее:
+Backend возвращает для каждого теста:
 
 ```text
-attemptsUsed = attempts.length
-attemptsLeft = max(0, attemptsAllowed - attemptsUsed)
+attemptsRemaining
+attemptsAllowed
+canResume
+available
 ```
 
-Незавершённая attempt (`status == 1`) тоже считается использованной.
+Frontend только отображает рассчитанное сервером состояние:
+
+```text
+attemptsUsed = max(0, attemptsAllowed - attemptsRemaining)
+attemptsLeft = attemptsRemaining
+```
 
 Состояния:
 
 ```text
-есть status=1        -> Продолжить тест
-нет status=1 + left>0 -> Пройти тест
+canResume=true        -> Продолжить тест
+canResume=false + left>0 -> Пройти тест
 left=0                -> кнопка disabled
 backend available=false -> кнопка disabled
-ошибка проверки attempts -> fail closed, кнопка disabled
 ```
 
-`testAttemptsApi` намеренно НЕ содержит небезопасного `list()` без фильтров.
-Он требует одновременно assignmentId и personId.
-
-Это только client-side защита/UX. Backend остаётся источником истины.
+Frontend не обращается к административному `/tests/attempts` и не передает
+`personId` для подсчета попыток. Backend остается единственным источником истины.
 
 ## 2. Лучшая попытка вместо student aggregation
 
@@ -89,7 +89,7 @@ backend отдаёт `testId` приоритет над `subjectId` и сам н
 ```text
 src/api/index.js
 src/api/results.api.js
-src/api/testAttempts.api.js
+src/api/learning.api.js
 src/views/lectures/LectureDetailsView.vue
 src/views/results/ResultsView.vue
 src/components/results/ResultAttemptCard.vue

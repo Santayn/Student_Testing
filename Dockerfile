@@ -27,6 +27,6 @@ ENV JAVA_OPTS=""
 USER studenttest
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
-  CMD curl --fail --silent http://127.0.0.1:8080/api/v1/status >/dev/null || exit 1
+  CMD curl --fail --silent http://127.0.0.1:8080/api/v1/status/readiness >/dev/null || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

@@ -1,5 +1,5 @@
 param(
-    [string]$BaseUrl = 'http://localhost:8081'
+    [string]$BaseUrl = 'http://localhost:8080'
 )
 
 Set-StrictMode -Version Latest
@@ -393,7 +393,8 @@ try {
         Assert-True ($loginPage.StatusCode -eq 200) 'login.html is not available.'
         Assert-True ($swaggerPage.StatusCode -eq 200) 'swagger-ui.html is not available.'
 
-        $null = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/status' -Path '/api/v1/status' -ExpectedStatus @(401, 403)
+        $null = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/status' -Path '/api/v1/status' -ExpectedStatus @(200)
+        $null = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/status/readiness' -Path '/api/v1/status/readiness' -ExpectedStatus @(200)
         $null = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/users/me' -Path '/api/v1/users/me' -ExpectedStatus @(401, 403)
         $null = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/auth/login' -Path '/api/v1/auth/login' -Body @{
             login    = 'teacher'
@@ -1117,7 +1118,12 @@ try {
             status = 2
         } -ExpectedStatus @(200)
 
-        $directAttempt = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/assignments/{assignmentId}/attempts' -Path ('/api/v1/tests/assignments/{0}/attempts' -f $state.testAssignmentId) -Token $state.student.accessToken -Body @{
+        $null = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/assignments/{assignmentId}/attempts' -Path ('/api/v1/tests/assignments/{0}/attempts' -f $state.testAssignmentId) -Token $state.student.accessToken -Body @{
+            personId                      = $state.student.personId
+            teachingAssignmentEnrollmentId = $state.enrollmentId
+        } -ExpectedStatus @(403)
+
+        $directAttempt = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/assignments/{assignmentId}/attempts' -Path ('/api/v1/tests/assignments/{0}/attempts' -f $state.testAssignmentId) -Token $state.admin.accessToken -Body @{
             personId                      = $state.student.personId
             teachingAssignmentEnrollmentId = $state.enrollmentId
         } -ExpectedStatus @(200, 201)
@@ -1132,7 +1138,13 @@ try {
         $responsesBefore = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/responses' -Path ('/api/v1/tests/attempts/{0}/responses' -f $state.directAttemptId) -Token $state.admin.accessToken -ExpectedStatus @(200)
         Assert-True ((As-Array $responsesBefore).Count -eq 0) 'Direct attempt unexpectedly already had responses.'
 
-        $submittedResponse = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/responses' -Path ('/api/v1/tests/attempts/{0}/responses' -f $state.directAttemptId) -Token $state.student.accessToken -Body @{
+        $null = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/responses' -Path ('/api/v1/tests/attempts/{0}/responses' -f $state.directAttemptId) -Token $state.student.accessToken -Body @{
+            testQuestionId    = $state.questionId
+            answerText        = $null
+            selectedOptionIds = @($state.correctOptionId)
+        } -ExpectedStatus @(403)
+
+        $submittedResponse = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/responses' -Path ('/api/v1/tests/attempts/{0}/responses' -f $state.directAttemptId) -Token $state.admin.accessToken -Body @{
             testQuestionId    = $state.questionId
             answerText        = $null
             selectedOptionIds = @($state.correctOptionId)
@@ -1147,28 +1159,33 @@ try {
         $selectedOptions = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/tests/responses/{responseId}/selected-options' -Path ('/api/v1/tests/responses/{0}/selected-options' -f $submittedResponse.id) -Token $state.admin.accessToken -ExpectedStatus @(200)
         Assert-True ((As-Array $selectedOptions).Count -eq 1) 'Selected option list does not contain the submitted option.'
 
-        $completedAttempt = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/complete' -Path ('/api/v1/tests/attempts/{0}/complete' -f $state.directAttemptId) -Token $state.student.accessToken -Body @{
+        $null = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/complete' -Path ('/api/v1/tests/attempts/{0}/complete' -f $state.directAttemptId) -Token $state.student.accessToken -Body @{
+            status = 2
+        } -ExpectedStatus @(403)
+
+        $completedAttempt = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/tests/attempts/{attemptId}/complete' -Path ('/api/v1/tests/attempts/{0}/complete' -f $state.directAttemptId) -Token $state.admin.accessToken -Body @{
             status = 2
         } -ExpectedStatus @(200)
         Assert-True ($completedAttempt.status -eq 2) 'Attempt completion did not set completed status.'
     }
 
     Run-Step 'Public learning flows and teacher result views' {
-        $publicSubject = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/subjects/{subjectId}' -Path ('/api/v1/public/learning/subjects/{0}' -f $state.subjectId) -ExpectedStatus @(200)
+        $publicSubject = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/subjects/{subjectId}' -Path ('/api/v1/public/learning/subjects/{0}' -f $state.subjectId) -Token $state.student.accessToken -ExpectedStatus @(200)
         Assert-True ($publicSubject.id -eq $state.subjectId) 'Public subject lookup returned wrong entity.'
 
-        $publicLectures = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/subjects/{subjectId}/lectures' -Path ('/api/v1/public/learning/subjects/{0}/lectures' -f $state.subjectId) -ExpectedStatus @(200)
+        $publicLectures = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/subjects/{subjectId}/lectures' -Path ('/api/v1/public/learning/subjects/{0}/lectures' -f $state.subjectId) -Token $state.student.accessToken -ExpectedStatus @(200)
         Assert-True ($null -ne (Find-ItemByProperty -Items $publicLectures -PropertyName 'id' -ExpectedValue $state.lectureId)) 'Public lecture list does not contain the smoke lecture.'
 
-        $publicLecture = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/lectures/{lectureId}' -Path ('/api/v1/public/learning/lectures/{0}' -f $state.lectureId) -ExpectedStatus @(200)
+        $publicLecture = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/lectures/{lectureId}' -Path ('/api/v1/public/learning/lectures/{0}' -f $state.lectureId) -Token $state.student.accessToken -ExpectedStatus @(200)
         Assert-True ($publicLecture.id -eq $state.lectureId) 'Public lecture lookup returned wrong entity.'
 
-        $publicTestsForLecture = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/lectures/{lectureId}/tests' -Path ('/api/v1/public/learning/lectures/{0}/tests' -f $state.lectureId) -ExpectedStatus @(200)
+        $publicTestsForLecture = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/lectures/{lectureId}/tests' -Path ('/api/v1/public/learning/lectures/{0}/tests' -f $state.lectureId) -Token $state.student.accessToken -ExpectedStatus @(200)
         $publicTestRow = Find-ItemByProperty -Items $publicTestsForLecture -PropertyName 'assignmentId' -ExpectedValue $state.testAssignmentId
         Assert-True ($null -ne $publicTestRow) 'Public lecture tests do not contain the active test assignment.'
 
-        $publicTest = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/tests/{testId}' -Path ('/api/v1/public/learning/tests/{0}' -f $state.testId) -ExpectedStatus @(200)
-        Assert-True ((As-Array $publicTest.questions).Count -ge 1) 'Public test lookup returned no questions.'
+        $publicTest = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/public/learning/tests/{testId}' -Path ('/api/v1/public/learning/tests/{0}' -f $state.testId) -Token $state.student.accessToken -ExpectedStatus @(200)
+        Assert-True ($publicTest.assignmentId -eq $state.testAssignmentId) 'Public test metadata returned wrong assignment.'
+        Assert-True ($publicTest.attemptsRemaining -ge 1) 'Public test metadata returned no remaining attempts.'
 
         $startedPublicAttempt = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/public/learning/test-assignments/{assignmentId}/attempts/start' -Path ('/api/v1/public/learning/test-assignments/{0}/attempts/start' -f $state.testAssignmentId) -Token $state.student.accessToken -ExpectedStatus @(200, 201)
         $state.publicAttemptId = $startedPublicAttempt.attemptId
@@ -1183,13 +1200,6 @@ try {
             selectedOptionIds = @(@($state.correctOptionId))
         } -ExpectedStatus @(200, 201)
         Assert-True ($publicAttemptSubmit.correctCount -ge 1) 'Submitting started public attempt did not mark the correct answer.'
-
-        $publicDirectSubmit = Invoke-Api -Method 'POST' -CanonicalPath '/api/v1/public/learning/tests/{testId}/submit' -Path ('/api/v1/public/learning/tests/{0}/submit' -f $state.testId) -Token $state.student.accessToken -Body @{
-            questionIds       = @($state.questionId)
-            answers           = @($null)
-            selectedOptionIds = @(@($state.correctOptionId))
-        } -ExpectedStatus @(200, 201)
-        Assert-True ($publicDirectSubmit.correctCount -ge 1) 'Direct public test submission did not mark the correct answer.'
 
         $teacherSubjects = Invoke-Api -Method 'GET' -CanonicalPath '/api/v1/results/teacher/subjects' -Path '/api/v1/results/teacher/subjects' -Token $state.teacher.accessToken -ExpectedStatus @(200)
         Assert-True ($null -ne (Find-ItemByProperty -Items $teacherSubjects -PropertyName 'id' -ExpectedValue $state.subjectId)) 'Teacher subjects do not contain the smoke subject.'

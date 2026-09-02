@@ -13,7 +13,6 @@ import {
 import {
   getApiErrorMessage,
   learningApi,
-  testAttemptsApi,
 } from '@/api'
 
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
@@ -311,32 +310,58 @@ function testStatusDescription(test) {
   return 'Тест сейчас недоступен.'
 }
 
-async function withClientAvailability(source) {
+function withClientAvailability(source) {
   if (!Array.isArray(source)) {
     return []
   }
 
-  const personId =
-    validPositiveId(
-      authStore.personId
-    )
-
-  return Promise.all(
-    source.map(async (test) => {
+  return source.map((test) => {
       const assignmentId =
         validPositiveId(
           test.assignmentId
         )
 
+      const attemptsAllowed =
+        Math.max(
+          0,
+          Number(
+            test.attemptsAllowed
+          ) || 0
+        )
+
+      const attemptsLeft =
+        Math.max(
+          0,
+          Number(
+            test.attemptsRemaining
+          ) || 0
+        )
+
+      const attemptsUsed =
+        Math.max(
+          0,
+          attemptsAllowed -
+            attemptsLeft
+        )
+
+      const canResume =
+        Boolean(
+          test.available &&
+          test.canResume
+        )
+
       const base = {
         ...test,
-        attempts: [],
-        attemptsChecked: false,
-        attemptsUsed: 0,
-        attemptsLeft: null,
-        inProgressAttempt: null,
-        canResume: false,
-        canStartNew: false,
+        attemptsChecked: true,
+        attemptsUsed,
+        attemptsLeft,
+        canResume,
+        canStartNew:
+          Boolean(
+            test.available &&
+            !canResume &&
+            attemptsLeft > 0
+          ),
         availabilityCheckFailed: false,
       }
 
@@ -345,92 +370,23 @@ async function withClientAvailability(source) {
        * USER вообще не должен попадать на lecture route.
        */
       if (!canTakeTests.value) {
-        return base
+        return {
+          ...base,
+          canResume: false,
+          canStartNew: false,
+        }
       }
 
       if (!test.available || !assignmentId) {
-        return base
-      }
-
-      /*
-       * Fail closed: если identity не определена, не разрешаем
-       * frontend начать новую attempt на основании одного available.
-       */
-      if (!personId) {
         return {
           ...base,
-          availabilityCheckFailed: true,
+          canResume: false,
+          canStartNew: false,
         }
       }
 
-      try {
-        const response =
-          await testAttemptsApi
-            .getForAssignmentAndPerson(
-              assignmentId,
-              personId
-            )
-
-        const attempts =
-          listFromResponse(response)
-
-        const attemptsUsed =
-          attempts.length
-
-        const attemptsAllowed =
-          Math.max(
-            0,
-            Number(
-              test.attemptsAllowed
-            ) || 0
-          )
-
-        const attemptsLeft =
-          Math.max(
-            0,
-            attemptsAllowed -
-              attemptsUsed
-          )
-
-        const inProgressAttempt =
-          attempts.find(
-            (attempt) =>
-              Number(attempt.status) === 1
-          ) ?? null
-
-        return {
-          ...base,
-          attempts,
-          attemptsChecked: true,
-          attemptsUsed,
-          attemptsLeft,
-          inProgressAttempt,
-
-          canResume:
-            Boolean(
-              test.available &&
-              inProgressAttempt
-            ),
-
-          canStartNew:
-            Boolean(
-              test.available &&
-              !inProgressAttempt &&
-              attemptsLeft > 0
-            ),
-        }
-      } catch {
-        /*
-         * Не откатываемся к test.available=true, иначе при ошибке
-         * проверки лимита UI снова разрешит потенциально лишний start.
-         */
-        return {
-          ...base,
-          availabilityCheckFailed: true,
-        }
-      }
+      return base
     })
-  )
 }
 
 function testRoute(test) {
@@ -618,7 +574,7 @@ async function loadLecture() {
       )
 
     tests.value =
-      await withClientAvailability(
+      withClientAvailability(
         listFromResponse(
           testsResponse
         )

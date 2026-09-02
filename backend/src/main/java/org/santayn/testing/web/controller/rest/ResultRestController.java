@@ -1,5 +1,6 @@
 package org.santayn.testing.web.controller.rest;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.santayn.testing.models.course.CourseTemplate;
 import org.santayn.testing.models.course.CourseVersion;
 import org.santayn.testing.models.group.Group;
@@ -864,7 +865,10 @@ public class ResultRestController {
                                         List<ResultItemResponse> results) {
     }
 
-    public record ResultItemResponse(String questionText, String givenAnswer, String correctAnswer, boolean correct) {
+    public record ResultItemResponse(String questionText,
+                                     String givenAnswer,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String correctAnswer,
+                                     boolean correct) {
     }
 
     private record ResultAttemptAggregate(Integer attemptId,

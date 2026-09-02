@@ -42,6 +42,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -178,7 +179,8 @@ public class PublicLearningRestController {
                             assignment.isEmpty()
                                     ? "Тест привязан к лекции, но сейчас недоступен студенту."
                                     : (available ? null : "Доступные попытки исчерпаны."),
-                            attemptsRemaining
+                            attemptsRemaining,
+                            canResume
                     )
             );
         }
@@ -219,29 +221,22 @@ public class PublicLearningRestController {
     }
 
     @GetMapping("/tests/{testId}")
-    @Transactional
-    public PublicTestAttemptLoadResponse test(@PathVariable Integer testId, Authentication authentication) {
+    @Transactional(readOnly = true)
+    public PublicTestResponse test(@PathVariable Integer testId, Authentication authentication) {
         StudentLearningContext context = studentLearningContext(authentication);
         TestAssignment assignment = activeAccessibleAssignment(context, testId);
         Test test = testRepository.findById(assignment.getTestId())
                 .orElseThrow(() -> new IllegalArgumentException("Test not found: " + assignment.getTestId()));
-        Integer enrollmentId = findEnrollmentIdForTestAssignment(context, assignment).orElse(null);
-        TestService.TestAttemptQuestionSet questionSet = testService.startOrResumeAttemptWithRandomQuestions(
+        int attemptsRemaining = testService.attemptsRemaining(assignment.getId(), context.personId());
+        boolean canResume = testService.hasInProgressAttempt(assignment.getId(), context.personId());
+        boolean available = attemptsRemaining > 0 || canResume;
+        return testResponse(
+                test,
                 assignment.getId(),
-                context.personId(),
-                enrollmentId
-        );
-        Integer actualAssignmentId = questionSet.attempt().getTestAssignmentId();
-        List<PublicQuestionResponse> questions = questionSet.questions()
-                .stream()
-                .map(this::questionResponse)
-                .toList();
-        return new PublicTestAttemptLoadResponse(
-                questionSet.attempt().getId(),
-                actualAssignmentId,
-                testResponse(test, actualAssignmentId, true, null,
-                        testService.attemptsRemaining(actualAssignmentId, context.personId())),
-                questions
+                available,
+                available ? null : "Доступные попытки исчерпаны.",
+                attemptsRemaining,
+                canResume
         );
     }
 
@@ -267,26 +262,9 @@ public class PublicLearningRestController {
                 questionSet.attempt().getId(),
                 actualAssignmentId,
                 testResponse(test, actualAssignmentId, true, null,
-                        testService.attemptsRemaining(actualAssignmentId, context.personId())),
+                        testService.attemptsRemaining(actualAssignmentId, context.personId()), true),
                 questions
         );
-    }
-
-    @PostMapping("/tests/{testId}/submit")
-    @Transactional
-    public PublicSubmitResponse submit(@PathVariable Integer testId,
-                                       @RequestBody PublicSubmitRequest request,
-                                       Authentication authentication) {
-        StudentLearningContext context = studentLearningContext(authentication);
-        TestAssignment assignment = activeAccessibleAssignment(context, testId);
-        Integer enrollmentId = findEnrollmentIdForTestAssignment(context, assignment).orElse(null);
-        TestService.TestAttemptQuestionSet questionSet = testService.startOrResumeAttemptWithRandomQuestions(
-                assignment.getId(),
-                context.personId(),
-                enrollmentId
-        );
-        List<Long> selectedQuestionIds = questionSet.questions().stream().map(Question::getId).toList();
-        return submitAttemptResponses(questionSet.attempt(), selectedQuestionIds, request);
     }
 
     @PostMapping("/attempts/{attemptId}/submit")
@@ -297,7 +275,7 @@ public class PublicLearningRestController {
         Integer personId = currentPersonId(authentication);
         TestAttempt attempt = testService.getAttempt(attemptId);
         if (!attempt.getPersonId().equals(personId)) {
-            throw new IllegalArgumentException("Test attempt does not belong to current user.");
+            throw new AccessDeniedException("Test attempt does not belong to current user.");
         }
         if (attempt.getStatus() != 1) {
             throw new IllegalArgumentException("Test attempt is not in progress: " + attemptId);
@@ -750,7 +728,8 @@ public class PublicLearningRestController {
                                             Integer assignmentId,
                                             boolean available,
                                             String statusMessage,
-                                            int attemptsRemaining) {
+                                            int attemptsRemaining,
+                                            boolean canResume) {
         return new PublicTestResponse(
                 test.getId(),
                 assignmentId,
@@ -761,12 +740,13 @@ public class PublicLearningRestController {
                 test.getQuestionCount(),
                 available,
                 statusMessage,
-                attemptsRemaining
+                attemptsRemaining,
+                canResume
         );
     }
 
     private PublicTestResponse testResponse(Test test, Integer assignmentId) {
-        return testResponse(test, assignmentId, true, null, test.getAttemptsAllowed());
+        return testResponse(test, assignmentId, true, null, test.getAttemptsAllowed(), false);
     }
 
     private PublicLectureMaterialResponse lectureMaterialResponse(LectureMaterial material) {
@@ -878,7 +858,8 @@ public class PublicLearningRestController {
                                      int questionCount,
                                      boolean available,
                                      String statusMessage,
-                                     int attemptsRemaining) {
+                                     int attemptsRemaining,
+                                     boolean canResume) {
     }
 
     public record PublicLectureMaterialResponse(Integer id,

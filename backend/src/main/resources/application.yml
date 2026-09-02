@@ -22,7 +22,7 @@ spring:
           physical-strategy: org.santayn.testing.config.QuotedIdentifierNamingStrategy
     show-sql: ${SPRING_JPA_SHOW_SQL:false}
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${SERVER_PORT:8080}
 app:
   data-loader:
     enabled: ${APP_DATA_LOADER_ENABLED:false}

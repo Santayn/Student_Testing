@@ -124,7 +124,8 @@ public class SecurityConfig {
                                         "/api/v1/auth/login",
                                         "/api/v1/auth/register",
                                         "/api/v1/auth/refresh",
-                                        "/api/v1/status"
+                                        "/api/v1/status",
+                                        "/api/v1/status/**"
                                 ).permitAll()
                                 .requestMatchers("/api/v1/public/learning/**").authenticated()
                                 .requestMatchers("/api/v1/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)

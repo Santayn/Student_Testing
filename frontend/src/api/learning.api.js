@@ -31,28 +31,12 @@ export const learningApi = {
     )
   },
 
-  getTest(testId) {
-    return http.get(
-      `/public/learning/tests/${testId}`
-    )
-  },
-
   startAttempt(
     assignmentId,
     data = undefined
   ) {
     return http.post(
       `/public/learning/test-assignments/${assignmentId}/attempts/start`,
-      data
-    )
-  },
-
-  submitTest(
-    testId,
-    data
-  ) {
-    return http.post(
-      `/public/learning/tests/${testId}/submit`,
       data
     )
   },

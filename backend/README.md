@@ -13,7 +13,7 @@ Spring Boot REST backend приложения Student Testing.
 Legacy aliases `/api/**` удалены. Swagger после запуска backend:
 
 ```text
-http://localhost:8081/swagger-ui.html
+http://localhost:8080/swagger-ui.html
 ```
 
 ## Локальный запуск без Docker

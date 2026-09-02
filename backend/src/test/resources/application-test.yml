@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: "jdbc:h2:mem:student_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS CITEXT AS VARCHAR"
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+    hikari:
+      connection-init-sql: SELECT 1
+  sql:
+    init:
+      mode: never
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    defer-datasource-initialization: false
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+app:
+  data-loader:
+    enabled: false
+  registration:
+    public-enabled: false
+  security:
+    jwt:
+      secret: test-secret-that-is-at-least-32-characters-long
+  storage:
+    lecture-materials-dir: target/test-lecture-materials

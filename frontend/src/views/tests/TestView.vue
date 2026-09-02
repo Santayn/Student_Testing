@@ -426,12 +426,9 @@ function buildSubmission() {
 }
 
 async function loadTest() {
-  if (
-    !testId.value &&
-    !assignmentId.value
-  ) {
+  if (!assignmentId.value) {
     error.value =
-      'Не указан testId или assignmentId.'
+      'Не указано назначение теста. Откройте тест со страницы лекции.'
 
     return
   }
@@ -443,15 +440,10 @@ async function loadTest() {
 
   try {
     const response =
-      assignmentId.value
-        ? await learningApi
-            .startAttempt(
-              assignmentId.value
-            )
-        : await learningApi
-            .getTest(
-              testId.value
-            )
+      await learningApi
+        .startAttempt(
+          assignmentId.value
+        )
 
     const data =
       response.data ?? {}
@@ -490,7 +482,8 @@ async function submitTest() {
   if (
     submitting.value ||
     submitted.value ||
-    !questions.value.length
+    !questions.value.length ||
+    !attemptId.value
   ) {
     return
   }
@@ -503,17 +496,11 @@ async function submitTest() {
       buildSubmission()
 
     const response =
-      attemptId.value
-        ? await learningApi
-            .submitAttempt(
-              attemptId.value,
-              payload
-            )
-        : await learningApi
-            .submitTest(
-              testId.value,
-              payload
-            )
+      await learningApi
+        .submitAttempt(
+          attemptId.value,
+          payload
+        )
 
     resultData.value =
       response.data ?? {}

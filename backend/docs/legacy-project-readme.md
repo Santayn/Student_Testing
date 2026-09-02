@@ -103,7 +103,7 @@ spring:
     username: postgres
     password: ${SPRING_DATASOURCE_PASSWORD}
 server:
-  port: 8081
+  port: 8080
 ```
 
 Если у вас другой пароль, порт или имя базы, измените `application.yml`.
@@ -176,13 +176,13 @@ cd ..
 По умолчанию приложение поднимается на:
 
 ```text
-http://localhost:8081
+http://localhost:8080
 ```
 
 Открыть страницу входа:
 
 ```text
-http://localhost:8081/login.html
+http://localhost:8080/login.html
 ```
 
 Запуск на другом порту:
@@ -214,9 +214,9 @@ docker compose up --build
 После запуска будут доступны:
 
 ```text
-http://localhost:8081
-http://localhost:8081/login.html
-http://localhost:8081/swagger-ui.html
+http://localhost:8080
+http://localhost:8080/login.html
+http://localhost:8080/swagger-ui.html
 ```
 
 Остановить стек:
@@ -357,19 +357,19 @@ src/main/resources/static/js/api.js
 После запуска приложения Swagger UI доступен по адресу:
 
 ```text
-http://localhost:8081/swagger-ui.html
+http://localhost:8080/swagger-ui.html
 ```
 
 OpenAPI JSON:
 
 ```text
-http://localhost:8081/v3/api-docs
+http://localhost:8080/v3/api-docs
 ```
 
 OpenAPI YAML:
 
 ```text
-http://localhost:8081/v3/api-docs.yaml
+http://localhost:8080/v3/api-docs.yaml
 ```
 
 Документация ограничена REST-контроллерами из пакета:
