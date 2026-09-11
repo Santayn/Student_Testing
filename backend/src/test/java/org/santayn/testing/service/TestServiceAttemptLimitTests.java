@@ -54,6 +54,7 @@ class TestServiceAttemptLimitTests {
     @Mock private LectureRepository lectureRepository;
     @Mock private TestQuestionSelectionRuleRepository selectionRuleRepository;
     @Mock private TopicRepository topicRepository;
+    @Mock private TextAnswerEvaluationService textAnswerEvaluationService;
 
     @InjectMocks
     private TestService testService;

@@ -65,6 +65,7 @@ public class TestService {
     private final LectureRepository lectureRepository;
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
+    private final TextAnswerEvaluationService textAnswerEvaluationService;
 
     @Transactional(readOnly = true)
     public List<Test> findAll() {
@@ -473,7 +474,7 @@ public class TestService {
             return;
         }
 
-        boolean automaticallyCorrect = isTextAnswerCorrect(question.getCorrectAnswer(), response.getAnswerText());
+        boolean automaticallyCorrect = isTextAnswerCorrect(question, response.getAnswerText());
         response.setCorrect(automaticallyCorrect);
         response.setAwardedPoints(automaticallyCorrect ? question.getPoints() : BigDecimal.ZERO);
     }
@@ -544,8 +545,8 @@ public class TestService {
         return true;
     }
 
-    private boolean isTextAnswerCorrect(String expectedRaw, String actualRaw) {
-        return TextAnswerEvaluator.isCorrect(expectedRaw, actualRaw);
+    private boolean isTextAnswerCorrect(Question question, String actualRaw) {
+        return textAnswerEvaluationService.isCorrect(question.getQuestion(), question.getCorrectAnswer(), actualRaw);
     }
 
     private BigDecimal calculateScore(Integer testAttemptId) {

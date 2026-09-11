@@ -29,6 +29,7 @@ public final class TextAnswerEvaluator {
     private static final LevenshteinDistance LEVENSHTEIN = LevenshteinDistance.getDefaultInstance();
     private static final Pattern NON_LETTER_OR_DIGIT = Pattern.compile("[^\\p{L}\\p{N}]+");
     private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
+    private static final Set<String> NEGATION_WORDS = Set.of("не", "нет", "без", "not", "no", "never");
 
     private static final Set<String> STOP_WORDS = Set.of(
             "а", "без", "более", "бы", "был", "была", "были", "было", "быть", "в", "вам", "вас",
@@ -77,6 +78,10 @@ public final class TextAnswerEvaluator {
             return false;
         }
 
+        if (hasNegationMismatch(expectedNormalized, actualNormalized)) {
+            return false;
+        }
+
         if (new HashSet<>(expectedTokens).equals(new HashSet<>(actualTokens))) {
             return true;
         }
@@ -94,6 +99,10 @@ public final class TextAnswerEvaluator {
         }
 
         if (expectedCoverage >= 0.85 && actualCoverage >= 0.65) {
+            return true;
+        }
+
+        if (expectedCoverage >= 0.92 && actualTokens.size() <= expectedTokens.size() * 3 + 2) {
             return true;
         }
 
@@ -144,6 +153,23 @@ public final class TextAnswerEvaluator {
             tokens.add(stemToken(token));
         }
         return List.copyOf(tokens);
+    }
+
+    private static boolean hasNegationMismatch(String expectedNormalized, String actualNormalized) {
+        return containsNegation(expectedNormalized) != containsNegation(actualNormalized);
+    }
+
+    private static boolean containsNegation(String normalizedValue) {
+        String trimmed = FacultyService.trimToNull(normalizedValue);
+        if (trimmed == null) {
+            return false;
+        }
+        for (String rawToken : trimmed.split(" ")) {
+            if (NEGATION_WORDS.contains(rawToken)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String stemToken(String token) {
@@ -201,7 +227,9 @@ public final class TextAnswerEvaluator {
         if (expectedToken.length() < 4 || actualToken.length() < 4) {
             return false;
         }
-        return normalizedLevenshteinSimilarity(expectedToken, actualToken) >= 0.84;
+        int maxLength = Math.max(expectedToken.length(), actualToken.length());
+        double threshold = maxLength <= 6 ? 0.80 : (maxLength <= 8 ? 0.82 : 0.84);
+        return normalizedLevenshteinSimilarity(expectedToken, actualToken) >= threshold;
     }
 
     private static double jaccard(List<String> expectedTokens, List<String> actualTokens) {

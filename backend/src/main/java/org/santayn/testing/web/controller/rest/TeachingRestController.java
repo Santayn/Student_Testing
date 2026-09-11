@@ -1,5 +1,6 @@
 package org.santayn.testing.web.controller.rest;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -53,7 +54,8 @@ public class TeachingRestController {
     }
 
     @GetMapping("/subject-load-types")
-    public List<ApiResponses.SubjectMembershipLoadTypeResponse> subjectLoadTypes(
+    @Operation(operationId = "getSubjectLoadTypes")
+    public List<ApiResponses.SubjectMembershipLoadTypeResponse> getSubjectLoadTypes(
             @RequestParam(required = false) Integer subjectMembershipId,
             @RequestParam(required = false) Integer teachingLoadTypeId,
             Authentication authentication) {
