@@ -16,6 +16,8 @@ public interface LectureRepository extends JpaRepository<Lecture, Integer> {
 
     List<Lecture> findByCourseVersionIdOrderByOrdinalAsc(Integer courseVersionId);
 
+    List<Lecture> findByLinkedTestId(Integer linkedTestId);
+
     boolean existsBySubjectMembershipIdAndOrdinal(Integer subjectMembershipId, int ordinal);
 
     boolean existsBySubjectMembershipIdAndOrdinalAndIdNot(Integer subjectMembershipId, int ordinal, Integer id);

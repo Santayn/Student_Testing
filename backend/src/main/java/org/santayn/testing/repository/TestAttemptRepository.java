@@ -13,6 +13,10 @@ public interface TestAttemptRepository extends JpaRepository<TestAttempt, Intege
 
     List<TestAttempt> findByTestAssignmentId(Integer testAssignmentId);
 
+    List<TestAttempt> findByTestAssignmentIdIn(List<Integer> testAssignmentIds);
+
+    void deleteByTestAssignmentIdIn(List<Integer> testAssignmentIds);
+
     List<TestAttempt> findByTestAssignmentIdAndPersonId(Integer testAssignmentId, Integer personId);
 
     long countByTestAssignmentIdAndPersonId(Integer testAssignmentId, Integer personId);

@@ -9,5 +9,7 @@ public interface LectureTestLinkRepository extends JpaRepository<LectureTestLink
 
     List<LectureTestLink> findByCourseLectureIdOrderByIdAsc(Integer courseLectureId);
 
+    void deleteByTestId(Integer testId);
+
     boolean existsByCourseLectureIdAndTestId(Integer courseLectureId, Integer testId);
 }

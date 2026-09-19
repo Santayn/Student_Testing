@@ -14,6 +14,10 @@ const teacherItems = [
     route: { name: 'teacher-questions' },
   },
   {
+    label: 'Тесты',
+    route: { name: 'teacher-tests' },
+  },
+  {
     label: 'Создать тест',
     route: { name: 'teacher-test-create' },
   },

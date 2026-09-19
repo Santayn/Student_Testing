@@ -22,6 +22,18 @@ export const teacherRoutes = [
   },
 
   {
+    path: '/teacher/tests',
+    name: 'teacher-tests',
+
+    component: () =>
+      import(
+        '@/views/teacher/TestManagementView.vue'
+      ),
+
+    meta: teacherMeta,
+  },
+
+  {
     path: '/teacher/tests/create',
     name: 'teacher-test-create',
 

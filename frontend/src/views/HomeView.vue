@@ -91,9 +91,9 @@ const teacherActions = [
     route: { name: 'teacher-questions' },
   },
   {
-    title: 'Создать тест',
-    description: 'Собрать новый тест и назначить его.',
-    route: { name: 'teacher-test-create' },
+    title: 'Тесты',
+    description: 'Создание, изменение и удаление тестов.',
+    route: { name: 'teacher-tests' },
   },
   {
     title: 'Лекции',

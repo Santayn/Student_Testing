@@ -15,6 +15,7 @@ import org.santayn.testing.models.teacher.TeachingAssignmentEnrollment;
 import org.santayn.testing.repository.CourseVersionRepository;
 import org.santayn.testing.repository.GroupMembershipRepository;
 import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.LectureTestLinkRepository;
 import org.santayn.testing.repository.PersonRepository;
 import org.santayn.testing.repository.QuestionOptionRepository;
 import org.santayn.testing.repository.QuestionRepository;
@@ -64,6 +65,7 @@ public class TestService {
     private final TeachingAssignmentEnrollmentRepository teachingAssignmentEnrollmentRepository;
     private final CourseVersionRepository courseVersionRepository;
     private final LectureRepository lectureRepository;
+    private final LectureTestLinkRepository lectureTestLinkRepository;
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
     private final TextAnswerEvaluationService textAnswerEvaluationService;
@@ -156,7 +158,45 @@ public class TestService {
 
     @Transactional
     public void delete(Integer testId) {
-        testRepository.delete(get(testId));
+        Test test = get(testId);
+
+        List<TestAssignment> assignments = testAssignmentRepository.findByTestId(testId);
+        List<Integer> assignmentIds = assignments.stream()
+                .map(TestAssignment::getId)
+                .toList();
+        if (!assignmentIds.isEmpty()) {
+            List<TestAttempt> attempts = testAttemptRepository.findByTestAssignmentIdIn(assignmentIds);
+            List<Integer> attemptIds = attempts.stream()
+                    .map(TestAttempt::getId)
+                    .toList();
+            if (!attemptIds.isEmpty()) {
+                List<QuestionResponse> responses = questionResponseRepository.findByTestAttemptIdIn(attemptIds);
+                List<Long> responseIds = responses.stream()
+                        .map(QuestionResponse::getId)
+                        .toList();
+                if (!responseIds.isEmpty()) {
+                    selectedOptionRepository.deleteByQuestionResponseIdIn(responseIds);
+                    questionResponseRepository.deleteAllInBatch(responses);
+                }
+                testAttemptRepository.deleteAllInBatch(attempts);
+            }
+            testAssignmentRepository.deleteByTestId(testId);
+        }
+
+        List<Question> directQuestions = questionRepository.findByTestIdOrderByOrdinalAsc(testId);
+        List<Long> directQuestionIds = directQuestions.stream()
+                .map(Question::getId)
+                .toList();
+        if (!directQuestionIds.isEmpty()) {
+            questionOptionRepository.deleteByTestQuestionIdIn(directQuestionIds);
+            questionRepository.deleteByTestId(testId);
+        }
+
+        lectureRepository.findByLinkedTestId(testId)
+                .forEach(lecture -> lecture.setLinkedTestId(null));
+        lectureTestLinkRepository.deleteByTestId(testId);
+        selectionRuleRepository.deleteByTestId(testId);
+        testRepository.delete(test);
     }
 
     @Transactional(readOnly = true)
