@@ -33,4 +33,34 @@ class TextAnswerEvaluatorTests {
                 "Оперативная память не хранит данные во время работы программы"
         )).isFalse();
     }
+
+    @Test
+    void givesPartialCreditForIncompleteButRelevantAnswer() {
+        assertThat(TextAnswerEvaluator.score(
+                "Оперативная память хранит данные во время работы программы",
+                "память хранит данные"
+        )).isEqualTo(0.5);
+    }
+
+    @Test
+    void acceptsTranslatedCpuAnswer() {
+        assertThat(TextAnswerEvaluator.isCorrect(
+                "Central Processing Unit",
+                "центральный процессор для вычислений"
+        )).isTrue();
+    }
+
+    @Test
+    void exactAcceptedAnswerAllowsOnlyStrictAcceptedTextVariants() {
+        assertThat(TextAnswerEvaluator.isExactAcceptedAnswer(
+                "CPU|Central Processing Unit",
+                "central-processing unit"
+        )).isTrue();
+    }
+
+    @Test
+    void semanticallyCorrectAnswerCanStillDifferFromExactAcceptedAnswer() {
+        assertThat(TextAnswerEvaluator.isCorrect("CPU", "Central Processing Unit")).isTrue();
+        assertThat(TextAnswerEvaluator.isExactAcceptedAnswer("CPU", "Central Processing Unit")).isFalse();
+    }
 }

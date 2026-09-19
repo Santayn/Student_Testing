@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +49,28 @@ class LocalLlmTextAnswerEvaluationServiceTests {
             assertThat(service.isCorrect("What is RAM?", "оперативная память", "оперитивная паметь"))
                     .isTrue();
             assertThat(server.requestCount()).isZero();
+        }
+    }
+
+    @Test
+    void returnsPartialCreditApprovedByLocalLlm() throws Exception {
+        try (LoopbackServer server = LoopbackServer.responding("{\"response\":\"partial\"}")) {
+            TextAnswerEvaluationService service = new LocalLlmTextAnswerEvaluationService(
+                    new ObjectMapper(),
+                    server.endpoint(),
+                    "test-model",
+                    3
+            );
+
+            TextAnswerEvaluationResult result = service.evaluate(
+                    "What is SQL?",
+                    "SQL is a declarative query language for relational databases",
+                    "It is a language for database tables"
+            );
+
+            assertThat(result.correct()).isFalse();
+            assertThat(result.scoreRatio()).isEqualByComparingTo(new BigDecimal("0.5"));
+            assertThat(server.requestCount()).isEqualTo(1);
         }
     }
 

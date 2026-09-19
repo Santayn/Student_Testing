@@ -2,6 +2,8 @@ package org.santayn.testing.service;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TextAnswerEvaluationServiceTests {
@@ -21,5 +23,17 @@ class TextAnswerEvaluationServiceTests {
                 "SQL - декларативный язык запросов к реляционным базам данных",
                 "таблицы"
         )).isFalse();
+    }
+
+    @Test
+    void givesHalfCreditForIncompleteButRelevantAnswer() {
+        TextAnswerEvaluationResult result = service.evaluate(
+                "Что такое оперативная память?",
+                "Оперативная память хранит данные во время работы программы",
+                "память хранит данные"
+        );
+
+        assertThat(result.correct()).isFalse();
+        assertThat(result.scoreRatio()).isEqualByComparingTo(new BigDecimal("0.5"));
     }
 }

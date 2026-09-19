@@ -37,6 +37,7 @@ import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.santayn.testing.service.LectureTestLinkService;
 import org.santayn.testing.service.TestService;
+import org.santayn.testing.service.TextAnswerEvaluator;
 import org.santayn.testing.service.UserRegisterService;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
@@ -62,6 +63,8 @@ public class ResultRestController {
 
     private static final int SUBJECT_ROLE_TEACHER = 1;
     private static final int GROUP_ROLE_STUDENT = 1;
+    private static final String TEXT_ANSWER_REVIEW_NOTE =
+            "Необходима дополнительная проверка преподавателя: ответ зачтен по смыслу, но не совпадает с эталоном.";
 
     private final SubjectMembershipRepository subjectMembershipRepository;
     private final SubjectRepository subjectRepository;
@@ -363,7 +366,11 @@ public class ResultRestController {
                         question.getQuestion(),
                         givenAnswerDisplay(response, question),
                         teacherMode ? correctAnswerDisplay(question) : null,
-                        Boolean.TRUE.equals(response.getCorrect())
+                        Boolean.TRUE.equals(response.getCorrect()),
+                        question.getPoints(),
+                        response.getAwardedPoints(),
+                        gradingStatus(response, question),
+                        teacherMode ? gradingNote(response, question) : null
                 ));
             }
 
@@ -446,6 +453,36 @@ public class ResultRestController {
                 ? BigDecimal.ZERO
                 : BigDecimal.valueOf(right * 100.0 / total).setScale(2, RoundingMode.HALF_UP);
         return new ResultStatsResponse(total, right, percent);
+    }
+
+    private String gradingStatus(QuestionResponse response, Question question) {
+        if (Boolean.TRUE.equals(response.getCorrect())) {
+            return "correct";
+        }
+        if (isPartiallyCreditedTextAnswer(response, question)) {
+            return "partial";
+        }
+        return "incorrect";
+    }
+
+    private String gradingNote(QuestionResponse response, Question question) {
+        if (!requiresTextAnswerTeacherReview(response, question)) {
+            return null;
+        }
+        return TEXT_ANSWER_REVIEW_NOTE;
+    }
+
+    private boolean requiresTextAnswerTeacherReview(QuestionResponse response, Question question) {
+        return QuestionTypeSupport.isText(question.getType())
+                && Boolean.TRUE.equals(response.getCorrect())
+                && !TextAnswerEvaluator.isExactAcceptedAnswer(question.getCorrectAnswer(), response.getAnswerText());
+    }
+
+    private boolean isPartiallyCreditedTextAnswer(QuestionResponse response, Question question) {
+        return QuestionTypeSupport.isText(question.getType())
+                && !Boolean.TRUE.equals(response.getCorrect())
+                && response.getAwardedPoints() != null
+                && response.getAwardedPoints().compareTo(BigDecimal.ZERO) > 0;
     }
 
     private Set<Integer> personIdsForFilter(Integer groupId, Integer studentId, Integer teacherPersonId) {
@@ -868,7 +905,11 @@ public class ResultRestController {
     public record ResultItemResponse(String questionText,
                                      String givenAnswer,
                                      @JsonInclude(JsonInclude.Include.NON_NULL) String correctAnswer,
-                                     boolean correct) {
+                                     boolean correct,
+                                     BigDecimal questionPoints,
+                                     BigDecimal awardedPoints,
+                                     String gradingStatus,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String gradingNote) {
     }
 
     private record ResultAttemptAggregate(Integer attemptId,

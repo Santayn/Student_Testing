@@ -6,7 +6,13 @@ import org.springframework.stereotype.Service;
 public class DefaultTextAnswerEvaluationService implements TextAnswerEvaluationService {
 
     @Override
-    public boolean isCorrect(String questionText, String expectedRaw, String actualRaw) {
-        return TextAnswerEvaluator.isCorrect(expectedRaw, actualRaw);
+    public TextAnswerEvaluationResult evaluate(String questionText, String expectedRaw, String actualRaw) {
+        if (TextAnswerEvaluator.isCorrect(expectedRaw, actualRaw)) {
+            return TextAnswerEvaluationResult.CORRECT;
+        }
+        if (TextAnswerEvaluator.isPartiallyCorrect(expectedRaw, actualRaw)) {
+            return TextAnswerEvaluationResult.PARTIALLY_CORRECT;
+        }
+        return TextAnswerEvaluationResult.INCORRECT;
     }
 }

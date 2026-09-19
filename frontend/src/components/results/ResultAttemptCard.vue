@@ -49,14 +49,16 @@ const columns = [
   {
     key: 'status',
     label: 'Результат',
-    value: (row) =>
-      row.correct
-        ? 'Верно'
-        : 'Неверно',
-    sortValue: (row) =>
-      row.correct
+    value: statusText,
+    sortValue: (row) => {
+      if (row.correct) {
+        return 2
+      }
+
+      return isPartial(row)
         ? 1
-        : 0,
+        : 0
+    },
   },
 ]
 
@@ -152,6 +154,51 @@ function formatDateTime(value) {
     return value || ''
   }
 }
+
+function isPartial(row) {
+  return (
+    row?.gradingStatus === 'partial' ||
+    (
+      !row?.correct &&
+      Number(row?.awardedPoints) > 0
+    )
+  )
+}
+
+function statusText(row) {
+  if (row?.correct) {
+    return 'Верно'
+  }
+
+  return isPartial(row)
+    ? 'Частично зачтено'
+    : 'Неверно'
+}
+
+function statusClass(row) {
+  if (row?.correct) {
+    return 'result-attempt__status--success'
+  }
+
+  return isPartial(row)
+    ? 'result-attempt__status--warning'
+    : 'result-attempt__status--danger'
+}
+
+function pointsText(row) {
+  const awarded = Number(row?.awardedPoints)
+  const total = Number(row?.questionPoints)
+
+  if (
+    Number.isFinite(awarded) &&
+    Number.isFinite(total) &&
+    total > 0
+  ) {
+    return `${awarded} из ${total} балл.`
+  }
+
+  return ''
+}
 </script>
 
 <template>
@@ -239,20 +286,45 @@ function formatDateTime(value) {
         </template>
 
         <template #cell-status="{ row }">
-          <strong
-            class="result-attempt__status"
-            :class="
-              row.correct
-                ? 'result-attempt__status--success'
-                : 'result-attempt__status--danger'
-            "
+          <span class="result-attempt__status-line">
+            <strong
+              class="result-attempt__status"
+              :class="statusClass(row)"
+            >
+              {{ statusText(row) }}
+            </strong>
+
+            <span
+              v-if="row.gradingNote"
+              class="result-attempt__review-icon"
+              :title="row.gradingNote"
+              :aria-label="row.gradingNote"
+              role="img"
+            >
+              !
+            </span>
+          </span>
+
+          <small
+            v-if="row.gradingNote"
+            class="result-attempt__grading-note"
           >
-            {{
-              row.correct
-                ? 'Верно'
-                : 'Неверно'
-            }}
-          </strong>
+            {{ row.gradingNote }}
+          </small>
+
+          <small
+            v-else-if="isPartial(row)"
+            class="result-attempt__grading-note"
+          >
+            Автоматически зачтено частично, проверьте вручную.
+          </small>
+
+          <small
+            v-if="pointsText(row)"
+            class="result-attempt__points"
+          >
+            {{ pointsText(row) }}
+          </small>
         </template>
       </UiTable>
     </div>
@@ -332,12 +404,58 @@ function formatDateTime(value) {
   padding: 0 14px 14px;
 }
 
+.result-attempt__status-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.result-attempt__review-icon {
+  width: 18px;
+  height: 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+
+  color: #854d0e;
+  background: #fef3c7;
+
+  border: 1px solid #f59e0b;
+  border-radius: 50%;
+
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .result-attempt__status--success {
   color: var(--success);
 }
 
 .result-attempt__status--danger {
   color: var(--danger);
+}
+
+.result-attempt__status--warning {
+  color: #a16207;
+}
+
+.result-attempt__grading-note,
+.result-attempt__points {
+  display: block;
+  max-width: 220px;
+  margin-top: 4px;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.result-attempt__grading-note {
+  color: #854d0e;
 }
 
 @media (max-width: 720px) {

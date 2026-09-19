@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -474,9 +475,11 @@ public class TestService {
             return;
         }
 
-        boolean automaticallyCorrect = isTextAnswerCorrect(question, response.getAnswerText());
-        response.setCorrect(automaticallyCorrect);
-        response.setAwardedPoints(automaticallyCorrect ? question.getPoints() : BigDecimal.ZERO);
+        TextAnswerEvaluationResult evaluation = evaluateTextAnswer(question, response.getAnswerText());
+        response.setCorrect(evaluation.correct());
+        response.setAwardedPoints(question.getPoints()
+                .multiply(evaluation.scoreRatio())
+                .setScale(2, RoundingMode.HALF_UP));
     }
 
     private void replaceSelectedOptions(Long questionResponseId, Question question, List<Long> selectedOptionIds) {
@@ -545,8 +548,8 @@ public class TestService {
         return true;
     }
 
-    private boolean isTextAnswerCorrect(Question question, String actualRaw) {
-        return textAnswerEvaluationService.isCorrect(question.getQuestion(), question.getCorrectAnswer(), actualRaw);
+    private TextAnswerEvaluationResult evaluateTextAnswer(Question question, String actualRaw) {
+        return textAnswerEvaluationService.evaluate(question.getQuestion(), question.getCorrectAnswer(), actualRaw);
     }
 
     private BigDecimal calculateScore(Integer testAttemptId) {

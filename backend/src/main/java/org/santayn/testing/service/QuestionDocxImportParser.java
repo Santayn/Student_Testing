@@ -14,9 +14,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,6 +46,21 @@ public class QuestionDocxImportParser {
     );
     private static final Pattern POINTS_LINE = Pattern.compile(
             "(?iu)^(?:балл(?:ы|ов)?|points?|score)\\s*[:=\\-]\\s*(\\d+(?:[,.]\\d+)?)$"
+    );
+    private static final Pattern TYPE_LINE = Pattern.compile(
+            "(?iu)^(?:тип|type)\\s*[:=\\-]\\s*(.+)$"
+    );
+    private static final Pattern COLUMN_A_HEADER = Pattern.compile(
+            "(?iu)^(?:колонка|column)\\s*(?:а|a)\\s*:?$"
+    );
+    private static final Pattern COLUMN_B_HEADER = Pattern.compile(
+            "(?iu)^(?:колонка|column)\\s*(?:б|b)\\s*:?$"
+    );
+    private static final Pattern MATCHING_ENTRY = Pattern.compile(
+            "(?iu)^([A-ZА-ЯЁ]|\\d{1,2})\\s*(?:[.)]|:|-)\\s*(.+)$"
+    );
+    private static final Pattern MATCHING_ANSWER_TOKEN = Pattern.compile(
+            "(?iu)^([A-ZА-ЯЁ]|\\d{1,2})\\s*(?:->|[-–—=→:])\\s*([A-ZА-ЯЁ]|\\d{1,2})$"
     );
 
     public List<ParsedQuestion> parse(InputStream inputStream) {
@@ -96,14 +113,16 @@ public class QuestionDocxImportParser {
         for (String rawLine : lines) {
             String line = normalizeText(rawLine);
             if (line.isBlank()) {
-                finishBlock(blocks, current);
-                current = new ArrayList<>();
+                if (hasAnswerLine(current)) {
+                    finishBlock(blocks, current);
+                    current = new ArrayList<>();
+                }
                 continue;
             }
 
             boolean startsNewQuestion = isQuestionStart(line)
                     && !current.isEmpty()
-                    && hasAnswerLine(current);
+                    && (isExplicitQuestionStart(line) || hasAnswerLine(current));
             if (startsNewQuestion) {
                 finishBlock(blocks, current);
                 current = new ArrayList<>();
@@ -119,8 +138,12 @@ public class QuestionDocxImportParser {
     private ParsedQuestion parseBlock(List<String> lines, int blockNumber) {
         List<String> questionLines = new ArrayList<>();
         List<RawOption> options = new ArrayList<>();
+        List<RawMatchingItem> leftItems = new ArrayList<>();
+        List<RawMatchingItem> rightItems = new ArrayList<>();
         String answer = null;
         BigDecimal points = BigDecimal.ONE;
+        boolean matching = false;
+        MatchingSection matchingSection = MatchingSection.NONE;
 
         for (String line : lines) {
             Matcher pointsMatcher = POINTS_LINE.matcher(line);
@@ -135,6 +158,39 @@ public class QuestionDocxImportParser {
                 continue;
             }
 
+            Matcher typeMatcher = TYPE_LINE.matcher(line);
+            if (typeMatcher.matches()) {
+                matching = isMatchingType(typeMatcher.group(1));
+                if (!matching) {
+                    questionLines.add(line);
+                }
+                continue;
+            }
+
+            if (COLUMN_A_HEADER.matcher(line).matches()) {
+                matching = true;
+                matchingSection = MatchingSection.LEFT;
+                continue;
+            }
+
+            if (COLUMN_B_HEADER.matcher(line).matches()) {
+                matching = true;
+                matchingSection = MatchingSection.RIGHT;
+                continue;
+            }
+
+            if (matchingSection != MatchingSection.NONE) {
+                RawMatchingItem matchingItem = parseMatchingItem(line, blockNumber);
+                if (matchingItem != null) {
+                    if (matchingSection == MatchingSection.LEFT) {
+                        leftItems.add(matchingItem);
+                    } else {
+                        rightItems.add(matchingItem);
+                    }
+                    continue;
+                }
+            }
+
             RawOption option = parseOption(line, options.size() + 1, blockNumber);
             if (option != null) {
                 options.add(option);
@@ -147,6 +203,24 @@ public class QuestionDocxImportParser {
         String questionText = requireLength(String.join(" ", questionLines).trim(), "Question", blockNumber);
         if (questionText.isBlank()) {
             throw new IllegalArgumentException("Question block " + blockNumber + " has no question text.");
+        }
+
+        if (isMatchingQuestion(matching, questionText, answer, leftItems, rightItems, options)) {
+            List<QuestionTypeSupport.MatchingPair> matchingPairs = parseMatchingPairs(
+                    answer,
+                    leftItems,
+                    rightItems,
+                    options,
+                    blockNumber
+            );
+            return new ParsedQuestion(
+                    questionText,
+                    QuestionTypeSupport.TYPE_MATCHING,
+                    points,
+                    null,
+                    List.of(),
+                    matchingPairs
+            );
         }
 
         applyAnswerToOptions(answer, options);
@@ -170,7 +244,8 @@ public class QuestionDocxImportParser {
                 FacultyService.trimToNull(correctAnswer),
                 options.stream()
                         .map(option -> new ParsedOption(option.text(), option.correct()))
-                        .toList()
+                        .toList(),
+                List.of()
         );
     }
 
@@ -207,6 +282,161 @@ public class QuestionDocxImportParser {
         }
 
         return null;
+    }
+
+    private RawMatchingItem parseMatchingItem(String line, int blockNumber) {
+        Matcher matcher = MATCHING_ENTRY.matcher(line);
+        if (!matcher.matches()) {
+            return null;
+        }
+        return new RawMatchingItem(
+                normalizeLabel(matcher.group(1)),
+                requireLength(matcher.group(2), "Matching item", blockNumber)
+        );
+    }
+
+    private boolean isMatchingQuestion(boolean explicitMatching,
+                                       String questionText,
+                                       String answer,
+                                       List<RawMatchingItem> leftItems,
+                                       List<RawMatchingItem> rightItems,
+                                       List<RawOption> options) {
+        if (explicitMatching || !leftItems.isEmpty() || !rightItems.isEmpty()) {
+            return true;
+        }
+        if (answer != null && !parseMatchingAnswerTokens(answer).isEmpty() && hasMixedLabels(options)) {
+            return true;
+        }
+        return questionText.toLowerCase(Locale.ROOT).contains("соотнес")
+                && answer != null
+                && !parseMatchingAnswerTokens(answer).isEmpty();
+    }
+
+    private boolean isMatchingType(String rawType) {
+        String normalized = normalizeComparable(rawType);
+        return normalized.contains("СОПОСТАВ")
+                || normalized.contains("MATCH")
+                || normalized.equals(String.valueOf(QuestionTypeSupport.TYPE_MATCHING));
+    }
+
+    private boolean hasMixedLabels(List<RawOption> options) {
+        boolean hasNumber = false;
+        boolean hasLetter = false;
+        for (RawOption option : options) {
+            if (isNumberLabel(option.label())) {
+                hasNumber = true;
+            } else {
+                hasLetter = true;
+            }
+        }
+        return hasNumber && hasLetter;
+    }
+
+    private List<QuestionTypeSupport.MatchingPair> parseMatchingPairs(String answer,
+                                                                      List<RawMatchingItem> leftItems,
+                                                                      List<RawMatchingItem> rightItems,
+                                                                      List<RawOption> options,
+                                                                      int blockNumber) {
+        List<AnswerPair> answerPairs = parseMatchingAnswerTokens(answer);
+        if (answerPairs.isEmpty()) {
+            throw new IllegalArgumentException("Question block " + blockNumber + " has invalid matching answer format.");
+        }
+
+        MatchingItemSet itemSet = matchingItemSet(leftItems, rightItems, options, answerPairs);
+        List<QuestionTypeSupport.MatchingPair> matchingPairs = new ArrayList<>();
+        int ordinal = 1;
+        for (AnswerPair answerPair : answerPairs) {
+            RawMatchingItem left = itemSet.leftByLabel().get(normalizeLabel(answerPair.leftLabel()));
+            RawMatchingItem right = itemSet.rightByLabel().get(normalizeLabel(answerPair.rightLabel()));
+
+            if (left == null || right == null) {
+                RawMatchingItem reversedLeft = itemSet.leftByLabel().get(normalizeLabel(answerPair.rightLabel()));
+                RawMatchingItem reversedRight = itemSet.rightByLabel().get(normalizeLabel(answerPair.leftLabel()));
+                if (reversedLeft != null && reversedRight != null) {
+                    left = reversedLeft;
+                    right = reversedRight;
+                }
+            }
+
+            if (left == null || right == null) {
+                throw new IllegalArgumentException("Question block " + blockNumber + " has matching answer that references unknown item.");
+            }
+
+            matchingPairs.add(new QuestionTypeSupport.MatchingPair(ordinal++, left.text(), right.text()));
+        }
+
+        if (matchingPairs.size() < 2) {
+            throw new IllegalArgumentException("Question block " + blockNumber + " must contain at least two matching pairs.");
+        }
+        return matchingPairs;
+    }
+
+    private MatchingItemSet matchingItemSet(List<RawMatchingItem> leftItems,
+                                            List<RawMatchingItem> rightItems,
+                                            List<RawOption> options,
+                                            List<AnswerPair> answerPairs) {
+        List<RawMatchingItem> effectiveLeft = leftItems;
+        List<RawMatchingItem> effectiveRight = rightItems;
+
+        if (effectiveLeft.isEmpty() && effectiveRight.isEmpty()) {
+            Set<String> firstLabels = new HashSet<>();
+            Set<String> secondLabels = new HashSet<>();
+            for (AnswerPair answerPair : answerPairs) {
+                firstLabels.add(normalizeLabel(answerPair.leftLabel()));
+                secondLabels.add(normalizeLabel(answerPair.rightLabel()));
+            }
+
+            effectiveLeft = new ArrayList<>();
+            effectiveRight = new ArrayList<>();
+            for (RawOption option : options) {
+                RawMatchingItem item = new RawMatchingItem(option.label(), option.text());
+                if (firstLabels.contains(option.label())) {
+                    effectiveLeft.add(item);
+                } else if (secondLabels.contains(option.label())) {
+                    effectiveRight.add(item);
+                } else if (isNumberLabel(option.label())) {
+                    effectiveRight.add(item);
+                } else {
+                    effectiveLeft.add(item);
+                }
+            }
+        }
+
+        return new MatchingItemSet(indexByLabel(effectiveLeft), indexByLabel(effectiveRight));
+    }
+
+    private Map<String, RawMatchingItem> indexByLabel(List<RawMatchingItem> items) {
+        Map<String, RawMatchingItem> byLabel = new HashMap<>();
+        for (RawMatchingItem item : items) {
+            byLabel.put(item.label(), item);
+        }
+        return byLabel;
+    }
+
+    private List<AnswerPair> parseMatchingAnswerTokens(String answer) {
+        String normalizedAnswer = FacultyService.trimToNull(answer);
+        if (normalizedAnswer == null) {
+            return List.of();
+        }
+
+        List<AnswerPair> pairs = new ArrayList<>();
+        for (String rawToken : normalizedAnswer.split("[,;]+")) {
+            String token = normalizeText(rawToken);
+            if (token.isBlank()) {
+                continue;
+            }
+
+            Matcher matcher = MATCHING_ANSWER_TOKEN.matcher(token);
+            if (!matcher.matches()) {
+                return List.of();
+            }
+            pairs.add(new AnswerPair(matcher.group(1), matcher.group(2)));
+        }
+        return pairs;
+    }
+
+    private boolean isNumberLabel(String label) {
+        return normalizeText(label).matches("\\d{1,2}");
     }
 
     private void applyAnswerToOptions(String answer, List<RawOption> options) {
@@ -289,6 +519,10 @@ public class QuestionDocxImportParser {
         return NUMBERED_QUESTION_PREFIX.matcher(line).find() || WORD_QUESTION_PREFIX.matcher(line).find();
     }
 
+    private boolean isExplicitQuestionStart(String line) {
+        return WORD_QUESTION_PREFIX.matcher(line).find();
+    }
+
     private boolean hasAnswerLine(List<String> lines) {
         return lines.stream().anyMatch(line -> ANSWER_LINE.matcher(line).matches());
     }
@@ -334,13 +568,34 @@ public class QuestionDocxImportParser {
         }
     }
 
-    public record ParsedQuestion(String question, int type, BigDecimal points, String correctAnswer, List<ParsedOption> options) {
+    public record ParsedQuestion(String question,
+                                 int type,
+                                 BigDecimal points,
+                                 String correctAnswer,
+                                 List<ParsedOption> options,
+                                 List<QuestionTypeSupport.MatchingPair> matchingPairs) {
     }
 
     public record ParsedOption(String text, boolean correct) {
     }
 
     private record OptionText(String text, boolean correct) {
+    }
+
+    private record RawMatchingItem(String label, String text) {
+    }
+
+    private record AnswerPair(String leftLabel, String rightLabel) {
+    }
+
+    private record MatchingItemSet(Map<String, RawMatchingItem> leftByLabel,
+                                   Map<String, RawMatchingItem> rightByLabel) {
+    }
+
+    private enum MatchingSection {
+        NONE,
+        LEFT,
+        RIGHT
     }
 
     private static final class RawOption {

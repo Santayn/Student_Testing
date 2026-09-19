@@ -25,6 +25,10 @@ export const teachingApi = {
     return http.get('/teaching/load-types')
   },
 
+  getSubjectLoadTypes(params = {}) {
+    return http.get('/teaching/subject-load-types', { params })
+  },
+
   createLoadType(data) {
     return http.post('/teaching/load-types', data)
   },
@@ -36,15 +40,12 @@ export const teachingApi = {
     )
   },
 
-  createSubjectLoadType(subjectMembershipId, teachingLoadTypeId, data = undefined) {
+  createSubjectLoadType(subjectMembershipId, teachingLoadTypeId, data = {}) {
     return http.post(
-      '/teaching/subject-load-types',
-      data,
+      `/teaching/subject-memberships/${subjectMembershipId}/load-types`,
       {
-        params: {
-          subjectMembershipId,
-          teachingLoadTypeId,
-        },
+        ...data,
+        teachingLoadTypeId,
       }
     )
   },
@@ -67,3 +68,4 @@ export const teachingApi = {
     )
   },
 }
+
