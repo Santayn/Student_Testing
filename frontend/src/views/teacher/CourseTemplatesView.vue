@@ -40,6 +40,11 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  buildCourseTemplateListParams,
+  canCreateCourseTemplate,
+} from '@/utils/courseTemplateContext'
+
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -90,6 +95,12 @@ const selectedTemplate = computed(() => {
       Number(item.id) ===
       Number(selectedTemplateId.value)
   ) ?? null
+})
+
+const templateCreationAllowed = computed(() => {
+  return canCreateCourseTemplate({
+    isAdmin: authStore.isAdmin,
+  })
 })
 
 const templateColumns = [
@@ -211,17 +222,28 @@ async function loadTemplates() {
   loading.value = true
 
   try {
-    const response =
-      await coursesApi.getTemplates({
+    const params =
+      buildCourseTemplateListParams({
         subjectId:
-          Number(selectedSubjectId.value),
-        ...(authStore.isAdmin
-          ? {}
-          : {
-              authorPersonId:
-                authStore.personId,
-            }),
+          selectedSubjectId.value,
+        isAdmin: authStore.isAdmin,
+        currentPersonId:
+          authStore.personId,
+        selectedMembership:
+          selectedMembership.value,
       })
+
+    if (!params) {
+      notice.value = {
+        type: 'info',
+        message:
+          'Не удалось определить преподавателя для выбранного предмета.',
+      }
+      return
+    }
+
+    const response =
+      await coursesApi.getTemplates(params)
 
     templates.value =
       listFromResponse(response)
@@ -332,19 +354,21 @@ async function saveTemplate() {
     return
   }
 
-  const current =
-    templates.value.find(
-      (item) =>
-        Number(item.id) ===
-        Number(templateForm.value.id)
-    )
+  if (
+    !templateForm.value.id &&
+    !templateCreationAllowed.value
+  ) {
+    notice.value = {
+      type: 'info',
+      message:
+        'Администратор может редактировать существующие шаблоны выбранного преподавателя, но новый шаблон должен создать сам преподаватель.',
+    }
+    return
+  }
 
   const payload = {
     subjectId:
       Number(selectedSubjectId.value),
-    authorPersonId:
-      current?.authorPersonId ||
-      authStore.personId,
     name:
       templateForm.value.name.trim(),
     publicVisible:
@@ -468,8 +492,6 @@ async function saveVersion() {
     description:
       versionForm.value.description.trim() ||
       null,
-    createdByPersonId:
-      authStore.personId,
     changeNotes:
       versionForm.value.changeNotes.trim() ||
       null,
@@ -495,10 +517,6 @@ async function saveVersion() {
           ...basePayload,
           published:
             versionForm.value.published,
-          publishedByPersonId:
-            versionForm.value.published
-              ? authStore.personId
-              : null,
         }
       )
 
@@ -539,11 +557,7 @@ async function publishVersion(version) {
       }
     } else {
       await coursesApi.publishVersion(
-        version.id,
-        {
-          publishedByPersonId:
-            authStore.personId,
-        }
+        version.id
       )
 
       notice.value = {
@@ -656,27 +670,42 @@ onMounted(async () => {
           :title="
             templateForm.id
               ? 'Редактирование шаблона'
-              : 'Новый шаблон'
+              : templateCreationAllowed
+                ? 'Новый шаблон'
+                : 'Шаблоны преподавателя'
           "
         >
           <div class="teacher-stack">
+            <UiAlert
+              v-if="authStore.isAdmin && !templateForm.id"
+              variant="info"
+              message="Администратор видит шаблоны выбранного преподавателя и может редактировать существующие. Создание нового шаблона от имени преподавателя backend не поддерживает."
+            />
+
             <UiInput
               v-model="templateForm.name"
               label="Название"
               placeholder="Например: Базовый поток"
               maxlength="200"
-              :disabled="!selectedSubjectId"
+              :disabled="
+                !selectedSubjectId ||
+                (!templateCreationAllowed && !templateForm.id)
+              "
               required
             />
 
             <UiCheckbox
               v-model="templateForm.publicVisible"
               label="Публиковать шаблон"
-              :disabled="!selectedSubjectId"
+              :disabled="
+                !selectedSubjectId ||
+                (!templateCreationAllowed && !templateForm.id)
+              "
             />
 
             <div class="teacher-actions teacher-actions--mobile-stack">
               <UiButton
+                v-if="templateCreationAllowed || templateForm.id"
                 variant="primary"
                 :loading="savingTemplate"
                 loading-text="Сохранение..."
