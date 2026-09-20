@@ -16,6 +16,14 @@ import {
 } from '@/components/ui'
 
 import {
+  publicRegistrationEnabled,
+} from '@/config/features'
+
+import {
+  APP_ROLES,
+} from '@/router/roles'
+
+import {
   useAuthStore,
 } from '@/stores/auth'
 
@@ -28,6 +36,13 @@ const authStore =
 const login = ref('')
 const password = ref('')
 const showPassword = ref(false)
+
+const registrationDisabledNotice = computed(() => {
+  return (
+    route.query.registration ===
+    'disabled'
+  )
+})
 
 const canSubmit = computed(() => {
   return (
@@ -47,6 +62,18 @@ async function submit() {
       login.value.trim(),
       password.value
     )
+
+    if (
+      !authStore.hasAnyRole(
+        ...APP_ROLES
+      )
+    ) {
+      await router.replace({
+        name: 'account-pending',
+      })
+
+      return
+    }
 
     const redirect =
       typeof route.query
@@ -72,6 +99,12 @@ async function submit() {
         Войдите в свою учётную запись.
       </p>
     </header>
+
+    <UiAlert
+      v-if="registrationDisabledNotice"
+      variant="info"
+      message="Самостоятельная регистрация отключена. Для создания учётной записи обратитесь к администратору."
+    />
 
     <form
       class="auth-form"
@@ -140,7 +173,10 @@ async function submit() {
       </UiButton>
     </form>
 
-    <p class="auth-switch">
+    <p
+      v-if="publicRegistrationEnabled"
+      class="auth-switch"
+    >
       Нет аккаунта?
 
       <RouterLink

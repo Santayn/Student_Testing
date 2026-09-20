@@ -88,6 +88,10 @@ const filteredSubjects = computed(() => {
 })
 
 const metaText = computed(() => {
+  if (authStore.isAdmin) {
+    return 'Показаны все предметы, доступные администратору.'
+  }
+
   if (authStore.isStudent) {
     if (!group.value) {
       return (
@@ -112,14 +116,8 @@ const metaText = computed(() => {
     )
   }
 
-  if (
-    authStore.isTeacher ||
-    authStore.isAdmin
-  ) {
-    return (
-      'Показаны предметы, доступные ' +
-      'преподавателю или администратору.'
-    )
+  if (authStore.isTeacher) {
+    return 'Показаны предметы текущего преподавателя.'
   }
 
   return (
@@ -151,10 +149,7 @@ async function loadTeacherSubjects() {
   const personId =
     authStore.personId
 
-  if (
-    !personId &&
-    authStore.isAdmin
-  ) {
+  if (authStore.isAdmin) {
     const response =
       await subjectsApi.getAll()
 
@@ -392,17 +387,20 @@ async function loadSubjects() {
 
   try {
     /*
-     * Старый frontend отдавал приоритет
-     * STUDENT-контексту, если у пользователя
-     * одновременно несколько ролей.
+     * ADMIN — отдельный глобальный контекст.
+     * Даже если учётная запись дополнительно имеет STUDENT/TEACHER,
+     * административная страница предметов должна показывать весь список.
      */
-    if (authStore.isStudent) {
+    if (authStore.isAdmin) {
+      group.value = null
+      faculty.value = null
+
+      subjects.value =
+        await loadTeacherSubjects()
+    } else if (authStore.isStudent) {
       subjects.value =
         await loadStudentSubjects()
-    } else if (
-      authStore.isTeacher ||
-      authStore.isAdmin
-    ) {
+    } else if (authStore.isTeacher) {
       group.value = null
       faculty.value = null
 

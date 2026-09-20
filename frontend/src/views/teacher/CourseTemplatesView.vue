@@ -215,8 +215,12 @@ async function loadTemplates() {
       await coursesApi.getTemplates({
         subjectId:
           Number(selectedSubjectId.value),
-        authorPersonId:
-          authStore.personId,
+        ...(authStore.isAdmin
+          ? {}
+          : {
+              authorPersonId:
+                authStore.personId,
+            }),
       })
 
     templates.value =

@@ -71,7 +71,11 @@ const sections = computed(() => {
 
   if (authStore.isTeacher || authStore.isAdmin) {
     result.push({
-      title: 'Преподаватель',
+      title:
+        authStore.isAdmin &&
+        !authStore.isTeacher
+          ? 'Учебный контент'
+          : 'Преподаватель',
       items: teacherItems,
     })
   }

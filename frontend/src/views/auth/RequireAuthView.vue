@@ -6,6 +6,10 @@ import {
   UiButton,
 } from '@/components/ui'
 
+import {
+  publicRegistrationEnabled,
+} from '@/config/features'
+
 const route = useRoute()
 
 const redirect = computed(() => {
@@ -46,6 +50,7 @@ const loginRoute = computed(() => ({
       </UiButton>
 
       <UiButton
+        v-if="publicRegistrationEnabled"
         :to="{ name: 'register' }"
       >
         Регистрация

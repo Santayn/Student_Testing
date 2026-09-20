@@ -7,7 +7,9 @@ import {
 
 import {
   getApiErrorMessage,
+  lecturesApi,
   resultsApi,
+  subjectsApi,
 } from '@/api'
 
 import ResultAttemptCard from '@/components/results/ResultAttemptCard.vue'
@@ -68,8 +70,9 @@ const resultMode = computed(() => {
 const pageSubtitle = computed(() => {
   if (teacherMode.value) {
     return (
-      'Выберите предмет, лекцию, тест, группу и студента, ' +
-      'чтобы получить результаты в виде раскрывающихся попыток.'
+      authStore.isAdmin
+        ? 'Администратор может выбрать любой предмет, лекцию, тест, группу и студента.'
+        : 'Выберите предмет, лекцию, тест, группу и студента, чтобы получить результаты в виде раскрывающихся попыток.'
     )
   }
 
@@ -393,6 +396,13 @@ function lectureLabel(lecture) {
     lecture.title ||
     `Лекция #${lecture.id}`
 
+  if (
+    !lecture.courseName &&
+    lecture.versionNumber == null
+  ) {
+    return `${ordinal}. ${title}`
+  }
+
   const course =
     lecture.courseName ||
     'курс не указан'
@@ -531,9 +541,10 @@ function resetAfterGroup() {
 }
 
 async function loadTeacherSubjects() {
-  const response =
-    await resultsApi
-      .getTeacherSubjects()
+  const response = authStore.isAdmin
+    ? await subjectsApi.getAll()
+    : await resultsApi
+        .getTeacherSubjects()
 
   subjects.value =
     listFromResponse(response)
@@ -568,11 +579,14 @@ async function onSubjectChange() {
   loadingOptions.value = true
 
   try {
-    const response =
-      await resultsApi
-        .getTeacherLectures(
-          subjectId.value
-        )
+    const response = authStore.isAdmin
+      ? await lecturesApi.getAll({
+          subjectId: subjectId.value,
+        })
+      : await resultsApi
+          .getTeacherLectures(
+            subjectId.value
+          )
 
     lectures.value =
       listFromResponse(response)
@@ -598,11 +612,14 @@ async function onLectureChange() {
   loadingOptions.value = true
 
   try {
-    const response =
-      await resultsApi
-        .getTeacherTests(
+    const response = authStore.isAdmin
+      ? await lecturesApi.getTests(
           lectureId.value
         )
+      : await resultsApi
+          .getTeacherTests(
+            lectureId.value
+          )
 
     tests.value =
       listFromResponse(response)

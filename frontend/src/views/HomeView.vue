@@ -228,10 +228,22 @@ async function refreshUser() {
     >
       <div class="home-section__header">
         <div>
-          <h2>Работа преподавателя</h2>
+          <h2>
+            {{
+              authStore.isAdmin &&
+              !authStore.isTeacher
+                ? 'Учебный контент'
+                : 'Работа преподавателя'
+            }}
+          </h2>
 
           <p>
-            Тесты, вопросы, лекции и учебные материалы.
+            {{
+              authStore.isAdmin &&
+              !authStore.isTeacher
+                ? 'Административный доступ к тестам, вопросам, лекциям и учебным материалам.'
+                : 'Тесты, вопросы, лекции и учебные материалы.'
+            }}
           </p>
         </div>
       </div>

@@ -51,6 +51,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_PUBLIC_REGISTRATION_ENABLED: ${APP_PUBLIC_REGISTRATION_ENABLED:-false}
     image: student-test-frontend:latest
     container_name: student-test-frontend
     environment:

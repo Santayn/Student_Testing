@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { publicRegistrationEnabled } from '@/config/features'
+import { APP_ROLES } from '@/router/roles'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 
@@ -12,6 +14,24 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
 const mobileMenuOpen = ref(false)
+
+const hasApplicationRole = computed(() => {
+  return authStore.hasAnyRole(
+    ...APP_ROLES
+  )
+})
+
+const authenticatedHomeRoute = computed(() => {
+  return hasApplicationRole.value
+    ? { name: 'home' }
+    : { name: 'account-pending' }
+})
+
+const authenticatedProfileRoute = computed(() => {
+  return hasApplicationRole.value
+    ? { name: 'profile' }
+    : { name: 'account-pending' }
+})
 
 const userLabel = computed(() => {
   if (authStore.fullName) {
@@ -109,7 +129,7 @@ onBeforeUnmount(() => {
           class="app-header__brand"
           :to="
             authStore.isAuthenticated
-              ? { name: 'home' }
+              ? authenticatedHomeRoute
               : { name: 'login' }
           "
           @click="closeMobileMenu"
@@ -206,7 +226,7 @@ onBeforeUnmount(() => {
           <template v-if="authStore.isAuthenticated">
             <RouterLink
               class="user-badge"
-              :to="{ name: 'profile' }"
+              :to="authenticatedProfileRoute"
               title="Открыть профиль"
             >
               <span class="user-badge__name">
@@ -240,6 +260,7 @@ onBeforeUnmount(() => {
             </RouterLink>
 
             <RouterLink
+              v-if="publicRegistrationEnabled"
               class="app-header__button app-header__button--primary"
               :to="{ name: 'register' }"
             >

@@ -1,6 +1,14 @@
 import {
+  publicRegistrationEnabled,
+} from '@/config/features'
+
+import {
   useAuthStore,
 } from '@/stores/auth'
+
+import {
+  APP_ROLES,
+} from '../roles'
 
 function matchedMeta(to) {
   return to.matched.map(
@@ -43,6 +51,20 @@ function routeIsGuestOnly(to) {
   )
 }
 
+function routeIsRegistrationOnly(to) {
+  return matchedMeta(to).some(
+    (meta) =>
+      meta.registrationOnly === true
+  )
+}
+
+function routeIsPendingRoleOnly(to) {
+  return matchedMeta(to).some(
+    (meta) =>
+      meta.pendingRoleOnly === true
+  )
+}
+
 function hasRequiredRoles(
   authStore,
   roleGroups
@@ -66,6 +88,20 @@ function hasRequiredRoles(
   )
 }
 
+function hasApplicationRole(authStore) {
+  return authStore.hasAnyRole(
+    ...APP_ROLES
+  )
+}
+
+function authenticatedLanding(authStore) {
+  return {
+    name: hasApplicationRole(authStore)
+      ? 'home'
+      : 'account-pending',
+  }
+}
+
 export async function authGuard(to) {
   const authStore =
     useAuthStore()
@@ -79,6 +115,12 @@ export async function authGuard(to) {
 
   const guestOnly =
     routeIsGuestOnly(to)
+
+  const registrationOnly =
+    routeIsRegistrationOnly(to)
+
+  const pendingRoleOnly =
+    routeIsPendingRoleOnly(to)
 
   const roleGroups =
     requiredRoleGroups(to)
@@ -101,6 +143,46 @@ export async function authGuard(to) {
     guestOnly &&
     authStore.isAuthenticated
   ) {
+    return authenticatedLanding(
+      authStore
+    )
+  }
+
+  if (
+    registrationOnly &&
+    !publicRegistrationEnabled
+  ) {
+    return {
+      name: 'login',
+
+      query: {
+        registration:
+          'disabled',
+      },
+    }
+  }
+
+  if (
+    pendingRoleOnly &&
+    hasApplicationRole(authStore)
+  ) {
+    /*
+     * Роль могла быть назначена администратором уже
+     * после выпуска текущего access token. Обновляем
+     * пару токенов, чтобы backend authorities и /me
+     * снова описывали одно и то же состояние.
+     */
+    if (authStore.canRefresh) {
+      try {
+        await authStore.refreshSession()
+        await authStore.loadCurrentUser()
+      } catch {
+        return {
+          name: 'login',
+        }
+      }
+    }
+
     return {
       name: 'home',
     }

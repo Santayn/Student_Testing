@@ -24,6 +24,22 @@ export const publicRoutes = [
 
     meta: {
       guestOnly: true,
+      registrationOnly: true,
+    },
+  },
+
+  {
+    path: '/account-pending',
+    name: 'account-pending',
+
+    component: () =>
+      import(
+        '@/views/auth/AccountPendingView.vue'
+      ),
+
+    meta: {
+      requiresAuth: true,
+      pendingRoleOnly: true,
     },
   },
 

@@ -16,6 +16,10 @@ import {
 } from '@/components/ui'
 
 import {
+  APP_ROLES,
+} from '@/router/roles'
+
+import {
   useAuthStore,
 } from '@/stores/auth'
 
@@ -79,6 +83,18 @@ async function submit() {
       password:
         form.value.password,
     })
+
+    if (
+      !authStore.hasAnyRole(
+        ...APP_ROLES
+      )
+    ) {
+      await router.replace({
+        name: 'account-pending',
+      })
+
+      return
+    }
 
     const redirect =
       typeof route.query

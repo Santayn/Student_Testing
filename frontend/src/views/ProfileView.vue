@@ -152,7 +152,7 @@ const tabs = computed(() => {
     })
   }
 
-  if (authStore.isTeacher || authStore.isAdmin) {
+  if (authStore.isTeacher) {
     items.push({
       name: 'teacher',
       label: 'Преподаватель',
@@ -476,10 +476,7 @@ async function loadProfile() {
       jobs.push(loadStudentInfo())
     }
 
-    if (
-      authStore.isTeacher ||
-      authStore.isAdmin
-    ) {
+    if (authStore.isTeacher) {
       jobs.push(loadTeacherInfo())
     }
 

@@ -157,12 +157,18 @@ export function useTeacherSubjects() {
             )
           ) ?? 0
 
+        const adminSuffix =
+          authStore.isAdmin
+            ? ` — преподаватель #${membership.personId ?? '?'} · назначение #${membership.id}`
+            : ''
+
         return {
           value: membership.id,
           subjectId:
             membership.subjectId,
-          label:
-            duplicates > 1
+          label: authStore.isAdmin
+            ? `${baseLabel}${adminSuffix}`
+            : duplicates > 1
               ? `${baseLabel} — назначение #${membership.id}`
               : baseLabel,
         }
@@ -180,18 +186,30 @@ export function useTeacherSubjects() {
       const personId =
         authStore.personId
 
-      if (!personId) {
+      if (
+        !authStore.isAdmin &&
+        !personId
+      ) {
         throw new Error(
           'Не удалось определить преподавателя по текущему профилю.'
         )
       }
 
+      const membershipParams =
+        authStore.isAdmin
+          ? {
+              activeOnly: true,
+            }
+          : {
+              personId,
+              activeOnly: true,
+            }
+
       const membershipsResponse =
         await membershipsApi
-          .getSubjectMemberships({
-            personId,
-            activeOnly: true,
-          })
+          .getSubjectMemberships(
+            membershipParams
+          )
 
       subjectMemberships.value =
         listFromResponse(
