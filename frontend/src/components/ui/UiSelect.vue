@@ -1,285 +1,88 @@
 <script setup>
 import { computed } from 'vue'
-
+import Select from 'primevue/select'
 import UiField from './UiField.vue'
 
-defineOptions({
-  inheritAttrs: false,
-})
-
+defineOptions({ inheritAttrs: false })
 let selectSequence = 0
 
 const props = defineProps({
-  modelValue: {
-    type: [String, Number, Boolean],
-    default: '',
-  },
-
-  options: {
-    type: Array,
-    default: () => [],
-  },
-
-  optionLabel: {
-    type: [String, Function],
-    default: 'label',
-  },
-
-  optionValue: {
-    type: [String, Function],
-    default: 'value',
-  },
-
-  id: {
-    type: String,
-    default: '',
-  },
-
-  label: {
-    type: String,
-    default: '',
-  },
-
-  hint: {
-    type: String,
-    default: '',
-  },
-
-  error: {
-    type: String,
-    default: '',
-  },
-
-  placeholder: {
-    type: String,
-    default: '',
-  },
-
-  required: {
-    type: Boolean,
-    default: false,
-  },
-
-  disabled: {
-    type: Boolean,
-    default: false,
-  },
-
+  modelValue: { type: [String, Number, Boolean, Object], default: null },
+  options: { type: Array, default: () => [] },
+  optionLabel: { type: [String, Function], default: 'label' },
+  optionValue: { type: [String, Function], default: 'value' },
+  id: { type: String, default: '' },
+  label: { type: String, default: '' },
+  hint: { type: String, default: '' },
+  error: { type: String, default: '' },
+  placeholder: { type: String, default: '' },
+  required: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false },
+  filter: { type: Boolean, default: false },
+  clearable: { type: Boolean, default: false },
   size: {
     type: String,
     default: 'md',
-    validator: (value) =>
-      ['sm', 'md', 'lg'].includes(value),
+    validator: (value) => ['sm', 'md', 'lg'].includes(value),
   },
 })
 
-const emit = defineEmits([
-  'update:modelValue',
-  'change',
-  'blur',
-  'focus',
-])
-
-const generatedId =
-  `ui-select-${++selectSequence}`
-
-const controlId = computed(() => {
-  return props.id || generatedId
-})
-
+const emit = defineEmits(['update:modelValue', 'change', 'blur', 'focus'])
+const generatedId = `ui-select-${++selectSequence}`
+const controlId = computed(() => props.id || generatedId)
 const describedBy = computed(() => {
-  if (props.error) {
-    return `${controlId.value}-error`
-  }
-
-  if (props.hint) {
-    return `${controlId.value}-hint`
-  }
-
+  if (props.error) return `${controlId.value}-error`
+  if (props.hint) return `${controlId.value}-hint`
   return undefined
 })
 
-function optionLabelOf(option) {
-  if (
-    typeof props.optionLabel ===
-    'function'
-  ) {
-    return props.optionLabel(option)
-  }
-
-  if (
-    option !== null &&
-    typeof option === 'object'
-  ) {
-    return option[
-      props.optionLabel
-    ]
-  }
-
-  return option
+function getValue(option, resolver, fallback) {
+  if (typeof resolver === 'function') return resolver(option)
+  if (option !== null && typeof option === 'object') return option?.[resolver]
+  return fallback
 }
 
-function optionValueOf(option) {
-  if (
-    typeof props.optionValue ===
-    'function'
-  ) {
-    return props.optionValue(option)
-  }
-
-  if (
-    option !== null &&
-    typeof option === 'object'
-  ) {
-    return option[
-      props.optionValue
-    ]
-  }
-
-  return option
-}
-
-function updateValue(event) {
-  const option =
-    event.target
-      .selectedOptions?.[0]
-
-  const value =
-    option?._value ??
-    event.target.value
-
-  emit(
-    'update:modelValue',
-    value
-  )
-
-  emit(
-    'change',
-    event
-  )
-}
+const normalizedOptions = computed(() => props.options.map((option, index) => ({
+  __key: `${String(getValue(option, props.optionValue, option))}-${index}`,
+  label: getValue(option, props.optionLabel, option),
+  value: getValue(option, props.optionValue, option),
+  raw: option,
+})))
 </script>
 
 <template>
-  <UiField
-    :id="controlId"
-    :label="label"
-    :hint="hint"
-    :error="error"
-    :required="required"
-  >
-    <select
-      :id="controlId"
-      class="ui-control ui-select"
+  <UiField :id="controlId" :label="label" :hint="hint" :error="error" :required="required">
+    <Select
+      :input-id="controlId"
+      :model-value="modelValue"
+      :options="normalizedOptions"
+      option-label="label"
+      option-value="value"
+      class="st-ui-control"
       :class="[
-        `ui-control--${size}`,
-        {
-          'ui-control--error': error,
-        },
+        `st-ui-control--${size}`,
+        { 'st-ui-control--invalid': error },
       ]"
-      :value="modelValue"
-      :required="required"
+      :placeholder="placeholder"
       :disabled="disabled"
-      :aria-invalid="
-        error ? 'true' : undefined
-      "
+      :filter="filter"
+      :show-clear="clearable"
+      :aria-invalid="error ? 'true' : undefined"
+      :aria-required="required ? 'true' : undefined"
       :aria-describedby="describedBy"
+      fluid
       v-bind="$attrs"
-      @change="updateValue"
-      @blur="
-        emit('blur', $event)
-      "
-      @focus="
-        emit('focus', $event)
-      "
+      @update:model-value="emit('update:modelValue', $event)"
+      @change="emit('change', $event)"
+      @focus="emit('focus', $event)"
+      @blur="emit('blur', $event)"
     >
-      <option
-        v-if="placeholder"
-        value=""
-        :disabled="required"
-      >
-        {{ placeholder }}
-      </option>
-
-      <slot>
-        <option
-          v-for="(option, index) in options"
-          :key="
-            `${optionValueOf(option)}-${index}`
-          "
-          :value="optionValueOf(option)"
-        >
-          {{ optionLabelOf(option) }}
-        </option>
-      </slot>
-    </select>
+      <template v-if="$slots.option" #option="slotProps">
+        <slot name="option" :option="slotProps.option.raw" />
+      </template>
+      <template v-if="$slots.value" #value="slotProps">
+        <slot name="value" :value="slotProps.value" :placeholder="slotProps.placeholder" />
+      </template>
+    </Select>
   </UiField>
 </template>
-
-<style scoped>
-.ui-select {
-  color-scheme: light;
-}
-
-:global(html[data-theme='dark']) .ui-select {
-  color-scheme: dark;
-}
-
-.ui-select option,
-:slotted(option) {
-  color: var(--text);
-  background: var(--surface);
-}
-
-.ui-control {
-  width: 100%;
-
-  color: var(--text);
-  background: var(--surface);
-
-  border: 1px solid var(--border);
-  border-radius: 9px;
-
-  font: inherit;
-
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.ui-control--sm {
-  min-height: 36px;
-  padding: 7px 9px;
-
-  font-size: 13px;
-}
-
-.ui-control--md {
-  min-height: 42px;
-  padding: 8px 10px;
-
-  font-size: 14px;
-}
-
-.ui-control--lg {
-  min-height: 46px;
-  padding: 10px 12px;
-
-  font-size: 15px;
-}
-
-.ui-control:focus {
-  outline: 2px solid var(--focus-ring);
-
-  border-color: var(--brand);
-}
-
-.ui-control--error {
-  border-color: var(--danger);
-}
-
-.ui-control:disabled {
-  opacity: 0.58;
-  cursor: not-allowed;
-}
-</style>

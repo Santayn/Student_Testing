@@ -10,7 +10,7 @@ Vue-клиент системы Student Testing.
 - Pinia
 - Axios
 - Vitest + Vue Test Utils
-- PrimeVue 5 + `@primeuix/themes`
+- PrimeVue 4.5.5 (MIT) + `@primeuix/themes`
 - Tailwind CSS 4 + `tailwindcss-primeui`
 - PrimeIcons
 
@@ -92,7 +92,7 @@ Backend не следует менять в рамках frontend-этапов �
 
 ## UI foundation
 
-Новый UI-слой строится на PrimeVue 5 + Tailwind CSS 4. Существующие `Ui*` компоненты пока сохраняются и будут мигрировать постепенно.
+Новый UI-слой строится на PrimeVue 4.5.5 + Tailwind CSS 4. `components/ui` является публичным UI API проекта: business views должны импортировать `Ui*`-компоненты оттуда, а не использовать `primevue/*` напрямую. Внутри этого слоя PrimeVue остаётся реализационной деталью.
 
 В development-режиме доступна изолированная страница проверки дизайн-системы:
 
@@ -101,3 +101,6 @@ Backend не следует менять в рамках frontend-этапов �
 ```
 
 Она намеренно не добавляется в production routes. На странице можно проверить PrimeVue-компоненты, semantic Tailwind utilities и синхронизацию light/dark с текущим `ThemeStore`.
+
+
+Подробные правила и перечень базовых компонентов находятся в `src/components/ui/README.md`.

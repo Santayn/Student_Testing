@@ -20,8 +20,21 @@ import Select from 'primevue/select'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
-import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
+
+import {
+  UiActionMenu,
+  UiButton,
+  UiCard,
+  UiDialog,
+  UiInput,
+  UiSearchInput,
+  UiSelect,
+  UiTable,
+  UiTag,
+  UiToastHost,
+  UiToolbar,
+} from '@/components/ui'
 
 import {
   useThemeStore,
@@ -43,6 +56,10 @@ const faculty = ref(null)
 const accepted = ref(true)
 const role = ref('student')
 const selectedTeacher = ref('Тиликин А. Ю.')
+const foundationSearch = ref('')
+const foundationTitle = ref('Лабораторная работа')
+const foundationFaculty = ref('IT')
+const foundationDialogVisible = ref(false)
 
 const faculties = [
   {
@@ -82,6 +99,35 @@ const students = [
     status: 'Приостановлен',
   },
 ]
+
+const foundationColumns = [
+  { key: 'name', label: 'Студент' },
+  { key: 'group', label: 'Группа' },
+  { key: 'status', label: 'Статус', sortable: false },
+  { key: 'actions', label: '', sortable: false, style: { width: '56px' } },
+]
+
+function foundationRowActions(row) {
+  return [
+    {
+      label: 'Открыть',
+      icon: 'pi pi-external-link',
+      command: () => toast.add({ severity: 'info', summary: 'Открыть', detail: row.name, life: 2200 }),
+    },
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => toast.add({ severity: 'info', summary: 'Изменить', detail: row.name, life: 2200 }),
+    },
+    { separator: true },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => toast.add({ severity: 'warn', summary: 'Удалить', detail: row.name, life: 2200 }),
+    },
+  ]
+}
 
 const navItems = [
   {
@@ -225,7 +271,7 @@ function showToast() {
   <main
     class="mx-auto grid w-full max-w-[var(--st-content-width)] gap-6 p-4 md:p-6 xl:p-8"
   >
-    <Toast />
+    <UiToastHost />
     <Menu
       id="showcase-actions-menu"
       ref="actionMenu"
@@ -288,6 +334,131 @@ function showToast() {
         </div>
       </div>
     </section>
+
+    <UiCard
+      title="Этап 24 · UI foundation"
+      description="Общий проектный слой поверх PrimeVue. Будущие business views должны использовать эти Ui-компоненты, а не primevue/* напрямую."
+    >
+      <div class="grid gap-4">
+        <UiToolbar>
+          <template #start>
+            <div class="w-full sm:w-80">
+              <UiSearchInput
+                v-model="foundationSearch"
+                placeholder="Поиск по студентам"
+              />
+            </div>
+          </template>
+
+          <template #end>
+            <UiButton
+              variant="secondary"
+              icon="pi pi-filter-slash"
+              label="Сбросить"
+              @click="foundationSearch = ''"
+            />
+            <UiButton
+              variant="primary"
+              icon="pi pi-plus"
+              label="Создать"
+              @click="foundationDialogVisible = true"
+            />
+          </template>
+        </UiToolbar>
+
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <UiInput
+            v-model="foundationTitle"
+            label="Название"
+            hint="Единый field shell и focus-state."
+          />
+          <UiSelect
+            v-model="foundationFaculty"
+            label="Факультет"
+            :options="[
+              { label: 'Информационные технологии', value: 'IT' },
+              { label: 'Кибербезопасность', value: 'KB' },
+            ]"
+          />
+          <div class="grid content-start gap-2">
+            <span class="text-xs font-semibold text-muted-color">Статусы</span>
+            <div class="flex flex-wrap gap-2">
+              <UiTag value="Активен" variant="success" />
+              <UiTag value="Черновик" />
+              <UiTag value="Приостановлен" variant="warning" />
+            </div>
+          </div>
+          <div class="grid content-start gap-2">
+            <span class="text-xs font-semibold text-muted-color">Действия</span>
+            <div class="flex gap-2">
+              <UiButton label="Primary" variant="primary" />
+              <UiActionMenu :items="foundationRowActions(students[0])" />
+            </div>
+          </div>
+        </div>
+
+        <UiTable
+          :columns="foundationColumns"
+          :rows="students"
+          empty-message="Студенты не найдены."
+        >
+          <template #cell-status="{ row }">
+            <UiTag
+              :value="row.status"
+              :variant="
+                row.status === 'Активен'
+                  ? 'success'
+                  : row.status === 'Приостановлен'
+                    ? 'warning'
+                    : 'secondary'
+              "
+            />
+          </template>
+
+          <template #cell-actions="{ row }">
+            <div class="flex justify-end">
+              <UiActionMenu
+                :items="foundationRowActions(row)"
+                :aria-label="`Действия: ${row.name}`"
+              />
+            </div>
+          </template>
+        </UiTable>
+      </div>
+    </UiCard>
+
+    <UiDialog
+      v-model="foundationDialogVisible"
+      title="Новая запись"
+    >
+      <div class="grid gap-4">
+        <UiInput v-model="foundationTitle" label="Название" />
+        <UiSelect
+          v-model="foundationFaculty"
+          label="Факультет"
+          :options="[
+            { label: 'Информационные технологии', value: 'IT' },
+            { label: 'Кибербезопасность', value: 'KB' },
+          ]"
+        />
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            @click="foundationDialogVisible = false"
+          />
+          <UiButton
+            variant="primary"
+            label="Сохранить"
+            icon="pi pi-check"
+            @click="foundationDialogVisible = false"
+          />
+        </div>
+      </template>
+    </UiDialog>
 
     <Card>
       <template #title>

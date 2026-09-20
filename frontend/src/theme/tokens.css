@@ -49,7 +49,9 @@ html[data-theme='light'] {
   --st-header-height: 64px;
   --st-sidebar-width: 256px;
   --st-sidebar-collapsed-width: 72px;
+  --st-control-height-sm: 34px;
   --st-control-height: 40px;
+  --st-control-height-lg: 46px;
   --st-table-row-height: 46px;
 
   --st-radius-control: 8px;
@@ -67,6 +69,7 @@ html[data-theme='light'] {
   --st-space-section: 24px;
   --st-space-card: 20px;
 
+  --st-focus-shadow: 0 0 0 3px rgb(37 99 235 / 14%);
   --st-shadow-card: 0 1px 2px rgb(15 23 42 / 5%);
   --st-shadow-elevated: 0 10px 30px rgb(15 23 42 / 10%);
 
@@ -104,6 +107,7 @@ html[data-theme='dark'] {
   --st-info: #38bdf8;
   --st-info-soft: #082f49;
 
+  --st-focus-shadow: 0 0 0 3px rgb(59 130 246 / 18%);
   --st-shadow-card: 0 1px 2px rgb(0 0 0 / 26%);
   --st-shadow-elevated: 0 12px 32px rgb(0 0 0 / 34%);
 }

@@ -4,7 +4,7 @@
  * Intentionally omit tailwindcss/preflight so the existing application
  * keeps its current browser/base styling while we migrate screens gradually.
  */
-@layer theme, primevue, utilities;
+@layer theme, primevue, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss-primeui";

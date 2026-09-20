@@ -10,6 +10,7 @@ import App from './App.vue'
 import '@/assets/tailwind.css'
 import '@/assets/theme.css'
 import '@/theme/tokens.css'
+import '@/theme/foundation.css'
 import 'primeicons/primeicons.css'
 
 import router from './router'
