@@ -12,6 +12,7 @@ import {
   isReactivatableTeacherMembership,
 } from '@/utils/teacherMembershipEligibility'
 import {
+  assignSubjectToTeacher,
   assignSubjectsToTeacher,
 } from '@/utils/teacherSubjectAssignment'
 
@@ -105,4 +106,21 @@ describe('teacher subject membership state', () => {
     )
     expect(api.updateSubjectMembership).not.toHaveBeenCalled()
   })
+  it('can execute a single assignment independently for resilient batch flows', async () => {
+    const result = await assignSubjectToTeacher({
+      api,
+      memberships: [],
+      personId: 7,
+      subjectId: 5,
+      notes: 'Новая нагрузка',
+    })
+
+    expect(result).toEqual({
+      subjectId: 5,
+      membershipId: 900,
+      action: 'created',
+    })
+    expect(api.addPersonToSubject).toHaveBeenCalledTimes(1)
+  })
+
 })

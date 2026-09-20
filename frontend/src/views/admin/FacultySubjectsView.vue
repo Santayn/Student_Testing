@@ -27,6 +27,9 @@ import {
   listFromResponse,
   uniqueNumbers,
 } from '@/utils/apiData'
+import {
+  runBatchOperation,
+} from '@/utils/batchOperation'
 
 const faculties = ref([])
 const subjects = ref([])
@@ -186,30 +189,41 @@ async function addSubjects() {
   saving.value = true
 
   try {
-    await Promise.all(
-      ids.map(
+    const result =
+      await runBatchOperation(
+        ids,
         (subjectId) =>
           facultiesApi.addSubject(
             Number(facultyId.value),
             subjectId
           )
       )
-    )
+
+    const errorDetails = result.failures
+      .map(({ error }) =>
+        getApiErrorMessage(
+          error,
+          'Ошибка добавления предмета'
+        )
+      )
+      .slice(0, 3)
+      .join(' | ')
 
     showNotice(
-      'success',
-      `Добавлено предметов: ${ids.length}.`
+      result.failureCount
+        ? result.successCount
+          ? 'warning'
+          : 'error'
+        : 'success',
+      result.failureCount
+        ? `Добавлено: ${result.successCount}. Не удалось добавить: ${result.failureCount}.` +
+            (errorDetails
+              ? ` ${errorDetails}`
+              : '')
+        : `Добавлено предметов: ${result.successCount}.`
     )
 
     await loadAssignedSubjects()
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось добавить предметы'
-      )
-    )
   } finally {
     saving.value = false
   }
@@ -230,30 +244,41 @@ async function removeSubjects() {
   saving.value = true
 
   try {
-    await Promise.all(
-      ids.map(
+    const result =
+      await runBatchOperation(
+        ids,
         (subjectId) =>
           facultiesApi.removeSubject(
             Number(facultyId.value),
             subjectId
           )
       )
-    )
+
+    const errorDetails = result.failures
+      .map(({ error }) =>
+        getApiErrorMessage(
+          error,
+          'Ошибка удаления предмета'
+        )
+      )
+      .slice(0, 3)
+      .join(' | ')
 
     showNotice(
-      'success',
-      `Удалено предметов: ${ids.length}.`
+      result.failureCount
+        ? result.successCount
+          ? 'warning'
+          : 'error'
+        : 'success',
+      result.failureCount
+        ? `Удалено: ${result.successCount}. Не удалось удалить: ${result.failureCount}.` +
+            (errorDetails
+              ? ` ${errorDetails}`
+              : '')
+        : `Удалено предметов: ${result.successCount}.`
     )
 
     await loadAssignedSubjects()
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось удалить предметы'
-      )
-    )
   } finally {
     saving.value = false
   }

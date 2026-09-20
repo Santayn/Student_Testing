@@ -3,6 +3,58 @@ import {
   TEACHER_SUBJECT_ROLE,
 } from '@/utils/teacherMembershipEligibility'
 
+export async function assignSubjectToTeacher({
+  api,
+  memberships = [],
+  personId,
+  subjectId,
+  notes = '',
+}) {
+  const normalizedPersonId = Number(personId)
+  const normalizedSubjectId = Number(subjectId)
+  const normalizedNotes = String(notes ?? '').trim() || null
+
+  const pausedMembership = findReactivatableTeacherMembership(
+    memberships,
+    normalizedPersonId,
+    normalizedSubjectId
+  )
+
+  if (pausedMembership) {
+    await api.updateSubjectMembership(
+      pausedMembership.id,
+      {
+        status: 1,
+        notes:
+          normalizedNotes ??
+          pausedMembership.notes ??
+          null,
+      }
+    )
+
+    return {
+      subjectId: normalizedSubjectId,
+      membershipId: Number(pausedMembership.id),
+      action: 'reactivated',
+    }
+  }
+
+  const response = await api.addPersonToSubject(
+    normalizedSubjectId,
+    {
+      personId: normalizedPersonId,
+      role: TEACHER_SUBJECT_ROLE,
+      notes: normalizedNotes,
+    }
+  )
+
+  return {
+    subjectId: normalizedSubjectId,
+    membershipId: Number(response?.data?.id ?? 0) || null,
+    action: 'created',
+  }
+}
+
 export async function assignSubjectsToTeacher({
   api,
   memberships = [],
@@ -10,52 +62,18 @@ export async function assignSubjectsToTeacher({
   subjectIds = [],
   notes = '',
 }) {
-  const normalizedPersonId = Number(personId)
-  const normalizedNotes = String(notes ?? '').trim() || null
   const results = []
 
-  for (const rawSubjectId of subjectIds) {
-    const subjectId = Number(rawSubjectId)
-    const pausedMembership = findReactivatableTeacherMembership(
-      memberships,
-      normalizedPersonId,
-      subjectId
-    )
-
-    if (pausedMembership) {
-      await api.updateSubjectMembership(
-        pausedMembership.id,
-        {
-          status: 1,
-          notes:
-            normalizedNotes ??
-            pausedMembership.notes ??
-            null,
-        }
-      )
-
-      results.push({
+  for (const subjectId of subjectIds) {
+    results.push(
+      await assignSubjectToTeacher({
+        api,
+        memberships,
+        personId,
         subjectId,
-        membershipId: Number(pausedMembership.id),
-        action: 'reactivated',
+        notes,
       })
-      continue
-    }
-
-    const response = await api.addPersonToSubject(
-      subjectId,
-      {
-        personId: normalizedPersonId,
-        role: TEACHER_SUBJECT_ROLE,
-        notes: normalizedNotes,
-      }
     )
-
-    results.push({
-      subjectId,
-      membershipId: Number(response?.data?.id ?? 0) || null,
-      action: 'created',
-    })
   }
 
   return results

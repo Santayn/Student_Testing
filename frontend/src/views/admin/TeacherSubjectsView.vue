@@ -34,8 +34,11 @@ import {
   isReactivatableTeacherMembership,
 } from '@/utils/teacherMembershipEligibility'
 import {
-  assignSubjectsToTeacher,
+  assignSubjectToTeacher,
 } from '@/utils/teacherSubjectAssignment'
+import {
+  runBatchOperation,
+} from '@/utils/batchOperation'
 
 const TEACHER_ROLE = 1
 const TEACHER_APP_ROLE = 'TEACHER'
@@ -292,30 +295,48 @@ async function addSubjects() {
   saving.value = true
 
   try {
-    await assignSubjectsToTeacher({
-      api: membershipsApi,
-      memberships: memberships.value,
-      personId: Number(teacherId.value),
-      subjectIds,
-      notes: notes.value,
-    })
+    const result =
+      await runBatchOperation(
+        subjectIds,
+        (subjectId) =>
+          assignSubjectToTeacher({
+            api: membershipsApi,
+            memberships: memberships.value,
+            personId: Number(teacherId.value),
+            subjectId,
+            notes: notes.value,
+          })
+      )
 
-    notes.value = ''
+    if (result.successCount) {
+      notes.value = ''
+    }
+
+    const errorDetails = result.failures
+      .map(({ error }) =>
+        getApiErrorMessage(
+          error,
+          'Ошибка назначения'
+        )
+      )
+      .slice(0, 3)
+      .join(' | ')
 
     showNotice(
-      'success',
-      'Предметы назначены преподавателю.'
+      result.failureCount
+        ? result.successCount
+          ? 'warning'
+          : 'error'
+        : 'success',
+      result.failureCount
+        ? `Назначено: ${result.successCount}. Не удалось: ${result.failureCount}.` +
+            (errorDetails
+              ? ` ${errorDetails}`
+              : '')
+        : `Назначено предметов: ${result.successCount}.`
     )
 
     await loadData()
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось назначить предметы'
-      )
-    )
   } finally {
     saving.value = false
   }
@@ -333,33 +354,45 @@ async function removeSubjects() {
   saving.value = true
 
   try {
-    for (
-      const membershipId of ids
-    ) {
-      await membershipsApi
-        .updateSubjectMembershipStatus(
-          membershipId,
-          {
-            status:
-              REMOVED_STATUS,
-          }
+    const result =
+      await runBatchOperation(
+        ids,
+        (membershipId) =>
+          membershipsApi
+            .updateSubjectMembershipStatus(
+              membershipId,
+              {
+                status:
+                  REMOVED_STATUS,
+              }
+            )
+      )
+
+    const errorDetails = result.failures
+      .map(({ error }) =>
+        getApiErrorMessage(
+          error,
+          'Ошибка снятия назначения'
         )
-    }
+      )
+      .slice(0, 3)
+      .join(' | ')
 
     showNotice(
-      'success',
-      'Предметы сняты с преподавателя.'
+      result.failureCount
+        ? result.successCount
+          ? 'warning'
+          : 'error'
+        : 'success',
+      result.failureCount
+        ? `Снято: ${result.successCount}. Не удалось снять: ${result.failureCount}.` +
+            (errorDetails
+              ? ` ${errorDetails}`
+              : '')
+        : `Снято назначений: ${result.successCount}.`
     )
 
     await loadData()
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось снять предметы'
-      )
-    )
   } finally {
     saving.value = false
   }
