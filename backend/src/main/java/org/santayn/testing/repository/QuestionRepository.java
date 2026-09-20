@@ -11,6 +11,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     List<Question> findByTestIdOrderByOrdinalAsc(Integer testId);
 
+    void deleteByTestId(Integer testId);
+
     List<Question> findByTopicIdAndTestIdIsNullOrderByOrdinalAsc(Integer topicId);
 
     List<Question> findByTestIdAndActiveTrueOrderByOrdinalAsc(Integer testId);

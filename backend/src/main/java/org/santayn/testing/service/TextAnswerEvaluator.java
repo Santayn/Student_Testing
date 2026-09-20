@@ -29,6 +29,7 @@ public final class TextAnswerEvaluator {
     private static final LevenshteinDistance LEVENSHTEIN = LevenshteinDistance.getDefaultInstance();
     private static final Pattern NON_LETTER_OR_DIGIT = Pattern.compile("[^\\p{L}\\p{N}]+");
     private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
+    private static final Set<String> NEGATION_WORDS = Set.of("не", "нет", "без", "not", "no", "never");
 
     private static final Set<String> STOP_WORDS = Set.of(
             "а", "без", "более", "бы", "был", "была", "были", "было", "быть", "в", "вам", "вас",
@@ -49,36 +50,79 @@ public final class TextAnswerEvaluator {
     }
 
     public static boolean isCorrect(String expectedRaw, String actualRaw) {
-        String actualNormalized = normalizeForAnswer(actualRaw);
+        return score(expectedRaw, actualRaw) == 1.0;
+    }
+
+    public static boolean isPartiallyCorrect(String expectedRaw, String actualRaw) {
+        return score(expectedRaw, actualRaw) >= 0.5;
+    }
+
+    public static boolean isExactAcceptedAnswer(String expectedRaw, String actualRaw) {
+        String actualNormalized = normalizeForExactAnswer(actualRaw);
         if (actualNormalized == null) {
             return false;
         }
 
         for (String expectedVariant : QuestionTypeSupport.splitAcceptedTextAnswers(expectedRaw)) {
-            String expectedNormalized = normalizeForAnswer(expectedVariant);
-            if (expectedNormalized == null) {
-                continue;
-            }
-            if (isVariantCorrect(expectedNormalized, actualNormalized)) {
+            String expectedNormalized = normalizeForExactAnswer(expectedVariant);
+            if (actualNormalized.equals(expectedNormalized)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean isVariantCorrect(String expectedNormalized, String actualNormalized) {
+    public static double score(String expectedRaw, String actualRaw) {
+        String actualNormalized = normalizeForAnswer(actualRaw);
+        if (actualNormalized == null) {
+            return 0;
+        }
+
+        double bestScore = 0;
+        for (String expectedVariant : QuestionTypeSupport.splitAcceptedTextAnswers(expectedRaw)) {
+            String expectedNormalized = normalizeForAnswer(expectedVariant);
+            if (expectedNormalized == null) {
+                continue;
+            }
+            bestScore = Math.max(bestScore, scoreVariant(expectedNormalized, actualNormalized));
+            if (bestScore == 1.0) {
+                return bestScore;
+            }
+        }
+        return bestScore >= 0.5 ? 0.5 : 0;
+    }
+
+    private static String normalizeForExactAnswer(String value) {
+        String trimmed = FacultyService.trimToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+
+        String normalized = Normalizer.normalize(trimmed, Normalizer.Form.NFKC)
+                .toLowerCase(Locale.ROOT)
+                .replace('\u0451', '\u0435');
+        normalized = NON_LETTER_OR_DIGIT.matcher(normalized).replaceAll(" ");
+        normalized = MULTI_SPACE.matcher(normalized).replaceAll(" ").trim();
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private static double scoreVariant(String expectedNormalized, String actualNormalized) {
         if (expectedNormalized.equals(actualNormalized)) {
-            return true;
+            return 1.0;
         }
 
         List<String> expectedTokens = meaningfulTokens(expectedNormalized);
         List<String> actualTokens = meaningfulTokens(actualNormalized);
         if (expectedTokens.isEmpty() || actualTokens.isEmpty()) {
-            return false;
+            return 0;
+        }
+
+        if (hasNegationMismatch(expectedNormalized, actualNormalized)) {
+            return 0;
         }
 
         if (new HashSet<>(expectedTokens).equals(new HashSet<>(actualTokens))) {
-            return true;
+            return 1.0;
         }
 
         double jaroWinklerScore = JARO_WINKLER.apply(expectedNormalized, actualNormalized);
@@ -90,18 +134,38 @@ public final class TextAnswerEvaluator {
         if (expectedNormalized.length() >= 5 && actualNormalized.length() >= 5
                 && jaroWinklerScore >= 0.96
                 && levenshteinScore >= 0.88) {
-            return true;
+            return 1.0;
         }
 
         if (expectedCoverage >= 0.85 && actualCoverage >= 0.65) {
-            return true;
+            return 1.0;
+        }
+
+        if (expectedCoverage >= 0.92 && actualTokens.size() <= expectedTokens.size() * 3 + 2) {
+            return 1.0;
         }
 
         if (expectedCoverage >= 0.75 && actualCoverage >= 0.55 && Math.max(jaroWinklerScore, levenshteinScore) >= 0.82) {
-            return true;
+            return 1.0;
         }
 
-        return jaccard >= 0.72 && Math.max(jaroWinklerScore, levenshteinScore) >= 0.78;
+        if (jaccard >= 0.72 && Math.max(jaroWinklerScore, levenshteinScore) >= 0.78) {
+            return 1.0;
+        }
+
+        if (expectedCoverage >= 0.55 && actualCoverage >= 0.35) {
+            return 0.5;
+        }
+
+        if (expectedCoverage >= 0.45 && actualCoverage >= 0.30 && Math.max(jaroWinklerScore, levenshteinScore) >= 0.62) {
+            return 0.5;
+        }
+
+        if (jaccard >= 0.38 && Math.max(jaroWinklerScore, levenshteinScore) >= 0.58) {
+            return 0.5;
+        }
+
+        return 0;
     }
 
     private static String normalizeForAnswer(String value) {
@@ -144,6 +208,23 @@ public final class TextAnswerEvaluator {
             tokens.add(stemToken(token));
         }
         return List.copyOf(tokens);
+    }
+
+    private static boolean hasNegationMismatch(String expectedNormalized, String actualNormalized) {
+        return containsNegation(expectedNormalized) != containsNegation(actualNormalized);
+    }
+
+    private static boolean containsNegation(String normalizedValue) {
+        String trimmed = FacultyService.trimToNull(normalizedValue);
+        if (trimmed == null) {
+            return false;
+        }
+        for (String rawToken : trimmed.split(" ")) {
+            if (NEGATION_WORDS.contains(rawToken)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String stemToken(String token) {
@@ -201,7 +282,9 @@ public final class TextAnswerEvaluator {
         if (expectedToken.length() < 4 || actualToken.length() < 4) {
             return false;
         }
-        return normalizedLevenshteinSimilarity(expectedToken, actualToken) >= 0.84;
+        int maxLength = Math.max(expectedToken.length(), actualToken.length());
+        double threshold = maxLength <= 6 ? 0.80 : (maxLength <= 8 ? 0.82 : 0.84);
+        return normalizedLevenshteinSimilarity(expectedToken, actualToken) >= threshold;
     }
 
     private static double jaccard(List<String> expectedTokens, List<String> actualTokens) {
@@ -240,6 +323,8 @@ public final class TextAnswerEvaluator {
         Map<String, List<String>> expansions = new HashMap<>();
         addExpansion(expansions, "cpu", "central", "processing", "unit", "центральный", "процессор");
         addExpansion(expansions, "цпу", "central", "processing", "unit", "центральный", "процессор");
+        addExpansion(expansions, "central processing unit", "cpu", "центральный", "процессор");
+        addExpansion(expansions, "центральный процессор", "cpu", "central", "processing", "unit");
         addExpansion(expansions, "sql", "structured", "query", "language", "структурированный", "язык", "запросов");
         addExpansion(expansions, "ооп", "object", "oriented", "programming", "объектно", "ориентированное", "программирование");
         addExpansion(expansions, "api", "application", "programming", "interface", "интерфейс", "программирования", "приложений");

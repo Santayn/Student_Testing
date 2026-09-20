@@ -19,6 +19,8 @@ public interface TestAssignmentRepository extends JpaRepository<TestAssignment, 
 
     List<TestAssignment> findByTestId(Integer testId);
 
+    void deleteByTestId(Integer testId);
+
     List<TestAssignment> findByCourseVersionId(Integer courseVersionId);
 
     List<TestAssignment> findByCourseLectureId(Integer courseLectureId);

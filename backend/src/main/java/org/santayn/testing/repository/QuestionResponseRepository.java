@@ -10,6 +10,8 @@ public interface QuestionResponseRepository extends JpaRepository<QuestionRespon
 
     List<QuestionResponse> findByTestAttemptId(Integer testAttemptId);
 
+    List<QuestionResponse> findByTestAttemptIdIn(List<Integer> testAttemptIds);
+
     List<QuestionResponse> findByTestAttemptIdOrderByIdAsc(Integer testAttemptId);
 
     Optional<QuestionResponse> findByTestAttemptIdAndTestQuestionId(Integer testAttemptId, Long testQuestionId);

@@ -53,6 +53,7 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -233,15 +234,9 @@ public class DataLoader implements CommandLineRunner {
         );
         SubjectMembership teacherDatabases = ensureSubjectMembership(
                 databases.getId(),
-                teacher1.getPersonId(),
-                MEMBERSHIP_ROLE_TEACHER,
-                "Seed teacher assignment for Databases."
-        );
-        SubjectMembership teacher2Informatics = ensureSubjectMembership(
-                informatics.getId(),
                 teacher2.getPersonId(),
                 MEMBERSHIP_ROLE_TEACHER,
-                "Seed secondary teacher assignment for Informatics."
+                "Seed teacher assignment for Databases."
         );
         SubjectMembership teacherAlgorithms = ensureSubjectMembership(
                 algorithms.getId(),
@@ -276,8 +271,18 @@ public class DataLoader implements CommandLineRunner {
 
         ensureSubjectLoadType(teacherInformatics.getId(), defaultLoadType.getId());
         ensureSubjectLoadType(teacherDatabases.getId(), defaultLoadType.getId());
-        ensureSubjectLoadType(teacher2Informatics.getId(), defaultLoadType.getId());
         ensureSubjectLoadType(teacherAlgorithms.getId(), defaultLoadType.getId());
+
+        retireSeedSubjectMembershipIfExists(
+                databases.getId(),
+                teacher1.getPersonId(),
+                "Seed teacher assignment for Databases."
+        );
+        retireSeedSubjectMembershipIfExists(
+                informatics.getId(),
+                teacher2.getPersonId(),
+                "Seed secondary teacher assignment for Informatics."
+        );
 
         seedTeachingFlow(
                 informatics,
@@ -568,15 +573,50 @@ public class DataLoader implements CommandLineRunner {
         );
     }
 
+    private void retireSeedSubjectMembershipIfExists(Integer subjectId, Integer personId, String seedNotes) {
+        membershipService.subjectMembers(subjectId, personId, null, true)
+                .stream()
+                .filter(membership -> membership.getRole() == MEMBERSHIP_ROLE_TEACHER)
+                .filter(membership -> seedNotes.equals(membership.getNotes()))
+                .forEach(membership -> {
+                    teachingService.findSubjectLoadTypes(membership.getId(), null)
+                            .forEach(loadType -> teachingService.updateSubjectLoadTypeStatus(loadType.getId(), 3));
+                    membershipService.updateSubjectMembership(
+                            membership.getId(),
+                            3,
+                            "Retired obsolete seed teacher subject assignment."
+                    );
+                });
+    }
+
     private CourseTemplate ensureCourseTemplate(Integer subjectId,
                                                 Integer authorPersonId,
                                                 String name,
                                                 boolean publicVisible) {
-        return courseService.findTemplates(subjectId, authorPersonId, false)
+        CourseTemplate existing = courseService.findTemplates(subjectId, authorPersonId, false)
                 .stream()
                 .filter(item -> name.equals(item.getName()))
                 .findFirst()
-                .orElseGet(() -> courseService.createTemplate(subjectId, authorPersonId, name, publicVisible));
+                .orElse(null);
+
+        if (existing == null) {
+            existing = courseService.findTemplates(subjectId, null, false)
+                    .stream()
+                    .filter(item -> name.equals(item.getName()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (existing == null) {
+            return courseService.createTemplate(subjectId, authorPersonId, name, publicVisible);
+        }
+
+        if (!Objects.equals(existing.getAuthorPersonId(), authorPersonId)
+                || existing.isPublicVisible() != publicVisible) {
+            return courseService.updateTemplate(existing.getId(), subjectId, authorPersonId, name, publicVisible);
+        }
+
+        return existing;
     }
 
     private CourseVersion ensureCourseVersion(Integer courseTemplateId,
@@ -600,7 +640,23 @@ public class DataLoader implements CommandLineRunner {
                         changeNotes
                 ));
 
+        if (!title.equals(version.getTitle())
+                || !Objects.equals(description, version.getDescription())
+                || !Objects.equals(createdByPersonId, version.getCreatedByPersonId())
+                || !Objects.equals(changeNotes, version.getChangeNotes())) {
+            version = courseService.updateVersion(
+                    version.getId(),
+                    versionNumber,
+                    title,
+                    description,
+                    createdByPersonId,
+                    changeNotes
+            );
+        }
+
         if (!version.isPublished()) {
+            version = courseService.publishVersion(version.getId(), createdByPersonId);
+        } else if (!Objects.equals(version.getPublishedByPersonId(), createdByPersonId)) {
             version = courseService.publishVersion(version.getId(), createdByPersonId);
         }
         return version;
@@ -613,21 +669,56 @@ public class DataLoader implements CommandLineRunner {
                                   String title,
                                   String description,
                                   String contentFolderKey) {
-        return lectureService.findAll(null, subjectMembershipId, null)
+        Lecture existing = lectureService.findAll(null, subjectMembershipId, null)
                 .stream()
                 .filter(item -> contentFolderKey.equals(item.getContentFolderKey()))
                 .findFirst()
-                .orElseGet(() -> lectureService.create(
-                        subjectId,
-                        subjectMembershipId,
-                        courseVersionId,
-                        ordinal,
-                        title,
-                        description,
-                        contentFolderKey,
-                        null,
-                        true
-                ));
+                .orElse(null);
+
+        if (existing == null) {
+            existing = lectureService.findAll(null, null, courseVersionId)
+                    .stream()
+                    .filter(item -> contentFolderKey.equals(item.getContentFolderKey()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (existing == null) {
+            return lectureService.create(
+                    subjectId,
+                    subjectMembershipId,
+                    courseVersionId,
+                    ordinal,
+                    title,
+                    description,
+                    contentFolderKey,
+                    null,
+                    true
+            );
+        }
+
+        if (!Objects.equals(existing.getSubjectId(), subjectId)
+                || !Objects.equals(existing.getSubjectMembershipId(), subjectMembershipId)
+                || !Objects.equals(existing.getCourseVersionId(), courseVersionId)
+                || existing.getOrdinal() != ordinal
+                || !title.equals(existing.getTitle())
+                || !Objects.equals(description, existing.getDescription())
+                || !existing.isPublicVisible()) {
+            return lectureService.update(
+                    existing.getId(),
+                    subjectId,
+                    subjectMembershipId,
+                    courseVersionId,
+                    ordinal,
+                    title,
+                    description,
+                    contentFolderKey,
+                    existing.getLinkedTestId(),
+                    true
+            );
+        }
+
+        return existing;
     }
 
     private Topic ensureTopic(Integer subjectId,
@@ -636,18 +727,48 @@ public class DataLoader implements CommandLineRunner {
                               int ordinal,
                               String name,
                               String description) {
-        return topicService.findAll(null, null, subjectMembershipId)
+        Topic existing = topicService.findAll(null, courseLectureId, null)
                 .stream()
                 .filter(item -> name.equals(item.getName()))
                 .findFirst()
-                .orElseGet(() -> topicService.create(
-                        subjectId,
-                        courseLectureId,
-                        subjectMembershipId,
-                        ordinal,
-                        name,
-                        description
-                ));
+                .orElse(null);
+
+        if (existing == null) {
+            existing = topicService.findAll(null, null, subjectMembershipId)
+                    .stream()
+                    .filter(item -> name.equals(item.getName()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (existing == null) {
+            return topicService.create(
+                    subjectId,
+                    courseLectureId,
+                    subjectMembershipId,
+                    ordinal,
+                    name,
+                    description
+            );
+        }
+
+        if (!Objects.equals(existing.getSubjectId(), subjectId)
+                || !Objects.equals(existing.getCourseLectureId(), courseLectureId)
+                || !Objects.equals(existing.getSubjectMembershipId(), subjectMembershipId)
+                || existing.getOrdinal() != ordinal
+                || !Objects.equals(description, existing.getDescription())) {
+            return topicService.update(
+                    existing.getId(),
+                    subjectId,
+                    courseLectureId,
+                    subjectMembershipId,
+                    ordinal,
+                    name,
+                    description
+            );
+        }
+
+        return existing;
     }
 
     private Question ensureTopicQuestion(Integer courseLectureId,
@@ -771,7 +892,7 @@ public class DataLoader implements CommandLineRunner {
                                                         int academicYear,
                                                         BigDecimal hoursPerWeek,
                                                         String notes) {
-        return teachingService.findAssignments(
+        TeachingAssignment existing = teachingService.findAssignments(
                         groupId,
                         subjectMembershipId,
                         courseVersionId,
@@ -784,18 +905,70 @@ public class DataLoader implements CommandLineRunner {
                 )
                 .stream()
                 .findFirst()
-                .orElseGet(() -> teachingService.createAssignment(
-                        subjectMembershipId,
-                        groupId,
-                        loadTypeId,
-                        courseVersionId,
-                        semester,
-                        studyCourse,
-                        academicYear,
-                        hoursPerWeek,
-                        ACTIVE_STATUS,
-                        notes
-                ));
+                .orElse(null);
+
+        if (existing == null) {
+            Integer subjectId = membershipService.getSubjectMembership(subjectMembershipId).getSubjectId();
+            existing = teachingService.findAssignments(
+                            groupId,
+                            null,
+                            courseVersionId,
+                            null,
+                            loadTypeId,
+                            studyCourse,
+                            semester,
+                            academicYear,
+                            null
+                    )
+                    .stream()
+                    .filter(assignment -> subjectId.equals(
+                            membershipService.getSubjectMembership(assignment.getSubjectMembershipId()).getSubjectId()
+                    ))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (existing == null) {
+            return teachingService.createAssignment(
+                    subjectMembershipId,
+                    groupId,
+                    loadTypeId,
+                    courseVersionId,
+                    semester,
+                    studyCourse,
+                    academicYear,
+                    hoursPerWeek,
+                    ACTIVE_STATUS,
+                    notes
+            );
+        }
+
+        if (!Objects.equals(existing.getSubjectMembershipId(), subjectMembershipId)
+                || !Objects.equals(existing.getGroupId(), groupId)
+                || !Objects.equals(existing.getLoadTypeId(), loadTypeId)
+                || !Objects.equals(existing.getCourseVersionId(), courseVersionId)
+                || existing.getSemester() != semester
+                || !Objects.equals(existing.getStudyCourse(), studyCourse)
+                || existing.getAcademicYear() != academicYear
+                || existing.getHoursPerWeek().compareTo(hoursPerWeek) != 0
+                || existing.getStatus() != ACTIVE_STATUS
+                || !Objects.equals(existing.getNotes(), notes)) {
+            return teachingService.updateAssignment(
+                    existing.getId(),
+                    subjectMembershipId,
+                    groupId,
+                    loadTypeId,
+                    courseVersionId,
+                    semester,
+                    studyCourse,
+                    academicYear,
+                    hoursPerWeek,
+                    ACTIVE_STATUS,
+                    notes
+            );
+        }
+
+        return existing;
     }
 
     private TeachingAssignmentEnrollment ensureTeachingAssignmentEnrollment(Integer teachingAssignmentId,

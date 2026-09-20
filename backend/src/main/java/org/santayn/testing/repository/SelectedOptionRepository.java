@@ -8,4 +8,6 @@ import java.util.List;
 public interface SelectedOptionRepository extends JpaRepository<SelectedOption, Long> {
 
     List<SelectedOption> findByQuestionResponseId(Long questionResponseId);
+
+    void deleteByQuestionResponseIdIn(List<Long> questionResponseIds);
 }

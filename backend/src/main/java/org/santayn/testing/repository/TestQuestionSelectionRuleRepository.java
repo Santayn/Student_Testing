@@ -9,5 +9,7 @@ public interface TestQuestionSelectionRuleRepository extends JpaRepository<TestQ
 
     List<TestQuestionSelectionRule> findByTestIdOrderByOrdinalAsc(Integer testId);
 
+    void deleteByTestId(Integer testId);
+
     boolean existsByTestIdAndCourseLectureId(Integer testId, Integer courseLectureId);
 }

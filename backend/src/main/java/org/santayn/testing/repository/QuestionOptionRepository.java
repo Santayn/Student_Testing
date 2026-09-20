@@ -9,6 +9,8 @@ public interface QuestionOptionRepository extends JpaRepository<QuestionOption, 
 
     List<QuestionOption> findByTestQuestionIdOrderByOrdinalAsc(Long testQuestionId);
 
+    void deleteByTestQuestionIdIn(List<Long> testQuestionIds);
+
     boolean existsByTestQuestionIdAndOrdinal(Long testQuestionId, int ordinal);
 
     boolean existsByTestQuestionIdAndOrdinalAndIdNot(Long testQuestionId, int ordinal, Long id);

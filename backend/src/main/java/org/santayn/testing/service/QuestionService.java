@@ -204,7 +204,11 @@ public class QuestionService {
             question.setQuestion(FacultyService.requireText(parsedQuestion.question(), "Question"));
             question.setPoints(parsedQuestion.points());
             question.setOrdinal(nextOrdinal++);
-            question.setCorrectAnswer(normalizeStoredCorrectAnswer(parsedQuestion.type(), parsedQuestion.correctAnswer(), List.of()));
+            question.setCorrectAnswer(normalizeStoredCorrectAnswer(
+                    parsedQuestion.type(),
+                    parsedQuestion.correctAnswer(),
+                    parsedQuestion.matchingPairs()
+            ));
             question.setActive(true);
             question = questionRepository.save(question);
             savedQuestions.add(question);
