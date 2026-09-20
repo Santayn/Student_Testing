@@ -35,6 +35,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const route = useRoute()
 
 const {
@@ -52,6 +56,8 @@ const loading = ref(false)
 const saving = ref(false)
 const deletingId = ref(null)
 const initialized = ref(false)
+
+const topicsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -156,10 +162,18 @@ function editTopic(topic) {
 }
 
 async function loadTopics() {
+  const requestId =
+    topicsRequest.begin()
+
   topics.value = []
   resetForm()
 
-  if (!selectedMembership.value) {
+  const membershipId = Number(
+    selectedMembership.value?.id ?? 0
+  )
+
+  if (!membershipId) {
+    loading.value = false
     return
   }
 
@@ -168,11 +182,10 @@ async function loadTopics() {
   try {
     const response =
       await topicsApi.getAll({
-        subjectMembershipId:
-          selectedMembership.value.id,
+        subjectMembershipId: membershipId,
       })
 
-    topics.value =
+    const nextTopics =
       listFromResponse(response)
         .sort(
           (left, right) =>
@@ -180,13 +193,11 @@ async function loadTopics() {
             Number(right.ordinal ?? 0)
         )
 
-    resetForm()
-
-    const topicId =
-      route.query.topicId
+    let topic = null
+    const topicId = route.query.topicId
 
     if (topicId) {
-      let topic = topics.value.find(
+      topic = nextTopics.find(
         (item) =>
           String(item.id) ===
           String(topicId)
@@ -205,13 +216,8 @@ async function loadTopics() {
           if (
             candidate &&
             String(
-              candidate
-                .subjectMembershipId
-            ) ===
-              String(
-                selectedMembership
-                  .value.id
-              )
+              candidate.subjectMembershipId
+            ) === String(membershipId)
           ) {
             topic = candidate
           }
@@ -222,7 +228,20 @@ async function loadTopics() {
            */
         }
       }
+    }
 
+    if (
+      !topicsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
+    topics.value = nextTopics
+    resetForm()
+
+    if (topicId) {
       if (topic) {
         editTopic(topic)
       } else {
@@ -234,6 +253,14 @@ async function loadTopics() {
       }
     }
   } catch (error) {
+    if (
+      !topicsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -242,53 +269,14 @@ async function loadTopics() {
       ),
     }
   } finally {
-    loading.value = false
+    if (
+      topicsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
-}
-
-
-function topicSaveErrorMessage(error) {
-  const status =
-    error?.response?.status
-
-  const backendMessage =
-    String(
-      error?.response?.data
-        ?.message ?? ''
-    )
-
-  if (
-    status === 409 &&
-    backendMessage
-      .toLowerCase()
-      .includes('ordinal')
-  ) {
-    return (
-      'Тема с таким порядковым номером уже существует ' +
-      'в выбранном назначении преподавателя.'
-    )
-  }
-
-  return getApiErrorMessage(
-    error,
-    'Не удалось сохранить тему'
-  )
-}
-
-function topicDeleteErrorMessage(error) {
-  if (
-    error?.response?.status === 409
-  ) {
-    return (
-      'Тему не удалось удалить из-за конфликта связанных данных. ' +
-      'Проверьте, используется ли она в вопросах или правилах формирования тестов.'
-    )
-  }
-
-  return getApiErrorMessage(
-    error,
-    'Не удалось удалить тему'
-  )
 }
 
 async function saveTopic() {

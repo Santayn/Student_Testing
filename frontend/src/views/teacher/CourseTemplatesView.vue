@@ -41,6 +41,10 @@ import {
 } from '@/utils/apiData'
 
 import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
+import {
   buildCourseTemplateListParams,
   canCreateCourseTemplate,
 } from '@/utils/courseTemplateContext'
@@ -68,6 +72,9 @@ const savingVersion = ref(false)
 const deletingTemplateId = ref(null)
 const publishingVersionId = ref(null)
 const initialized = ref(false)
+
+const templatesRequest = createLatestRequestGuard()
+const versionsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -209,13 +216,24 @@ function resetVersionForm() {
 }
 
 async function loadTemplates() {
+  const requestId =
+    templatesRequest.begin()
+
+  versionsRequest.invalidate()
+  loadingVersions.value = false
+
   templates.value = []
   versions.value = []
   selectedTemplateId.value = null
   resetTemplateForm()
   resetVersionForm()
 
-  if (!selectedSubjectId.value) {
+  const subjectId = Number(
+    selectedSubjectId.value || 0
+  )
+
+  if (!subjectId) {
+    loading.value = false
     return
   }
 
@@ -224,8 +242,7 @@ async function loadTemplates() {
   try {
     const params =
       buildCourseTemplateListParams({
-        subjectId:
-          selectedSubjectId.value,
+        subjectId,
         isAdmin: authStore.isAdminMode,
         currentPersonId:
           authStore.personId,
@@ -234,16 +251,30 @@ async function loadTemplates() {
       })
 
     if (!params) {
-      notice.value = {
-        type: 'info',
-        message:
-          'Не удалось определить преподавателя для выбранного предмета.',
+      if (
+        templatesRequest.isCurrent(
+          requestId
+        )
+      ) {
+        notice.value = {
+          type: 'info',
+          message:
+            'Не удалось определить преподавателя для выбранного предмета.',
+        }
       }
       return
     }
 
     const response =
       await coursesApi.getTemplates(params)
+
+    if (
+      !templatesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     templates.value =
       listFromResponse(response)
@@ -270,6 +301,14 @@ async function loadTemplates() {
       )
     }
   } catch (error) {
+    if (
+      !templatesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -278,7 +317,13 @@ async function loadTemplates() {
       ),
     }
   } finally {
-    loading.value = false
+    if (
+      templatesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 
@@ -291,9 +336,17 @@ async function selectTemplate(templateId) {
 }
 
 async function loadVersions() {
+  const requestId =
+    versionsRequest.begin()
+
   versions.value = []
 
-  if (!selectedTemplateId.value) {
+  const templateId = Number(
+    selectedTemplateId.value || 0
+  )
+
+  if (!templateId) {
+    loadingVersions.value = false
     resetVersionForm()
     return
   }
@@ -303,8 +356,16 @@ async function loadVersions() {
   try {
     const response =
       await coursesApi.getVersions(
-        selectedTemplateId.value
+        templateId
       )
+
+    if (
+      !versionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     versions.value =
       listFromResponse(response)
@@ -320,6 +381,14 @@ async function loadVersions() {
 
     resetVersionForm()
   } catch (error) {
+    if (
+      !versionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -328,16 +397,13 @@ async function loadVersions() {
       ),
     }
   } finally {
-    loadingVersions.value = false
-  }
-}
-
-function editTemplate(template) {
-  templateForm.value = {
-    id: template.id,
-    name: template.name || '',
-    publicVisible:
-      Boolean(template.publicVisible),
+    if (
+      versionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingVersions.value = false
+    }
   }
 }
 

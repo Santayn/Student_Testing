@@ -39,6 +39,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const route = useRoute()
 
 const {
@@ -65,6 +69,10 @@ const importing = ref(false)
 const wordFiles = ref([])
 const fileInputKey = ref(0)
 const initialized = ref(false)
+
+const topicsRequest = createLatestRequestGuard()
+const questionsRequest = createLatestRequestGuard()
+const optionsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -405,22 +413,43 @@ function resetOptionForm() {
 }
 
 async function loadTopics() {
+  const requestId =
+    topicsRequest.begin()
+
+  questionsRequest.invalidate()
+  optionsRequest.invalidate()
+  loading.value = false
+  loadingOptions.value = false
+
   topics.value = []
   selectedTopicId.value = ''
   selectedImportTopicId.value = ''
   questions.value = []
+  options.value = []
   resetQuestionForm()
+  resetOptionForm()
 
-  if (!selectedMembership.value) {
+  const membershipId = Number(
+    selectedMembership.value?.id ?? 0
+  )
+
+  if (!membershipId) {
     return
   }
 
   try {
     const response =
       await topicsApi.getAll({
-        subjectMembershipId:
-          selectedMembership.value.id,
+        subjectMembershipId: membershipId,
       })
+
+    if (
+      !topicsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     topics.value =
       listFromResponse(response)
@@ -452,8 +481,15 @@ async function loadTopics() {
 
     selectedImportTopicId.value =
       selectedTopicId.value
-
   } catch (error) {
+    if (
+      !topicsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -465,10 +501,23 @@ async function loadTopics() {
 }
 
 async function loadQuestions() {
-  questions.value = []
-  resetQuestionForm()
+  const requestId =
+    questionsRequest.begin()
 
-  if (!selectedTopicId.value) {
+  optionsRequest.invalidate()
+  loadingOptions.value = false
+
+  questions.value = []
+  options.value = []
+  resetQuestionForm()
+  resetOptionForm()
+
+  const topicId = Number(
+    selectedTopicId.value || 0
+  )
+
+  if (!topicId) {
+    loading.value = false
     return
   }
 
@@ -477,9 +526,16 @@ async function loadQuestions() {
   try {
     const response =
       await questionsApi.getAll({
-        topicId:
-          Number(selectedTopicId.value),
+        topicId,
       })
+
+    if (
+      !questionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     questions.value =
       listFromResponse(response)
@@ -491,6 +547,14 @@ async function loadQuestions() {
 
     resetQuestionForm()
   } catch (error) {
+    if (
+      !questionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -499,11 +563,20 @@ async function loadQuestions() {
       ),
     }
   } finally {
-    loading.value = false
+    if (
+      questionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 
 async function loadOptions(questionId) {
+  const requestId =
+    optionsRequest.begin()
+
   options.value = []
   resetOptionForm()
 
@@ -511,6 +584,7 @@ async function loadOptions(questionId) {
     !questionId ||
     !isSelectableType.value
   ) {
+    loadingOptions.value = false
     return
   }
 
@@ -522,6 +596,14 @@ async function loadOptions(questionId) {
         questionId
       )
 
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     options.value =
       listFromResponse(response)
         .sort(
@@ -532,6 +614,14 @@ async function loadOptions(questionId) {
 
     resetOptionForm()
   } catch (error) {
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -540,31 +630,14 @@ async function loadOptions(questionId) {
       ),
     }
   } finally {
-    loadingOptions.value = false
+    if (
+      optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingOptions.value = false
+    }
   }
-}
-
-async function editQuestion(question) {
-  questionForm.value = {
-    id: question.id,
-    question: question.question || '',
-    type: Number(question.type),
-    points: Number(
-      question.points ?? 1
-    ),
-    ordinal: Number(
-      question.ordinal ?? 1
-    ),
-    correctAnswer:
-      question.correctAnswer || '',
-    matchingPairsText:
-      matchingPairsToText(
-        question.matchingPairs
-      ),
-    active: Boolean(question.active),
-  }
-
-  await loadOptions(question.id)
 }
 
 async function saveQuestion() {

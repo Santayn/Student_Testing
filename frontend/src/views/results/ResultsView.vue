@@ -31,6 +31,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const authStore =
   useAuthStore()
 
@@ -53,6 +57,9 @@ const groupId = ref('')
 const studentId = ref('')
 
 const resultData = ref(null)
+
+const optionsRequest = createLatestRequestGuard()
+const resultsRequest = createLatestRequestGuard()
 
 const teacherMode = computed(() => {
   return (
@@ -560,9 +567,14 @@ async function loadStudentSubjects() {
 }
 
 async function onSubjectChange() {
+  resultsRequest.invalidate()
+  loadingResults.value = false
+  resultData.value = null
   error.value = ''
 
   if (!teacherMode.value) {
+    optionsRequest.invalidate()
+    loadingOptions.value = false
     testId.value = ''
     tests.value = []
 
@@ -570,9 +582,16 @@ async function onSubjectChange() {
     return
   }
 
+  const requestId =
+    optionsRequest.begin()
+
   resetAfterSubject()
 
-  if (!subjectId.value) {
+  const currentSubjectId =
+    subjectId.value
+
+  if (!currentSubjectId) {
+    loadingOptions.value = false
     return
   }
 
@@ -581,31 +600,63 @@ async function onSubjectChange() {
   try {
     const response = authStore.isAdminMode
       ? await lecturesApi.getAll({
-          subjectId: subjectId.value,
+          subjectId: currentSubjectId,
         })
       : await resultsApi
           .getTeacherLectures(
-            subjectId.value
+            currentSubjectId
           )
+
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     lectures.value =
       listFromResponse(response)
   } catch (requestError) {
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     error.value =
       getApiErrorMessage(
         requestError,
         'Не удалось загрузить лекции.'
       )
   } finally {
-    loadingOptions.value = false
+    if (
+      optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingOptions.value = false
+    }
   }
 }
 
 async function onLectureChange() {
+  resultsRequest.invalidate()
+  loadingResults.value = false
+  resultData.value = null
+  const requestId =
+    optionsRequest.begin()
+
   resetAfterLecture()
   error.value = ''
 
-  if (!lectureId.value) {
+  const currentLectureId =
+    lectureId.value
+
+  if (!currentLectureId) {
+    loadingOptions.value = false
     return
   }
 
@@ -614,31 +665,62 @@ async function onLectureChange() {
   try {
     const response = authStore.isAdminMode
       ? await lecturesApi.getTests(
-          lectureId.value
+          currentLectureId
         )
       : await resultsApi
           .getTeacherTests(
-            lectureId.value
+            currentLectureId
           )
+
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     tests.value =
       listFromResponse(response)
   } catch (requestError) {
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     error.value =
       getApiErrorMessage(
         requestError,
         'Не удалось загрузить тесты.'
       )
   } finally {
-    loadingOptions.value = false
+    if (
+      optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingOptions.value = false
+    }
   }
 }
 
 async function onTestChange() {
+  resultsRequest.invalidate()
+  loadingResults.value = false
+  resultData.value = null
+  const requestId =
+    optionsRequest.begin()
+
   resetAfterTest()
   error.value = ''
 
-  if (!testId.value) {
+  const currentTestId = testId.value
+
+  if (!currentTestId) {
+    loadingOptions.value = false
     return
   }
 
@@ -648,27 +730,58 @@ async function onTestChange() {
     const response =
       await resultsApi
         .getTeacherGroups(
-          testId.value
+          currentTestId
         )
+
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     groups.value =
       listFromResponse(response)
   } catch (requestError) {
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     error.value =
       getApiErrorMessage(
         requestError,
         'Не удалось загрузить группы.'
       )
   } finally {
-    loadingOptions.value = false
+    if (
+      optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingOptions.value = false
+    }
   }
 }
 
 async function onGroupChange() {
+  resultsRequest.invalidate()
+  loadingResults.value = false
+  resultData.value = null
+  const requestId =
+    optionsRequest.begin()
+
   resetAfterGroup()
   error.value = ''
 
-  if (!groupId.value) {
+  const currentGroupId = groupId.value
+
+  if (!currentGroupId) {
+    loadingOptions.value = false
     return
   }
 
@@ -678,19 +791,41 @@ async function onGroupChange() {
     const response =
       await resultsApi
         .getTeacherStudents(
-          groupId.value
+          currentGroupId
         )
+
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     students.value =
       listFromResponse(response)
   } catch (requestError) {
+    if (
+      !optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     error.value =
       getApiErrorMessage(
         requestError,
         'Не удалось загрузить студентов.'
       )
   } finally {
-    loadingOptions.value = false
+    if (
+      optionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingOptions.value = false
+    }
   }
 }
 
@@ -742,21 +877,35 @@ function studentParams() {
 }
 
 async function loadStudentContextResults() {
+  const requestId =
+    resultsRequest.begin()
+
   loadingResults.value = true
+  resultData.value = null
   error.value = ''
 
+  const currentSubjectId =
+    subjectId.value
+
   try {
-    const params =
-      subjectId.value
-        ? {
-            subjectId:
-              subjectId.value,
-          }
-        : {}
+    const params = currentSubjectId
+      ? {
+          subjectId:
+            currentSubjectId,
+        }
+      : {}
 
     const response =
       await resultsApi
         .getStudentData(params)
+
+    if (
+      !resultsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     applyStudentResultData(
       response.data
@@ -767,6 +916,14 @@ async function loadStudentContextResults() {
         resultData.value
       )
   } catch (requestError) {
+    if (
+      !resultsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     resultData.value = null
     tests.value = []
 
@@ -776,7 +933,13 @@ async function loadStudentContextResults() {
         'Не удалось загрузить результаты тестирования.'
       )
   } finally {
-    loadingResults.value = false
+    if (
+      resultsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingResults.value = false
+    }
   }
 }
 
@@ -806,12 +969,22 @@ async function onStudentTestChange() {
 }
 
 async function loadResults() {
+  const requestId =
+    resultsRequest.begin()
+
   loadingResults.value = true
+  resultData.value = null
   error.value = ''
+
+  const useTeacherMode =
+    teacherMode.value
+  const params = useTeacherMode
+    ? teacherParams()
+    : studentParams()
 
   try {
     if (
-      !teacherMode.value &&
+      !useTeacherMode &&
       testId.value &&
       !selectedStudentTestIsValid()
     ) {
@@ -820,16 +993,19 @@ async function loadResults() {
       )
     }
 
-    const response =
-      teacherMode.value
-        ? await resultsApi
-            .getTeacherData(
-              teacherParams()
-            )
-        : await resultsApi
-            .getStudentData(
-              studentParams()
-            )
+    const response = useTeacherMode
+      ? await resultsApi
+          .getTeacherData(params)
+      : await resultsApi
+          .getStudentData(params)
+
+    if (
+      !resultsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     resultData.value =
       response.data ?? {
@@ -841,6 +1017,14 @@ async function loadResults() {
         attempts: [],
       }
   } catch (requestError) {
+    if (
+      !resultsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     resultData.value = null
 
     error.value =
@@ -849,7 +1033,13 @@ async function loadResults() {
         'Не удалось загрузить результаты тестирования.'
       )
   } finally {
-    loadingResults.value = false
+    if (
+      resultsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingResults.value = false
+    }
   }
 }
 

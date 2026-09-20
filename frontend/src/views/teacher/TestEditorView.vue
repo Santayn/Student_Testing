@@ -42,6 +42,10 @@ import {
 } from '@/utils/apiData'
 
 import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
+import {
   createTestWithAssignments,
   TestCreationFlowError,
 } from '@/utils/createTestWithAssignments'
@@ -67,6 +71,9 @@ const loadingContext = ref(false)
 const loadingQuestions = ref(false)
 const saving = ref(false)
 const initialized = ref(false)
+
+const contextRequest = createLatestRequestGuard()
+const questionsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -255,7 +262,7 @@ function routeQuery() {
   return query
 }
 
-async function loadGroups(assignments) {
+async function buildGroupTargets(assignments) {
   const activeAssignments =
     assignments.filter(
       (item) =>
@@ -274,9 +281,7 @@ async function loadGroups(assignments) {
   ]
 
   if (!groupIds.length) {
-    groupTargets.value = []
-    selectedGroupIds.value = []
-    return
+    return []
   }
 
   const responses =
@@ -299,56 +304,64 @@ async function loadGroups(assignments) {
       )
   )
 
-  groupTargets.value =
-    groupIds
-      .map((groupId) => {
-        const related =
-          activeAssignments.filter(
-            (item) =>
-              Number(item.groupId) ===
-              Number(groupId)
-          )
-
-        const group =
-          groupsById.get(
+  return groupIds
+    .map((groupId) => {
+      const related =
+        activeAssignments.filter(
+          (item) =>
+            Number(item.groupId) ===
             Number(groupId)
-          )
+        )
 
-        return {
-          groupId,
-          groupName:
-            group?.name ??
-            `Группа #${groupId}`,
-          assignmentIds: [
-            ...new Set(
-              related.map(
-                (item) =>
-                  Number(item.id)
-              )
-            ),
-          ],
-        }
-      })
-      .sort(
-        (left, right) =>
-          String(left.groupName)
-            .localeCompare(
-              String(right.groupName),
-              'ru'
+      const group =
+        groupsById.get(
+          Number(groupId)
+        )
+
+      return {
+        groupId,
+        groupName:
+          group?.name ??
+          `Группа #${groupId}`,
+        assignmentIds: [
+          ...new Set(
+            related.map(
+              (item) =>
+                Number(item.id)
             )
-      )
-
-  selectedGroupIds.value = []
+          ),
+        ],
+      }
+    })
+    .sort(
+      (left, right) =>
+        String(left.groupName)
+          .localeCompare(
+            String(right.groupName),
+            'ru'
+          )
+    )
 }
 
 async function loadSubjectContext() {
+  const requestId =
+    contextRequest.begin()
+
+  questionsRequest.invalidate()
+  loadingQuestions.value = false
+
   topics.value = []
   selectedTopicId.value = ''
   groupTargets.value = []
   selectedGroupIds.value = []
   questions.value = []
 
-  if (!selectedMembership.value) {
+  const membershipId = Number(
+    selectedMembership.value?.id ?? 0
+  )
+
+  if (!membershipId) {
+    loadingContext.value = false
     return
   }
 
@@ -359,16 +372,16 @@ async function loadSubjectContext() {
       await Promise.all([
         topicsApi.getAll({
           subjectMembershipId:
-            selectedMembership.value.id,
+            membershipId,
         }),
         teachingApi.getAssignments({
           subjectMembershipId:
-            selectedMembership.value.id,
+            membershipId,
           status: 1,
         }),
       ])
 
-    topics.value =
+    const nextTopics =
       listFromResponse(topicsResponse)
         .sort(
           (left, right) =>
@@ -376,18 +389,32 @@ async function loadSubjectContext() {
             Number(right.ordinal ?? 0)
         )
 
-    await loadGroups(
-      listFromResponse(
-        assignmentsResponse
+    const nextGroupTargets =
+      await buildGroupTargets(
+        listFromResponse(
+          assignmentsResponse
+        )
       )
-    )
+
+    if (
+      !contextRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
+    topics.value = nextTopics
+    groupTargets.value =
+      nextGroupTargets
+    selectedGroupIds.value = []
 
     const preferredTopicId =
       route.query.topicId
 
     if (
       preferredTopicId &&
-      topics.value.some(
+      nextTopics.some(
         (item) =>
           String(item.id) ===
           String(preferredTopicId)
@@ -396,13 +423,20 @@ async function loadSubjectContext() {
       selectedTopicId.value =
         String(preferredTopicId)
     } else if (
-      topics.value.length === 1
+      nextTopics.length === 1
     ) {
       selectedTopicId.value =
-        String(topics.value[0].id)
+        String(nextTopics[0].id)
+    }
+  } catch (error) {
+    if (
+      !contextRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
     }
 
-  } catch (error) {
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -411,14 +445,28 @@ async function loadSubjectContext() {
       ),
     }
   } finally {
-    loadingContext.value = false
+    if (
+      contextRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingContext.value = false
+    }
   }
 }
 
 async function loadQuestions() {
+  const requestId =
+    questionsRequest.begin()
+
   questions.value = []
 
-  if (!selectedTopicId.value) {
+  const topicId = Number(
+    selectedTopicId.value || 0
+  )
+
+  if (!topicId) {
+    loadingQuestions.value = false
     return
   }
 
@@ -427,9 +475,16 @@ async function loadQuestions() {
   try {
     const response =
       await questionsApi.getAll({
-        topicId:
-          Number(selectedTopicId.value),
+        topicId,
       })
+
+    if (
+      !questionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     questions.value =
       listFromResponse(response)
@@ -439,6 +494,14 @@ async function loadQuestions() {
             Number(right.ordinal ?? 0)
         )
   } catch (error) {
+    if (
+      !questionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -447,7 +510,13 @@ async function loadQuestions() {
       ),
     }
   } finally {
-    loadingQuestions.value = false
+    if (
+      questionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingQuestions.value = false
+    }
   }
 }
 

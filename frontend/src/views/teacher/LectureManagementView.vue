@@ -39,6 +39,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const route = useRoute()
 
 const {
@@ -65,6 +69,9 @@ const saving = ref(false)
 const deletingId = ref(null)
 const loadingMaterials = ref(false)
 const initialized = ref(false)
+
+const lecturesRequest = createLatestRequestGuard()
+const materialsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -204,12 +211,26 @@ function resetForm() {
 }
 
 async function loadLectures() {
+  const requestId =
+    lecturesRequest.begin()
+
+  materialsRequest.invalidate()
+  loadingMaterials.value = false
+
   lectures.value = []
   availableTests.value = []
   lectureTestsById.value = new Map()
   resetForm()
 
-  if (!selectedMembership.value) {
+  const membershipId = Number(
+    selectedMembership.value?.id ?? 0
+  )
+  const subjectId = Number(
+    selectedSubjectId.value ?? 0
+  )
+
+  if (!membershipId) {
+    loading.value = false
     return
   }
 
@@ -218,11 +239,10 @@ async function loadLectures() {
   try {
     const lecturesResponse =
       await lecturesApi.getAll({
-        subjectMembershipId:
-          selectedMembership.value.id,
+        subjectMembershipId: membershipId,
       })
 
-    lectures.value =
+    const nextLectures =
       listFromResponse(lecturesResponse)
         .sort(
           (left, right) =>
@@ -238,11 +258,10 @@ async function loadLectures() {
     const [testsResponse, testLists] =
       await Promise.all([
         testsApi.getAll({
-          subjectId:
-            Number(selectedSubjectId.value),
+          subjectId,
         }),
         Promise.all(
-          lectures.value.map(
+          nextLectures.map(
             (lecture) =>
               lecturesApi.getTests(
                 lecture.id
@@ -251,6 +270,15 @@ async function loadLectures() {
         ),
       ])
 
+    if (
+      !lecturesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
+    lectures.value = nextLectures
     availableTests.value =
       listFromResponse(testsResponse)
         .sort(
@@ -264,7 +292,7 @@ async function loadLectures() {
 
     lectureTestsById.value =
       new Map(
-        lectures.value.map(
+        nextLectures.map(
           (lecture, index) => [
             Number(lecture.id),
             listFromResponse(
@@ -279,7 +307,7 @@ async function loadLectures() {
 
     if (lectureId) {
       const lecture =
-        lectures.value.find(
+        nextLectures.find(
           (item) =>
             String(item.id) ===
             String(lectureId)
@@ -290,6 +318,14 @@ async function loadLectures() {
       }
     }
   } catch (error) {
+    if (
+      !lecturesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -298,14 +334,24 @@ async function loadLectures() {
       ),
     }
   } finally {
-    loading.value = false
+    if (
+      lecturesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 
 async function loadMaterials(lectureId) {
+  const requestId =
+    materialsRequest.begin()
+
   materials.value = []
 
   if (!lectureId) {
+    loadingMaterials.value = false
     return
   }
 
@@ -317,9 +363,25 @@ async function loadMaterials(lectureId) {
         lectureId
       )
 
+    if (
+      !materialsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     materials.value =
       listFromResponse(response)
   } catch (error) {
+    if (
+      !materialsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -328,7 +390,13 @@ async function loadMaterials(lectureId) {
       ),
     }
   } finally {
-    loadingMaterials.value = false
+    if (
+      materialsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingMaterials.value = false
+    }
   }
 }
 

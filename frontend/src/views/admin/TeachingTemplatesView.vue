@@ -41,6 +41,10 @@ import {
   isAssignableTeacherMembership,
 } from '@/utils/teacherMembershipEligibility'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const TEACHER_ROLE = 1
 
 const DEFAULT_LOAD_TYPE_NAME =
@@ -70,6 +74,9 @@ const defaultLoadTypeId = ref(null)
 
 const loading = ref(false)
 const saving = ref(false)
+
+const facultyContextRequest = createLatestRequestGuard()
+const assignmentsRequest = createLatestRequestGuard()
 
 const period = reactive({
   studyCourse: '1',
@@ -517,7 +524,17 @@ async function loadBaseData() {
 }
 
 async function loadFacultyContext() {
-  if (!period.facultyId) {
+  const requestId =
+    facultyContextRequest.begin()
+
+  assignmentsRequest.invalidate()
+
+  const facultyId = Number(
+    period.facultyId || 0
+  )
+
+  if (!facultyId) {
+    loading.value = false
     facultySubjects.value = []
     groups.value = []
     assignments.value = []
@@ -532,13 +549,20 @@ async function loadFacultyContext() {
       groupsResponse,
     ] = await Promise.all([
       facultiesApi.getSubjects(
-        Number(period.facultyId)
+        facultyId
       ),
       groupsApi.getAll({
-        facultyId:
-          Number(period.facultyId),
+        facultyId,
       }),
     ])
+
+    if (
+      !facultyContextRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     facultySubjects.value =
       listFromResponse(
@@ -556,6 +580,14 @@ async function loadFacultyContext() {
 
     await refreshAssignments()
   } catch (error) {
+    if (
+      !facultyContextRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     showNotice(
       'error',
       getApiErrorMessage(
@@ -564,37 +596,63 @@ async function loadFacultyContext() {
       )
     )
   } finally {
-    loading.value = false
+    if (
+      facultyContextRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 
 async function refreshAssignments() {
-  if (!period.facultyId) {
+  const requestId =
+    assignmentsRequest.begin()
+
+  const facultyId = Number(
+    period.facultyId || 0
+  )
+
+  if (!facultyId) {
     assignments.value = []
     return
+  }
+
+  const params = {
+    facultyId,
+    studyCourse:
+      Number(period.studyCourse),
+    semester:
+      Number(period.semester),
+    academicYear:
+      Number(period.academicYear),
   }
 
   try {
     const response =
       await teachingApi
-        .getAssignments({
-          facultyId:
-            Number(period.facultyId),
-          studyCourse:
-            Number(
-              period.studyCourse
-            ),
-          semester:
-            Number(period.semester),
-          academicYear:
-            Number(
-              period.academicYear
-            ),
-        })
+        .getAssignments(params)
+
+    if (
+      !assignmentsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     assignments.value =
       listFromResponse(response)
   } catch (error) {
+    if (
+      !assignmentsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     showNotice(
       'error',
       getApiErrorMessage(
