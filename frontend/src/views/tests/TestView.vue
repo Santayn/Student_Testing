@@ -9,6 +9,7 @@ import {
 } from 'vue'
 
 import {
+  onBeforeRouteLeave,
   useRoute,
   useRouter,
 } from 'vue-router'
@@ -19,6 +20,12 @@ import {
 } from '@/api'
 
 import TestsPageShell from '@/components/tests/TestsPageShell.vue'
+
+import {
+  clearCompletedTestSession,
+  readCompletedTestSession,
+  saveCompletedTestSession,
+} from '@/utils/completedTestSession'
 
 import {
   UiAlert,
@@ -103,8 +110,16 @@ const pageSubtitle = computed(() => {
     )
   }
 
+  const questionCount =
+    submitted.value
+      ? (
+          resultData.value?.totalCount ??
+          questions.value.length
+        )
+      : questions.value.length
+
   return (
-    `Вопросов: ${questions.value.length}, ` +
+    `Вопросов: ${questionCount}, ` +
     `попыток: ${
       test.value.attemptsAllowed ??
       '—'
@@ -426,7 +441,7 @@ function buildSubmission() {
 }
 
 async function loadTest() {
-  if (!assignmentId.value) {
+  if (!assignmentId.value || !testId.value) {
     error.value =
       'Не указано назначение теста. Откройте тест со страницы лекции.'
 
@@ -437,6 +452,29 @@ async function loadTest() {
   error.value = ''
   resultData.value = null
   attemptId.value = null
+
+  const completedSession =
+    readCompletedTestSession(
+      testId.value,
+      assignmentId.value
+    )
+
+  if (completedSession) {
+    attemptId.value =
+      completedSession.attemptId
+
+    test.value =
+      completedSession.test ??
+      null
+
+    questions.value = []
+    resultData.value =
+      completedSession.resultData
+
+    resetAnswers()
+    loading.value = false
+    return
+  }
 
   try {
     const response =
@@ -505,6 +543,16 @@ async function submitTest() {
     resultData.value =
       response.data ?? {}
 
+    if (testId.value && assignmentId.value) {
+      saveCompletedTestSession({
+        testId: testId.value,
+        assignmentId: assignmentId.value,
+        attemptId: attemptId.value,
+        test: test.value,
+        resultData: resultData.value,
+      })
+    }
+
     await nextTick()
 
     document
@@ -529,6 +577,15 @@ async function submitTest() {
 function goBack() {
   router.back()
 }
+
+onBeforeRouteLeave(() => {
+  if (testId.value && assignmentId.value) {
+    clearCompletedTestSession(
+      testId.value,
+      assignmentId.value
+    )
+  }
+})
 
 watch(
   () => [
@@ -837,21 +894,6 @@ onMounted(loadTest)
                   `Вопрос ${index + 1}`
                 }}
               </strong>
-
-              <span
-                class="test-result-detail__status"
-                :class="
-                  detail.correct
-                    ? 'test-result-detail__status--success'
-                    : 'test-result-detail__status--danger'
-                "
-              >
-                {{
-                  detail.correct
-                    ? 'Верно'
-                    : 'Неверно'
-                }}
-              </span>
             </div>
 
             <dl class="test-result-detail__data">
@@ -861,17 +903,6 @@ onMounted(loadTest)
                 <dd>
                   {{
                     detail.givenAnswer ||
-                    '—'
-                  }}
-                </dd>
-              </div>
-
-              <div>
-                <dt>Правильный ответ</dt>
-
-                <dd>
-                  {{
-                    detail.correctAnswer ||
                     '—'
                   }}
                 </dd>
@@ -1033,20 +1064,6 @@ onMounted(loadTest)
   gap: 12px;
 }
 
-.test-result-detail__status {
-  flex: 0 0 auto;
-
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.test-result-detail__status--success {
-  color: var(--success);
-}
-
-.test-result-detail__status--danger {
-  color: var(--danger);
-}
 
 .test-result-detail__data {
   margin: 10px 0 0;

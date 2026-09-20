@@ -28,7 +28,7 @@ const props = defineProps({
   },
 })
 
-const columns = [
+const studentColumns = [
   {
     key: 'displayIndex',
     label: '#',
@@ -42,6 +42,9 @@ const columns = [
     key: 'givenAnswer',
     label: 'Ответ студента',
   },
+]
+
+const teacherOnlyColumns = [
   {
     key: 'correctAnswer',
     label: 'Правильный ответ',
@@ -59,6 +62,17 @@ const columns = [
         : 0,
   },
 ]
+
+const columns = computed(() => {
+  if (props.mode === 'teacher') {
+    return [
+      ...studentColumns,
+      ...teacherOnlyColumns,
+    ]
+  }
+
+  return studentColumns
+})
 
 const stats = computed(() => {
   return (

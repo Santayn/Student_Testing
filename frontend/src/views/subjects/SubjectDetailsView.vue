@@ -12,6 +12,7 @@ import {
 
 import {
   getApiErrorMessage,
+  learningApi,
   subjectsApi,
 } from '@/api'
 
@@ -150,9 +151,15 @@ async function loadSubject() {
 
   try {
     const response =
-      await subjectsApi.getById(
-        subjectId.value
-      )
+      authStore.isStudent &&
+      !authStore.isTeacher &&
+      !authStore.isAdmin
+        ? await learningApi.getSubject(
+            subjectId.value
+          )
+        : await subjectsApi.getById(
+            subjectId.value
+          )
 
     subject.value =
       response.data ?? null

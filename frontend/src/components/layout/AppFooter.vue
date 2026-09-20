@@ -1,5 +1,30 @@
 <script setup>
+import {
+  computed,
+} from 'vue'
+
+import {
+  useAuthStore,
+} from '@/stores/auth'
+
+import {
+  hasWorkspaceAccess,
+} from '@/utils/accountAccess'
+
 const currentYear = new Date().getFullYear()
+const authStore = useAuthStore()
+
+const homeRoute = computed(() => {
+  if (!authStore.isAuthenticated) {
+    return {
+      name: 'login',
+    }
+  }
+
+  return hasWorkspaceAccess(authStore)
+    ? { name: 'home' }
+    : { name: 'account-pending' }
+})
 </script>
 
 <template>
@@ -15,7 +40,7 @@ const currentYear = new Date().getFullYear()
       >
         <RouterLink
           class="app-footer__link"
-          :to="{ name: 'home' }"
+          :to="homeRoute"
         >
           Главная
         </RouterLink>

@@ -1,17 +1,23 @@
 import {
-  APP_ROLES,
+  WORKSPACE_ROLES,
   LEARNING_ROLES,
+  STUDENT_LEARNING_ROLES,
   TEST_TAKER_ROLES,
 } from '../roles'
 
 const authenticatedMeta = {
   requiresAuth: true,
-  roles: APP_ROLES,
+  roles: WORKSPACE_ROLES,
 }
 
 const learningMeta = {
   requiresAuth: true,
   roles: LEARNING_ROLES,
+}
+
+const studentLearningMeta = {
+  requiresAuth: true,
+  roles: STUDENT_LEARNING_ROLES,
 }
 
 const testTakingMeta = {
@@ -77,7 +83,7 @@ export const studentRoutes = [
         '@/views/lectures/SubjectLecturesView.vue'
       ),
 
-    meta: learningMeta,
+    meta: studentLearningMeta,
   },
 
   {
@@ -89,7 +95,7 @@ export const studentRoutes = [
         '@/views/lectures/LectureDetailsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: studentLearningMeta,
   },
 
   {

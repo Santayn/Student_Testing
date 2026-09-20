@@ -40,18 +40,6 @@ export const teachingApi = {
     return http.get('/teaching/subject-load-types', { params })
   },
 
-  createSubjectLoadType(subjectMembershipId, teachingLoadTypeId, data = undefined) {
-    return http.post(
-      '/teaching/subject-load-types',
-      data,
-      {
-        params: {
-          subjectMembershipId,
-          teachingLoadTypeId,
-        },
-      }
-    )
-  },
 
   getLectureAssignments(params = {}) {
     return http.get('/teaching/lecture-assignments', { params })

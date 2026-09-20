@@ -29,21 +29,6 @@ export const lecturesApi = {
     return http.get(`/lectures/${lectureId}/materials`)
   },
 
-  uploadMaterial(lectureId, file, extraFields = {}) {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    Object.entries(extraFields).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, value)
-      }
-    })
-
-    return http.post(
-      `/lectures/${lectureId}/materials`,
-      formData
-    )
-  },
 
   uploadMaterials(lectureId, files) {
     const formData = new FormData()

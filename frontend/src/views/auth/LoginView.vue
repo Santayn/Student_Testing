@@ -20,8 +20,8 @@ import {
 } from '@/config/features'
 
 import {
-  APP_ROLES,
-} from '@/router/roles'
+  hasWorkspaceAccess,
+} from '@/utils/accountAccess'
 
 import {
   useAuthStore,
@@ -64,9 +64,7 @@ async function submit() {
     )
 
     if (
-      !authStore.hasAnyRole(
-        ...APP_ROLES
-      )
+      !hasWorkspaceAccess(authStore)
     ) {
       await router.replace({
         name: 'account-pending',

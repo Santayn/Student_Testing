@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { publicRegistrationEnabled } from '@/config/features'
-import { APP_ROLES } from '@/router/roles'
+import { hasWorkspaceAccess } from '@/utils/accountAccess'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 
@@ -15,20 +15,20 @@ const themeStore = useThemeStore()
 
 const mobileMenuOpen = ref(false)
 
-const hasApplicationRole = computed(() => {
-  return authStore.hasAnyRole(
-    ...APP_ROLES
+const accountReady = computed(() => {
+  return hasWorkspaceAccess(
+    authStore
   )
 })
 
 const authenticatedHomeRoute = computed(() => {
-  return hasApplicationRole.value
+  return accountReady.value
     ? { name: 'home' }
     : { name: 'account-pending' }
 })
 
 const authenticatedProfileRoute = computed(() => {
-  return hasApplicationRole.value
+  return accountReady.value
     ? { name: 'profile' }
     : { name: 'account-pending' }
 })
@@ -179,13 +179,13 @@ onBeforeUnmount(() => {
         }"
       >
         <nav
-          v-if="authStore.isAuthenticated"
+          v-if="authStore.isAuthenticated && accountReady"
           class="app-header__nav"
           aria-label="Основная навигация"
         >
           <RouterLink
             class="app-header__nav-link"
-            :to="{ name: 'home' }"
+            :to="authenticatedHomeRoute"
           >
             Главная
           </RouterLink>

@@ -37,7 +37,7 @@ describe('public registration frontend contract', () => {
       )
   })
 
-  it('does not send a newly registered role-less account to the protected home page', () => {
+  it('does not send a newly registered incomplete account to the protected home page', () => {
     const registerView =
       source(
         '../views/auth/RegisterView.vue'
@@ -50,11 +50,11 @@ describe('public registration frontend contract', () => {
 
     expect(registerView)
       .toContain(
-        'authStore.hasAnyRole('
+        'hasWorkspaceAccess(authStore)'
       )
   })
 
-  it('refreshes token claims when an administrator assigns a role', () => {
+  it('refreshes token claims when an administrator completes account setup', () => {
     const pendingView =
       source(
         '../views/auth/AccountPendingView.vue'
@@ -69,9 +69,14 @@ describe('public registration frontend contract', () => {
       .toContain(
         'authStore.loadCurrentUser()'
       )
+
+    expect(pendingView)
+      .toContain(
+        'hasWorkspaceAccess(authStore)'
+      )
   })
 
-  it('routes role-less logins to the pending account page', () => {
+  it('routes incomplete logins to the pending account page', () => {
     const loginView =
       source(
         '../views/auth/LoginView.vue'
@@ -80,6 +85,11 @@ describe('public registration frontend contract', () => {
     expect(loginView)
       .toContain(
         "name: 'account-pending'"
+      )
+
+    expect(loginView)
+      .toContain(
+        'hasWorkspaceAccess(authStore)'
       )
   })
 

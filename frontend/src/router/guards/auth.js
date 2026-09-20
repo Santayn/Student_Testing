@@ -7,8 +7,8 @@ import {
 } from '@/stores/auth'
 
 import {
-  APP_ROLES,
-} from '../roles'
+  hasWorkspaceAccess,
+} from '@/utils/accountAccess'
 
 function matchedMeta(to) {
   return to.matched.map(
@@ -88,15 +88,9 @@ function hasRequiredRoles(
   )
 }
 
-function hasApplicationRole(authStore) {
-  return authStore.hasAnyRole(
-    ...APP_ROLES
-  )
-}
-
 function authenticatedLanding(authStore) {
   return {
-    name: hasApplicationRole(authStore)
+    name: hasWorkspaceAccess(authStore)
       ? 'home'
       : 'account-pending',
   }
@@ -162,12 +156,29 @@ export async function authGuard(to) {
     }
   }
 
+  /*
+   * Рабочие маршруты требуют не только роль, но и
+   * привязанный Person. Это закрывает промежуточное
+   * состояние, когда администратор уже назначил роль,
+   * но профиль пользователя ещё не привязан.
+   */
+  if (
+    requiresAuth &&
+    authStore.isAuthenticated &&
+    !pendingRoleOnly &&
+    !hasWorkspaceAccess(authStore)
+  ) {
+    return {
+      name: 'account-pending',
+    }
+  }
+
   if (
     pendingRoleOnly &&
-    hasApplicationRole(authStore)
+    hasWorkspaceAccess(authStore)
   ) {
     /*
-     * Роль могла быть назначена администратором уже
+     * Роль/Person могли быть изменены администратором уже
      * после выпуска текущего access token. Обновляем
      * пару токенов, чтобы backend authorities и /me
      * снова описывали одно и то же состояние.
@@ -183,9 +194,15 @@ export async function authGuard(to) {
       }
     }
 
-    return {
-      name: 'home',
+    if (
+      hasWorkspaceAccess(authStore)
+    ) {
+      return {
+        name: 'home',
+      }
     }
+
+    return true
   }
 
   if (

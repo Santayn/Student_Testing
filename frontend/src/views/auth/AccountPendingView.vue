@@ -14,8 +14,9 @@ import {
 } from '@/components/ui'
 
 import {
-  APP_ROLES,
-} from '@/router/roles'
+  hasWorkspaceAccess,
+  hasWorkspaceRole,
+} from '@/utils/accountAccess'
 
 import {
   useAuthStore,
@@ -35,18 +36,24 @@ const accountLabel = computed(() => {
 })
 
 const profileMessage = computed(() => {
-  if (authStore.personId) {
-    return 'Профиль уже привязан. Для входа в рабочую часть системы администратор должен назначить учётной записи роль.'
+  const hasPerson = Boolean(
+    authStore.personId
+  )
+
+  const hasRole =
+    hasWorkspaceRole(authStore)
+
+  if (hasRole && !hasPerson) {
+    return 'Рабочая роль уже назначена, но профиль пользователя ещё не привязан. Для входа в систему администратор должен привязать Person к учётной записи.'
   }
 
-  return 'Учётная запись создана. Администратор должен привязать профиль и назначить роль.'
+  if (hasPerson && !hasRole) {
+    return 'Профиль уже привязан. Для входа в рабочую часть системы администратор должен назначить роль STUDENT, TEACHER или ADMIN.'
+  }
+
+  return 'Учётная запись создана. Администратор должен привязать профиль и назначить рабочую роль.'
 })
 
-function hasApplicationRole() {
-  return authStore.hasAnyRole(
-    ...APP_ROLES
-  )
-}
 
 async function recheckAccess() {
   checking.value = true
@@ -56,7 +63,7 @@ async function recheckAccess() {
     await authStore.refreshSession()
     await authStore.loadCurrentUser()
 
-    if (hasApplicationRole()) {
+    if (hasWorkspaceAccess(authStore)) {
       await router.replace({
         name: 'home',
       })
@@ -64,8 +71,16 @@ async function recheckAccess() {
       return
     }
 
-    message.value =
-      'Роль пока не назначена. Повторите проверку после изменения учётной записи администратором.'
+    if (!authStore.personId) {
+      message.value =
+        'Профиль пока не привязан. Повторите проверку после изменения учётной записи администратором.'
+    } else if (!hasWorkspaceRole(authStore)) {
+      message.value =
+        'Рабочая роль пока не назначена. Повторите проверку после изменения учётной записи администратором.'
+    } else {
+      message.value =
+        'Настройка учётной записи ещё не завершена. Повторите проверку после изменения данных администратором.'
+    }
   } catch {
     message.value =
       'Не удалось обновить данные учётной записи.'
