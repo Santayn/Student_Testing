@@ -37,6 +37,7 @@ import {
 const {
   subjectMemberships,
   subjects,
+  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -51,7 +52,7 @@ const academicYear = ref(
 const assignments = ref([])
 const lectureAssignmentsByTeachingId =
   ref(new Map())
-const lectureCatalogBySubjectId =
+const lectureCatalogByMembershipId =
   ref(new Map())
 
 const subjectRows = ref([
@@ -97,17 +98,6 @@ const membershipById = computed(() => {
   )
 })
 
-const membershipBySubjectId = computed(() => {
-  return new Map(
-    subjectMemberships.value.map(
-      (item) => [
-        Number(item.subjectId),
-        item,
-      ]
-    )
-  )
-})
-
 const subjectById = computed(() => {
   return new Map(
     subjects.value.map(
@@ -126,11 +116,25 @@ const activeAssignments = computed(() => {
   )
 })
 
-const availableSubjectIds = computed(() => {
+const availableMembershipIds = computed(() => {
   return [
     ...new Set(
       activeAssignments.value
-        .map(assignmentSubjectId)
+        .map((item) => Number(item.subjectMembershipId))
+        .filter((id) => id && membershipById.value.has(id))
+    ),
+  ]
+})
+
+const availableSubjectIds = computed(() => {
+  return [
+    ...new Set(
+      availableMembershipIds.value
+        .map((membershipId) =>
+          membershipById.value.get(
+            Number(membershipId)
+          )?.subjectId
+        )
         .filter(Boolean)
         .map(Number)
     ),
@@ -155,7 +159,7 @@ const activeGroupCount = computed(() => {
 const selectedTasks = computed(() => {
   return subjectRows.value.flatMap(
     (row) => {
-      if (!row.subjectId) {
+      if (!row.subjectMembershipId) {
         return []
       }
 
@@ -180,8 +184,14 @@ const selectedTasks = computed(() => {
           assignmentIds.map(
             (teachingAssignmentId) => ({
               rowId: row.id,
+              subjectMembershipId:
+                Number(row.subjectMembershipId),
               subjectId:
-                Number(row.subjectId),
+                Number(
+                  membershipById.value.get(
+                    Number(row.subjectMembershipId)
+                  )?.subjectId
+                ),
               lectureId,
               teachingAssignmentId,
             })
@@ -210,7 +220,7 @@ const duplicateTasks = computed(() => {
 const incompleteRows = computed(() => {
   return subjectRows.value.filter(
     (row) =>
-      row.subjectId &&
+      row.subjectMembershipId &&
       (!row.lectureIds.length ||
         !row.teachingAssignmentIds.length)
   )
@@ -258,16 +268,19 @@ const groupedCurrentAssignments = computed(() => {
         return
       }
 
+      const subjectMembershipId =
+        Number(assignment.subjectMembershipId)
       const subjectId =
         assignmentSubjectId(assignment)
 
-      if (!groups.has(subjectId)) {
-        groups.set(subjectId, [])
+      if (!groups.has(subjectMembershipId)) {
+        groups.set(subjectMembershipId, [])
       }
 
-      groups.get(subjectId).push({
+      groups.get(subjectMembershipId).push({
         ...lectureAssignment,
         assignment,
+        subjectMembershipId,
         subjectId,
         lecture:
           lectureMeta(
@@ -278,10 +291,14 @@ const groupedCurrentAssignments = computed(() => {
     })
 
   return [...groups.entries()]
-    .map(([subjectId, items]) => ({
-      subjectId,
+    .map(([subjectMembershipId, items]) => ({
+      subjectMembershipId,
+      subjectId:
+        membershipById.value.get(
+          Number(subjectMembershipId)
+        )?.subjectId ?? null,
       subjectName:
-        subjectName(subjectId),
+        membershipLabel(subjectMembershipId),
       items: items.sort(
         (left, right) =>
           Number(
@@ -348,13 +365,13 @@ const currentColumns = [
 ]
 
 function createSubjectRow(
-  subjectId = null
+  subjectMembershipId = null
 ) {
   rowSequence += 1
 
   return {
     id: rowSequence,
-    subjectId,
+    subjectMembershipId,
     lectureIds: [],
     teachingAssignmentIds: [],
   }
@@ -367,6 +384,26 @@ function subjectName(subjectId) {
     )?.name ??
     `Предмет #${subjectId}`
   )
+}
+
+function membershipLabel(subjectMembershipId) {
+  const option = membershipOptions.value.find(
+    (item) =>
+      Number(item.value) ===
+      Number(subjectMembershipId)
+  )
+
+  if (option) {
+    return option.label
+  }
+
+  const membership = membershipById.value.get(
+    Number(subjectMembershipId)
+  )
+
+  return membership
+    ? subjectName(membership.subjectId)
+    : `Назначение #${subjectMembershipId}`
 }
 
 function assignmentSubjectId(
@@ -396,23 +433,20 @@ function groupName(groupId) {
   )
 }
 
-function activeAssignmentsForSubject(
-  subjectId
+function activeAssignmentsForMembership(
+  subjectMembershipId
 ) {
   return activeAssignments.value.filter(
     (assignment) =>
-      Number(
-        assignmentSubjectId(
-          assignment
-        )
-      ) === Number(subjectId)
+      Number(assignment.subjectMembershipId) ===
+      Number(subjectMembershipId)
   )
 }
 
-function lectureCatalog(subjectId) {
+function lectureCatalog(subjectMembershipId) {
   return (
-    lectureCatalogBySubjectId.value.get(
-      Number(subjectId)
+    lectureCatalogByMembershipId.value.get(
+      Number(subjectMembershipId)
     ) ?? []
   )
 }
@@ -422,7 +456,7 @@ function lectureMeta(lectureId) {
 
   for (
     const lectures of
-    lectureCatalogBySubjectId.value.values()
+    lectureCatalogByMembershipId.value.values()
   ) {
     const lecture = lectures.find(
       (item) =>
@@ -452,46 +486,49 @@ function existingLectureAssignment(task) {
   ) ?? null
 }
 
-function subjectOptionsForRow(row) {
+function membershipOptionsForRow(row) {
   const selectedElsewhere = new Set(
     subjectRows.value
       .filter(
         (item) =>
           item.id !== row.id &&
-          item.subjectId
+          item.subjectMembershipId
       )
       .map(
         (item) =>
-          Number(item.subjectId)
+          Number(item.subjectMembershipId)
       )
   )
 
-  return availableSubjectIds.value
-    .filter(
-      (subjectId) =>
-        !selectedElsewhere.has(
-          Number(subjectId)
-        ) ||
-        Number(subjectId) ===
-          Number(row.subjectId)
-    )
-    .map((subjectId) => ({
-      value: subjectId,
-      label: subjectName(subjectId),
-    }))
+  const available = new Set(
+    availableMembershipIds.value.map(Number)
+  )
+
+  return membershipOptions.value.filter(
+    (option) => {
+      const membershipId = Number(option.value)
+
+      return (
+        available.has(membershipId) &&
+        (!selectedElsewhere.has(membershipId) ||
+          membershipId ===
+            Number(row.subjectMembershipId))
+      )
+    }
+  )
 }
 
 function normalizeRows() {
   const available = new Set(
-    availableSubjectIds.value
+    availableMembershipIds.value
   )
 
   subjectRows.value.forEach(
     (row) => {
       if (
-        !row.subjectId ||
+        !row.subjectMembershipId ||
         !available.has(
-          Number(row.subjectId)
+          Number(row.subjectMembershipId)
         )
       ) {
         row.lectureIds = []
@@ -500,8 +537,8 @@ function normalizeRows() {
       }
 
       const assignmentIds = new Set(
-        activeAssignmentsForSubject(
-          row.subjectId
+        activeAssignmentsForMembership(
+          row.subjectMembershipId
         ).map(
           (item) => Number(item.id)
         )
@@ -516,7 +553,7 @@ function normalizeRows() {
           )
 
       const lectureIds = new Set(
-        lectureCatalog(row.subjectId)
+        lectureCatalog(row.subjectMembershipId)
           .map((item) => Number(item.id))
       )
 
@@ -538,23 +575,23 @@ function normalizeRows() {
 }
 
 async function ensureLectureCatalog(
-  subjectId
+  subjectMembershipId
 ) {
-  const numericSubjectId =
-    Number(subjectId)
+  const numericMembershipId =
+    Number(subjectMembershipId)
 
   if (
-    !numericSubjectId ||
-    lectureCatalogBySubjectId.value.has(
-      numericSubjectId
+    !numericMembershipId ||
+    lectureCatalogByMembershipId.value.has(
+      numericMembershipId
     )
   ) {
     return
   }
 
   const membership =
-    membershipBySubjectId.value.get(
-      numericSubjectId
+    membershipById.value.get(
+      numericMembershipId
     )
 
   if (!membership) {
@@ -568,11 +605,11 @@ async function ensureLectureCatalog(
     })
 
   const next = new Map(
-    lectureCatalogBySubjectId.value
+    lectureCatalogByMembershipId.value
   )
 
   next.set(
-    numericSubjectId,
+    numericMembershipId,
     listFromResponse(response)
       .sort(
         (left, right) =>
@@ -586,7 +623,7 @@ async function ensureLectureCatalog(
       )
   )
 
-  lectureCatalogBySubjectId.value = next
+  lectureCatalogByMembershipId.value = next
 }
 
 async function loadLectureAssignments() {
@@ -632,7 +669,7 @@ async function refreshAssignments() {
       assignments.value = []
       lectureAssignmentsByTeachingId.value =
         new Map()
-      lectureCatalogBySubjectId.value =
+      lectureCatalogByMembershipId.value =
         new Map()
       normalizeRows()
       return
@@ -713,11 +750,11 @@ async function refreshAssignments() {
 
     await loadLectureAssignments()
 
-    lectureCatalogBySubjectId.value =
+    lectureCatalogByMembershipId.value =
       new Map()
 
     await Promise.all(
-      availableSubjectIds.value.map(
+      availableMembershipIds.value.map(
         ensureLectureCatalog
       )
     )
@@ -736,20 +773,20 @@ async function refreshAssignments() {
   }
 }
 
-async function changeRowSubject(
+async function changeRowMembership(
   row,
-  subjectId
+  subjectMembershipId
 ) {
-  row.subjectId = subjectId
-    ? Number(subjectId)
+  row.subjectMembershipId = subjectMembershipId
+    ? Number(subjectMembershipId)
     : null
 
   row.lectureIds = []
   row.teachingAssignmentIds = []
 
-  if (row.subjectId) {
+  if (row.subjectMembershipId) {
     await ensureLectureCatalog(
-      row.subjectId
+      row.subjectMembershipId
     )
   }
 }
@@ -1042,12 +1079,12 @@ onMounted(async () => {
             >
               <div class="teacher-row-card__header">
                 <UiSelect
-                  :model-value="row.subjectId || ''"
-                  label="Предмет"
-                  :options="subjectOptionsForRow(row)"
+                  :model-value="row.subjectMembershipId || ''"
+                  label="Предмет / преподаватель"
+                  :options="membershipOptionsForRow(row)"
                   placeholder="Выберите предмет"
                   @update:model-value="
-                    changeRowSubject(
+                    changeRowMembership(
                       row,
                       $event
                     )
@@ -1069,13 +1106,13 @@ onMounted(async () => {
                   <strong>Лекции</strong>
 
                   <UiEmptyState
-                    v-if="!row.subjectId"
+                    v-if="!row.subjectMembershipId"
                     description="Сначала выберите предмет."
                     compact
                   />
 
                   <UiEmptyState
-                    v-else-if="!lectureCatalog(row.subjectId).length"
+                    v-else-if="!lectureCatalog(row.subjectMembershipId).length"
                     description="У этого предмета пока нет лекций."
                     compact
                   />
@@ -1085,7 +1122,7 @@ onMounted(async () => {
                     class="teacher-scroll-list"
                   >
                     <UiCheckbox
-                      v-for="lecture in lectureCatalog(row.subjectId)"
+                      v-for="lecture in lectureCatalog(row.subjectMembershipId)"
                       :key="lecture.id"
                       v-model="row.lectureIds"
                       :value="lecture.id"
@@ -1099,13 +1136,13 @@ onMounted(async () => {
                   <strong>Группы</strong>
 
                   <UiEmptyState
-                    v-if="!row.subjectId"
+                    v-if="!row.subjectMembershipId"
                     description="Сначала выберите предмет."
                     compact
                   />
 
                   <UiEmptyState
-                    v-else-if="!activeAssignmentsForSubject(row.subjectId).length"
+                    v-else-if="!activeAssignmentsForMembership(row.subjectMembershipId).length"
                     description="Для выбранного предмета нет активных групп по периоду."
                     compact
                   />
@@ -1115,7 +1152,7 @@ onMounted(async () => {
                     class="teacher-scroll-list"
                   >
                     <UiCheckbox
-                      v-for="assignment in activeAssignmentsForSubject(row.subjectId)"
+                      v-for="assignment in activeAssignmentsForMembership(row.subjectMembershipId)"
                       :key="assignment.id"
                       v-model="row.teachingAssignmentIds"
                       :value="assignment.id"
@@ -1147,12 +1184,12 @@ onMounted(async () => {
               class="teacher-list"
             >
               <div
-                v-for="row in subjectRows.filter(item => item.subjectId)"
+                v-for="row in subjectRows.filter(item => item.subjectMembershipId)"
                 :key="row.id"
                 class="teacher-list-item"
               >
                 <strong>
-                  {{ subjectName(row.subjectId) }}
+                  {{ membershipLabel(row.subjectMembershipId) }}
                 </strong>
 
                 <span class="teacher-muted">
@@ -1204,7 +1241,7 @@ onMounted(async () => {
         >
           <UiCard
             v-for="group in groupedCurrentAssignments"
-            :key="group.subjectId"
+            :key="group.subjectMembershipId"
             :title="group.subjectName"
             :description="`${group.items.length} назначений / ${periodLabel}`"
             compact

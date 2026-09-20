@@ -9,6 +9,10 @@ export const testsApi = {
     return http.post('/tests', data)
   },
 
+  delete(testId) {
+    return http.delete(`/tests/${testId}`)
+  },
+
   createAssignments(testId, data) {
     return http.post(`/tests/${testId}/assignments`, data)
   },

@@ -41,6 +41,11 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createTestWithAssignments,
+  TestCreationFlowError,
+} from '@/utils/createTestWithAssignments'
+
 const route = useRoute()
 
 const {
@@ -562,89 +567,97 @@ async function createTest() {
 
   saving.value = true
 
-  try {
-    const testResponse =
-      await testsApi.create({
-        title: form.value.title.trim(),
-        description:
-          form.value.description.trim() ||
-          null,
-        duration: null,
-        attemptsAllowed:
+  const availableFromUtc =
+    new Date(
+      form.value.availableFrom
+    ).toISOString()
+
+  const availableUntilUtc =
+    new Date(
+      form.value.availableUntil
+    ).toISOString()
+
+  const testPayload = {
+    title: form.value.title.trim(),
+    description:
+      form.value.description.trim() ||
+      null,
+    duration: null,
+    attemptsAllowed:
+      Number(
+        form.value.attemptsAllowed
+      ) || 1,
+    questionCount:
+      Number(
+        form.value.questionCount
+      ),
+    selectionRules: [
+      {
+        courseLectureId: null,
+        topicId:
           Number(
-            form.value.attemptsAllowed
-          ) || 1,
+            selectedTopicId.value
+          ),
         questionCount:
           Number(
             form.value.questionCount
           ),
-        selectionRules: [
-          {
-            courseLectureId: null,
-            topicId:
-              Number(
-                selectedTopicId.value
-              ),
-            questionCount:
-              Number(
-                form.value.questionCount
-              ),
-            textQuestionCount:
-              Number(
-                form.value
-                  .textQuestionCount
-              ),
-            singleAnswerQuestionCount:
-              Number(
-                form.value
-                  .singleAnswerQuestionCount
-              ),
-            multipleAnswerQuestionCount:
-              Number(
-                form.value
-                  .multipleAnswerQuestionCount
-              ),
-            matchingQuestionCount:
-              Number(
-                form.value
-                  .matchingQuestionCount
-              ),
-            ordinal: 1,
-          },
-        ],
-      })
+        textQuestionCount:
+          Number(
+            form.value
+              .textQuestionCount
+          ),
+        singleAnswerQuestionCount:
+          Number(
+            form.value
+              .singleAnswerQuestionCount
+          ),
+        multipleAnswerQuestionCount:
+          Number(
+            form.value
+              .multipleAnswerQuestionCount
+          ),
+        matchingQuestionCount:
+          Number(
+            form.value
+              .matchingQuestionCount
+          ),
+        ordinal: 1,
+      },
+    ],
+  }
 
-    const test = testResponse.data
-
-    const availableFromUtc =
-      new Date(
-        form.value.availableFrom
-      ).toISOString()
-
-    const availableUntilUtc =
-      new Date(
-        form.value.availableUntil
-      ).toISOString()
-
-    await Promise.all(
-      assignmentIds.map(
-        (assignmentId) =>
+  try {
+    const { test } =
+      await createTestWithAssignments({
+        createTest: (payload) =>
+          testsApi.create(payload),
+        createAssignment: (
+          testId,
+          payload
+        ) =>
           testsApi.createAssignments(
-            test.id,
-            {
-              scope: 4,
-              courseVersionId: null,
-              courseLectureId: null,
-              teachingAssignmentId:
-                Number(assignmentId),
-              availableFromUtc,
-              availableUntilUtc,
-              status:
-                Number(form.value.status),
-            }
-          )
-      )
-    )
+            testId,
+            payload
+          ),
+        deleteTest: (testId) =>
+          testsApi.delete(testId),
+        testPayload,
+        assignmentIds,
+        assignmentPayload: (
+          assignmentId
+        ) => ({
+          scope: 4,
+          courseVersionId: null,
+          courseLectureId: null,
+          teachingAssignmentId:
+            Number(assignmentId),
+          availableFromUtc,
+          availableUntilUtc,
+          status:
+            Number(form.value.status),
+        }),
+      })
 
     notice.value = {
       type: 'success',
@@ -652,12 +665,37 @@ async function createTest() {
         `Тест #${test.id} создан и назначен выбранным группам.`,
     }
   } catch (error) {
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось создать тест'
-      ),
+    if (
+      error instanceof
+      TestCreationFlowError
+    ) {
+      const assignmentMessage =
+        getApiErrorMessage(
+          error.cause,
+          'Не удалось создать назначение теста'
+        )
+
+      if (error.rollbackSucceeded) {
+        notice.value = {
+          type: 'danger',
+          message:
+            `${assignmentMessage}. Создание теста отменено, частичные назначения удалены.`,
+        }
+      } else {
+        notice.value = {
+          type: 'danger',
+          message:
+            `${assignmentMessage}. Не удалось автоматически удалить незавершённый тест #${error.testId}. Не создавайте тест повторно, пока тест #${error.testId} не будет удалён вручную.`,
+        }
+      }
+    } else {
+      notice.value = {
+        type: 'danger',
+        message: getApiErrorMessage(
+          error,
+          'Не удалось создать тест'
+        ),
+      }
     }
   } finally {
     saving.value = false
