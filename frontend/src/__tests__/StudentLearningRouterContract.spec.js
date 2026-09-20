@@ -1,92 +1,81 @@
 import {
-  readFileSync,
-} from 'node:fs'
-
-import {
   describe,
   expect,
   it,
 } from 'vitest'
 
-function source(relativePath) {
-  return readFileSync(
-    new URL(
-      relativePath,
-      import.meta.url
-    ),
-    'utf8'
+import {
+  LEARNING_ROLES,
+  STUDENT_LEARNING_ROLES,
+  TEST_TAKER_ROLES,
+  WORKSPACE_ROLES,
+} from '@/router/roles'
+import {
+  studentRoutes,
+} from '@/router/routes/student'
+
+function route(name) {
+  const value = studentRoutes.find(
+    (item) => item.name === name
   )
+
+  expect(value).toBeDefined()
+  return value
 }
 
 describe('student public-learning router contract', () => {
-  it('keeps public-learning routes student-only', () => {
-    const roles = source('../router/roles.js')
-
-    expect(roles).toContain(
-      'export const STUDENT_LEARNING_ROLES'
-    )
-
-    expect(roles).toMatch(
-      /STUDENT_LEARNING_ROLES[\s\S]*?'STUDENT'[\s\S]*?\]\)/
-    )
-
-    expect(roles).toMatch(
-      /TEST_TAKER_ROLES[\s\S]*?'STUDENT'[\s\S]*?\]\)/
-    )
-
-    const studentLearningBlock =
-      roles.match(
-        /STUDENT_LEARNING_ROLES[\s\S]*?\]\)/
-      )?.[0] ?? ''
-
-    const testTakerBlock =
-      roles.match(
-        /TEST_TAKER_ROLES[\s\S]*?\]\)/
-      )?.[0] ?? ''
-
-    expect(studentLearningBlock)
-      .not.toContain("'TEACHER'")
-    expect(studentLearningBlock)
-      .not.toContain("'ADMIN'")
-    expect(testTakerBlock)
-      .not.toContain("'TEACHER'")
-    expect(testTakerBlock)
-      .not.toContain("'ADMIN'")
+  it('keeps public-learning and test-taking roles student-only', () => {
+    expect(STUDENT_LEARNING_ROLES).toEqual([
+      'STUDENT',
+    ])
+    expect(TEST_TAKER_ROLES).toEqual([
+      'STUDENT',
+    ])
   })
 
-  it('uses the student-only meta for lecture browsing', () => {
-    const routes = source(
-      '../router/routes/student.js'
-    )
+  it.each([
+    'subject-lectures',
+    'lecture-details',
+  ])('protects %s with the student-only learning roles', (name) => {
+    const value = route(name)
 
-    expect(routes).toMatch(
-      /path: '\/subjects\/:subjectId\/lectures'[\s\S]*?meta: studentLearningMeta/
-    )
-
-    expect(routes).toMatch(
-      /path: '\/lectures\/:lectureId'[\s\S]*?meta: studentLearningMeta/
-    )
-
-    expect(routes).toMatch(
-      /path: '\/tests\/:testId'[\s\S]*?meta: testTakingMeta/
-    )
+    expect(value.meta).toMatchObject({
+      requiresAuth: true,
+      roles: STUDENT_LEARNING_ROLES,
+    })
   })
 
-  it('keeps shared subjects and results available to role-aware views', () => {
-    const routes = source(
-      '../router/routes/student.js'
-    )
+  it('protects the test route with student-only test-taking roles', () => {
+    const value = route('test')
 
-    expect(routes).toMatch(
-      /path: '\/subjects'[\s\S]*?meta: learningMeta/
-    )
+    expect(value.meta).toMatchObject({
+      requiresAuth: true,
+      roles: TEST_TAKER_ROLES,
+    })
+  })
 
-    expect(routes).toMatch(
-      /path: '\/subjects\/:subjectId'[\s\S]*?meta: learningMeta/
-    )
+  it.each([
+    'subjects',
+    'subject-details',
+    'results',
+  ])('keeps %s available to role-aware learning views', (name) => {
+    const value = route(name)
 
-    expect(routes).toMatch(
-      /path: '\/results'[\s\S]*?meta: learningMeta/
-    )
+    expect(value.meta).toMatchObject({
+      requiresAuth: true,
+      roles: LEARNING_ROLES,
+    })
+  })
+
+  it.each([
+    'home',
+    'profile',
+  ])('requires workspace roles for %s', (name) => {
+    const value = route(name)
+
+    expect(value.meta).toMatchObject({
+      requiresAuth: true,
+      roles: WORKSPACE_ROLES,
+    })
   })
 })

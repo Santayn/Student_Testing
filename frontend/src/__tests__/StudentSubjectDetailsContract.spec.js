@@ -1,54 +1,138 @@
 import {
-  readFileSync,
-} from 'node:fs'
-
-import {
+  beforeEach,
   describe,
   expect,
   it,
+  vi,
 } from 'vitest'
 
-function source(relativePath) {
-  return readFileSync(
-    new URL(
-      relativePath,
-      import.meta.url
-    ),
-    'utf8'
-  )
-}
+import {
+  flushPromises,
+  shallowMount,
+} from '@vue/test-utils'
 
-describe('student subject details API contract', () => {
-  it('uses the public learning subject endpoint for student-only mode', () => {
-    const view = source(
-      '../views/subjects/SubjectDetailsView.vue'
-    )
+const state = vi.hoisted(() => ({
+  route: {
+    params: {
+      subjectId: '7',
+    },
+    query: {},
+  },
+  auth: {
+    isStudent: true,
+    isTeacher: false,
+    isAdmin: false,
+  },
+}))
 
-    expect(view)
-      .toContain('learningApi')
+vi.mock('vue-router', () => ({
+  useRoute: () => state.route,
+}))
 
-    expect(view)
-      .toContain('.getSubject(')
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => state.auth,
+}))
 
-    expect(view)
-      .toContain('authStore.isStudent')
+vi.mock('@/api', () => ({
+  getApiErrorMessage: (
+    _error,
+    fallback
+  ) => fallback,
+  learningApi: {
+    getSubject: vi.fn(),
+  },
+  subjectsApi: {
+    getById: vi.fn(),
+  },
+}))
 
-    expect(view)
-      .toContain('!authStore.isTeacher')
+import {
+  learningApi,
+  subjectsApi,
+} from '@/api'
+import SubjectDetailsView from '@/views/subjects/SubjectDetailsView.vue'
 
-    expect(view)
-      .toContain('!authStore.isAdmin')
+describe('subject details API selection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    state.route.params.subjectId = '7'
+    state.route.query = {}
+
+    state.auth.isStudent = true
+    state.auth.isTeacher = false
+    state.auth.isAdmin = false
+
+    learningApi.getSubject.mockResolvedValue({
+      data: {
+        id: 7,
+        name: 'Базы данных',
+      },
+    })
+    subjectsApi.getById.mockResolvedValue({
+      data: {
+        id: 7,
+        name: 'Базы данных',
+      },
+    })
   })
 
-  it('keeps the management subject endpoint for teacher and admin context', () => {
-    const view = source(
-      '../views/subjects/SubjectDetailsView.vue'
+  it('uses public learning API for a pure student context', async () => {
+    const wrapper = shallowMount(
+      SubjectDetailsView
     )
 
-    expect(view)
-      .toContain('subjectsApi')
+    await flushPromises()
 
-    expect(view)
-      .toContain('.getById(')
+    expect(
+      learningApi.getSubject
+    ).toHaveBeenCalledTimes(1)
+    expect(
+      learningApi.getSubject
+    ).toHaveBeenCalledWith(7)
+    expect(
+      subjectsApi.getById
+    ).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it.each([
+    {
+      role: 'teacher',
+      auth: {
+        isStudent: false,
+        isTeacher: true,
+        isAdmin: false,
+      },
+    },
+    {
+      role: 'admin',
+      auth: {
+        isStudent: false,
+        isTeacher: false,
+        isAdmin: true,
+      },
+    },
+  ])('uses management API for $role context', async ({ auth }) => {
+    Object.assign(state.auth, auth)
+
+    const wrapper = shallowMount(
+      SubjectDetailsView
+    )
+
+    await flushPromises()
+
+    expect(
+      subjectsApi.getById
+    ).toHaveBeenCalledTimes(1)
+    expect(
+      subjectsApi.getById
+    ).toHaveBeenCalledWith(7)
+    expect(
+      learningApi.getSubject
+    ).not.toHaveBeenCalled()
+
+    wrapper.unmount()
   })
 })

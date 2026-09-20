@@ -1,91 +1,153 @@
 import {
-  readFileSync,
-} from 'node:fs'
-
-import {
+  beforeEach,
   describe,
   expect,
   it,
+  vi,
 } from 'vitest'
 
-function source(relativePath) {
-  return readFileSync(
-    new URL(
-      relativePath,
-      import.meta.url
-    ),
-    'utf8'
-  )
+const state = vi.hoisted(() => ({
+  auth: null,
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => state.auth,
+}))
+
+vi.mock('@/config/features', () => ({
+  publicRegistrationEnabled: false,
+}))
+
+import {
+  WORKSPACE_ROLES,
+} from '@/router/roles'
+import {
+  authGuard,
+} from '@/router/guards/auth'
+
+function authState({
+  personId = null,
+  roles = [],
+  isAuthenticated = true,
+  canRefresh = false,
+} = {}) {
+  return {
+    initialized: true,
+    isAuthenticated,
+    personId,
+    canRefresh,
+    init: vi.fn(),
+    refreshSession: vi.fn(),
+    loadCurrentUser: vi.fn(),
+    hasAnyRole(...requiredRoles) {
+      return requiredRoles.some(
+        (role) => roles.includes(role)
+      )
+    },
+  }
 }
 
-describe('pending account navigation contract', () => {
-  it('protects home and profile with workspace roles instead of the base USER role', () => {
-    const roles = source('../router/roles.js')
-    const routes = source('../router/routes/student.js')
+function target({
+  name = 'home',
+  fullPath = '/',
+  meta = {
+    requiresAuth: true,
+    roles: WORKSPACE_ROLES,
+  },
+} = {}) {
+  return {
+    name,
+    fullPath,
+    matched: [
+      {
+        meta,
+      },
+    ],
+  }
+}
 
-    const workspaceBlock =
-      roles.match(
-        /WORKSPACE_ROLES[\s\S]*?\]\)/
-      )?.[0] ?? ''
-
-    expect(workspaceBlock)
-      .toContain("'STUDENT'")
-    expect(workspaceBlock)
-      .toContain("'TEACHER'")
-    expect(workspaceBlock)
-      .toContain("'ADMIN'")
-    expect(workspaceBlock)
-      .not.toContain("'USER'")
-
-    expect(routes)
-      .toContain(
-        'roles: WORKSPACE_ROLES'
-      )
+describe('account pending navigation guard', () => {
+  beforeEach(() => {
+    state.auth = authState()
   })
 
-  it('keeps incomplete authenticated users on account-pending', () => {
-    const guard = source(
-      '../router/guards/auth.js'
-    )
+  it('keeps a user with a workspace role but without personId on account-pending', async () => {
+    state.auth = authState({
+      roles: ['STUDENT'],
+      personId: null,
+    })
 
-    expect(guard)
-      .toContain(
-        '!hasWorkspaceAccess(authStore)'
-      )
-
-    expect(guard)
-      .toContain(
-        "name: 'account-pending'"
-      )
+    await expect(
+      authGuard(target())
+    ).resolves.toEqual({
+      name: 'account-pending',
+    })
   })
 
-  it('routes header and footer home links through workspace readiness', () => {
-    const header = source(
-      '../components/layout/AppHeader.vue'
-    )
+  it('keeps USER out of workspace even when personId exists', async () => {
+    state.auth = authState({
+      roles: ['USER'],
+      personId: 17,
+    })
 
-    const footer = source(
-      '../components/layout/AppFooter.vue'
-    )
+    await expect(
+      authGuard(target())
+    ).resolves.toEqual({
+      name: 'account-pending',
+    })
+  })
 
-    expect(header)
-      .toContain(
-        'hasWorkspaceAccess('
+  it('allows a linked student into workspace routes', async () => {
+    state.auth = authState({
+      roles: ['STUDENT'],
+      personId: 17,
+    })
+
+    await expect(
+      authGuard(target())
+    ).resolves.toBe(true)
+  })
+
+  it('redirects a ready account away from account-pending', async () => {
+    state.auth = authState({
+      roles: ['TEACHER'],
+      personId: 17,
+      canRefresh: false,
+    })
+
+    await expect(
+      authGuard(
+        target({
+          name: 'account-pending',
+          fullPath: '/account-pending',
+          meta: {
+            requiresAuth: true,
+            pendingRoleOnly: true,
+          },
+        })
       )
+    ).resolves.toEqual({
+      name: 'home',
+    })
+  })
 
-    expect(header)
-      .toContain(
-        'authStore.isAuthenticated && accountReady'
-      )
+  it('sends unauthenticated users to auth-required with the original path', async () => {
+    state.auth = authState({
+      isAuthenticated: false,
+      roles: [],
+    })
 
-    expect(footer)
-      .toContain(
-        'hasWorkspaceAccess(authStore)'
+    await expect(
+      authGuard(
+        target({
+          fullPath: '/results',
+        })
       )
-
-    expect(footer)
-      .toContain(
-        "name: 'account-pending'"
-      )
+    ).resolves.toEqual({
+      name: 'auth-required',
+      query: {
+        redirect: '/results',
+      },
+    })
   })
 })

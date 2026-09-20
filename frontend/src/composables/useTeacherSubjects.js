@@ -16,6 +16,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  isAssignableTeacherMembership,
+} from '@/utils/teacherMembershipEligibility'
+
 const TEACHER_ROLE = 1
 
 export function useTeacherSubjects() {
@@ -32,8 +36,20 @@ export function useTeacherSubjects() {
    */
   const selectedMembershipId = ref('')
 
+  /*
+   * Исторические membership оставляем в subjectMemberships,
+   * чтобы экраны вроде нагрузки могли корректно показать уже
+   * существующие связи. Но для новых teacher-действий и выбора
+   * в UI используем только реально активные назначения.
+   */
+  const activeSubjectMemberships = computed(() => {
+    return subjectMemberships.value.filter(
+      isAssignableTeacherMembership
+    )
+  })
+
   const selectedMembership = computed(() => {
-    return subjectMemberships.value.find(
+    return activeSubjectMemberships.value.find(
       (membership) =>
         String(membership.id) ===
         String(selectedMembershipId.value)
@@ -92,7 +108,7 @@ export function useTeacherSubjects() {
       }
 
       const membership =
-        subjectMemberships.value.find(
+        activeSubjectMemberships.value.find(
           (item) =>
             String(item.subjectId) ===
             String(value)
@@ -106,19 +122,31 @@ export function useTeacherSubjects() {
   })
 
   const subjectOptions = computed(() => {
-    return subjects.value.map(
-      (subject) => ({
+    const activeSubjectIds = new Set(
+      activeSubjectMemberships.value
+        .map((membership) =>
+          Number(membership.subjectId)
+        )
+        .filter(Boolean)
+    )
+
+    return subjects.value
+      .filter((subject) =>
+        activeSubjectIds.has(
+          Number(subject.id)
+        )
+      )
+      .map((subject) => ({
         value: subject.id,
         label:
           subject.name ??
           `Предмет #${subject.id}`,
-      })
-    )
+      }))
   })
 
   const membershipOptions = computed(() => {
     const membershipCountBySubject =
-      subjectMemberships.value.reduce(
+      activeSubjectMemberships.value.reduce(
         (map, membership) => {
           const key =
             String(
@@ -135,7 +163,7 @@ export function useTeacherSubjects() {
         new Map()
       )
 
-    return subjectMemberships.value.map(
+    return activeSubjectMemberships.value.map(
       (membership) => {
         const subject =
           subjects.value.find(
@@ -270,7 +298,7 @@ export function useTeacherSubjects() {
 
       const preferredMembership =
         preferredMembershipId
-          ? subjectMemberships.value
+          ? activeSubjectMemberships.value
               .find(
                 (item) =>
                   String(item.id) ===
@@ -291,7 +319,7 @@ export function useTeacherSubjects() {
 
       const preferredBySubject =
         preferredSubjectId
-          ? subjectMemberships.value
+          ? activeSubjectMemberships.value
               .find(
                 (item) =>
                   String(
@@ -309,26 +337,12 @@ export function useTeacherSubjects() {
             preferredBySubject.id
           )
       } else if (
-        subjectMemberships.value
+        activeSubjectMemberships.value
           .length === 1
       ) {
         selectedMembershipId.value =
           String(
-            subjectMemberships.value[0]
-              .id
-          )
-      } else if (
-        subjects.value.length === 1 &&
-        subjectMemberships.value.length
-      ) {
-        /*
-         * Сохраняем старое удобство для экранов,
-         * где выбор идёт по предмету. TopicLibrary при наличии
-         * дубликатов всё равно показывает membershipOptions.
-         */
-        selectedMembershipId.value =
-          String(
-            subjectMemberships.value[0]
+            activeSubjectMemberships.value[0]
               .id
           )
       } else {
@@ -344,6 +358,7 @@ export function useTeacherSubjects() {
   return {
     loadingSubjects,
     subjectMemberships,
+    activeSubjectMemberships,
     subjects,
     selectedMembershipId,
     selectedMembership,

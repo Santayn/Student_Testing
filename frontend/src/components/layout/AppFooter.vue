@@ -47,7 +47,7 @@ const homeRoute = computed(() => {
 
         <RouterLink
           class="app-footer__link"
-          to="/about"
+          :to="{ name: 'about' }"
         >
           О системе
         </RouterLink>

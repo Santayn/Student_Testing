@@ -1,70 +1,90 @@
 import {
-  readFileSync,
-} from 'node:fs'
-
-import {
   describe,
   expect,
   it,
 } from 'vitest'
 
-function source(relativePath) {
-  return readFileSync(
-    new URL(
-      relativePath,
-      import.meta.url
-    ),
-    'utf8'
-  )
+import {
+  shallowMount,
+} from '@vue/test-utils'
+
+import {
+  UiTable,
+} from '@/components/ui'
+import ResultAttemptCard from '@/components/results/ResultAttemptCard.vue'
+
+function attempt() {
+  return {
+    testId: 4,
+    testName: 'Контрольная',
+    attemptOrdinal: 1,
+    stats: {
+      total: 1,
+      right: 1,
+      percent: 100,
+    },
+    results: [
+      {
+        questionText: '2 + 2?',
+        givenAnswer: '4',
+        correctAnswer: '4',
+        correct: true,
+      },
+    ],
+  }
 }
 
-describe('student result visibility contract', () => {
-  it('does not show per-question correctness or the correct answer immediately after submit', () => {
-    const testView =
-      source(
-        '../views/tests/TestView.vue'
-      )
+function columnLabels(mode) {
+  const wrapper = shallowMount(
+    ResultAttemptCard,
+    {
+      props: {
+        attempt: attempt(),
+        mode,
+        open: true,
+      },
+    }
+  )
 
-    expect(testView)
-      .not.toContain(
-        'detail.correct'
-      )
+  const table = wrapper.findComponent(
+    UiTable
+  )
 
-    expect(testView)
-      .not.toContain(
-        'detail.correctAnswer'
-      )
+  expect(table.exists()).toBe(true)
 
-    expect(testView)
-      .not.toContain(
-        '<dt>Правильный ответ</dt>'
-      )
+  const labels = table
+    .props('columns')
+    .map((column) => column.label)
+
+  wrapper.unmount()
+  return labels
+}
+
+describe('result attempt visibility', () => {
+  it('does not expose per-question correctness columns in student mode', () => {
+    const labels = columnLabels('student')
+
+    expect(labels).toEqual([
+      '#',
+      'Вопрос',
+      'Ответ студента',
+    ])
+    expect(labels).not.toContain(
+      'Правильный ответ'
+    )
+    expect(labels).not.toContain(
+      'Результат'
+    )
   })
 
-  it('keeps correct answer and correctness columns teacher-only in result history', () => {
-    const attemptCard =
-      source(
-        '../components/results/ResultAttemptCard.vue'
-      )
+  it('keeps correctness columns in teacher mode', () => {
+    const labels = columnLabels('teacher')
 
-    expect(attemptCard)
-      .toContain(
-        "const teacherOnlyColumns = ["
-      )
-
-    expect(attemptCard)
-      .toContain(
-        "if (props.mode === 'teacher')"
-      )
-
-    expect(attemptCard)
-      .toContain(
-        "label: 'Правильный ответ'"
-      )
-
-    expect(attemptCard)
-      .toContain(
-        "label: 'Результат'"
-      )
+    expect(labels).toContain(
+      'Правильный ответ'
+    )
+    expect(labels).toContain(
+      'Результат'
+    )
   })
 })

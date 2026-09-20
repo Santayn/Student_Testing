@@ -1,5 +1,19 @@
 export const publicRoutes = [
   {
+    path: '/about',
+    name: 'about',
+
+    component: () =>
+      import(
+        '@/views/AboutView.vue'
+      ),
+
+    meta: {
+      public: true,
+    },
+  },
+
+  {
     path: '/login',
     name: 'login',
 
