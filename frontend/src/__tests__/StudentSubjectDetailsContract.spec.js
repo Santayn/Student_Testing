@@ -22,6 +22,9 @@ const state = vi.hoisted(() => ({
     isStudent: true,
     isTeacher: false,
     isAdmin: false,
+    isStudentMode: true,
+    isTeacherMode: false,
+    isAdminMode: false,
   },
 }))
 
@@ -59,9 +62,14 @@ describe('subject details API selection', () => {
     state.route.params.subjectId = '7'
     state.route.query = {}
 
-    state.auth.isStudent = true
-    state.auth.isTeacher = false
-    state.auth.isAdmin = false
+    Object.assign(state.auth, {
+      isStudent: true,
+      isTeacher: false,
+      isAdmin: false,
+      isStudentMode: true,
+      isTeacherMode: false,
+      isAdminMode: false,
+    })
 
     learningApi.getSubject.mockResolvedValue({
       data: {
@@ -104,6 +112,9 @@ describe('subject details API selection', () => {
         isStudent: false,
         isTeacher: true,
         isAdmin: false,
+        isStudentMode: false,
+        isTeacherMode: true,
+        isAdminMode: false,
       },
     },
     {
@@ -112,6 +123,9 @@ describe('subject details API selection', () => {
         isStudent: false,
         isTeacher: false,
         isAdmin: true,
+        isStudentMode: false,
+        isTeacherMode: false,
+        isAdminMode: true,
       },
     },
   ])('uses management API for $role context', async ({ auth }) => {
@@ -126,6 +140,58 @@ describe('subject details API selection', () => {
     expect(
       subjectsApi.getById
     ).toHaveBeenCalledTimes(1)
+    expect(
+      subjectsApi.getById
+    ).toHaveBeenCalledWith(7)
+    expect(
+      learningApi.getSubject
+    ).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('uses student API for a STUDENT + TEACHER account in student mode', async () => {
+    Object.assign(state.auth, {
+      isStudent: true,
+      isTeacher: true,
+      isAdmin: false,
+      isStudentMode: true,
+      isTeacherMode: false,
+      isAdminMode: false,
+    })
+
+    const wrapper = shallowMount(
+      SubjectDetailsView
+    )
+
+    await flushPromises()
+
+    expect(
+      learningApi.getSubject
+    ).toHaveBeenCalledWith(7)
+    expect(
+      subjectsApi.getById
+    ).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('uses management API for a STUDENT + TEACHER account in teacher mode', async () => {
+    Object.assign(state.auth, {
+      isStudent: true,
+      isTeacher: true,
+      isAdmin: false,
+      isStudentMode: false,
+      isTeacherMode: true,
+      isAdminMode: false,
+    })
+
+    const wrapper = shallowMount(
+      SubjectDetailsView
+    )
+
+    await flushPromises()
+
     expect(
       subjectsApi.getById
     ).toHaveBeenCalledWith(7)

@@ -99,7 +99,7 @@ const selectedTemplate = computed(() => {
 
 const templateCreationAllowed = computed(() => {
   return canCreateCourseTemplate({
-    isAdmin: authStore.isAdmin,
+    isAdmin: authStore.isAdminMode,
   })
 })
 
@@ -226,7 +226,7 @@ async function loadTemplates() {
       buildCourseTemplateListParams({
         subjectId:
           selectedSubjectId.value,
-        isAdmin: authStore.isAdmin,
+        isAdmin: authStore.isAdminMode,
         currentPersonId:
           authStore.personId,
         selectedMembership:
@@ -677,7 +677,7 @@ onMounted(async () => {
         >
           <div class="teacher-stack">
             <UiAlert
-              v-if="authStore.isAdmin && !templateForm.id"
+              v-if="authStore.isAdminMode && !templateForm.id"
               variant="info"
               message="Администратор видит шаблоны выбранного преподавателя и может редактировать существующие. Создание нового шаблона от имени преподавателя backend не поддерживает."
             />

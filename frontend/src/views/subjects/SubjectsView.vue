@@ -33,9 +33,11 @@ import {
   uniqueNumbers,
 } from '@/utils/apiData'
 
-const SUBJECT_ROLE_TEACHER = 1
-const GROUP_ROLE_STUDENT = 1
+import {
+  loadStudentLearningContext,
+} from '@/utils/studentLearningContext'
 
+const SUBJECT_ROLE_TEACHER = 1
 const authStore =
   useAuthStore()
 
@@ -43,8 +45,8 @@ const loading = ref(false)
 const error = ref('')
 
 const subjects = ref([])
-const group = ref(null)
-const faculty = ref(null)
+const groups = ref([])
+const faculties = ref([])
 
 const filter = ref('')
 
@@ -88,35 +90,45 @@ const filteredSubjects = computed(() => {
 })
 
 const metaText = computed(() => {
-  if (authStore.isAdmin) {
+  if (authStore.isAdminMode) {
     return 'Показаны все предметы, доступные администратору.'
   }
 
-  if (authStore.isStudent) {
-    if (!group.value) {
+  if (authStore.isStudentMode) {
+    if (!groups.value.length) {
       return (
         'Для текущего пользователя ' +
         'не найдена активная учебная группа.'
       )
     }
 
-    const groupName =
-      group.value.name ||
-      group.value.code ||
-      group.value.id
+    const groupNames = groups.value
+      .map(
+        (item) =>
+          item.name ||
+          item.code ||
+          `#${item.id}`
+      )
+      .join(', ')
 
-    const facultyName =
-      faculty.value?.name ||
-      faculty.value?.id ||
-      '-'
+    const facultyNames = faculties.value.length
+      ? faculties.value
+          .map(
+            (item) =>
+              item.name ||
+              item.code ||
+              `#${item.id}`
+          )
+          .join(', ')
+      : '-'
 
     return (
-      `Группа: ${groupName}, ` +
-      `факультет: ${facultyName}`
+      `Активные группы: ${groupNames}. ` +
+      `Факультеты: ${facultyNames}.`
     )
   }
 
-  if (authStore.isTeacher) {
+  if (authStore.isTeacherMode) {
     return 'Показаны предметы текущего преподавателя.'
   }
 
@@ -129,9 +141,9 @@ const metaText = computed(() => {
 function subjectRoute(subject) {
   const query = {}
 
-  if (faculty.value?.id) {
+  if (faculties.value.length === 1) {
     query.facultyId =
-      faculty.value.id
+      faculties.value[0].id
   }
 
   return {
@@ -149,7 +161,7 @@ async function loadTeacherSubjects() {
   const personId =
     authStore.personId
 
-  if (authStore.isAdmin) {
+  if (authStore.isAdminMode) {
     const response =
       await subjectsApi.getAll()
 
@@ -207,178 +219,20 @@ async function loadTeacherSubjects() {
 }
 
 async function loadStudentSubjects() {
-  const personId =
-    authStore.personId
+  const context =
+    await loadStudentLearningContext({
+      personId: authStore.personId,
+      membershipsApi,
+      groupsApi,
+      facultiesApi,
+      teachingApi,
+      subjectsApi,
+    })
 
-  if (!personId) {
-    return []
-  }
+  groups.value = context.groups
+  faculties.value = context.faculties
 
-  const membershipsResponse =
-    await membershipsApi
-      .getGroupMemberships({
-        personId,
-        activeOnly: true,
-      })
-
-  const memberships =
-    listFromResponse(
-      membershipsResponse
-    )
-
-  const groupMembership =
-    memberships.find(
-      (item) =>
-        Number(item.role) ===
-        GROUP_ROLE_STUDENT
-    )
-
-  if (!groupMembership) {
-    group.value = null
-    faculty.value = null
-
-    return []
-  }
-
-  const groupResponse =
-    await groupsApi.getById(
-      groupMembership.groupId
-    )
-
-  group.value =
-    groupResponse.data ?? null
-
-  if (group.value?.facultyId) {
-    const facultyResponse =
-      await facultiesApi.getById(
-        group.value.facultyId
-      )
-
-    faculty.value =
-      facultyResponse.data ?? null
-  } else {
-    faculty.value = null
-  }
-
-  const [
-    enrollmentsResponse,
-    groupAssignmentsResponse,
-  ] = await Promise.all([
-    teachingApi.getEnrollments({
-      groupMembershipId:
-        groupMembership.id,
-    }),
-
-    teachingApi.getAssignments({
-      groupId: group.value?.id,
-    }),
-  ])
-
-  const enrollments =
-    listFromResponse(
-      enrollmentsResponse
-    )
-
-  const groupAssignments =
-    listFromResponse(
-      groupAssignmentsResponse
-    )
-
-  const enrolledAssignmentIds =
-    uniqueNumbers(
-      enrollments.map(
-        (item) =>
-          item.teachingAssignmentId
-      )
-    )
-
-  const enrolledResponses =
-    await Promise.all(
-      enrolledAssignmentIds.map(
-        (assignmentId) =>
-          teachingApi.getAssignment(
-            assignmentId
-          )
-      )
-    )
-
-  const assignmentsMap =
-    new Map()
-
-  ;[
-    ...groupAssignments,
-
-    ...enrolledResponses
-      .map(
-        (response) =>
-          response.data
-      )
-      .filter(Boolean),
-  ].forEach((assignment) => {
-    if (
-      assignment?.id !==
-        null &&
-      assignment?.id !==
-        undefined
-    ) {
-      assignmentsMap.set(
-        assignment.id,
-        assignment
-      )
-    }
-  })
-
-  const assignmentMembershipIds =
-    uniqueNumbers(
-      [...assignmentsMap.values()]
-        .map(
-          (assignment) =>
-            assignment
-              .subjectMembershipId
-        )
-    )
-
-  const subjectMembershipResponses =
-    await Promise.all(
-      assignmentMembershipIds.map(
-        (membershipId) =>
-          membershipsApi
-            .getSubjectMembership(
-              membershipId
-            )
-      )
-    )
-
-  const subjectIds =
-    uniqueNumbers(
-      subjectMembershipResponses
-        .map(
-          (response) =>
-            response.data
-        )
-        .filter(Boolean)
-        .map(
-          (membership) =>
-            membership.subjectId
-        )
-    )
-
-  const subjectResponses =
-    await Promise.all(
-      subjectIds.map(
-        (subjectId) =>
-          subjectsApi.getById(
-            subjectId
-          )
-      )
-    )
-
-  return subjectResponses
-    .map(
-      (response) =>
-        response.data
-    )
-    .filter(Boolean)
+  return context.subjects
 }
 
 async function loadSubjects() {
@@ -391,18 +245,18 @@ async function loadSubjects() {
      * Даже если учётная запись дополнительно имеет STUDENT/TEACHER,
      * административная страница предметов должна показывать весь список.
      */
-    if (authStore.isAdmin) {
-      group.value = null
-      faculty.value = null
+    if (authStore.isAdminMode) {
+      groups.value = []
+      faculties.value = []
 
       subjects.value =
         await loadTeacherSubjects()
-    } else if (authStore.isStudent) {
+    } else if (authStore.isStudentMode) {
       subjects.value =
         await loadStudentSubjects()
-    } else if (authStore.isTeacher) {
-      group.value = null
-      faculty.value = null
+    } else if (authStore.isTeacherMode) {
+      groups.value = []
+      faculties.value = []
 
       subjects.value =
         await loadTeacherSubjects()
@@ -442,7 +296,7 @@ onMounted(loadSubjects)
 <template>
   <SubjectsPageShell
     title="Мои предметы"
-    subtitle="Для студентов отображаются предметы по текущей группе, для преподавателей и администраторов — доступные дисциплины."
+    subtitle="Для студентов отображаются предметы по активным учебным группам, для преподавателей и администраторов — доступные дисциплины."
   >
     <template #actions>
       <UiButton

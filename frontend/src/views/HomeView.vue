@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { WORKSPACE_ROLE_LABELS } from '@/utils/workspaceRole'
 
 import { UiButton } from '@/components/ui'
 
@@ -64,6 +65,14 @@ const roleText = computed(() => {
   return roleNames.value.length
     ? roleNames.value.join(', ')
     : 'Роль не указана'
+})
+
+const workspaceRoleText = computed(() => {
+  return (
+    WORKSPACE_ROLE_LABELS[
+      authStore.workspaceRole
+    ] ?? 'Не выбран'
+  )
 })
 
 const commonActions = computed(() => [
@@ -170,11 +179,21 @@ async function refreshUser() {
 
         <div class="user-summary__item">
           <span class="user-summary__label">
-            Роль
+            Роли
           </span>
 
           <strong class="user-summary__value">
             {{ roleText }}
+          </strong>
+        </div>
+
+        <div class="user-summary__item">
+          <span class="user-summary__label">
+            Текущий режим
+          </span>
+
+          <strong class="user-summary__value">
+            {{ workspaceRoleText }}
           </strong>
         </div>
 
@@ -223,15 +242,14 @@ async function refreshUser() {
     </section>
 
     <section
-      v-if="authStore.isTeacher || authStore.isAdmin"
+      v-if="authStore.isTeacherMode || authStore.isAdminMode"
       class="home-section"
     >
       <div class="home-section__header">
         <div>
           <h2>
             {{
-              authStore.isAdmin &&
-              !authStore.isTeacher
+              authStore.isAdminMode
                 ? 'Учебный контент'
                 : 'Работа преподавателя'
             }}
@@ -239,8 +257,7 @@ async function refreshUser() {
 
           <p>
             {{
-              authStore.isAdmin &&
-              !authStore.isTeacher
+              authStore.isAdminMode
                 ? 'Административный доступ к тестам, вопросам, лекциям и учебным материалам.'
                 : 'Тесты, вопросы, лекции и учебные материалы.'
             }}
@@ -271,7 +288,7 @@ async function refreshUser() {
     </section>
 
     <section
-      v-if="authStore.isAdmin"
+      v-if="authStore.isAdminMode"
       class="home-section"
     >
       <div class="home-section__header">

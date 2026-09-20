@@ -186,7 +186,7 @@ export function useTeacherSubjects() {
           ) ?? 0
 
         const adminSuffix =
-          authStore.isAdmin
+          authStore.isAdminMode
             ? ` — преподаватель #${membership.personId ?? '?'} · назначение #${membership.id}`
             : ''
 
@@ -194,7 +194,7 @@ export function useTeacherSubjects() {
           value: membership.id,
           subjectId:
             membership.subjectId,
-          label: authStore.isAdmin
+          label: authStore.isAdminMode
             ? `${baseLabel}${adminSuffix}`
             : duplicates > 1
               ? `${baseLabel} — назначение #${membership.id}`
@@ -215,7 +215,7 @@ export function useTeacherSubjects() {
         authStore.personId
 
       if (
-        !authStore.isAdmin &&
+        !authStore.isAdminMode &&
         !personId
       ) {
         throw new Error(
@@ -224,7 +224,7 @@ export function useTeacherSubjects() {
       }
 
       const membershipParams =
-        authStore.isAdmin
+        authStore.isAdminMode
           ? {
               activeOnly: true,
             }

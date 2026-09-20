@@ -36,4 +36,11 @@ export const membershipsApi = {
       data
     )
   },
+
+  updateSubjectMembership(membershipId, data) {
+    return http.put(
+      `/memberships/subjects/memberships/${membershipId}`,
+      data
+    )
+  },
 }

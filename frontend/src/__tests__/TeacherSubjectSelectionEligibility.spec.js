@@ -8,7 +8,7 @@ import {
 
 const state = vi.hoisted(() => ({
   auth: {
-    isAdmin: true,
+    isAdminMode: true,
     personId: 999,
   },
 }))
@@ -56,7 +56,7 @@ describe('teacher subject selection eligibility', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    state.auth.isAdmin = true
+    state.auth.isAdminMode = true
     state.auth.personId = 999
 
     subjectsApi.getById.mockImplementation(

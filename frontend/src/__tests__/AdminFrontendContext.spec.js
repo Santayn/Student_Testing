@@ -25,7 +25,7 @@ describe('admin frontend context', () => {
     )
 
     expect(composable)
-      .toContain('authStore.isAdmin')
+      .toContain('authStore.isAdminMode')
 
     expect(composable)
       .toContain('activeOnly: true')
@@ -55,7 +55,7 @@ describe('admin frontend context', () => {
     )
 
     expect(subjectsView)
-      .toContain('if (authStore.isAdmin)')
+      .toContain('if (authStore.isAdminMode)')
 
     expect(subjectsView)
       .toContain('subjectsApi.getAll()')

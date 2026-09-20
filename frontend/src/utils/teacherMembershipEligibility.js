@@ -18,3 +18,27 @@ export function assignableTeacherMembershipIds(memberships = []) {
       )
   )
 }
+
+export function isReactivatableTeacherMembership(membership) {
+  return (
+    Number(membership?.role) ===
+      TEACHER_SUBJECT_ROLE &&
+    Number(membership?.status) === 2 &&
+    !membership?.removedAtUtc
+  )
+}
+
+export function findReactivatableTeacherMembership(
+  memberships = [],
+  personId,
+  subjectId
+) {
+  return (
+    memberships.find(
+      (membership) =>
+        Number(membership?.personId) === Number(personId) &&
+        Number(membership?.subjectId) === Number(subjectId) &&
+        isReactivatableTeacherMembership(membership)
+    ) ?? null
+  )
+}

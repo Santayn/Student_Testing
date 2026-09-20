@@ -5,6 +5,11 @@ import {
   getApiErrorMessage,
 } from '@/api'
 
+import {
+  resolveWorkspaceRole,
+  workspaceRolesFromUserRoles,
+} from '@/utils/workspaceRole'
+
 const TOKEN_EXPIRY_MARGIN_MS = 30_000
 
 let refreshPromise = null
@@ -53,6 +58,7 @@ export const useAuthStore = defineStore(
       lifetimeKind: null,
 
       user: null,
+      activeWorkspaceRole: null,
 
       loading: false,
       refreshing: false,
@@ -221,6 +227,35 @@ export const useAuthStore = defineStore(
         return this.hasRole('STUDENT')
       },
 
+      workspaceRoles() {
+        return workspaceRolesFromUserRoles(
+          this.roles
+        )
+      },
+
+      workspaceRole() {
+        return resolveWorkspaceRole(
+          this.roles,
+          this.activeWorkspaceRole
+        )
+      },
+
+      hasMultipleWorkspaceRoles() {
+        return this.workspaceRoles.length > 1
+      },
+
+      isAdminMode() {
+        return this.workspaceRole === 'ADMIN'
+      },
+
+      isTeacherMode() {
+        return this.workspaceRole === 'TEACHER'
+      },
+
+      isStudentMode() {
+        return this.workspaceRole === 'STUDENT'
+      },
+
       isAccessTokenExpired: (
         state
       ) => {
@@ -286,7 +321,33 @@ export const useAuthStore = defineStore(
         this.user =
           user || null
 
+        this.syncWorkspaceRole()
         this.error = null
+      },
+
+      syncWorkspaceRole() {
+        this.activeWorkspaceRole =
+          resolveWorkspaceRole(
+            this.roles,
+            this.activeWorkspaceRole
+          )
+
+        return this.activeWorkspaceRole
+      },
+
+      setWorkspaceRole(role) {
+        const available =
+          this.workspaceRoles
+
+        if (!available.includes(role)) {
+          throw new Error(
+            `Роль ${role} недоступна текущему пользователю`
+          )
+        }
+
+        this.activeWorkspaceRole = role
+
+        return role
       },
 
       async login(
@@ -376,8 +437,9 @@ export const useAuthStore = defineStore(
         const response =
           await authApi.me()
 
-        this.user =
+        this.setUser(
           response.data ?? null
+        )
 
         return this.user
       },
@@ -550,6 +612,7 @@ export const useAuthStore = defineStore(
             ...data,
           }
 
+          this.syncWorkspaceRole()
           return
         }
 
@@ -557,6 +620,8 @@ export const useAuthStore = defineStore(
           ...this.user,
           ...data,
         }
+
+        this.syncWorkspaceRole()
       },
 
       clearSession() {
@@ -572,6 +637,7 @@ export const useAuthStore = defineStore(
 
         this.lifetimeKind = null
         this.user = null
+        this.activeWorkspaceRole = null
       },
 
       async logout() {
@@ -635,6 +701,7 @@ export const useAuthStore = defineStore(
         'lifetimeKind',
 
         'user',
+        'activeWorkspaceRole',
       ],
     },
   }

@@ -18,9 +18,11 @@ import {
   teachingApi,
 } from '@/api'
 
-const SUBJECT_ROLE_TEACHER = 1
-const GROUP_ROLE_STUDENT = 1
+import {
+  loadStudentLearningContext,
+} from '@/utils/studentLearningContext'
 
+const SUBJECT_ROLE_TEACHER = 1
 const authStore = useAuthStore()
 
 const activeTab = ref('user')
@@ -28,9 +30,9 @@ const loading = ref(false)
 const error = ref('')
 
 const studentInfo = ref({
-  membership: null,
-  group: null,
-  faculty: null,
+  memberships: [],
+  groups: [],
+  faculties: [],
   subjects: [],
 })
 
@@ -223,159 +225,31 @@ function facultyLabel(faculty) {
 
 async function loadStudentInfo() {
   if (!personId.value) {
-    return
-  }
-
-  const membershipsResponse =
-    await membershipsApi.getGroupMemberships({
-      personId: personId.value,
-      activeOnly: true,
-    })
-
-  const memberships = arrayData(
-    membershipsResponse
-  )
-
-  const membership = memberships.find(
-    (item) =>
-      Number(item.role) === GROUP_ROLE_STUDENT
-  )
-
-  if (!membership) {
     studentInfo.value = {
-      membership: null,
-      group: null,
-      faculty: null,
+      memberships: [],
+      groups: [],
+      faculties: [],
       subjects: [],
     }
 
     return
   }
 
-  const groupResponse =
-    await groupsApi.getById(
-      membership.groupId
-    )
-
-  const group = groupResponse.data ?? null
-
-  let faculty = null
-
-  if (group?.facultyId) {
-    const facultyResponse =
-      await facultiesApi.getById(
-        group.facultyId
-      )
-
-    faculty = facultyResponse.data ?? null
-  }
-
-  const [
-    enrollmentsResponse,
-    groupAssignmentsResponse,
-  ] = await Promise.all([
-    teachingApi.getEnrollments({
-      groupMembershipId: membership.id,
-    }),
-
-    teachingApi.getAssignments({
-      groupId: group?.id,
-    }),
-  ])
-
-  const enrollments = arrayData(
-    enrollmentsResponse
-  )
-
-  const groupAssignments = arrayData(
-    groupAssignmentsResponse
-  )
-
-  const enrolledAssignmentIds = unique(
-    enrollments.map(
-      (item) =>
-        item.teachingAssignmentId
-    )
-  )
-
-  const enrolledAssignments =
-    await Promise.all(
-      enrolledAssignmentIds.map(
-        async (assignmentId) => {
-          const response =
-            await teachingApi.getAssignment(
-              assignmentId
-            )
-
-          return response.data
-        }
-      )
-    )
-
-  const assignments = [
-    ...new Map(
-      [
-        ...groupAssignments,
-        ...enrolledAssignments,
-      ]
-        .filter(
-          (item) =>
-            item &&
-            item.id !== null &&
-            item.id !== undefined
-        )
-        .map(
-          (item) => [item.id, item]
-        )
-    ).values(),
-  ]
-
-  const subjectMembershipIds = unique(
-    assignments.map(
-      (item) =>
-        item.subjectMembershipId
-    )
-  )
-
-  const subjectMemberships =
-    await Promise.all(
-      subjectMembershipIds.map(
-        async (membershipId) => {
-          const response =
-            await membershipsApi
-              .getSubjectMembership(
-                membershipId
-              )
-
-          return response.data
-        }
-      )
-    )
-
-  const subjectIds = unique(
-    subjectMemberships.map(
-      (item) => item?.subjectId
-    )
-  )
-
-  const subjects = await Promise.all(
-    subjectIds.map(
-      async (subjectId) => {
-        const response =
-          await subjectsApi.getById(
-            subjectId
-          )
-
-        return response.data
-      }
-    )
-  )
+  const context =
+    await loadStudentLearningContext({
+      personId: personId.value,
+      membershipsApi,
+      groupsApi,
+      facultiesApi,
+      teachingApi,
+      subjectsApi,
+    })
 
   studentInfo.value = {
-    membership,
-    group,
-    faculty,
-    subjects,
+    memberships: context.memberships,
+    groups: context.groups,
+    faculties: context.faculties,
+    subjects: context.subjects,
   }
 }
 
@@ -654,34 +528,36 @@ onMounted(loadProfile)
             <h2>Информация студента</h2>
 
             <p>
-              Учебная группа, факультет и предметы.
+              Активные учебные группы, факультеты и предметы.
             </p>
           </div>
         </div>
 
         <dl class="data-grid">
           <div class="data-item">
-            <dt>Группа</dt>
+            <dt>Группы</dt>
 
             <dd>
               {{
-                studentInfo.group
-                  ? groupLabel(
-                      studentInfo.group
-                    )
+                studentInfo.groups.length
+                  ? studentInfo.groups
+                      .map(groupLabel)
+                      .join(', ')
                   : 'Нет активной группы'
               }}
             </dd>
           </div>
 
           <div class="data-item">
-            <dt>Факультет</dt>
+            <dt>Факультеты</dt>
 
             <dd>
               {{
-                facultyLabel(
-                  studentInfo.faculty
-                )
+                studentInfo.faculties.length
+                  ? studentInfo.faculties
+                      .map(facultyLabel)
+                      .join(', ')
+                  : '-'
               }}
             </dd>
           </div>
@@ -691,8 +567,10 @@ onMounted(loadProfile)
 
             <dd>
               {{
-                studentInfo.membership?.id
-                  ? `#${studentInfo.membership.id}`
+                studentInfo.memberships.length
+                  ? studentInfo.memberships
+                      .map((item) => `#${item.id}`)
+                      .join(', ')
                   : '-'
               }}
             </dd>

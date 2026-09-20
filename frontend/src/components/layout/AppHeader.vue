@@ -6,6 +6,7 @@ import { publicRegistrationEnabled } from '@/config/features'
 import { hasWorkspaceAccess } from '@/utils/accountAccess'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import { WORKSPACE_ROLE_LABELS } from '@/utils/workspaceRole'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,19 +51,22 @@ const userLabel = computed(() => {
 })
 
 const roleLabel = computed(() => {
-  if (authStore.isAdmin) {
-    return 'Администратор'
-  }
+  return (
+    WORKSPACE_ROLE_LABELS[
+      authStore.workspaceRole
+    ] ?? ''
+  )
+})
 
-  if (authStore.isTeacher) {
-    return 'Преподаватель'
-  }
-
-  if (authStore.isStudent) {
-    return 'Студент'
-  }
-
-  return ''
+const workspaceRoleOptions = computed(() => {
+  return authStore.workspaceRoles.map(
+    (role) => ({
+      value: role,
+      label:
+        WORKSPACE_ROLE_LABELS[role] ??
+        role,
+    })
+  )
 })
 
 const themeButtonLabel = computed(() => {
@@ -87,6 +91,27 @@ function closeMobileMenu() {
 
 function toggleTheme() {
   themeStore.toggleTheme()
+}
+
+async function changeWorkspaceRole(event) {
+  const nextRole =
+    event.target.value
+
+  if (
+    !nextRole ||
+    nextRole === authStore.workspaceRole
+  ) {
+    return
+  }
+
+  authStore.setWorkspaceRole(nextRole)
+  closeMobileMenu()
+
+  if (route.name !== 'home') {
+    await router.push({
+      name: 'home',
+    })
+  }
 }
 
 async function logout() {
@@ -191,7 +216,6 @@ onBeforeUnmount(() => {
           </RouterLink>
 
           <RouterLink
-            v-if="authStore.isStudent || authStore.isTeacher"
             class="app-header__nav-link"
             :to="{ name: 'subjects' }"
           >
@@ -199,7 +223,6 @@ onBeforeUnmount(() => {
           </RouterLink>
 
           <RouterLink
-            v-if="authStore.isStudent || authStore.isTeacher"
             class="app-header__nav-link"
             :to="{ name: 'results' }"
           >
@@ -208,6 +231,33 @@ onBeforeUnmount(() => {
         </nav>
 
         <div class="app-header__actions">
+          <label
+            v-if="
+              authStore.isAuthenticated &&
+              accountReady &&
+              authStore.hasMultipleWorkspaceRoles
+            "
+            class="workspace-role-switcher"
+          >
+            <span class="workspace-role-switcher__label">
+              Режим
+            </span>
+
+            <select
+              class="workspace-role-switcher__select"
+              :value="authStore.workspaceRole"
+              @change="changeWorkspaceRole"
+            >
+              <option
+                v-for="option in workspaceRoleOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
           <button
             class="theme-toggle"
             type="button"
@@ -342,6 +392,35 @@ onBeforeUnmount(() => {
 
   gap: 10px;
   flex-shrink: 0;
+}
+
+.workspace-role-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-role-switcher__label {
+  color: var(--header-muted-text);
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workspace-role-switcher__select {
+  min-height: 36px;
+  max-width: 170px;
+
+  padding: 6px 28px 6px 9px;
+
+  color: var(--header-text);
+  background: var(--header-hover);
+
+  border: 1px solid var(--header-button-border);
+  border-radius: 8px;
+
+  font: inherit;
+  font-size: 13px;
 }
 
 .app-header__nav-link {
@@ -637,6 +716,18 @@ onBeforeUnmount(() => {
 
     border-top: 1px solid
       var(--header-border);
+  }
+
+  .workspace-role-switcher {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspace-role-switcher__select {
+    width: 100%;
+    max-width: none;
   }
 
   .theme-toggle {

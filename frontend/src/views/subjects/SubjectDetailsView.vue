@@ -57,8 +57,8 @@ const pageTitle = computed(() => {
 
 const pageSubtitle = computed(() => {
   if (
-    authStore.isTeacher ||
-    authStore.isAdmin
+    authStore.isTeacherMode ||
+    authStore.isAdminMode
   ) {
     return (
       'Управление лекциями ' +
@@ -66,7 +66,7 @@ const pageSubtitle = computed(() => {
     )
   }
 
-  if (authStore.isStudent) {
+  if (authStore.isStudentMode) {
     return (
       'Маршрут студента: ' +
       'предмет, лекции, тесты.'
@@ -151,9 +151,7 @@ async function loadSubject() {
 
   try {
     const response =
-      authStore.isStudent &&
-      !authStore.isTeacher &&
-      !authStore.isAdmin
+      authStore.isStudentMode
         ? await learningApi.getSubject(
             subjectId.value
           )
@@ -246,8 +244,8 @@ onMounted(loadSubject)
         <div class="subject-actions">
           <template
             v-if="
-              authStore.isTeacher ||
-              authStore.isAdmin
+              authStore.isTeacherMode ||
+              authStore.isAdminMode
             "
           >
             <UiButton

@@ -8,6 +8,7 @@ import {
 
 import http from '@/api/http'
 import { lecturesApi } from '@/api/lectures.api'
+import { membershipsApi } from '@/api/memberships.api'
 import { teachingApi } from '@/api/teaching.api'
 import { testsApi } from '@/api/tests.api'
 
@@ -86,6 +87,22 @@ describe('frontend API contracts', () => {
       second,
     ])
     expect(body.has('file')).toBe(false)
+  })
+
+  it('updates a full subject membership through the supported endpoint', async () => {
+    http.put.mockResolvedValue({ data: {} })
+
+    const payload = {
+      status: 1,
+      notes: 'Возобновлено',
+    }
+
+    await membershipsApi.updateSubjectMembership(44, payload)
+
+    expect(http.put).toHaveBeenCalledWith(
+      '/memberships/subjects/memberships/44',
+      payload
+    )
   })
 
   it('deletes a test through the supported endpoint', async () => {

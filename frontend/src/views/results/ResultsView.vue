@@ -56,8 +56,8 @@ const resultData = ref(null)
 
 const teacherMode = computed(() => {
   return (
-    authStore.isTeacher ||
-    authStore.isAdmin
+    authStore.isTeacherMode ||
+    authStore.isAdminMode
   )
 })
 
@@ -70,7 +70,7 @@ const resultMode = computed(() => {
 const pageSubtitle = computed(() => {
   if (teacherMode.value) {
     return (
-      authStore.isAdmin
+      authStore.isAdminMode
         ? 'Администратор может выбрать любой предмет, лекцию, тест, группу и студента.'
         : 'Выберите предмет, лекцию, тест, группу и студента, чтобы получить результаты в виде раскрывающихся попыток.'
     )
@@ -541,7 +541,7 @@ function resetAfterGroup() {
 }
 
 async function loadTeacherSubjects() {
-  const response = authStore.isAdmin
+  const response = authStore.isAdminMode
     ? await subjectsApi.getAll()
     : await resultsApi
         .getTeacherSubjects()
@@ -579,7 +579,7 @@ async function onSubjectChange() {
   loadingOptions.value = true
 
   try {
-    const response = authStore.isAdmin
+    const response = authStore.isAdminMode
       ? await lecturesApi.getAll({
           subjectId: subjectId.value,
         })
@@ -612,7 +612,7 @@ async function onLectureChange() {
   loadingOptions.value = true
 
   try {
-    const response = authStore.isAdmin
+    const response = authStore.isAdminMode
       ? await lecturesApi.getTests(
           lectureId.value
         )

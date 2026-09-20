@@ -69,18 +69,19 @@ const adminItems = [
 const sections = computed(() => {
   const result = []
 
-  if (authStore.isTeacher || authStore.isAdmin) {
+  if (authStore.isTeacherMode) {
     result.push({
-      title:
-        authStore.isAdmin &&
-        !authStore.isTeacher
-          ? 'Учебный контент'
-          : 'Преподаватель',
+      title: 'Преподаватель',
       items: teacherItems,
     })
   }
 
-  if (authStore.isAdmin) {
+  if (authStore.isAdminMode) {
+    result.push({
+      title: 'Учебный контент',
+      items: teacherItems,
+    })
+
     result.push({
       title: 'Администрирование',
       items: adminItems,

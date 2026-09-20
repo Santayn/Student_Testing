@@ -29,6 +29,14 @@ import {
   uniqueNumbers,
 } from '@/utils/apiData'
 
+import {
+  isAssignableTeacherMembership,
+  isReactivatableTeacherMembership,
+} from '@/utils/teacherMembershipEligibility'
+import {
+  assignSubjectsToTeacher,
+} from '@/utils/teacherSubjectAssignment'
+
 const TEACHER_ROLE = 1
 const TEACHER_APP_ROLE = 'TEACHER'
 const ADMIN_APP_ROLE = 'ADMIN'
@@ -107,6 +115,12 @@ function mergePeopleById(...peopleLists) {
   ]
 }
 
+const activeMemberships = computed(() => {
+  return memberships.value.filter(
+    isAssignableTeacherMembership
+  )
+})
+
 const selectedTeacher = computed(() => {
   return teachers.value.find(
     (item) =>
@@ -120,12 +134,10 @@ const teacherMemberships = computed(() => {
     return []
   }
 
-  return memberships.value.filter(
+  return activeMemberships.value.filter(
     (item) =>
       Number(item.personId) ===
-        Number(teacherId.value) &&
-      Number(item.role) ===
-        TEACHER_ROLE
+      Number(teacherId.value)
   )
 })
 
@@ -137,6 +149,38 @@ const assignedSubjectIds = computed(() => {
     )
   )
 })
+
+const reactivatableSubjectIds = computed(() => {
+  if (!teacherId.value) {
+    return new Set()
+  }
+
+  return new Set(
+    memberships.value
+      .filter(
+        (item) =>
+          Number(item.personId) ===
+            Number(teacherId.value) &&
+          isReactivatableTeacherMembership(item)
+      )
+      .map((item) => Number(item.subjectId))
+  )
+})
+
+function availableSubjectDescription(subject) {
+  if (
+    reactivatableSubjectIds.value.has(
+      Number(subject.id)
+    )
+  ) {
+    return 'Приостановлено — назначение будет восстановлено.'
+  }
+
+  return (
+    subject.description ??
+    `#${subject.id}`
+  )
+}
 
 const freeSubjects = computed(() => {
   return subjects.value.filter(
@@ -248,23 +292,13 @@ async function addSubjects() {
   saving.value = true
 
   try {
-    for (
-      const subjectId of subjectIds
-    ) {
-      await membershipsApi
-        .addPersonToSubject(
-          subjectId,
-          {
-            personId: Number(
-              teacherId.value
-            ),
-            role: TEACHER_ROLE,
-            notes:
-              notes.value.trim() ||
-              null,
-          }
-        )
-    }
+    await assignSubjectsToTeacher({
+      api: membershipsApi,
+      memberships: memberships.value,
+      personId: Number(teacherId.value),
+      subjectIds,
+      notes: notes.value,
+    })
 
     notes.value = ''
 
@@ -372,7 +406,7 @@ onMounted(loadData)
         </span>
 
         <strong class="admin-stat__value">
-          {{ memberships.length }}
+          {{ activeMemberships.length }}
         </strong>
       </div>
     </section>
@@ -452,8 +486,7 @@ onMounted(loadData)
             :value="subject.id"
             :label="subject.name"
             :description="
-              subject.description ??
-              `#${subject.id}`
+              availableSubjectDescription(subject)
             "
           />
         </div>
