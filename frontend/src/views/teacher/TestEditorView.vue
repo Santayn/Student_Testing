@@ -58,6 +58,7 @@ const {
   selectedSubjectId,
   selectedMembership,
   membershipOptions,
+  ensureSelectedMembershipActive,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -697,6 +698,8 @@ async function createTest() {
   }
 
   try {
+    await ensureSelectedMembershipActive()
+
     const { test } =
       await createTestWithAssignments({
         createTest: (payload) =>

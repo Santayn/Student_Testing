@@ -52,6 +52,7 @@ const {
   selectedSubject,
   selectedMembership,
   membershipOptions,
+  ensureSelectedMembershipActive,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -512,6 +513,8 @@ async function saveLecture() {
   saving.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     const response = form.value.id
       ? await lecturesApi.update(
           form.value.id,
@@ -564,6 +567,8 @@ async function deleteLecture(lecture) {
   deletingId.value = lecture.id
 
   try {
+    await ensureSelectedMembershipActive()
+
     await lecturesApi.remove(lecture.id)
 
     notice.value = {
@@ -609,6 +614,8 @@ async function removeMaterial(material) {
   }
 
   try {
+    await ensureSelectedMembershipActive()
+
     await lecturesApi.removeMaterial(
       form.value.id,
       material.id

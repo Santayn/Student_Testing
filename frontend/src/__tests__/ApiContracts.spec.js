@@ -7,8 +7,10 @@ import {
 } from 'vitest'
 
 import http from '@/api/http'
+import { learningApi } from '@/api/learning.api'
 import { lecturesApi } from '@/api/lectures.api'
 import { membershipsApi } from '@/api/memberships.api'
+import { resultsApi } from '@/api/results.api'
 import { teachingApi } from '@/api/teaching.api'
 import { testsApi } from '@/api/tests.api'
 
@@ -103,6 +105,106 @@ describe('frontend API contracts', () => {
       '/memberships/subjects/memberships/44',
       payload
     )
+  })
+
+
+  it('sanitizes student result data at the API boundary', async () => {
+    http.get.mockResolvedValue({
+      data: {
+        attemptCount: 1,
+        attempts: [
+          {
+            attemptId: 8,
+            testId: 9,
+            stats: {
+              total: 1,
+              right: 1,
+              percent: 100,
+            },
+            results: [
+              {
+                questionText: 'Вопрос',
+                givenAnswer: 'Ответ',
+                correctAnswer: 'Эталон',
+                correct: true,
+                questionPoints: 2,
+                awardedPoints: 2,
+                gradingStatus: 'correct',
+                gradingNote: 'Скрыть',
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    const response =
+      await resultsApi.getStudentData({
+        testId: 9,
+      })
+
+    expect(http.get).toHaveBeenCalledWith(
+      '/results/student/data',
+      {
+        params: {
+          testId: 9,
+        },
+      }
+    )
+
+    expect(response.data.attempts[0]).toMatchObject({
+      score: 2,
+      maxScore: 2,
+      scorePercent: 100,
+    })
+
+    expect(response.data.attempts[0].results).toEqual([
+      {
+        questionText: 'Вопрос',
+        givenAnswer: 'Ответ',
+      },
+    ])
+  })
+
+  it('sanitizes the student submit response at the API boundary', async () => {
+    http.post.mockResolvedValue({
+      data: {
+        attemptId: 10,
+        score: 1,
+        correctCount: 1,
+        totalCount: 1,
+        details: [
+          {
+            questionText: '2 + 2?',
+            givenAnswer: '4',
+            correctAnswer: '4',
+            correct: true,
+          },
+        ],
+      },
+    })
+
+    const response =
+      await learningApi.submitAttempt(
+        10,
+        {
+          questionIds: [1],
+        }
+      )
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/public/learning/attempts/10/submit',
+      {
+        questionIds: [1],
+      }
+    )
+
+    expect(response.data.details).toEqual([
+      {
+        questionText: '2 + 2?',
+        givenAnswer: '4',
+      },
+    ])
   })
 
   it('deletes a test through the supported endpoint', async () => {

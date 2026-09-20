@@ -48,6 +48,7 @@ const {
   selectedSubjectId,
   selectedSubject,
   membershipOptions,
+  ensureSelectedMembershipActive,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -385,6 +386,8 @@ async function saveTopic() {
   saving.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     if (form.value.id) {
       await topicsApi.update(
         form.value.id,
@@ -430,6 +433,8 @@ async function deleteTopic(topic) {
   deletingId.value = topic.id
 
   try {
+    await ensureSelectedMembershipActive()
+
     await topicsApi.remove(topic.id)
 
     notice.value = {

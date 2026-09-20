@@ -58,6 +58,7 @@ const {
   selectedSubjectId,
   selectedMembership,
   membershipOptions,
+  ensureSelectedMembershipActive,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -444,6 +445,8 @@ async function saveTemplate() {
   savingTemplate.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     if (templateForm.value.id) {
       await coursesApi.updateTemplate(
         templateForm.value.id,
@@ -492,6 +495,8 @@ async function deleteTemplate(template) {
     template.id
 
   try {
+    await ensureSelectedMembershipActive()
+
     await coursesApi.removeTemplate(
       template.id
     )
@@ -566,6 +571,8 @@ async function saveVersion() {
   savingVersion.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     if (versionForm.value.id) {
       await coursesApi.updateVersion(
         versionForm.value.id,
@@ -611,6 +618,8 @@ async function publishVersion(version) {
     version.id
 
   try {
+    await ensureSelectedMembershipActive()
+
     if (version.published) {
       await coursesApi.unpublishVersion(
         version.id

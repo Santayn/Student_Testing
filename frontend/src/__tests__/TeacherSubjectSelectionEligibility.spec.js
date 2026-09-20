@@ -20,6 +20,7 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/api', () => ({
   membershipsApi: {
     getSubjectMemberships: vi.fn(),
+    getSubjectMembership: vi.fn(),
   },
   subjectsApi: {
     getById: vi.fn(),
@@ -184,6 +185,44 @@ describe('teacher subject selection eligibility', () => {
     await context.loadTeacherSubjects()
     context.selectedSubjectId.value = '7'
 
+    expect(context.selectedMembershipId.value).toBe('')
+    expect(context.selectedMembership.value).toBeNull()
+  })
+
+  it('clears a stale selection when membership becomes inactive before mutation', async () => {
+    membershipsApi.getSubjectMemberships.mockResolvedValue({
+      data: [
+        membership({ id: 60, subjectId: 7, personId: 999 }),
+      ],
+    })
+
+    membershipsApi.getSubjectMembership.mockResolvedValue({
+      data: membership({
+        id: 60,
+        subjectId: 7,
+        personId: 999,
+        status: 2,
+      }),
+    })
+
+    state.auth.isAdminMode = false
+    state.auth.personId = 999
+
+    const context = useTeacherSubjects()
+
+    await context.loadTeacherSubjects()
+
+    expect(context.selectedMembershipId.value).toBe('60')
+
+    await expect(
+      context.ensureSelectedMembershipActive()
+    ).rejects.toMatchObject({
+      code: 'TEACHER_MEMBERSHIP_NOT_ASSIGNABLE',
+    })
+
+    expect(
+      membershipsApi.getSubjectMembership
+    ).toHaveBeenCalledWith(60)
     expect(context.selectedMembershipId.value).toBe('')
     expect(context.selectedMembership.value).toBeNull()
   })

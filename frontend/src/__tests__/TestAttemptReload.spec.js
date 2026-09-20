@@ -116,6 +116,43 @@ describe('completed test reload flow', () => {
     ).toHaveBeenCalledWith(34)
   })
 
+
+  it('does not persist per-question correctness in the completed-session marker', () => {
+    saveCompletedTestSession({
+      ...completedSession(),
+      resultData: {
+        correctCount: 1,
+        totalCount: 1,
+        score: 1,
+        details: [
+          {
+            questionText: '2 + 2?',
+            givenAnswer: '4',
+            correctAnswer: '4',
+            correct: true,
+            gradingStatus: 'correct',
+            gradingNote: 'Скрытая заметка',
+            questionPoints: 1,
+            awardedPoints: 1,
+          },
+        ],
+      },
+    })
+
+    const saved =
+      readCompletedTestSession(
+        12,
+        34
+      )
+
+    expect(saved.resultData.details).toEqual([
+      {
+        questionText: '2 + 2?',
+        givenAnswer: '4',
+      },
+    ])
+  })
+
   it('clears the completed marker when the user leaves the test route', async () => {
     saveCompletedTestSession(
       completedSession()

@@ -1,3 +1,7 @@
+import {
+  sanitizeStudentResultData,
+} from '@/utils/resultContracts'
+
 import http from './http'
 
 export const resultsApi = {
@@ -66,12 +70,19 @@ export const resultsApi = {
     )
   },
 
-  getStudentData(params = {}) {
-    return http.get(
+  async getStudentData(params = {}) {
+    const response = await http.get(
       '/results/student/data',
       {
         params,
       }
     )
+
+    return {
+      ...response,
+      data: sanitizeStudentResultData(
+        response?.data
+      ),
+    }
   },
 }

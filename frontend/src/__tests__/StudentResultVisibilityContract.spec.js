@@ -29,6 +29,10 @@ function attempt() {
         givenAnswer: '4',
         correctAnswer: '4',
         correct: true,
+        questionPoints: 2,
+        awardedPoints: 2,
+        gradingStatus: 'correct',
+        gradingNote: 'Скрытая заметка',
       },
     ],
   }
@@ -75,6 +79,9 @@ describe('result attempt visibility', () => {
     expect(labels).not.toContain(
       'Результат'
     )
+    expect(labels).not.toContain(
+      'Баллы'
+    )
   })
 
   it('keeps correctness columns in teacher mode', () => {
@@ -86,5 +93,122 @@ describe('result attempt visibility', () => {
     expect(labels).toContain(
       'Результат'
     )
+    expect(labels).toContain(
+      'Баллы'
+    )
+  })
+
+
+  it('removes teacher-only row data before UiTable receives student rows', () => {
+    const wrapper = shallowMount(
+      ResultAttemptCard,
+      {
+        props: {
+          attempt: attempt(),
+          mode: 'student',
+          open: true,
+        },
+      }
+    )
+
+    const table = wrapper.findComponent(
+      UiTable
+    )
+
+    expect(table.props('rows')).toEqual([
+      {
+        displayIndex: 1,
+        questionText: '2 + 2?',
+        givenAnswer: '4',
+      },
+    ])
+
+    wrapper.unmount()
+  })
+
+  it('keeps teacher grading row data in teacher mode', () => {
+    const wrapper = shallowMount(
+      ResultAttemptCard,
+      {
+        props: {
+          attempt: attempt(),
+          mode: 'teacher',
+          open: true,
+        },
+      }
+    )
+
+    const table = wrapper.findComponent(
+      UiTable
+    )
+
+    expect(table.props('rows')[0]).toMatchObject({
+      correctAnswer: '4',
+      correct: true,
+      questionPoints: 2,
+      awardedPoints: 2,
+      gradingStatus: 'correct',
+      gradingNote: 'Скрытая заметка',
+    })
+
+    wrapper.unmount()
+  })
+
+  it('represents partial grading explicitly for teacher mode', () => {
+    const wrapper = shallowMount(
+      ResultAttemptCard,
+      {
+        props: {
+          attempt: {
+            ...attempt(),
+            results: [
+              {
+                questionText: 'Опишите нормализацию',
+                givenAnswer: 'Краткий ответ',
+                correctAnswer: 'Полный ответ',
+                correct: false,
+                questionPoints: 10,
+                awardedPoints: 5,
+                gradingStatus: 'partial',
+              },
+            ],
+          },
+          mode: 'teacher',
+          open: true,
+        },
+      }
+    )
+
+    const table = wrapper.findComponent(
+      UiTable
+    )
+
+    const statusColumn = table
+      .props('columns')
+      .find(
+        (column) =>
+          column.key === 'status'
+      )
+
+    const pointsColumn = table
+      .props('columns')
+      .find(
+        (column) =>
+          column.key === 'points'
+      )
+
+    const row = wrapper.props(
+      'attempt'
+    ).results[0]
+
+    expect(
+      statusColumn.value(row)
+    ).toBe('Частично верно')
+
+    expect(
+      pointsColumn.value(row)
+    ).toBe('5 / 10')
+
+    wrapper.unmount()
   })
 })

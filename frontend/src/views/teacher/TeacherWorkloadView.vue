@@ -10,6 +10,7 @@ import {
   getApiErrorMessage,
   groupsApi,
   lecturesApi,
+  membershipsApi,
   teachingApi,
 } from '@/api'
 
@@ -33,6 +34,10 @@ import {
 import {
   listFromResponse,
 } from '@/utils/apiData'
+
+import {
+  revalidateAssignableTeacherMembershipIds,
+} from '@/utils/teacherMembershipEligibility'
 
 const {
   subjectMemberships,
@@ -832,6 +837,15 @@ async function assignLectures() {
   assigning.value = true
 
   try {
+    await revalidateAssignableTeacherMembershipIds({
+      api: membershipsApi,
+      membershipIds:
+        pendingTasks.value.map(
+          (task) =>
+            task.subjectMembershipId
+        ),
+    })
+
     const results =
       await Promise.allSettled(
         pendingTasks.value.map(
@@ -884,6 +898,14 @@ async function assignLectures() {
     }
 
     await refreshAssignments()
+  } catch (error) {
+    notice.value = {
+      type: 'danger',
+      message: getApiErrorMessage(
+        error,
+        'Не удалось проверить актуальность преподавательских назначений'
+      ),
+    }
   } finally {
     assigning.value = false
   }

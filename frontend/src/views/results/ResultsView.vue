@@ -35,6 +35,15 @@ import {
   createLatestRequestGuard,
 } from '@/utils/latestRequest'
 
+import {
+  sanitizeStudentResultData,
+} from '@/utils/resultContracts'
+
+import {
+  attemptScoreSummary,
+  bestAttempt,
+} from '@/utils/resultScoring'
+
 const authStore =
   useAuthStore()
 
@@ -98,116 +107,17 @@ const attempts = computed(() => {
     : []
 })
 
-function numericStat(
-  attempt,
-  key
-) {
-  const value =
-    Number(
-      attempt?.stats?.[key]
-    )
-
-  return Number.isFinite(value)
-    ? value
-    : 0
-}
-
-function completedTime(attempt) {
-  const time =
-    new Date(
-      attempt?.completedAt ?? 0
-    ).getTime()
-
-  return Number.isFinite(time)
-    ? time
-    : 0
-}
-
-function isBetterAttempt(
-  candidate,
-  current
-) {
-  if (!current) {
-    return true
+const studentComparableAttempts = computed(() => {
+  if (teacherMode.value) {
+    return []
   }
 
-  const candidatePercent =
-    numericStat(
-      candidate,
-      'percent'
+  if (testId.value) {
+    return attempts.value.filter(
+      (attempt) =>
+        String(attempt.testId) ===
+        String(testId.value)
     )
-
-  const currentPercent =
-    numericStat(
-      current,
-      'percent'
-    )
-
-  if (
-    candidatePercent !==
-    currentPercent
-  ) {
-    return (
-      candidatePercent >
-      currentPercent
-    )
-  }
-
-  const candidateRight =
-    numericStat(
-      candidate,
-      'right'
-    )
-
-  const currentRight =
-    numericStat(
-      current,
-      'right'
-    )
-
-  if (
-    candidateRight !==
-    currentRight
-  ) {
-    return (
-      candidateRight >
-      currentRight
-    )
-  }
-
-  const candidateTime =
-    completedTime(candidate)
-
-  const currentTime =
-    completedTime(current)
-
-  if (
-    candidateTime !==
-    currentTime
-  ) {
-    return (
-      candidateTime >
-      currentTime
-    )
-  }
-
-  return (
-    Number(
-      candidate?.attemptOrdinal
-    ) || 0
-  ) > (
-    Number(
-      current?.attemptOrdinal
-    ) || 0
-  )
-}
-
-const studentBestAttempt = computed(() => {
-  if (
-    teacherMode.value ||
-    !attempts.value.length
-  ) {
-    return null
   }
 
   const testIds =
@@ -227,26 +137,24 @@ const studentBestAttempt = computed(() => {
     )
 
   /*
-   * Не сравниваем между собой результаты разных тестов.
-   * Без выбранного testId сводка показывается только если
-   * backend вернул попытки ровно одного теста.
+   * Не сравниваем результаты разных тестов. Без выбранного testId
+   * лучшая попытка определяется только если backend вернул попытки
+   * одного теста.
    */
-  if (
-    !testId.value &&
-    testIds.size > 1
-  ) {
-    return null
-  }
+  return testIds.size <= 1
+    ? attempts.value
+    : []
+})
 
-  return attempts.value.reduce(
-    (best, attempt) =>
-      isBetterAttempt(
-        attempt,
-        best
-      )
-        ? attempt
-        : best,
-    null
+const studentBestAttempt = computed(() => {
+  return bestAttempt(
+    studentComparableAttempts.value
+  )
+})
+
+const studentBestScore = computed(() => {
+  return attemptScoreSummary(
+    studentBestAttempt.value
   )
 })
 
@@ -277,6 +185,22 @@ const attemptCount = computed(() => {
       ?.attemptCount ??
     attempts.value.length
   )
+})
+
+const displayedAttemptCount = computed(() => {
+  if (teacherMode.value) {
+    return attemptCount.value
+  }
+
+  return studentBestAttempt.value
+    ? studentComparableAttempts.value.length
+    : attemptCount.value
+})
+
+const displayedPercent = computed(() => {
+  return teacherMode.value
+    ? Number(stats.value.percent) || 0
+    : studentBestScore.value.percent
 })
 
 const breadcrumbs = computed(() => {
@@ -358,7 +282,7 @@ const statsMessage = computed(() => {
 
   if (teacherMode.value) {
     return (
-      `Найдено попыток: ${attemptCount.value}. ` +
+      `Найдено попыток: ${displayedAttemptCount.value}. ` +
       `Правильных ответов: ${stats.value.right ?? 0} ` +
       `из ${stats.value.total ?? 0} ` +
       `(${stats.value.percent ?? 0}%).`
@@ -381,11 +305,29 @@ const statsMessage = computed(() => {
     `Лучшая попытка: №${
       studentBestAttempt.value.attemptOrdinal ?? '—'
     }. ` +
-    `${stats.value.right ?? 0} из ${stats.value.total ?? 0} ` +
-    `(${stats.value.percent ?? 0}%). ` +
-    `Всего завершённых попыток по тесту: ${attemptCount.value}.`
+    `Баллы: ${formatScoreNumber(studentBestScore.value.score)} ` +
+    `из ${formatScoreNumber(studentBestScore.value.maxScore)} ` +
+    `(${formatScoreNumber(studentBestScore.value.percent)}%). ` +
+    `Полностью верных ответов: ${stats.value.right ?? 0} ` +
+    `из ${stats.value.total ?? 0}. ` +
+    `Всего завершённых попыток по тесту: ${displayedAttemptCount.value}.`
   )
 })
+
+function formatScoreNumber(value) {
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return '0'
+  }
+
+  return new Intl.NumberFormat(
+    'ru-RU',
+    {
+      maximumFractionDigits: 2,
+    }
+  ).format(number)
+}
 
 function subjectLabel(subject) {
   return (
@@ -502,14 +444,9 @@ function selectedStudentTestIsValid() {
 
 function applyStudentResultData(data) {
   resultData.value =
-    data ?? {
-      stats: {
-        total: 0,
-        right: 0,
-        percent: 0,
-      },
-      attempts: [],
-    }
+    sanitizeStudentResultData(
+      data
+    )
 }
 
 function resetAfterSubject() {
@@ -1007,15 +944,21 @@ async function loadResults() {
       return
     }
 
-    resultData.value =
-      response.data ?? {
-        stats: {
-          total: 0,
-          right: 0,
-          percent: 0,
-        },
-        attempts: [],
-      }
+    if (useTeacherMode) {
+      resultData.value =
+        response.data ?? {
+          stats: {
+            total: 0,
+            right: 0,
+            percent: 0,
+          },
+          attempts: [],
+        }
+    } else {
+      applyStudentResultData(
+        response.data
+      )
+    }
   } catch (requestError) {
     if (
       !resultsRequest.isCurrent(
@@ -1252,7 +1195,7 @@ onMounted(init)
           </span>
 
           <strong>
-            {{ attemptCount }}
+            {{ displayedAttemptCount }}
           </strong>
         </div>
 
@@ -1260,15 +1203,35 @@ onMounted(init)
           <span>Правильных</span>
 
           <strong>
-            {{ stats.right ?? 0 }}
+            <template v-if="teacherMode">
+              {{ stats.right ?? 0 }}
+            </template>
+            <template v-else>
+              {{ stats.right ?? 0 }}
+              из
+              {{ stats.total ?? 0 }}
+            </template>
           </strong>
         </div>
 
         <div class="results-stat">
-          <span>Всего ответов</span>
+          <span>
+            {{
+              teacherMode
+                ? 'Всего ответов'
+                : 'Баллы'
+            }}
+          </span>
 
           <strong>
-            {{ stats.total ?? 0 }}
+            <template v-if="teacherMode">
+              {{ stats.total ?? 0 }}
+            </template>
+            <template v-else>
+              {{ formatScoreNumber(studentBestScore.score) }}
+              из
+              {{ formatScoreNumber(studentBestScore.maxScore) }}
+            </template>
           </strong>
         </div>
 
@@ -1276,7 +1239,7 @@ onMounted(init)
           <span>Процент</span>
 
           <strong>
-            {{ stats.percent ?? 0 }}%
+            {{ formatScoreNumber(displayedPercent) }}%
           </strong>
         </div>
       </div>

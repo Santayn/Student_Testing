@@ -61,10 +61,10 @@ describe('teaching template membership eligibility', () => {
     expect([...ids]).toEqual([1])
   })
 
-  it('rechecks active memberships immediately before creating workload', () => {
-    expect(componentSource).toContain('currentAssignableMembershipIds()')
-    expect(componentSource).toContain('activeOnly: true')
-    expect(componentSource).toContain('status: 1')
+  it('rechecks selected memberships immediately before creating workload', () => {
+    expect(componentSource).toContain('currentAssignableMembershipIds(')
+    expect(componentSource).toContain('revalidateAssignableTeacherMembershipIds')
+    expect(componentSource).toContain('completeRows.map(')
     expect(componentSource).toContain('Один или несколько преподавателей больше не активны')
   })
 })

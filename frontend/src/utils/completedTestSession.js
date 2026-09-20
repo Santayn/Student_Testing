@@ -1,3 +1,7 @@
+import {
+  sanitizeStudentSubmitResult,
+} from '@/utils/resultContracts'
+
 const STORAGE_PREFIX =
   'student-test-completed:v1'
 
@@ -62,7 +66,27 @@ export function readCompletedTestSession(
       return null
     }
 
-    return value
+    const sanitized = {
+      ...value,
+      resultData:
+        sanitizeStudentSubmitResult(
+          value.resultData
+        ),
+    }
+
+    try {
+      sessionStorage.setItem(
+        storageKey(
+          testId,
+          assignmentId
+        ),
+        JSON.stringify(sanitized)
+      )
+    } catch {
+      // Best-effort cleanup of legacy session payloads.
+    }
+
+    return sanitized
   } catch {
     clearCompletedTestSession(
       testId,
@@ -103,7 +127,10 @@ export function saveCompletedTestSession({
             ? Number(attemptId)
             : null,
         test,
-        resultData,
+        resultData:
+          sanitizeStudentSubmitResult(
+            resultData
+          ),
       })
     )
   } catch {

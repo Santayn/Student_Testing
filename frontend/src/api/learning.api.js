@@ -1,3 +1,7 @@
+import {
+  sanitizeStudentSubmitResult,
+} from '@/utils/resultContracts'
+
 import http from './http'
 
 export const learningApi = {
@@ -41,14 +45,21 @@ export const learningApi = {
     )
   },
 
-  submitAttempt(
+  async submitAttempt(
     attemptId,
     data
   ) {
-    return http.post(
+    const response = await http.post(
       `/public/learning/attempts/${attemptId}/submit`,
       data
     )
+
+    return {
+      ...response,
+      data: sanitizeStudentSubmitResult(
+        response?.data
+      ),
+    }
   },
 
   downloadMaterial(

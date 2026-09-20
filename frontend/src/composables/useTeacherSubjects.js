@@ -17,7 +17,9 @@ import {
 } from '@/utils/apiData'
 
 import {
+  assertAssignableTeacherMembership,
   isAssignableTeacherMembership,
+  TeacherMembershipEligibilityError,
 } from '@/utils/teacherMembershipEligibility'
 
 const TEACHER_ROLE = 1
@@ -204,6 +206,55 @@ export function useTeacherSubjects() {
     )
   })
 
+  async function ensureSelectedMembershipActive() {
+    const current =
+      selectedMembership.value
+
+    if (!current) {
+      throw new TeacherMembershipEligibilityError(
+        'Выберите активное назначение преподавателя.'
+      )
+    }
+
+    const response =
+      await membershipsApi
+        .getSubjectMembership(
+          current.id
+        )
+
+    const refreshed = response?.data
+
+    if (refreshed?.id) {
+      subjectMemberships.value =
+        subjectMemberships.value.map(
+          (membership) =>
+            Number(membership.id) ===
+            Number(refreshed.id)
+              ? refreshed
+              : membership
+        )
+    }
+
+    try {
+      return assertAssignableTeacherMembership(
+        refreshed,
+        {
+          expectedMembershipId:
+            current.id,
+          expectedSubjectId:
+            current.subjectId,
+          expectedPersonId:
+            authStore.isAdminMode
+              ? null
+              : authStore.personId,
+        }
+      )
+    } catch (error) {
+      selectedMembershipId.value = ''
+      throw error
+    }
+  }
+
   async function loadTeacherSubjects({
     preferredSubjectId = null,
     preferredMembershipId = null,
@@ -368,6 +419,7 @@ export function useTeacherSubjects() {
     selectedSubject,
     subjectOptions,
     membershipOptions,
+    ensureSelectedMembershipActive,
     loadTeacherSubjects,
   }
 }

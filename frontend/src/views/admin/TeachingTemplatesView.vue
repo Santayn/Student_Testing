@@ -37,8 +37,9 @@ import {
 } from '@/utils/apiData'
 
 import {
-  assignableTeacherMembershipIds,
   isAssignableTeacherMembership,
+  revalidateAssignableTeacherMembershipIds,
+  TeacherMembershipEligibilityError,
 } from '@/utils/teacherMembershipEligibility'
 
 import {
@@ -258,17 +259,13 @@ function teachersForAssignment(assignment) {
   )
 }
 
-async function currentAssignableMembershipIds() {
-  const response =
-    await membershipsApi
-      .getSubjectMemberships({
-        activeOnly: true,
-        status: 1,
-      })
-
-  return assignableTeacherMembershipIds(
-    listFromResponse(response)
-  )
+async function currentAssignableMembershipIds(
+  membershipIds
+) {
+  return revalidateAssignableTeacherMembershipIds({
+    api: membershipsApi,
+    membershipIds,
+  })
 }
 
 const selectedFaculty = computed(() => {
@@ -695,41 +692,47 @@ async function assignGroups() {
     return
   }
 
-  let assignableMembershipIds
-
   try {
-    assignableMembershipIds =
-      await currentAssignableMembershipIds()
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось проверить актуальность преподавательских назначений'
+    await currentAssignableMembershipIds(
+      completeRows.map(
+        (row) =>
+          row.teacherMembershipId
       )
     )
-    return
-  }
-
-  const inactiveRows =
-    completeRows.filter(
-      (row) =>
-        !assignableMembershipIds.has(
-          Number(
-            row.teacherMembershipId
-          )
+  } catch (error) {
+    if (
+      error instanceof
+      TeacherMembershipEligibilityError
+    ) {
+      completeRows
+        .filter(
+          (row) =>
+            !error.membershipId ||
+            Number(
+              row.teacherMembershipId
+            ) ===
+              Number(
+                error.membershipId
+              )
         )
-    )
+        .forEach((row) => {
+          row.teacherMembershipId = ''
+        })
 
-  if (inactiveRows.length) {
-    inactiveRows.forEach((row) => {
-      row.teacherMembershipId = ''
-    })
+      showNotice(
+        'error',
+        'Один или несколько преподавателей больше не активны для выбранных предметов. Выберите преподавателей заново.'
+      )
+    } else {
+      showNotice(
+        'error',
+        getApiErrorMessage(
+          error,
+          'Не удалось проверить актуальность преподавательских назначений'
+        )
+      )
+    }
 
-    showNotice(
-      'error',
-      'Один или несколько преподавателей больше не активны для выбранных предметов. Выберите преподавателей заново.'
-    )
     return
   }
 

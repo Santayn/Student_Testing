@@ -51,6 +51,7 @@ const {
   selectedSubjectId,
   selectedMembership,
   membershipOptions,
+  ensureSelectedMembershipActive,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -686,6 +687,8 @@ async function saveQuestion() {
   savingQuestion.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     let response
 
     if (questionForm.value.id) {
@@ -745,6 +748,8 @@ async function saveQuestion() {
 
 async function toggleQuestionActive(question) {
   try {
+    await ensureSelectedMembershipActive()
+
     await questionsApi.updateActive(
       question.id,
       {
@@ -809,6 +814,8 @@ async function saveOption() {
   savingOption.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     if (optionForm.value.id) {
       await questionsApi.updateOption(
         optionForm.value.id,
@@ -871,6 +878,8 @@ async function importWord() {
   importing.value = true
 
   try {
+    await ensureSelectedMembershipActive()
+
     const response =
       await questionsApi.importFile(
         file,

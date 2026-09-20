@@ -28,6 +28,10 @@ import {
 } from '@/utils/completedTestSession'
 
 import {
+  sanitizeStudentSubmitResult,
+} from '@/utils/resultContracts'
+
+import {
   UiAlert,
   UiButton,
   UiCard,
@@ -469,7 +473,9 @@ async function loadTest() {
 
     questions.value = []
     resultData.value =
-      completedSession.resultData
+      sanitizeStudentSubmitResult(
+        completedSession.resultData
+      )
 
     resetAnswers()
     loading.value = false
@@ -541,7 +547,9 @@ async function submitTest() {
         )
 
     resultData.value =
-      response.data ?? {}
+      sanitizeStudentSubmitResult(
+        response.data
+      )
 
     if (testId.value && assignmentId.value) {
       saveCompletedTestSession({

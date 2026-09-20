@@ -2,6 +2,17 @@
 import { computed } from 'vue'
 
 import {
+  sanitizeStudentAttempt,
+} from '@/utils/resultContracts'
+
+import {
+  attemptScoreSummary,
+  gradingStatusLabel,
+  normalizeGradingStatus,
+  resultItemScore,
+} from '@/utils/resultScoring'
+
+import {
   UiEmptyState,
   UiTable,
 } from '@/components/ui'
@@ -44,6 +55,16 @@ const studentColumns = [
   },
 ]
 
+const displayAttempt = computed(() => {
+  if (props.mode === 'teacher') {
+    return props.attempt
+  }
+
+  return sanitizeStudentAttempt(
+    props.attempt
+  )
+})
+
 const teacherOnlyColumns = [
   {
     key: 'correctAnswer',
@@ -53,13 +74,35 @@ const teacherOnlyColumns = [
     key: 'status',
     label: 'Результат',
     value: (row) =>
-      row.correct
-        ? 'Верно'
-        : 'Неверно',
-    sortValue: (row) =>
-      row.correct
+      gradingStatusLabel(row),
+    sortValue: (row) => {
+      const status =
+        normalizeGradingStatus(row)
+
+      if (status === 'correct') {
+        return 2
+      }
+
+      return status === 'partial'
         ? 1
-        : 0,
+        : 0
+    },
+  },
+  {
+    key: 'points',
+    label: 'Баллы',
+    value: (row) => {
+      const score =
+        resultItemScore(row)
+
+      return (
+        `${formatScoreNumber(score.awardedPoints)} / ` +
+        `${formatScoreNumber(score.questionPoints)}`
+      )
+    },
+    sortValue: (row) =>
+      resultItemScore(row)
+        .awardedPoints,
   },
 ]
 
@@ -76,7 +119,7 @@ const columns = computed(() => {
 
 const stats = computed(() => {
   return (
-    props.attempt.stats ?? {
+    displayAttempt.value.stats ?? {
       total: 0,
       right: 0,
       percent: 0,
@@ -84,11 +127,17 @@ const stats = computed(() => {
   )
 })
 
+const score = computed(() => {
+  return attemptScoreSummary(
+    displayAttempt.value
+  )
+})
+
 const testName = computed(() => {
   return (
-    props.attempt.testName ||
+    displayAttempt.value.testName ||
     `Тест #${
-      props.attempt.testId ??
+      displayAttempt.value.testId ??
       '?'
     }`
   )
@@ -99,9 +148,9 @@ const metaText = computed(() => {
 
   if (props.mode === 'teacher') {
     parts.push(
-      props.attempt.studentName ||
+      displayAttempt.value.studentName ||
       `Студент #${
-        props.attempt.studentId ??
+        displayAttempt.value.studentId ??
         '?'
       }`
     )
@@ -110,22 +159,22 @@ const metaText = computed(() => {
   }
 
   if (
-    props.attempt.attemptOrdinal
+    displayAttempt.value.attemptOrdinal
   ) {
     parts.push(
       `Попытка ${
-        props.attempt
+        displayAttempt.value
           .attemptOrdinal
       }`
     )
   }
 
   if (
-    props.attempt.completedAt
+    displayAttempt.value.completedAt
   ) {
     parts.push(
       formatDateTime(
-        props.attempt
+        displayAttempt.value
           .completedAt
       )
     )
@@ -137,9 +186,9 @@ const metaText = computed(() => {
 const rows = computed(() => {
   const source =
     Array.isArray(
-      props.attempt.results
+      displayAttempt.value.results
     )
-      ? props.attempt.results
+      ? displayAttempt.value.results
       : []
 
   return source.map(
@@ -150,6 +199,36 @@ const rows = computed(() => {
     })
   )
 })
+
+function formatScoreNumber(value) {
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return '0'
+  }
+
+  return new Intl.NumberFormat(
+    'ru-RU',
+    {
+      maximumFractionDigits: 2,
+    }
+  ).format(number)
+}
+
+function statusClass(row) {
+  const status =
+    normalizeGradingStatus(row)
+
+  if (status === 'correct') {
+    return 'result-attempt__status--success'
+  }
+
+  if (status === 'partial') {
+    return 'result-attempt__status--warning'
+  }
+
+  return 'result-attempt__status--danger'
+}
 
 function formatDateTime(value) {
   try {
@@ -211,9 +290,14 @@ function formatDateTime(value) {
         </span>
 
         <span class="result-attempt__badge">
-          {{
-            stats.percent ?? 0
-          }}%
+          {{ formatScoreNumber(score.score) }}
+          из
+          {{ formatScoreNumber(score.maxScore) }}
+          баллов
+        </span>
+
+        <span class="result-attempt__badge">
+          {{ formatScoreNumber(score.percent) }}%
         </span>
       </div>
     </summary>
@@ -255,18 +339,26 @@ function formatDateTime(value) {
         <template #cell-status="{ row }">
           <strong
             class="result-attempt__status"
-            :class="
-              row.correct
-                ? 'result-attempt__status--success'
-                : 'result-attempt__status--danger'
-            "
+            :class="statusClass(row)"
           >
-            {{
-              row.correct
-                ? 'Верно'
-                : 'Неверно'
-            }}
+            {{ gradingStatusLabel(row) }}
           </strong>
+        </template>
+
+        <template #cell-points="{ row }">
+          {{
+            formatScoreNumber(
+              resultItemScore(row)
+                .awardedPoints
+            )
+          }}
+          /
+          {{
+            formatScoreNumber(
+              resultItemScore(row)
+                .questionPoints
+            )
+          }}
         </template>
       </UiTable>
     </div>
@@ -348,6 +440,10 @@ function formatDateTime(value) {
 
 .result-attempt__status--success {
   color: var(--success);
+}
+
+.result-attempt__status--warning {
+  color: var(--warning);
 }
 
 .result-attempt__status--danger {
