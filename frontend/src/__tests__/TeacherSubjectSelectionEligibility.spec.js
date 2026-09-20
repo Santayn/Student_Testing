@@ -132,4 +132,60 @@ describe('teacher subject selection eligibility', () => {
     expect(context.selectedMembershipId.value).toBe('')
     expect(context.selectedMembership.value).toBeNull()
   })
+
+  it('does not guess a teacher membership when preferred subject is ambiguous', async () => {
+    membershipsApi.getSubjectMemberships.mockResolvedValue({
+      data: [
+        membership({ id: 30, subjectId: 7, personId: 42 }),
+        membership({ id: 31, subjectId: 7, personId: 43 }),
+        membership({ id: 32, subjectId: 8, personId: 44 }),
+      ],
+    })
+
+    const context = useTeacherSubjects()
+
+    await context.loadTeacherSubjects({
+      preferredSubjectId: 7,
+    })
+
+    expect(context.selectedMembershipId.value).toBe('')
+    expect(context.selectedMembership.value).toBeNull()
+  })
+
+  it('uses an explicit preferred membership even when the subject has several teachers', async () => {
+    membershipsApi.getSubjectMemberships.mockResolvedValue({
+      data: [
+        membership({ id: 40, subjectId: 7, personId: 42 }),
+        membership({ id: 41, subjectId: 7, personId: 43 }),
+      ],
+    })
+
+    const context = useTeacherSubjects()
+
+    await context.loadTeacherSubjects({
+      preferredSubjectId: 7,
+      preferredMembershipId: 41,
+    })
+
+    expect(context.selectedMembershipId.value).toBe('41')
+    expect(context.selectedMembership.value?.id).toBe(41)
+  })
+
+  it('does not let the selectedSubjectId compatibility setter guess among duplicate memberships', async () => {
+    membershipsApi.getSubjectMemberships.mockResolvedValue({
+      data: [
+        membership({ id: 50, subjectId: 7, personId: 42 }),
+        membership({ id: 51, subjectId: 7, personId: 43 }),
+      ],
+    })
+
+    const context = useTeacherSubjects()
+
+    await context.loadTeacherSubjects()
+    context.selectedSubjectId.value = '7'
+
+    expect(context.selectedMembershipId.value).toBe('')
+    expect(context.selectedMembership.value).toBeNull()
+  })
+
 })

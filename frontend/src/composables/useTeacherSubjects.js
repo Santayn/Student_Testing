@@ -107,16 +107,16 @@ export function useTeacherSubjects() {
         return
       }
 
-      const membership =
-        activeSubjectMemberships.value.find(
+      const matchingMemberships =
+        activeSubjectMemberships.value.filter(
           (item) =>
             String(item.subjectId) ===
             String(value)
         )
 
       selectedMembershipId.value =
-        membership
-          ? String(membership.id)
+        matchingMemberships.length === 1
+          ? String(matchingMemberships[0].id)
           : ''
     },
   })
@@ -317,10 +317,10 @@ export function useTeacherSubjects() {
         return subjects.value
       }
 
-      const preferredBySubject =
+      const preferredSubjectMemberships =
         preferredSubjectId
           ? activeSubjectMemberships.value
-              .find(
+              .filter(
                 (item) =>
                   String(
                     item.subjectId
@@ -329,12 +329,14 @@ export function useTeacherSubjects() {
                     preferredSubjectId
                   )
               )
-          : null
+          : []
 
-      if (preferredBySubject) {
+      if (
+        preferredSubjectMemberships.length === 1
+      ) {
         selectedMembershipId.value =
           String(
-            preferredBySubject.id
+            preferredSubjectMemberships[0].id
           )
       } else if (
         activeSubjectMemberships.value
