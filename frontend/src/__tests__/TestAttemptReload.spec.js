@@ -80,8 +80,10 @@ describe('completed test reload flow', () => {
     learningApi.startAttempt.mockResolvedValue({
       data: {
         attemptId: 77,
+        assignmentId: 34,
         test: {
           id: 12,
+          assignmentId: 34,
           title: 'Тест',
           attemptsAllowed: 3,
         },

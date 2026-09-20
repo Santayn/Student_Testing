@@ -32,6 +32,10 @@ import {
 } from '@/utils/resultContracts'
 
 import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
+import {
   UiAlert,
   UiButton,
   UiCard,
@@ -55,6 +59,9 @@ const questions = ref([])
 
 const attemptId = ref(null)
 const resultData = ref(null)
+
+const loadRequest = createLatestRequestGuard()
+const submitRequest = createLatestRequestGuard()
 
 const singleAnswers =
   reactive({})
@@ -148,6 +155,59 @@ function resetAnswers() {
   clearObject(multipleAnswers)
   clearObject(textAnswers)
   clearObject(matchingAnswers)
+}
+
+function currentRouteContext() {
+  return {
+    testId: testId.value,
+    assignmentId: assignmentId.value,
+  }
+}
+
+function isSameRouteContext(context) {
+  return (
+    context?.testId === testId.value &&
+    context?.assignmentId === assignmentId.value
+  )
+}
+
+function resetTestState() {
+  test.value = null
+  questions.value = []
+  attemptId.value = null
+  resultData.value = null
+  resetAnswers()
+}
+
+function assertStartAttemptContext(data, context) {
+  const responseAssignmentId =
+    Number(data?.assignmentId)
+
+  const responseTestId =
+    Number(data?.test?.id)
+
+  const nestedAssignmentId =
+    data?.test?.assignmentId == null
+      ? null
+      : Number(data.test.assignmentId)
+
+  const responseAttemptId =
+    Number(data?.attemptId)
+
+  if (
+    !Number.isFinite(responseAttemptId) ||
+    responseAttemptId <= 0 ||
+    responseAssignmentId !== context.assignmentId ||
+    responseTestId !== context.testId ||
+    (
+      nestedAssignmentId !== null &&
+      nestedAssignmentId !== responseAssignmentId
+    )
+  ) {
+    throw new Error(
+      'Backend вернул попытку, которая не соответствует открытому тесту.'
+    )
+  }
 }
 
 function questionType(question) {
@@ -445,7 +505,18 @@ function buildSubmission() {
 }
 
 async function loadTest() {
-  if (!assignmentId.value || !testId.value) {
+  const context =
+    currentRouteContext()
+
+  const requestId =
+    loadRequest.begin()
+
+  submitRequest.invalidate()
+  submitting.value = false
+
+  if (!context.assignmentId || !context.testId) {
+    resetTestState()
+    loading.value = false
     error.value =
       'Не указано назначение теста. Откройте тест со страницы лекции.'
 
@@ -454,16 +525,22 @@ async function loadTest() {
 
   loading.value = true
   error.value = ''
-  resultData.value = null
-  attemptId.value = null
+  resetTestState()
 
   const completedSession =
     readCompletedTestSession(
-      testId.value,
-      assignmentId.value
+      context.testId,
+      context.assignmentId
     )
 
   if (completedSession) {
+    if (
+      !loadRequest.isCurrent(requestId) ||
+      !isSameRouteContext(context)
+    ) {
+      return
+    }
+
     attemptId.value =
       completedSession.attemptId
 
@@ -486,15 +563,26 @@ async function loadTest() {
     const response =
       await learningApi
         .startAttempt(
-          assignmentId.value
+          context.assignmentId
         )
+
+    if (
+      !loadRequest.isCurrent(requestId) ||
+      !isSameRouteContext(context)
+    ) {
+      return
+    }
 
     const data =
       response.data ?? {}
 
+    assertStartAttemptContext(
+      data,
+      context
+    )
+
     attemptId.value =
-      data.attemptId ??
-      null
+      Number(data.attemptId)
 
     test.value =
       data.test ??
@@ -509,8 +597,14 @@ async function loadTest() {
 
     initializeAnswers()
   } catch (requestError) {
-    test.value = null
-    questions.value = []
+    if (
+      !loadRequest.isCurrent(requestId) ||
+      !isSameRouteContext(context)
+    ) {
+      return
+    }
+
+    resetTestState()
 
     error.value =
       getApiErrorMessage(
@@ -518,7 +612,12 @@ async function loadTest() {
         'Не удалось загрузить тест.'
       )
   } finally {
-    loading.value = false
+    if (
+      loadRequest.isCurrent(requestId) &&
+      isSameRouteContext(context)
+    ) {
+      loading.value = false
+    }
   }
 }
 
@@ -532,6 +631,25 @@ async function submitTest() {
     return
   }
 
+  const context = {
+    ...currentRouteContext(),
+    attemptId: Number(attemptId.value),
+  }
+
+  if (
+    !context.testId ||
+    !context.assignmentId ||
+    !Number.isFinite(context.attemptId) ||
+    context.attemptId <= 0
+  ) {
+    error.value =
+      'Контекст попытки устарел. Откройте тест заново со страницы лекции.'
+    return
+  }
+
+  const requestId =
+    submitRequest.begin()
+
   submitting.value = true
   error.value = ''
 
@@ -542,26 +660,40 @@ async function submitTest() {
     const response =
       await learningApi
         .submitAttempt(
-          attemptId.value,
+          context.attemptId,
           payload
         )
+
+    if (
+      !submitRequest.isCurrent(requestId) ||
+      !isSameRouteContext(context) ||
+      Number(attemptId.value) !== context.attemptId
+    ) {
+      return
+    }
 
     resultData.value =
       sanitizeStudentSubmitResult(
         response.data
       )
 
-    if (testId.value && assignmentId.value) {
-      saveCompletedTestSession({
-        testId: testId.value,
-        assignmentId: assignmentId.value,
-        attemptId: attemptId.value,
-        test: test.value,
-        resultData: resultData.value,
-      })
-    }
+    saveCompletedTestSession({
+      testId: context.testId,
+      assignmentId: context.assignmentId,
+      attemptId: context.attemptId,
+      test: test.value,
+      resultData: resultData.value,
+    })
 
     await nextTick()
+
+    if (
+      !submitRequest.isCurrent(requestId) ||
+      !isSameRouteContext(context) ||
+      Number(attemptId.value) !== context.attemptId
+    ) {
+      return
+    }
 
     document
       .getElementById(
@@ -572,13 +704,27 @@ async function submitTest() {
         block: 'start',
       })
   } catch (requestError) {
+    if (
+      !submitRequest.isCurrent(requestId) ||
+      !isSameRouteContext(context) ||
+      Number(attemptId.value) !== context.attemptId
+    ) {
+      return
+    }
+
     error.value =
       getApiErrorMessage(
         requestError,
         'Не удалось отправить ответы на тест.'
       )
   } finally {
-    submitting.value = false
+    if (
+      submitRequest.isCurrent(requestId) &&
+      isSameRouteContext(context) &&
+      Number(attemptId.value) === context.attemptId
+    ) {
+      submitting.value = false
+    }
   }
 }
 
@@ -587,6 +733,9 @@ function goBack() {
 }
 
 onBeforeRouteLeave(() => {
+  loadRequest.invalidate()
+  submitRequest.invalidate()
+
   if (testId.value && assignmentId.value) {
     clearCompletedTestSession(
       testId.value,

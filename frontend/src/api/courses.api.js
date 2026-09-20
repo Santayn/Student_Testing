@@ -29,8 +29,8 @@ export const coursesApi = {
     return http.put(`/courses/versions/${versionId}`, data)
   },
 
-  publishVersion(versionId, data = undefined) {
-    return http.put(`/courses/versions/${versionId}/publish`, data)
+  publishVersion(versionId) {
+    return http.put(`/courses/versions/${versionId}/publish`, {})
   },
 
   unpublishVersion(versionId, data = undefined) {

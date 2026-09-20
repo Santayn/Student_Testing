@@ -7,6 +7,7 @@ import {
 } from 'vitest'
 
 import http from '@/api/http'
+import { coursesApi } from '@/api/courses.api'
 import { learningApi } from '@/api/learning.api'
 import { lecturesApi } from '@/api/lectures.api'
 import { membershipsApi } from '@/api/memberships.api'
@@ -205,6 +206,17 @@ describe('frontend API contracts', () => {
         givenAnswer: '4',
       },
     ])
+  })
+
+  it('publishes a course version with the required empty request body', async () => {
+    http.put.mockResolvedValue({ data: {} })
+
+    await coursesApi.publishVersion(73)
+
+    expect(http.put).toHaveBeenCalledWith(
+      '/courses/versions/73/publish',
+      {}
+    )
   })
 
   it('deletes a test through the supported endpoint', async () => {
