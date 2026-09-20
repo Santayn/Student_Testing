@@ -1,0 +1,14 @@
+/*
+ * Tailwind 4 entrypoint for the new UI layer.
+ *
+ * Intentionally omit tailwindcss/preflight so the existing application
+ * keeps its current browser/base styling while we migrate screens gradually.
+ */
+@layer theme, primevue, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss-primeui";
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Keep Tailwind dark: utilities in sync with ThemeStore. */
+@custom-variant dark (&:where(html[data-theme='dark'], html[data-theme='dark'] *));

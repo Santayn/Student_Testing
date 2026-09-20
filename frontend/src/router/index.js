@@ -20,6 +20,10 @@ import {
 } from './routes/admin'
 
 import {
+  devRoutes,
+} from './routes/dev'
+
+import {
   authGuard,
 } from './guards/auth'
 
@@ -34,6 +38,9 @@ const router = createRouter({
     ...studentRoutes,
     ...teacherRoutes,
     ...adminRoutes,
+    ...(import.meta.env.DEV
+      ? devRoutes
+      : []),
 
     {
       path: '/:pathMatch(.*)*',

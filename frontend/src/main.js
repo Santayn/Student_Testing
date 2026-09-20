@@ -1,9 +1,16 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+import PrimeVue from 'primevue/config'
+import ToastService from 'primevue/toastservice'
+
+import StudentTestingPreset from '@/theme/studentTestingPreset'
 
 import App from './App.vue'
+import '@/assets/tailwind.css'
 import '@/assets/theme.css'
+import '@/theme/tokens.css'
+import 'primeicons/primeicons.css'
 
 import router from './router'
 
@@ -29,6 +36,28 @@ async function bootstrap() {
   )
 
   app.use(pinia)
+
+  app.use(PrimeVue, {
+    ripple: true,
+
+    theme: {
+      preset:
+        StudentTestingPreset,
+
+      options: {
+        darkModeSelector:
+          "html[data-theme='dark']",
+
+        cssLayer: {
+          name: 'primevue',
+          order:
+            'theme, primevue, utilities',
+        },
+      },
+    },
+  })
+
+  app.use(ToastService)
 
   const themeStore =
     useThemeStore()

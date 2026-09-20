@@ -11,12 +11,12 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
-    "@primeuix/themes": "^3.0.1",
+    "@primeuix/themes": "2.0.3",
     "axios": "^1.20.0",
     "pinia": "^4.0.2",
     "pinia-plugin-persistedstate": "^4.7.1",
-    "primeicons": "^8.0.1",
-    "primevue": "^5.0.1",
+    "primeicons": "7.0.0",
+    "primevue": "4.5.5",
     "tailwindcss": "^4.3.3",
     "tailwindcss-primeui": "^0.6.1",
     "vue": "^3.5.40",

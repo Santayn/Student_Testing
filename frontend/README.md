@@ -10,8 +10,11 @@ Vue-клиент системы Student Testing.
 - Pinia
 - Axios
 - Vitest + Vue Test Utils
+- PrimeVue 5 + `@primeuix/themes`
+- Tailwind CSS 4 + `tailwindcss-primeui`
+- PrimeIcons
 
-`primevue`, `tailwindcss` и `vite-plugin-vue-devtools` сохранены как подготовка к будущему этапу UI/UX и пока могут не использоваться в production-коде.
+PrimeVue используется в styled mode с собственным Aura-based preset. Tailwind подключён без Preflight, чтобы постепенная миграция UI не меняла существующие страницы до их явной переработки.
 
 ## Запуск
 
@@ -46,6 +49,7 @@ src/
 ├── config/       # frontend feature flags
 ├── router/       # routes, role constants и guards
 ├── stores/       # Pinia stores
+├── theme/        # PrimeVue preset и общие UI-токены
 ├── utils/        # небольшие чистые функции и flow helpers
 └── views/        # страницы приложения
 ```
@@ -85,3 +89,15 @@ Frontend-only workaround'ы, которые архитектурно лучше 
 ```
 
 Backend не следует менять в рамках frontend-этапов без отдельного решения.
+
+## UI foundation
+
+Новый UI-слой строится на PrimeVue 5 + Tailwind CSS 4. Существующие `Ui*` компоненты пока сохраняются и будут мигрировать постепенно.
+
+В development-режиме доступна изолированная страница проверки дизайн-системы:
+
+```text
+/ui-showcase
+```
+
+Она намеренно не добавляется в production routes. На странице можно проверить PrimeVue-компоненты, semantic Tailwind utilities и синхронизацию light/dark с текущим `ThemeStore`.
