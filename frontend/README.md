@@ -1,103 +1,85 @@
-# Client protection + best attempt results
+# Student Testing Frontend
 
-Patch закрывает три задачи.
+Vue-клиент системы Student Testing.
 
-## 1. Серверная проверка доступности теста
+## Стек
 
-`LectureDetailsView.vue` использует данные публичного учебного API:
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Axios
+- Vitest + Vue Test Utils
 
-```text
-GET /public/learning/lectures/{lectureId}/tests
-```
+`primevue`, `tailwindcss` и `vite-plugin-vue-devtools` сохранены как подготовка к будущему этапу UI/UX и пока могут не использоваться в production-коде.
 
-Backend возвращает для каждого теста:
+## Запуск
 
-```text
-attemptsRemaining
-attemptsAllowed
-canResume
-available
-```
-
-Frontend только отображает рассчитанное сервером состояние:
-
-```text
-attemptsUsed = max(0, attemptsAllowed - attemptsRemaining)
-attemptsLeft = attemptsRemaining
-```
-
-Состояния:
-
-```text
-canResume=true        -> Продолжить тест
-canResume=false + left>0 -> Пройти тест
-left=0                -> кнопка disabled
-backend available=false -> кнопка disabled
-```
-
-Frontend не обращается к административному `/tests/attempts` и не передает
-`personId` для подсчета попыток. Backend остается единственным источником истины.
-
-## 2. Лучшая попытка вместо student aggregation
-
-Для STUDENT серверный `resultData.stats`, агрегирующий несколько attempts,
-больше не используется как итог выбранного теста.
-
-При выбранном test:
-
-```text
-1. максимальный stats.percent
-2. при равенстве — максимальный stats.right
-3. при равенстве — более поздний completedAt
-4. при равенстве — больший attemptOrdinal
-```
-
-выбирается как лучшая попытка.
-
-Все завершённые attempts при этом остаются на странице и доступны для
-раскрытия. Лучшая отмечается badge `Лучшая попытка`.
-
-Если выбрано несколько разных тестов, frontend принципиально не строит
-общий процент между разными тестами и предлагает выбрать конкретный test.
-
-Teacher/admin aggregation оставлена без изменения, потому что там сводка
-может относиться к группе/нескольким студентам.
-
-## 3. Student filter по test
-
-Добавлен selector:
-
-```text
-Предмет -> Тест
-```
-
-Список test строится только из собственных completed attempts, которые
-backend уже вернул через `/results/student/data` для текущего контекста.
-
-При выборе test используется:
-
-```text
-GET /results/student/data?subjectId=...&testId=...
-```
-
-Перед запросом frontend проверяет, что `testId` действительно присутствует
-в текущем списке результатов студента. Это частично компенсирует то, что
-backend отдаёт `testId` приоритет над `subjectId` и сам не проверяет их связь.
-
-## Файлы
-
-```text
-src/api/index.js
-src/api/results.api.js
-src/api/learning.api.js
-src/views/lectures/LectureDetailsView.vue
-src/views/results/ResultsView.vue
-src/components/results/ResultAttemptCard.vue
-```
-
-## После замены
+Из каталога `frontend`:
 
 ```bash
-docker compose build --no-cache frontend
-docker compose up -d frontend
+npm ci
+npm run dev
 ```
+
+Production-сборка:
+
+```bash
+npm run build
+```
+
+Тесты:
+
+```bash
+npm run test:unit -- --run
+```
+
+При запуске всего проекта через Docker используйте корневой `docker-compose.yml`.
+
+## Структура `src`
+
+```text
+src/
+├── api/          # HTTP-клиенты backend API
+├── components/   # переиспользуемые UI и domain-компоненты
+├── composables/  # общая реактивная логика экранов
+├── config/       # frontend feature flags
+├── router/       # routes, role constants и guards
+├── stores/       # Pinia stores
+├── utils/        # небольшие чистые функции и flow helpers
+└── views/        # страницы приложения
+```
+
+## Роли и доступ
+
+Рабочая часть приложения поддерживает роли:
+
+- `STUDENT`
+- `TEACHER`
+- `ADMIN`
+
+Роль `USER` сама по себе не даёт доступ к рабочему пространству. Для рабочего доступа также требуется привязанный `personId`.
+
+Student-only страницы прохождения обучения используют `/api/v1/public/learning/**`. Teacher/Admin экраны используют соответствующие административные и преподавательские API.
+
+## Регистрация
+
+Публичная регистрация управляется frontend-переменной:
+
+```text
+VITE_PUBLIC_REGISTRATION_ENABLED
+```
+
+В Docker она синхронизируется с backend-переменной `APP_PUBLIC_REGISTRATION_ENABLED`.
+
+Новый аккаунт без завершённой привязки роли/Person остаётся на `/account-pending`.
+
+## Backend-рекомендации
+
+Frontend-only workaround'ы, которые архитектурно лучше перенести или дополнительно защитить на backend, фиксируются в:
+
+```text
+../recommendations/backend_recommendations.md
+```
+
+Backend не следует менять в рамках frontend-этапов без отдельного решения.
