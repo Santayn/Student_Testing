@@ -36,6 +36,11 @@ import {
   uniqueNumbers,
 } from '@/utils/apiData'
 
+import {
+  assignableTeacherMembershipIds,
+  isAssignableTeacherMembership,
+} from '@/utils/teacherMembershipEligibility'
+
 const TEACHER_ROLE = 1
 
 const DEFAULT_LOAD_TYPE_NAME =
@@ -222,7 +227,40 @@ function teachersForSubject(subjectId) {
   return teacherMemberships.value.filter(
     (item) =>
       Number(item.subjectId) ===
-      Number(subjectId)
+        Number(subjectId) &&
+      isAssignableTeacherMembership(item)
+  )
+}
+
+function teachersForAssignment(assignment) {
+  const currentMembershipId =
+    Number(assignment?.subjectMembershipId)
+
+  const subjectId =
+    membershipById(
+      currentMembershipId
+    )?.subjectId
+
+  return teacherMemberships.value.filter(
+    (item) =>
+      Number(item.subjectId) ===
+        Number(subjectId) &&
+      (isAssignableTeacherMembership(item) ||
+        Number(item.id) ===
+          currentMembershipId)
+  )
+}
+
+async function currentAssignableMembershipIds() {
+  const response =
+    await membershipsApi
+      .getSubjectMemberships({
+        activeOnly: true,
+        status: 1,
+      })
+
+  return assignableTeacherMembershipIds(
+    listFromResponse(response)
   )
 }
 
@@ -595,6 +633,44 @@ async function assignGroups() {
     showNotice(
       'error',
       'Добавьте предмет, преподавателя и хотя бы одну группу.'
+    )
+    return
+  }
+
+  let assignableMembershipIds
+
+  try {
+    assignableMembershipIds =
+      await currentAssignableMembershipIds()
+  } catch (error) {
+    showNotice(
+      'error',
+      getApiErrorMessage(
+        error,
+        'Не удалось проверить актуальность преподавательских назначений'
+      )
+    )
+    return
+  }
+
+  const inactiveRows =
+    completeRows.filter(
+      (row) =>
+        !assignableMembershipIds.has(
+          Number(
+            row.teacherMembershipId
+          )
+        )
+    )
+
+  if (inactiveRows.length) {
+    inactiveRows.forEach((row) => {
+      row.teacherMembershipId = ''
+    })
+
+    showNotice(
+      'error',
+      'Один или несколько преподавателей больше не активны для выбранных предметов. Выберите преподавателей заново.'
     )
     return
   }
@@ -1188,10 +1264,8 @@ onMounted(loadBaseData)
             <option
               v-for="
                 membership in
-                teachersForSubject(
-                  membershipById(
-                    row.subjectMembershipId
-                  )?.subjectId
+                teachersForAssignment(
+                  row
                 )
               "
               :key="membership.id"
