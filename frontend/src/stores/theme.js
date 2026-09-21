@@ -42,8 +42,14 @@ export const useThemeStore = defineStore(
         return
       }
 
-      document.documentElement.dataset.theme = resolved
-      document.documentElement.style.colorScheme = resolved
+      const root = document.documentElement
+
+      root.dataset.theme = resolved
+      root.classList.toggle(
+        'app-dark',
+        resolved === 'dark'
+      )
+      root.style.colorScheme = resolved
     }
 
     function setTheme(value) {

@@ -233,10 +233,10 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 
   background:
-    var(--surface);
+    var(--st-shell-bg);
 
   border: 1px solid
-    var(--border);
+    var(--st-shell-border);
 
   border-radius: 12px;
 }
@@ -250,14 +250,14 @@ onBeforeUnmount(() => {
   padding-top: 14px;
 
   border-top: 1px solid
-    var(--border);
+    var(--st-shell-border);
 }
 
 .app-sidebar__title {
   margin: 0 8px 7px;
 
   color:
-    var(--text-secondary);
+    var(--st-shell-muted);
 
   font-size: 12px;
   font-weight: 700;
@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
   align-items: center;
 
   color:
-    var(--text);
+    var(--st-shell-text);
 
   border-radius: 8px;
 
@@ -290,15 +290,15 @@ onBeforeUnmount(() => {
 
 .app-sidebar__link:hover {
   background:
-    var(--surface-secondary);
+    var(--st-shell-hover);
 }
 
 .app-sidebar__link.router-link-active {
   color:
-    var(--brand);
+    var(--st-shell-text);
 
   background:
-    var(--brand-soft);
+    var(--st-shell-active);
 
   font-weight: 600;
 }
@@ -330,14 +330,14 @@ onBeforeUnmount(() => {
     gap: 9px;
 
     color:
-      var(--text);
+      var(--st-shell-text);
 
     background:
-      var(--surface);
+      var(--st-shell-bg);
 
     border: 0;
     border-bottom: 1px solid
-      var(--border);
+      var(--st-shell-border);
 
     font: inherit;
     font-size: 14px;
@@ -358,7 +358,7 @@ onBeforeUnmount(() => {
 
     display: block;
 
-    background: var(--overlay);
+    background: var(--st-overlay-backdrop);
   }
 
   .app-sidebar {
@@ -376,7 +376,7 @@ onBeforeUnmount(() => {
 
     border: 0;
     border-right: 1px solid
-      var(--border);
+      var(--st-shell-border);
 
     border-radius: 0;
 
@@ -403,10 +403,10 @@ onBeforeUnmount(() => {
     justify-content: space-between;
 
     background:
-      var(--surface);
+      var(--st-shell-bg);
 
     border-bottom: 1px solid
-      var(--border);
+      var(--st-shell-border);
   }
 
   .app-sidebar__close {
@@ -418,7 +418,7 @@ onBeforeUnmount(() => {
     justify-content: center;
 
     color:
-      var(--text);
+      var(--st-shell-text);
 
     background: transparent;
 
@@ -434,7 +434,7 @@ onBeforeUnmount(() => {
 
   .app-sidebar__close:hover {
     background:
-      var(--surface-secondary);
+      var(--st-shell-hover);
   }
 
   .app-sidebar__nav {

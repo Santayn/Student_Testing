@@ -45,10 +45,10 @@ body {
   margin: 0;
 
   background:
-    var(--bg);
+    var(--st-page-bg);
 
   color:
-    var(--text);
+    var(--st-text);
 }
 
 #app {
@@ -66,6 +66,9 @@ body {
 
   display: flex;
   flex-direction: column;
+
+  color: var(--st-text);
+  background: var(--st-page-bg);
 }
 
 .app-body {
@@ -89,6 +92,9 @@ body {
   min-width: 0;
   width: 100%;
   flex: 1;
+
+  color: var(--st-text);
+  background: transparent;
 }
 
 @media (max-width: 960px) {

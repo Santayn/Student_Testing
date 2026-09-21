@@ -63,13 +63,13 @@ const homeRoute = computed(() => {
   margin-top: auto;
 
   color:
-    var(--text-secondary);
+    var(--st-shell-muted);
 
   background:
-    var(--surface);
+    var(--st-shell-bg);
 
   border-top: 1px solid
-    var(--border);
+    var(--st-shell-border);
 }
 
 .app-footer__inner {
@@ -109,7 +109,7 @@ const homeRoute = computed(() => {
 .app-footer__link:hover,
 .app-footer__link.router-link-active {
   color:
-    var(--text);
+    var(--st-shell-text);
 }
 
 @media (max-width: 520px) {

@@ -47,14 +47,16 @@ defineProps({
 
 <style>
 .admin-page {
+  color: var(--st-text);
+
   display: grid;
   gap: 18px;
 }
 
 .admin-page-header {
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  color: var(--st-text);
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
   border-radius: 14px;
 }
 
@@ -74,7 +76,7 @@ defineProps({
 .admin-page-header__eyebrow {
   margin: 0 0 6px;
 
-  color: var(--brand);
+  color: var(--st-primary);
 
   font-size: 12px;
   font-weight: 800;
@@ -94,7 +96,7 @@ defineProps({
 
   margin: 8px 0 0;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 14px;
   line-height: 1.55;
@@ -133,7 +135,7 @@ defineProps({
 .admin-card__header p {
   margin-top: 5px;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 13px;
   line-height: 1.5;
@@ -179,7 +181,7 @@ defineProps({
 
 .admin-field > span,
 .admin-field > label {
-  color: var(--text);
+  color: var(--st-text);
 
   font-size: 13px;
   font-weight: 700;
@@ -227,19 +229,19 @@ defineProps({
   display: grid;
   gap: 3px;
 
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
   border-radius: 9px;
 }
 
 .admin-stat__label {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 12px;
 }
 
 .admin-stat__value {
-  color: var(--text);
+  color: var(--st-text);
 
   font-size: 20px;
   font-weight: 800;
@@ -247,7 +249,7 @@ defineProps({
 
 
 .admin-muted {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 }
 
 
@@ -269,9 +271,9 @@ defineProps({
 .admin-chip {
   padding: 5px 8px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
   border-radius: 999px;
 
   font-size: 12px;
@@ -281,7 +283,7 @@ defineProps({
   height: 1px;
   margin: 4px 0;
 
-  background: var(--border);
+  background: var(--st-border);
 }
 
 @media (max-width: 820px) {

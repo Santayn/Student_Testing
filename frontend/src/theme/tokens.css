@@ -34,6 +34,7 @@ html[data-theme='light'] {
   --st-text: #0f172a;
   --st-text-secondary: #64748b;
   --st-text-muted: #94a3b8;
+  --st-overlay-backdrop: rgb(15 23 42 / 46%);
 
   /* Semantic */
   --st-success: #16a34a;
@@ -77,37 +78,39 @@ html[data-theme='light'] {
 }
 
 html[data-theme='dark'] {
-  --st-primary: #3b82f6;
-  --st-primary-hover: #60a5fa;
-  --st-primary-soft: #172554;
-  --st-primary-soft-text: #bfdbfe;
+  /* OLED-friendly dark palette: near-black surfaces, softened text and accents. */
+  --st-primary: #4a78cf;
+  --st-primary-hover: #5b86d6;
+  --st-primary-soft: #172238;
+  --st-primary-soft-text: #b8c9e8;
 
-  --st-shell-bg: #0b1120;
-  --st-shell-elevated: #111827;
-  --st-shell-text: #f8fafc;
-  --st-shell-muted: #94a3b8;
-  --st-shell-border: #243044;
-  --st-shell-hover: #111827;
-  --st-shell-active: var(--st-shell-hover);
+  --st-shell-bg: #080a0d;
+  --st-shell-elevated: #0f1217;
+  --st-shell-text: #d7dbe0;
+  --st-shell-muted: #8e97a3;
+  --st-shell-border: #242a33;
+  --st-shell-hover: #151a20;
+  --st-shell-active: #1a2028;
 
-  --st-page-bg: #0b1120;
-  --st-surface: #111827;
-  --st-surface-muted: #1e293b;
-  --st-border: #334155;
-  --st-text: #f8fafc;
-  --st-text-secondary: #94a3b8;
-  --st-text-muted: #64748b;
+  --st-page-bg: #0b0d10;
+  --st-surface: #111419;
+  --st-surface-muted: #181c22;
+  --st-border: #2a3038;
+  --st-text: #d7dbe0;
+  --st-text-secondary: #aab1bb;
+  --st-text-muted: #78818d;
+  --st-overlay-backdrop: rgb(0 0 0 / 68%);
 
-  --st-success: #22c55e;
-  --st-success-soft: #052e16;
-  --st-warning: #f59e0b;
-  --st-warning-soft: #451a03;
-  --st-danger: #ef4444;
-  --st-danger-soft: #450a0a;
-  --st-info: #38bdf8;
-  --st-info-soft: #082f49;
+  --st-success: #4fa56f;
+  --st-success-soft: #102319;
+  --st-warning: #c39a52;
+  --st-warning-soft: #2a2113;
+  --st-danger: #c86565;
+  --st-danger-soft: #2a1718;
+  --st-info: #5a9bc2;
+  --st-info-soft: #102430;
 
-  --st-focus-shadow: 0 0 0 3px rgb(59 130 246 / 18%);
-  --st-shadow-card: 0 1px 2px rgb(0 0 0 / 26%);
-  --st-shadow-elevated: 0 12px 32px rgb(0 0 0 / 34%);
+  --st-focus-shadow: 0 0 0 3px rgb(74 120 207 / 22%);
+  --st-shadow-card: 0 1px 2px rgb(0 0 0 / 30%);
+  --st-shadow-elevated: 0 12px 32px rgb(0 0 0 / 42%);
 }

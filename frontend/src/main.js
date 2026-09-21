@@ -47,7 +47,7 @@ async function bootstrap() {
 
       options: {
         darkModeSelector:
-          "html[data-theme='dark']",
+          '.app-dark',
 
         cssLayer: {
           name: 'primevue',

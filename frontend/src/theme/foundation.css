@@ -546,6 +546,49 @@
     text-align: center;
   }
 
+  /*
+   * Dialog colors. PrimeVue portals the mask/dialog near <body>, so these
+   * rules must be global and use the same Student Testing theme tokens as
+   * the rest of the workspace.
+   */
+  .p-dialog-mask {
+    background: var(--st-overlay-backdrop);
+  }
+
+  .p-dialog {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .p-dialog .p-dialog-header,
+  .p-dialog .p-dialog-content,
+  .p-dialog .p-dialog-footer {
+    color: var(--st-text);
+    background: var(--st-surface);
+  }
+
+  .p-dialog .p-dialog-title {
+    color: var(--st-text);
+  }
+
+  .p-dialog .p-dialog-close-button {
+    color: var(--st-text-secondary);
+    background: transparent;
+  }
+
+  .p-dialog .p-dialog-close-button:not(:disabled):hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .p-dialog .p-dialog-close-button:focus-visible {
+    color: var(--st-primary);
+    outline: none;
+    box-shadow: var(--st-focus-shadow);
+  }
+
   .st-ui-dialog.p-dialog {
     overflow: hidden;
     border: 1px solid var(--st-border);

@@ -55,6 +55,7 @@ defineProps({
 
 <style scoped>
 .tests-page {
+  color: var(--st-text);
   width: min(1180px, 100%);
 
   margin: 0 auto;
@@ -76,10 +77,10 @@ defineProps({
   justify-content: space-between;
   gap: 18px;
 
-  color: var(--text);
-  background: var(--surface);
+  color: var(--st-text);
+  background: var(--st-surface);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 14px;
 }
 
@@ -107,7 +108,7 @@ defineProps({
 .tests-page__subtitle {
   max-width: 780px;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 14px;
   line-height: 1.55;

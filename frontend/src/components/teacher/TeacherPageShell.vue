@@ -42,6 +42,7 @@ defineProps({
 
 <style>
 .teacher-page {
+  color: var(--st-text);
   width: 100%;
   min-width: 0;
 
@@ -57,10 +58,10 @@ defineProps({
   justify-content: space-between;
   gap: 18px;
 
-  color: var(--text);
-  background: var(--surface);
+  color: var(--st-text);
+  background: var(--st-surface);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 14px;
 }
 
@@ -82,7 +83,7 @@ defineProps({
 
   max-width: 820px;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 13px;
   line-height: 1.55;
@@ -146,15 +147,15 @@ defineProps({
   display: grid;
   gap: 4px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 10px;
 }
 
 .teacher-stat__label {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 11px;
   font-weight: 700;
@@ -168,7 +169,7 @@ defineProps({
 }
 
 .teacher-muted {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 12px;
   line-height: 1.5;
@@ -185,10 +186,10 @@ defineProps({
   display: grid;
   gap: 8px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 9px;
 }
 
@@ -211,7 +212,7 @@ defineProps({
   flex-wrap: wrap;
   gap: 7px;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 11px;
 }
@@ -220,10 +221,10 @@ defineProps({
   width: fit-content;
   padding: 3px 7px;
 
-  color: var(--text-secondary);
-  background: var(--surface-secondary);
+  color: var(--st-text-secondary);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 999px;
 
   font-size: 11px;
@@ -231,21 +232,21 @@ defineProps({
 }
 
 .teacher-status--success {
-  color: var(--success);
-  background: var(--success-soft);
-  border-color: var(--success);
+  color: var(--st-success);
+  background: var(--st-success-soft);
+  border-color: var(--st-success);
 }
 
 .teacher-status--warning {
-  color: var(--warning);
-  background: var(--warning-soft);
-  border-color: var(--warning-border);
+  color: var(--st-warning);
+  background: var(--st-warning-soft);
+  border-color: var(--st-warning);
 }
 
 .teacher-status--danger {
-  color: var(--danger);
-  background: var(--danger-soft);
-  border-color: var(--danger-border);
+  color: var(--st-danger);
+  background: var(--st-danger-soft);
+  border-color: var(--st-danger);
 }
 
 .teacher-selection-grid {
@@ -267,7 +268,7 @@ defineProps({
 
 .teacher-divider {
   height: 1px;
-  background: var(--border);
+  background: var(--st-border);
 }
 
 .teacher-field-label {
@@ -275,7 +276,7 @@ defineProps({
 
   display: block;
 
-  color: var(--text);
+  color: var(--st-text);
 
   font-size: 13px;
   font-weight: 700;
@@ -294,10 +295,10 @@ defineProps({
   justify-content: space-between;
   gap: 10px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 8px;
 }
 
@@ -307,8 +308,8 @@ defineProps({
   display: grid;
   gap: 12px;
 
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
   border-radius: 10px;
 }
 
