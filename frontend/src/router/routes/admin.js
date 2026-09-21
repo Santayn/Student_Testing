@@ -92,4 +92,16 @@ export const adminRoutes = [
 
     meta: adminMeta,
   },
+
+  {
+    path: '/admin/database-backups',
+    name: 'admin-database-backups',
+
+    component: () =>
+      import(
+        '@/views/admin/DatabaseBackupsView.vue'
+      ),
+
+    meta: adminMeta,
+  },
 ]

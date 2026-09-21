@@ -68,6 +68,10 @@ const adminItems = [
     label: 'Преподавательская нагрузка',
     route: { name: 'admin-teaching' },
   },
+  {
+    label: 'Резервные копии',
+    route: { name: 'admin-database-backups' },
+  },
 ]
 
 const sections = computed(() => {

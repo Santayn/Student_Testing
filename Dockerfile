@@ -11,7 +11,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system studenttest \
     && useradd --system --gid studenttest --home-dir /app --shell /usr/sbin/nologin studenttest \
