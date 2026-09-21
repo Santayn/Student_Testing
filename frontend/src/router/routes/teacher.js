@@ -49,7 +49,7 @@ export const teacherRoutes = [
       ),
 
     meta: navigationMeta(
-      NAV_KEYS.TEACHER_TEST_CREATE,
+      NAV_KEYS.TEACHER_QUESTIONS,
       'teacher-test-create'
     ),
   },

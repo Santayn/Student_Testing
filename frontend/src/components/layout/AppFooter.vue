@@ -1,30 +1,5 @@
 <script setup>
-import {
-  computed,
-} from 'vue'
-
-import {
-  useAuthStore,
-} from '@/stores/auth'
-
-import {
-  hasWorkspaceAccess,
-} from '@/utils/accountAccess'
-
 const currentYear = new Date().getFullYear()
-const authStore = useAuthStore()
-
-const homeRoute = computed(() => {
-  if (!authStore.isAuthenticated) {
-    return {
-      name: 'login',
-    }
-  }
-
-  return hasWorkspaceAccess(authStore)
-    ? { name: 'home' }
-    : { name: 'account-pending' }
-})
 </script>
 
 <template>
@@ -36,15 +11,8 @@ const homeRoute = computed(() => {
 
       <nav
         class="app-footer__nav"
-        aria-label="Навигация в подвале"
+        aria-label="Служебные ссылки"
       >
-        <RouterLink
-          class="app-footer__link"
-          :to="homeRoute"
-        >
-          Главная
-        </RouterLink>
-
         <RouterLink
           class="app-footer__link"
           :to="{ name: 'about' }"
@@ -110,6 +78,13 @@ const homeRoute = computed(() => {
 .app-footer__link.router-link-active {
   color:
     var(--st-shell-text);
+}
+
+.app-footer__link:focus-visible {
+  outline: 2px solid
+    var(--st-focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 @media (max-width: 520px) {

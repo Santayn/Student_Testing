@@ -17,9 +17,22 @@ vi.mock('vue-router', () => ({
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 
-function mountBreadcrumb() {
+import {
+  BREADCRUMB_CONTEXT_KEY,
+  createBreadcrumbContextStore,
+} from '@/navigation'
+
+function mountBreadcrumb(breadcrumbContext = null) {
   return mount(AppBreadcrumb, {
     global: {
+      ...(breadcrumbContext
+        ? {
+            provide: {
+              [BREADCRUMB_CONTEXT_KEY]:
+                breadcrumbContext,
+            },
+          }
+        : {}),
       stubs: {
         RouterLink: {
           name: 'RouterLink',
@@ -133,4 +146,95 @@ describe('AppBreadcrumb', () => {
       'Тест #17',
     ])
   })
+
+  it('uses loaded entity names from the shared breadcrumb context', () => {
+    currentRoute = {
+      name: 'lecture-details',
+      params: {
+        lectureId: '9',
+      },
+      query: {
+        subjectId: '42',
+      },
+      meta: {
+        breadcrumbKey:
+          'lecture-details',
+      },
+    }
+
+    const breadcrumbContext =
+      createBreadcrumbContextStore()
+
+    breadcrumbContext.remember({
+      subjectId: 42,
+      subjectName: 'Программирование',
+      lectureId: 9,
+      lectureTitle: 'ООП',
+    })
+
+    const wrapper = mountBreadcrumb(
+      breadcrumbContext
+    )
+
+    expect(
+      wrapper
+        .findAll('.app-breadcrumb__item')
+        .map((item) => item.text())
+    ).toEqual([
+      'Предметы',
+      'Программирование',
+      'Лекции',
+      'ООП',
+    ])
+  })
+
+  it('keeps remembered parent names when the test page adds its own title', () => {
+    currentRoute = {
+      name: 'test',
+      params: {
+        testId: '17',
+      },
+      query: {
+        subjectId: '42',
+        lectureId: '9',
+      },
+      meta: {
+        breadcrumbKey: 'test',
+      },
+    }
+
+    const breadcrumbContext =
+      createBreadcrumbContextStore()
+
+    breadcrumbContext.remember({
+      subjectId: 42,
+      subjectName: 'Программирование',
+      lectureId: 9,
+      lectureTitle: 'ООП',
+    })
+
+    breadcrumbContext.remember({
+      subjectId: 42,
+      lectureId: 9,
+      testId: 17,
+      testTitle: 'Наследование',
+    })
+
+    const wrapper = mountBreadcrumb(
+      breadcrumbContext
+    )
+
+    expect(
+      wrapper
+        .findAll('.app-breadcrumb__item')
+        .map((item) => item.text())
+    ).toEqual([
+      'Предметы',
+      'Программирование',
+      'Лекции',
+      'ООП',
+      'Наследование',
+    ])
+  })
+
 })

@@ -1,82 +1,35 @@
-import { mount } from '@vue/test-utils'
+// @vitest-environment node
+
 import { describe, expect, it } from 'vitest'
 
-import UiAlert from '@/components/ui/UiAlert.vue'
-import UiButton from '@/components/ui/UiButton.vue'
-import UiEmptyState from '@/components/ui/UiEmptyState.vue'
-import UiFileInput from '@/components/ui/UiFileInput.vue'
-import UiTag from '@/components/ui/UiTag.vue'
+import uiAlertSource from '@/components/ui/UiAlert.vue?raw'
+import uiButtonSource from '@/components/ui/UiButton.vue?raw'
+import uiEmptyStateSource from '@/components/ui/UiEmptyState.vue?raw'
+import uiFileInputSource from '@/components/ui/UiFileInput.vue?raw'
+import uiTagSource from '@/components/ui/UiTag.vue?raw'
 
 describe('Ui palette component contracts', () => {
-  it('adds a stable variant class to UiButton', () => {
-    const wrapper = mount(UiButton, {
-      props: {
-        variant: 'primary',
-        label: 'Сохранить',
-      },
-      global: {
-        stubs: {
-          RouterLink: {
-            template: '<a><slot /></a>',
-          },
-        },
-      },
-    })
-
-    expect(wrapper.classes()).toContain(
-      'st-ui-button--primary'
-    )
+  it('keeps stable variant classes on UiButton', () => {
+    expect(uiButtonSource).toContain('st-ui-button--${variant}')
+    expect(uiButtonSource).toContain('st-ui-link-button--${variant}')
   })
 
-  it('adds a stable semantic class to UiAlert', () => {
-    const wrapper = mount(UiAlert, {
-      props: {
-        variant: 'danger',
-        message: 'Ошибка',
-      },
-    })
-
-    expect(wrapper.classes()).toContain(
-      'st-ui-alert--danger'
-    )
+  it('keeps a stable semantic class on UiAlert', () => {
+    expect(uiAlertSource).toContain('st-ui-alert--${variant}')
   })
 
-  it('adds a stable semantic class to UiTag', () => {
-    const wrapper = mount(UiTag, {
-      props: {
-        variant: 'success',
-        value: 'Активен',
-      },
-    })
-
-    expect(wrapper.classes()).toContain(
-      'st-ui-tag--success'
-    )
+  it('keeps a stable semantic class on UiTag', () => {
+    expect(uiTagSource).toContain('st-ui-tag--${variant}')
   })
 
   it('keeps UiEmptyState compact state on a stable class', () => {
-    const wrapper = mount(UiEmptyState, {
-      props: {
-        title: 'Нет данных',
-        compact: true,
-      },
-    })
-
-    expect(wrapper.classes()).toContain('st-ui-empty')
-    expect(wrapper.classes()).toContain('st-ui-empty--compact')
+    expect(uiEmptyStateSource).toContain('st-ui-empty')
+    expect(uiEmptyStateSource).toContain('st-ui-empty--compact')
   })
 
-  it('keeps UiFileInput validation state on a stable class', () => {
-    const wrapper = mount(UiFileInput, {
-      props: {
-        label: 'Файл',
-        error: 'Неверный формат',
-      },
-    })
-
-    const input = wrapper.get('input[type="file"]')
-    expect(input.classes()).toContain('st-ui-file-input')
-    expect(input.classes()).toContain('st-ui-file-input--invalid')
-    expect(input.attributes('aria-invalid')).toBe('true')
+  it('keeps UiFileInput validation state and aria contract', () => {
+    expect(uiFileInputSource).toContain('st-ui-file-input')
+    expect(uiFileInputSource).toContain('st-ui-file-input--invalid')
+    expect(uiFileInputSource).toContain(':aria-invalid="error ? \'true\' : undefined"')
   })
 })

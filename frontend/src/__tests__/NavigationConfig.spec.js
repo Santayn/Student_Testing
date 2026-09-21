@@ -41,7 +41,6 @@ describe('workspace navigation config', () => {
     expect(
       sections.map((section) => section.key)
     ).toEqual([
-      'main',
       'learning',
       'account',
     ])
@@ -91,6 +90,73 @@ describe('workspace navigation config', () => {
     expect(
       adminSubjects?.label
     ).toBe('Доступные предметы')
+  })
+
+
+  it('keeps sidebar destinations stable and command-free', () => {
+    for (const role of [
+      'STUDENT',
+      'TEACHER',
+      'ADMIN',
+    ]) {
+      const sections =
+        getWorkspaceNavigation(role)
+
+      const keys = sections.flatMap(
+        (section) =>
+          section.items.map(
+            (item) => item.key
+          )
+      )
+
+      expect(keys).not.toContain(
+        NAV_KEYS.TEACHER_TEST_CREATE
+      )
+
+      expect(new Set(keys).size).toBe(
+        keys.length
+      )
+
+      expect(keys).toContain(
+        NAV_KEYS.HOME
+      )
+
+      expect(keys).toContain(
+        NAV_KEYS.PROFILE
+      )
+    }
+  })
+
+  it('uses the same section vocabulary for teacher and admin responsibilities', () => {
+    const teacherSections =
+      getWorkspaceNavigation('TEACHER')
+
+    const adminSections =
+      getWorkspaceNavigation('ADMIN')
+
+    expect(
+      teacherSections.map(
+        (section) => section.label
+      )
+    ).toEqual([
+      'Обучение',
+      'Учебный контент',
+      'Нагрузка',
+      'Аккаунт',
+    ])
+
+    expect(
+      adminSections.map(
+        (section) => section.label
+      )
+    ).toEqual([
+      'Обзор',
+      'Академическая структура',
+      'Назначения и нагрузка',
+      'Учебный контент',
+      'Управление доступом',
+      'Аккаунт',
+    ])
   })
 
   it('references only existing workspace routes', () => {
@@ -159,6 +225,22 @@ describe('route navigation metadata', () => {
         route?.meta.breadcrumbKey
       ).toBe(routeName)
     }
+  })
+
+  it('treats test creation as a contextual action under questions', () => {
+    const route = teacherRoutes.find(
+      (candidate) =>
+        candidate.name ===
+        'teacher-test-create'
+    )
+
+    expect(route?.meta.navKey).toBe(
+      NAV_KEYS.TEACHER_QUESTIONS
+    )
+
+    expect(route?.meta.breadcrumbKey).toBe(
+      'teacher-test-create'
+    )
   })
 
   it('exposes active nav key through a single helper', () => {

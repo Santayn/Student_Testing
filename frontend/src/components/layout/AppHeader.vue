@@ -28,12 +28,6 @@ const authenticatedHomeRoute = computed(() => {
     : { name: 'account-pending' }
 })
 
-const authenticatedProfileRoute = computed(() => {
-  return accountReady.value
-    ? { name: 'profile' }
-    : { name: 'account-pending' }
-})
-
 const userLabel = computed(() => {
   if (authStore.fullName) {
     return authStore.fullName
@@ -165,71 +159,36 @@ onBeforeUnmount(() => {
         <button
           class="mobile-menu-button"
           type="button"
-          aria-label="Открыть меню"
-          aria-controls="mobile-navigation"
+          :aria-label="
+            authStore.isAuthenticated
+              ? 'Открыть меню аккаунта'
+              : 'Открыть меню'
+          "
+          aria-controls="mobile-account-menu"
           :aria-expanded="mobileMenuOpen"
           @click="toggleMobileMenu"
         >
-          <span
-            class="mobile-menu-button__line"
-            :class="{
-              'mobile-menu-button__line--top-open':
-                mobileMenuOpen,
-            }"
-          />
-
-          <span
-            class="mobile-menu-button__line"
-            :class="{
-              'mobile-menu-button__line--middle-open':
-                mobileMenuOpen,
-            }"
-          />
-
-          <span
-            class="mobile-menu-button__line"
-            :class="{
-              'mobile-menu-button__line--bottom-open':
-                mobileMenuOpen,
-            }"
+          <i
+            class="mobile-menu-button__icon pi"
+            :class="
+              mobileMenuOpen
+                ? 'pi-times'
+                : authStore.isAuthenticated
+                  ? 'pi-user'
+                  : 'pi-bars'
+            "
+            aria-hidden="true"
           />
         </button>
       </div>
 
       <div
-        id="mobile-navigation"
+        id="mobile-account-menu"
         class="app-header__content"
         :class="{
           'app-header__content--open': mobileMenuOpen,
         }"
       >
-        <nav
-          v-if="authStore.isAuthenticated && accountReady"
-          class="app-header__nav"
-          aria-label="Основная навигация"
-        >
-          <RouterLink
-            class="app-header__nav-link"
-            :to="authenticatedHomeRoute"
-          >
-            Главная
-          </RouterLink>
-
-          <RouterLink
-            class="app-header__nav-link"
-            :to="{ name: 'subjects' }"
-          >
-            Предметы
-          </RouterLink>
-
-          <RouterLink
-            class="app-header__nav-link"
-            :to="{ name: 'results' }"
-          >
-            Результаты
-          </RouterLink>
-        </nav>
-
         <div class="app-header__actions">
           <label
             v-if="
@@ -274,10 +233,9 @@ onBeforeUnmount(() => {
           </button>
 
           <template v-if="authStore.isAuthenticated">
-            <RouterLink
+            <div
               class="user-badge"
-              :to="authenticatedProfileRoute"
-              title="Открыть профиль"
+              aria-label="Текущий пользователь"
             >
               <span class="user-badge__name">
                 {{ userLabel }}
@@ -289,7 +247,7 @@ onBeforeUnmount(() => {
               >
                 {{ roleLabel }}
               </span>
-            </RouterLink>
+            </div>
 
             <button
               class="app-header__button"
@@ -303,7 +261,7 @@ onBeforeUnmount(() => {
 
           <template v-else>
             <RouterLink
-              class="app-header__nav-link app-header__login-link"
+              class="app-header__login-link"
               :to="{ name: 'login' }"
             >
               Войти
@@ -377,19 +335,11 @@ onBeforeUnmount(() => {
   gap: 24px;
 }
 
-.app-header__nav,
-.app-header__actions {
-  display: flex;
-  align-items: center;
-}
-
-.app-header__nav {
-  gap: 6px;
-}
-
 .app-header__actions {
   margin-left: auto;
 
+  display: flex;
+  align-items: center;
   gap: 10px;
   flex-shrink: 0;
 }
@@ -429,7 +379,8 @@ onBeforeUnmount(() => {
   background: var(--st-shell-elevated);
 }
 
-.app-header__nav-link {
+.app-header__login-link {
+  margin-left: 2px;
   padding: 8px 10px;
 
   color:
@@ -445,17 +396,13 @@ onBeforeUnmount(() => {
     color 0.15s ease;
 }
 
-.app-header__nav-link:hover,
-.app-header__nav-link.router-link-active {
+.app-header__login-link:hover,
+.app-header__login-link:focus-visible {
   color:
     var(--st-shell-text);
 
   background:
     var(--st-shell-hover);
-}
-
-.app-header__login-link {
-  margin-left: 2px;
 }
 
 .theme-toggle {
@@ -511,15 +458,6 @@ onBeforeUnmount(() => {
   color: inherit;
 
   border-radius: 8px;
-
-  text-decoration: none;
-
-  transition: background-color 0.15s ease;
-}
-
-.user-badge:hover {
-  background:
-    var(--st-shell-hover);
 }
 
 .user-badge__name,
@@ -623,31 +561,9 @@ onBeforeUnmount(() => {
     var(--st-shell-hover);
 }
 
-.mobile-menu-button__line {
-  width: 22px;
-  height: 2px;
-
-  display: block;
-
-  background: currentColor;
-
-  border-radius: 999px;
-
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease;
-}
-
-.mobile-menu-button__line--top-open {
-  transform: translateY(7px) rotate(45deg);
-}
-
-.mobile-menu-button__line--middle-open {
-  opacity: 0;
-}
-
-.mobile-menu-button__line--bottom-open {
-  transform: translateY(-7px) rotate(-45deg);
+.mobile-menu-button__icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 /*
@@ -696,20 +612,9 @@ onBeforeUnmount(() => {
     opacity: 1;
   }
 
-  .app-header__nav {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .app-header__nav-link {
-    width: 100%;
-    padding: 10px 12px;
-  }
-
   /*
-   * На мобильном правый desktop-блок превращается
-   * в отдельный нижний блок меню.
+   * На мобильном Header раскрывает только глобальные
+   * настройки аккаунта. Навигация остаётся в Sidebar.
    */
   .app-header__actions {
     margin-left: 0;
@@ -763,9 +668,16 @@ onBeforeUnmount(() => {
       var(--st-shell-hover);
   }
 
+  .app-header__login-link,
   .app-header__button {
     width: 100%;
     min-height: 40px;
+  }
+
+  .app-header__login-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

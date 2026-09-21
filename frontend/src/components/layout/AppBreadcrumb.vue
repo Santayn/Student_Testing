@@ -8,12 +8,20 @@ import {
 
 import {
   resolveBreadcrumbs,
+  useBreadcrumbContextStore,
 } from '@/navigation'
 
 const route = useRoute()
 
+const breadcrumbContext =
+  useBreadcrumbContextStore()
+
 const crumbs = computed(() => {
-  return resolveBreadcrumbs(route)
+  return resolveBreadcrumbs(
+    route,
+    breadcrumbContext
+      ?.contextForRoute(route) ?? {}
+  )
 })
 
 const visible = computed(() => {

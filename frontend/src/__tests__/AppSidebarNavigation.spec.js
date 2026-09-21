@@ -8,12 +8,14 @@ import {
 import {
   defineComponent,
   h,
+  nextTick,
 } from 'vue'
 import {
   mount,
 } from '@vue/test-utils'
 
 import AppSidebar from '@/components/layout/AppSidebar.vue'
+import appSidebarSource from '@/components/layout/AppSidebar.vue?raw'
 import {
   NAV_KEYS,
 } from '@/navigation/navigation.config'
@@ -64,6 +66,7 @@ const RouterLinkStub = defineComponent({
 
 function mountSidebar() {
   return mount(AppSidebar, {
+    attachTo: document.body,
     global: {
       stubs: {
         RouterLink: RouterLinkStub,
@@ -122,10 +125,38 @@ describe('AppSidebar workspace navigation', () => {
       .findAll('.app-sidebar__link')
       .map((link) => link.text())
 
-    expect(labels).toContain('Мои предметы')
-    expect(labels).toContain('Вопросы')
-    expect(labels).toContain('Создать тест')
+    expect(labels).toEqual([
+      'Главная',
+      'Мои предметы',
+      'Результаты',
+      'Темы предмета',
+      'Вопросы',
+      'Лекции',
+      'Шаблоны курса',
+      'Персональная нагрузка',
+      'Профиль',
+    ])
+
+    expect(labels).not.toContain('Создать тест')
     expect(labels).not.toContain('Факультеты')
+
+    wrapper.unmount()
+  })
+
+  it('keeps questions active while test creation is open', () => {
+    mockState.authStore.workspaceRole = 'TEACHER'
+    mockState.route.fullPath = '/teacher/tests/create'
+    mockState.route.meta.navKey =
+      NAV_KEYS.TEACHER_QUESTIONS
+
+    const wrapper = mountSidebar()
+
+    const active = wrapper.find(
+      '.app-sidebar__link--active'
+    )
+
+    expect(active.exists()).toBe(true)
+    expect(active.text()).toBe('Вопросы')
 
     wrapper.unmount()
   })
@@ -142,10 +173,152 @@ describe('AppSidebar workspace navigation', () => {
       .findAll('.app-sidebar__link')
       .map((link) => link.text())
 
-    expect(labels).toContain('Факультеты')
-    expect(labels).toContain('Шаблоны нагрузки')
-    expect(labels).toContain('Роли пользователей')
+    expect(labels).toEqual([
+      'Главная',
+      'Результаты',
+      'Факультеты',
+      'Группы',
+      'Справочник предметов',
+      'Предметы факультетов',
+      'Преподаватели и предметы',
+      'Шаблоны нагрузки',
+      'Доступные предметы',
+      'Темы предмета',
+      'Вопросы',
+      'Лекции',
+      'Шаблоны курса',
+      'Роли пользователей',
+      'Профиль',
+    ])
+
+    expect(labels).not.toContain('Создать тест')
 
     wrapper.unmount()
   })
+
+  it('opens and closes the mobile drawer without leaving the page scroll locked', async () => {
+    const wrapper = mountSidebar()
+    const toggle = wrapper.find(
+      '.sidebar-mobile-toggle'
+    )
+
+    await toggle.trigger('click')
+    await nextTick()
+
+    expect(
+      wrapper.find('.app-sidebar').classes()
+    ).toContain('app-sidebar--open')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(
+      document.body.classList.contains(
+        'sidebar-mobile-open'
+      )
+    ).toBe(true)
+    expect(
+      document.activeElement
+    ).toBe(
+      wrapper.find(
+        '.app-sidebar__close'
+      ).element
+    )
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+      })
+    )
+    await nextTick()
+
+    expect(
+      wrapper.find('.app-sidebar').classes()
+    ).not.toContain('app-sidebar--open')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(
+      document.body.classList.contains(
+        'sidebar-mobile-open'
+      )
+    ).toBe(false)
+    expect(document.activeElement).toBe(
+      toggle.element
+    )
+
+    wrapper.unmount()
+  })
+
+  it('closes the drawer immediately after choosing a destination', async () => {
+    const wrapper = mountSidebar()
+
+    await wrapper
+      .find('.sidebar-mobile-toggle')
+      .trigger('click')
+
+    await wrapper
+      .find('.app-sidebar__link')
+      .trigger('click')
+
+    expect(
+      wrapper.find('.app-sidebar').classes()
+    ).not.toContain('app-sidebar--open')
+    expect(
+      document.body.classList.contains(
+        'sidebar-mobile-open'
+      )
+    ).toBe(false)
+    expect(document.activeElement).toBe(
+      wrapper.find(
+        '.sidebar-mobile-toggle'
+      ).element
+    )
+
+    wrapper.unmount()
+  })
+
+
+  it('keeps the closed mobile drawer non-interactive until it opens', () => {
+    expect(appSidebarSource).toContain(
+      'visibility: hidden;'
+    )
+    expect(appSidebarSource).toContain(
+      'pointer-events: none;'
+    )
+    expect(appSidebarSource).toContain(
+      '.app-sidebar--open'
+    )
+    expect(appSidebarSource).toContain(
+      'visibility: visible;'
+    )
+  })
+
+  it('keeps keyboard focus inside an open mobile drawer', async () => {
+    const wrapper = mountSidebar()
+
+    await wrapper
+      .find('.sidebar-mobile-toggle')
+      .trigger('click')
+
+    const links = wrapper.findAll(
+      '.app-sidebar__link'
+    )
+    const lastLink = links[links.length - 1]
+
+    lastLink.element.focus()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Tab',
+        bubbles: true,
+        cancelable: true,
+      })
+    )
+    await nextTick()
+
+    expect(document.activeElement).toBe(
+      wrapper.find(
+        '.app-sidebar__close'
+      ).element
+    )
+
+    wrapper.unmount()
+  })
+
 })

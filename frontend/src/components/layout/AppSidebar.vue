@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -18,6 +19,11 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const mobileOpen = ref(false)
+const mobileToggleRef = ref(null)
+const sidebarRef = ref(null)
+const closeButtonRef = ref(null)
+
+let mobileMediaQuery = null
 
 const sections = computed(() => {
   return getWorkspaceNavigation(
@@ -27,6 +33,21 @@ const sections = computed(() => {
 
 const activeKey = computed(() => {
   return getActiveNavigationKey(route)
+})
+
+const activeItemLabel = computed(() => {
+  for (const section of sections.value) {
+    const item = section.items.find(
+      (candidate) =>
+        candidate.key === activeKey.value
+    )
+
+    if (item) {
+      return item.label
+    }
+  }
+
+  return ''
 })
 
 const visible = computed(() => {
@@ -39,28 +60,136 @@ function isActive(item) {
   return item.key === activeKey.value
 }
 
-function openMobile() {
-  mobileOpen.value = true
+function focusActiveItem() {
+  const sidebar = sidebarRef.value
+
+  if (!sidebar) {
+    return
+  }
+
+  const activeLink = sidebar.querySelector(
+    '.app-sidebar__link--active'
+  )
+
+  activeLink?.scrollIntoView?.({
+    block: 'nearest',
+  })
 }
 
-function closeMobile() {
+async function openMobile() {
+  if (mobileOpen.value) {
+    return
+  }
+
+  mobileOpen.value = true
+
+  await nextTick()
+
+  focusActiveItem()
+  closeButtonRef.value?.focus()
+}
+
+async function closeMobile(
+  restoreFocus = false
+) {
+  const wasOpen = mobileOpen.value
+
   mobileOpen.value = false
+
+  if (restoreFocus && wasOpen) {
+    await nextTick()
+    mobileToggleRef.value?.focus()
+  }
 }
 
 function toggleMobile() {
-  mobileOpen.value = !mobileOpen.value
+  if (mobileOpen.value) {
+    closeMobile(true)
+    return
+  }
+
+  openMobile()
+}
+
+function drawerFocusableElements() {
+  const sidebar = sidebarRef.value
+
+  if (!sidebar) {
+    return []
+  }
+
+  return [
+    ...sidebar.querySelectorAll(
+      '.app-sidebar__close, .app-sidebar__link'
+    ),
+  ].filter(
+    (element) =>
+      !element.hasAttribute('disabled') &&
+      element.getAttribute('tabindex') !== '-1'
+  )
+}
+
+function keepFocusInsideDrawer(event) {
+  if (
+    event.key !== 'Tab' ||
+    !mobileOpen.value
+  ) {
+    return
+  }
+
+  const focusable = drawerFocusableElements()
+
+  if (!focusable.length) {
+    return
+  }
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const active = document.activeElement
+
+  if (
+    event.shiftKey &&
+    active === first
+  ) {
+    event.preventDefault()
+    last.focus()
+    return
+  }
+
+  if (
+    !event.shiftKey &&
+    active === last
+  ) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 
 function handleKeydown(event) {
-  if (event.key === 'Escape') {
-    closeMobile()
+  if (
+    event.key === 'Escape' &&
+    mobileOpen.value
+  ) {
+    event.preventDefault()
+    closeMobile(true)
+    return
+  }
+
+  keepFocusInsideDrawer(event)
+}
+
+function handleViewportChange(event) {
+  if (!event.matches) {
+    closeMobile(false)
   }
 }
 
 watch(
   () => route.fullPath,
-  () => {
-    closeMobile()
+  async () => {
+    await closeMobile(false)
+    await nextTick()
+    focusActiveItem()
   }
 )
 
@@ -75,12 +204,41 @@ watch(mobileOpen, (open) => {
   )
 })
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
+
+  mobileMediaQuery = window.matchMedia?.(
+    '(max-width: 960px)'
+  ) ?? null
+
+  if (mobileMediaQuery?.addEventListener) {
+    mobileMediaQuery.addEventListener(
+      'change',
+      handleViewportChange
+    )
+  } else {
+    mobileMediaQuery?.addListener?.(
+      handleViewportChange
+    )
+  }
+
+  await nextTick()
+  focusActiveItem()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+
+  if (mobileMediaQuery?.removeEventListener) {
+    mobileMediaQuery.removeEventListener(
+      'change',
+      handleViewportChange
+    )
+  } else {
+    mobileMediaQuery?.removeListener?.(
+      handleViewportChange
+    )
+  }
 
   if (typeof document !== 'undefined') {
     document.body.classList.remove(
@@ -94,18 +252,30 @@ onBeforeUnmount(() => {
   <template v-if="visible">
     <div class="sidebar-mobile-bar">
       <button
+        ref="mobileToggleRef"
         class="sidebar-mobile-toggle"
         type="button"
         :aria-expanded="mobileOpen"
         aria-controls="app-sidebar"
+        aria-label="Открыть навигацию по разделам"
         @click="toggleMobile"
       >
-        <span class="sidebar-mobile-toggle__icon">
+        <span
+          class="sidebar-mobile-toggle__icon"
+          aria-hidden="true"
+        >
           ☰
         </span>
 
-        <span>
+        <span class="sidebar-mobile-toggle__label">
           Разделы
+        </span>
+
+        <span
+          v-if="activeItemLabel"
+          class="sidebar-mobile-toggle__current"
+        >
+          {{ activeItemLabel }}
         </span>
       </button>
     </div>
@@ -114,11 +284,12 @@ onBeforeUnmount(() => {
       v-if="mobileOpen"
       class="sidebar-overlay"
       aria-hidden="true"
-      @click="closeMobile"
+      @click="closeMobile(true)"
     />
 
     <aside
       id="app-sidebar"
+      ref="sidebarRef"
       class="app-sidebar"
       :class="{
         'app-sidebar--open': mobileOpen,
@@ -131,10 +302,11 @@ onBeforeUnmount(() => {
         </strong>
 
         <button
+          ref="closeButtonRef"
           class="app-sidebar__close"
           type="button"
           aria-label="Закрыть меню"
-          @click="closeMobile"
+          @click="closeMobile(true)"
         >
           ×
         </button>
@@ -145,10 +317,6 @@ onBeforeUnmount(() => {
           v-for="section in sections"
           :key="section.key"
           class="app-sidebar__section"
-          :class="{
-            'app-sidebar__section--actions':
-              section.kind === 'actions',
-          }"
         >
           <h2 class="app-sidebar__title">
             {{ section.label }}
@@ -161,8 +329,6 @@ onBeforeUnmount(() => {
             :class="{
               'app-sidebar__link--active':
                 isActive(item),
-              'app-sidebar__link--action':
-                section.kind === 'actions',
             }"
             :to="item.route"
             :aria-current="
@@ -170,6 +336,7 @@ onBeforeUnmount(() => {
                 ? 'page'
                 : undefined
             "
+            @click="closeMobile(true)"
           >
             <i
               v-if="item.icon"
@@ -196,11 +363,17 @@ onBeforeUnmount(() => {
   align-self: flex-start;
 
   position: sticky;
-  top: 80px;
+  top: 84px;
 
-  max-height: calc(100vh - 96px);
+  max-height: calc(100dvh - 104px);
 
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color:
+    var(--st-shell-border)
+    transparent;
 
   background:
     var(--st-shell-bg);
@@ -209,6 +382,19 @@ onBeforeUnmount(() => {
     var(--st-shell-border);
 
   border-radius: 12px;
+}
+
+.app-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background:
+    var(--st-shell-border);
+
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
 }
 
 .app-sidebar__nav {
@@ -278,7 +464,9 @@ onBeforeUnmount(() => {
     var(--st-shell-hover);
 }
 
-.app-sidebar__link:focus-visible {
+.app-sidebar__link:focus-visible,
+.sidebar-mobile-toggle:focus-visible,
+.app-sidebar__close:focus-visible {
   outline: 2px solid
     var(--st-primary);
   outline-offset: 2px;
@@ -302,24 +490,6 @@ onBeforeUnmount(() => {
     var(--st-primary);
 }
 
-.app-sidebar__section--actions .app-sidebar__link {
-  border: 1px solid
-    var(--st-shell-border);
-}
-
-.app-sidebar__section--actions .app-sidebar__link--action {
-  background:
-    var(--st-shell-hover);
-}
-
-.app-sidebar__section--actions
-  .app-sidebar__link--action:hover,
-.app-sidebar__section--actions
-  .app-sidebar__link--action:focus-visible {
-  background:
-    var(--st-shell-active);
-}
-
 .app-sidebar__mobile-header,
 .sidebar-mobile-bar,
 .sidebar-overlay {
@@ -331,9 +501,13 @@ onBeforeUnmount(() => {
  */
 @media (max-width: 960px) {
   .sidebar-mobile-bar {
-    display: block;
-
     width: 100%;
+
+    position: sticky;
+    top: 64px;
+    z-index: 90;
+
+    display: block;
   }
 
   .sidebar-mobile-toggle {
@@ -364,8 +538,30 @@ onBeforeUnmount(() => {
   }
 
   .sidebar-mobile-toggle__icon {
+    flex: 0 0 auto;
+
     font-size: 18px;
     line-height: 1;
+  }
+
+  .sidebar-mobile-toggle__label {
+    flex: 0 0 auto;
+  }
+
+  .sidebar-mobile-toggle__current {
+    min-width: 0;
+    margin-left: auto;
+
+    overflow: hidden;
+
+    color:
+      var(--st-shell-muted);
+
+    font-size: 13px;
+    font-weight: 500;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sidebar-overlay {
@@ -375,11 +571,14 @@ onBeforeUnmount(() => {
 
     display: block;
 
-    background: var(--st-overlay-backdrop);
+    background:
+      var(--st-overlay-backdrop);
+
+    touch-action: none;
   }
 
   .app-sidebar {
-    width: min(86vw, 310px);
+    width: min(88vw, 320px);
     min-width: 0;
     height: 100dvh;
     max-height: 100dvh;
@@ -390,6 +589,11 @@ onBeforeUnmount(() => {
     z-index: 200;
 
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+
+    visibility: hidden;
+    pointer-events: none;
 
     border: 0;
     border-right: 1px solid
@@ -399,17 +603,29 @@ onBeforeUnmount(() => {
 
     transform: translateX(-100%);
 
-    transition: transform 0.22s ease;
+    transition:
+      transform 0.22s ease,
+      visibility 0s linear 0.22s;
   }
 
   .app-sidebar--open {
+    visibility: visible;
+    pointer-events: auto;
+
     transform: translateX(0);
+
+    transition-delay: 0s;
   }
 
   .app-sidebar__mobile-header {
-    min-height: 58px;
+    min-height: calc(
+      58px + env(safe-area-inset-top)
+    );
 
-    padding: 0 14px;
+    padding:
+      env(safe-area-inset-top)
+      14px
+      0;
 
     position: sticky;
     top: 0;
@@ -455,7 +671,10 @@ onBeforeUnmount(() => {
   }
 
   .app-sidebar__nav {
-    padding: 12px;
+    padding:
+      12px
+      12px
+      calc(12px + env(safe-area-inset-bottom));
   }
 
   .app-sidebar__link {
@@ -466,10 +685,19 @@ onBeforeUnmount(() => {
     font-size: 15px;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar {
+    transition: none;
+  }
+}
 </style>
 
 <style>
-body.sidebar-mobile-open {
-  overflow: hidden;
+@media (max-width: 960px) {
+  body.sidebar-mobile-open {
+    overflow: hidden;
+    touch-action: none;
+  }
 }
 </style>

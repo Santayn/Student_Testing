@@ -127,4 +127,23 @@ function handleChange(event) {
   border-color: var(--st-border);
   cursor: not-allowed;
 }
+
+@media (max-width: 640px) {
+  .st-ui-file-input {
+    max-width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    overflow: hidden;
+    font-size: 16px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .st-ui-file-input::file-selector-button {
+    min-height: 32px;
+    max-width: 100%;
+    margin-right: 8px;
+  }
+}
 </style>

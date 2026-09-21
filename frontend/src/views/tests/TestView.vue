@@ -11,7 +11,6 @@ import {
 import {
   onBeforeRouteLeave,
   useRoute,
-  useRouter,
 } from 'vue-router'
 
 import {
@@ -20,6 +19,10 @@ import {
 } from '@/api'
 
 import TestsPageShell from '@/components/tests/TestsPageShell.vue'
+
+import {
+  useBreadcrumbContext,
+} from '@/navigation'
 
 import {
   clearCompletedTestSession,
@@ -53,7 +56,6 @@ import {
 } from '@/components/ui'
 
 const route = useRoute()
-const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -111,6 +113,21 @@ const assignmentId = computed(() => {
     ? value
     : null
 })
+
+useBreadcrumbContext(() => ({
+  testId: testId.value,
+  testTitle:
+    Number(test.value?.id) ===
+    testId.value
+      ? test.value?.title
+      : null,
+  lectureId:
+    Number(route.query.lectureId) ||
+    null,
+  subjectId:
+    Number(route.query.subjectId) ||
+    null,
+}))
 
 const pageTitle = computed(() => {
   return (
@@ -879,10 +896,6 @@ async function submitTest() {
   }
 }
 
-function goBack() {
-  router.back()
-}
-
 onBeforeRouteLeave(() => {
   loadRequest.invalidate()
   submitRequest.invalidate()
@@ -936,12 +949,6 @@ onMounted(loadTest)
     :subtitle="pageSubtitle"
   >
     <template #actions>
-      <UiButton
-        @click="goBack"
-      >
-        Назад
-      </UiButton>
-
       <UiButton
         variant="primary"
         :loading="submitting"

@@ -131,7 +131,11 @@
   }
 
   .st-ui-control.p-select .p-select-label {
+    min-width: 0;
+    overflow: hidden;
     color: var(--st-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .st-ui-control.p-select .p-select-label.p-placeholder {
@@ -144,6 +148,7 @@
   }
 
   .p-select-overlay {
+    max-width: calc(100vw - 1rem);
     overflow: hidden;
     color: var(--st-text);
     background: var(--st-surface);
@@ -180,12 +185,14 @@
   }
 
   .p-select-option {
+    min-width: 0;
     min-height: 36px;
     margin: 1px 0;
     padding: 8px 10px;
     color: var(--st-text);
     background: transparent;
     border-radius: 7px;
+    overflow-wrap: anywhere;
     transition:
       color 120ms ease,
       background-color 120ms ease;
@@ -709,6 +716,8 @@
   }
 
   .st-ui-tag.p-tag {
+    max-width: 100%;
+    min-width: 0;
     border: 1px solid transparent;
     border-radius: 999px;
     font-size: 11px;
@@ -746,6 +755,11 @@
     border-color: color-mix(in srgb, var(--st-danger) 28%, var(--st-border));
   }
 
+  .st-ui-tag.p-tag .p-tag-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .st-ui-toolbar.p-toolbar {
     min-height: 56px;
     padding: 10px 12px;
@@ -762,13 +776,31 @@
     gap: 8px;
   }
 
+  .st-ui-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    background: var(--st-surface);
+    border-radius: var(--st-radius-card);
+    box-shadow: var(--st-shadow-card);
+    scrollbar-color: var(--st-border) transparent;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .st-ui-table-scroll:focus-visible {
+    outline: 0;
+    box-shadow: var(--st-focus-shadow);
+  }
+
   .st-ui-table.p-datatable {
     overflow: hidden;
     color: var(--st-text);
     background: var(--st-surface);
     border: 1px solid var(--st-border);
     border-radius: var(--st-radius-card);
-    box-shadow: var(--st-shadow-card);
+    box-shadow: none;
   }
 
   .st-ui-table.p-datatable .p-datatable-header {
@@ -1184,8 +1216,196 @@
   }
 
   @media (max-width: 640px) {
+    /*
+     * Mobile form controls: keep native text inputs at 16px to avoid
+     * unwanted viewport zoom on iOS Safari and use a finger-friendly
+     * minimum touch height throughout the UI kit.
+     */
+    .st-ui-control,
+    .st-ui-control.p-inputtext,
+    .st-ui-control.p-textarea,
+    .st-ui-control.p-select,
+    .st-ui-control--sm,
+    .st-ui-control--sm.p-inputtext,
+    .st-ui-control--sm.p-textarea,
+    .st-ui-control--sm.p-select,
+    .st-ui-search__input.p-inputtext,
+    .p-select-filter.p-inputtext {
+      min-height: 44px;
+      font-size: 16px;
+    }
+
+    .st-ui-button.p-button,
+    .st-ui-link-button,
+    .st-ui-button--sm.p-button,
+    .st-ui-link-button--sm {
+      min-height: 44px;
+    }
+
+    .st-ui-button.p-button .p-button-label,
+    .st-ui-link-button {
+      min-width: 0;
+      white-space: normal;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .st-ui-alert.p-message .p-message-close-button,
+    .st-ui-toast-host.p-toast .p-toast-close-button,
+    .st-ui-dialog.p-dialog .p-dialog-close-button {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .p-select-overlay {
+      max-width: calc(100vw - 1rem);
+    }
+
+    .p-select-option {
+      min-height: 44px;
+      padding-block: 10px;
+    }
+
+    /* Toolbar slots stack instead of squeezing controls off-screen. */
     .st-ui-toolbar.p-toolbar {
+      flex-direction: column;
       align-items: stretch;
+      padding: 10px;
+    }
+
+    .st-ui-toolbar.p-toolbar .p-toolbar-start,
+    .st-ui-toolbar.p-toolbar .p-toolbar-center,
+    .st-ui-toolbar.p-toolbar .p-toolbar-end {
+      width: 100%;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    /*
+     * Tables keep their natural column width and scroll horizontally in
+     * their own focusable region instead of clipping or compressing data.
+     */
+    .st-ui-table-scroll {
+      border-radius: var(--st-radius-card);
+    }
+
+    .st-ui-table.p-datatable {
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .st-ui-table.p-datatable .p-datatable-table {
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .st-ui-table.p-datatable .p-datatable-thead > tr > th,
+    .st-ui-table.p-datatable .p-datatable-tbody > tr > td {
+      max-width: min(72vw, 28rem);
+      overflow-wrap: anywhere;
+    }
+
+    .st-ui-table.p-datatable .p-paginator {
+      min-height: 56px;
+      padding: 8px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .st-ui-table.p-datatable .p-paginator .p-paginator-first,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-prev,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-page,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-next,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-last,
+    .st-ui-table.p-datatable .p-paginator .p-select {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    /* Dialog content scrolls inside the viewport, including with a keyboard open. */
+    .st-ui-dialog.p-dialog {
+      max-height: calc(100dvh - 1rem);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-header {
+      padding: 12px 12px 8px;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-content {
+      min-height: 0;
+      padding: 10px 12px 14px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-footer {
+      padding: 10px 12px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-footer > .p-button,
+    .st-ui-dialog.p-dialog .p-dialog-footer > .st-ui-link-button {
+      flex: 1 1 100%;
+    }
+
+    /* Context actions remain comfortably tappable on touch screens. */
+    .st-ui-action-trigger.p-button {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .st-ui-action-menu.p-menu {
+      width: min(19rem, calc(100vw - 1rem));
+      max-width: calc(100vw - 1rem);
+    }
+
+    .st-ui-action-menu.p-menu .p-menuitem-link {
+      min-height: 44px;
+      white-space: normal;
+    }
+
+    .st-ui-action-menu.p-menu .p-menuitem-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    /* Toasts always remain inside the visual viewport on narrow devices. */
+    .st-ui-toast-host.p-toast {
+      width: min(
+        25rem,
+        calc(
+          100vw - 2.5rem -
+          env(safe-area-inset-left) -
+          env(safe-area-inset-right)
+        )
+      ) !important;
+      max-width: calc(
+        100vw - 2.5rem -
+        env(safe-area-inset-left) -
+        env(safe-area-inset-right)
+      );
+    }
+
+    .st-ui-toast-host.p-toast .p-toast-message-content {
+      min-width: 0;
+      padding: 12px;
+    }
+
+    .st-ui-toast-host.p-toast .p-toast-message-text {
+      min-width: 0;
+    }
+
+    .st-ui-toast-host.p-toast .p-toast-summary,
+    .st-ui-toast-host.p-toast .p-toast-detail {
+      overflow-wrap: anywhere;
     }
 
     .st-ui-card__heading {
@@ -1194,6 +1414,22 @@
 
     .st-ui-card__actions {
       width: 100%;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .st-ui-tag.p-tag {
+      white-space: normal;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .st-ui-control,
+    .st-ui-button.p-button,
+    .st-ui-link-button,
+    .st-ui-choice,
+    .st-ui-action-menu.p-menu .p-menuitem-content {
+      transition-duration: 0.01ms;
     }
   }
 }

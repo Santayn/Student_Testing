@@ -333,9 +333,6 @@ export function getWorkspaceNavigation(
     (section) => ({
       key: section.key,
       label: section.label,
-      kind:
-        section.kind ??
-        'navigation',
       items: section.items
         .map(resolveWorkspaceItem)
         .filter(Boolean),

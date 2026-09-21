@@ -1130,16 +1130,6 @@ onMounted(async () => {
     title="Персональная нагрузка"
     subtitle="Соберите выдачу лекций: выберите предмет, лекции и группы из вашей текущей нагрузки по выбранному периоду."
   >
-    <template #actions>
-      <UiButton
-        :to="{
-          name: 'teacher-lectures',
-        }"
-      >
-        Лекции
-      </UiButton>
-    </template>
-
     <UiAlert
       v-if="notice.message"
       :variant="notice.type"

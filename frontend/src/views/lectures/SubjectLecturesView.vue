@@ -18,6 +18,10 @@ import {
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
 
 import {
+  useBreadcrumbContext,
+} from '@/navigation'
+
+import {
   UiAlert,
   UiButton,
   UiCard,
@@ -49,6 +53,15 @@ const subjectId = computed(() => {
   )
 })
 
+useBreadcrumbContext(() => ({
+  subjectId: subjectId.value,
+  subjectName:
+    Number(subject.value?.id) ===
+    subjectId.value
+      ? subject.value?.name
+      : null,
+}))
+
 const pageTitle = computed(() => {
   if (subject.value?.name) {
     return (
@@ -76,24 +89,6 @@ const pageSubtitle = computed(() => {
     `Лекций: ${lectures.value.length}`
   )
 })
-
-const backRoute = computed(() => ({
-  name: 'subject-details',
-
-  params: {
-    subjectId:
-      subjectId.value,
-  },
-
-  query: {
-    ...(route.query.facultyId
-      ? {
-          facultyId:
-            route.query.facultyId,
-        }
-      : {}),
-  },
-}))
 
 const columns = [
   {
@@ -246,12 +241,6 @@ onMounted(loadLectures)
     :subtitle="pageSubtitle"
   >
     <template #actions>
-      <UiButton
-        :to="backRoute"
-      >
-        К предмету
-      </UiButton>
-
       <UiButton
         :loading="loading"
         loading-text="Обновление..."

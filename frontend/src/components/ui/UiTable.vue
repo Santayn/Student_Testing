@@ -15,6 +15,7 @@ const props = defineProps({
   pageSize: { type: Number, default: 10 },
   pageSizeOptions: { type: Array, default: () => [10, 20, 50] },
   striped: { type: Boolean, default: false },
+  ariaLabel: { type: String, default: 'Таблица данных' },
 })
 
 const emit = defineEmits(['sort-change', 'row-click'])
@@ -86,60 +87,67 @@ function rowKeyValue(row, index) {
 </script>
 
 <template>
-  <DataTable
-    class="st-ui-table"
-    :value="sortedRows"
-    :data-key="typeof rowKey === 'string' ? rowKey : undefined"
-    :loading="loading"
-    :paginator="paginator"
-    :rows="pageSize"
-    :rows-per-page-options="pageSizeOptions"
-    :striped-rows="striped"
-    row-hover
-    @row-click="emit('row-click', $event)"
+  <div
+    class="st-ui-table-scroll"
+    role="region"
+    :aria-label="ariaLabel"
+    tabindex="0"
   >
-    <template v-if="$slots.header" #header><slot name="header" /></template>
-
-    <Column
-      v-for="column in columns"
-      :key="column.key"
-      :field="column.key"
-      :header="column.label"
-      :style="column.style"
-      :header-style="column.headerStyle"
-      :body-style="column.bodyStyle"
+    <DataTable
+      class="st-ui-table"
+      :value="sortedRows"
+      :data-key="typeof rowKey === 'string' ? rowKey : undefined"
+      :loading="loading"
+      :paginator="paginator"
+      :rows="pageSize"
+      :rows-per-page-options="pageSizeOptions"
+      :striped-rows="striped"
+      row-hover
+      @row-click="emit('row-click', $event)"
     >
-      <template #header>
-        <button
-          v-if="column.sortable !== false && column.key"
-          type="button"
-          class="st-ui-table__sort-button"
-          :class="{ 'st-ui-table__sort-button--active': sortKey === column.key }"
-          @click="toggleSort(column)"
-        >
-          <span>{{ column.label }}</span>
-          <i class="st-ui-table__sort-icon" :class="sortIcon(column)" aria-hidden="true" />
-        </button>
-        <span v-else>{{ column.label }}</span>
-      </template>
+      <template v-if="$slots.header" #header><slot name="header" /></template>
 
-      <template #body="slotProps">
-        <slot
-          :name="`cell-${column.key}`"
-          :row="slotProps.data"
-          :column="column"
-          :value="cellValue(slotProps.data, column)"
-          :index="slotProps.index"
-        >
-          {{ cellValue(slotProps.data, column) ?? '—' }}
-        </slot>
-      </template>
-    </Column>
+      <Column
+        v-for="column in columns"
+        :key="column.key"
+        :field="column.key"
+        :header="column.label"
+        :style="column.style"
+        :header-style="column.headerStyle"
+        :body-style="column.bodyStyle"
+      >
+        <template #header>
+          <button
+            v-if="column.sortable !== false && column.key"
+            type="button"
+            class="st-ui-table__sort-button"
+            :class="{ 'st-ui-table__sort-button--active': sortKey === column.key }"
+            @click="toggleSort(column)"
+          >
+            <span>{{ column.label }}</span>
+            <i class="st-ui-table__sort-icon" :class="sortIcon(column)" aria-hidden="true" />
+          </button>
+          <span v-else>{{ column.label }}</span>
+        </template>
 
-    <template #empty>
-      <div class="st-ui-table__empty">
-        {{ loading ? loadingMessage : emptyMessage }}
-      </div>
-    </template>
-  </DataTable>
+        <template #body="slotProps">
+          <slot
+            :name="`cell-${column.key}`"
+            :row="slotProps.data"
+            :column="column"
+            :value="cellValue(slotProps.data, column)"
+            :index="slotProps.index"
+          >
+            {{ cellValue(slotProps.data, column) ?? '—' }}
+          </slot>
+        </template>
+      </Column>
+
+      <template #empty>
+        <div class="st-ui-table__empty">
+          {{ loading ? loadingMessage : emptyMessage }}
+        </div>
+      </template>
+    </DataTable>
+  </div>
 </template>

@@ -1,9 +1,9 @@
 <script setup>
 import { computed } from 'vue'
+
+import { UiButton, UiTag } from '@/components/ui'
 import { useAuthStore } from '@/stores/auth'
 import { WORKSPACE_ROLE_LABELS } from '@/utils/workspaceRole'
-
-import { UiButton } from '@/components/ui'
 
 const authStore = useAuthStore()
 
@@ -75,69 +75,56 @@ const workspaceRoleText = computed(() => {
   )
 })
 
-const commonActions = computed(() => [
-  {
-    title: 'Профиль',
-    description: 'Личные данные и информация об учётной записи.',
-    route: { name: 'profile' },
-  },
-  {
-    title: 'Предметы',
-    description: 'Открыть доступные учебные предметы.',
-    route: { name: 'subjects' },
-  },
-  {
-    title: 'Результаты',
-    description: 'Просмотреть результаты тестирования.',
-    route: { name: 'results' },
-  },
-])
+const workspaceSummary = computed(() => {
+  switch (authStore.workspaceRole) {
+    case 'ADMIN':
+      return {
+        title: 'Рабочее пространство администратора',
+        description:
+          'Управление академической структурой, назначениями, доступом пользователей и учебным контентом.',
+        areas: [
+          'Академическая структура',
+          'Назначения',
+          'Доступ пользователей',
+          'Учебный контент',
+        ],
+      }
 
-const teacherActions = [
-  {
-    title: 'Вопросы',
-    description: 'Банк вопросов для тестов.',
-    route: { name: 'teacher-questions' },
-  },
-  {
-    title: 'Создать тест',
-    description: 'Собрать новый тест и назначить его.',
-    route: { name: 'teacher-test-create' },
-  },
-  {
-    title: 'Лекции',
-    description: 'Управление лекциями и материалами.',
-    route: { name: 'teacher-lectures' },
-  },
-  {
-    title: 'Темы предмета',
-    description: 'Группировка вопросов банка по разделам предмета.',
-    route: { name: 'teacher-topics' },
-  },
-]
+    case 'TEACHER':
+      return {
+        title: 'Рабочее пространство преподавателя',
+        description:
+          'Работа с предметами, лекциями, вопросами, тестами и персональной учебной нагрузкой.',
+        areas: [
+          'Мои предметы',
+          'Учебный контент',
+          'Персональная нагрузка',
+          'Результаты',
+        ],
+      }
 
-const adminActions = [
-  {
-    title: 'Пользователи',
-    description: 'Учётные записи, роли и доступ.',
-    route: { name: 'admin-users' },
-  },
-  {
-    title: 'Факультеты',
-    description: 'Управление факультетами.',
-    route: { name: 'admin-faculties' },
-  },
-  {
-    title: 'Группы',
-    description: 'Учебные группы и их состав.',
-    route: { name: 'admin-groups' },
-  },
-  {
-    title: 'Предметы',
-    description: 'Администрирование учебных предметов.',
-    route: { name: 'admin-subjects' },
-  },
-]
+    case 'STUDENT':
+      return {
+        title: 'Рабочее пространство студента',
+        description:
+          'Доступ к назначенным предметам, учебным материалам, тестированию и собственным результатам.',
+        areas: [
+          'Предметы',
+          'Лекции',
+          'Тестирование',
+          'Результаты',
+        ],
+      }
+
+    default:
+      return {
+        title: 'Рабочее пространство',
+        description:
+          'Выберите доступный рабочий режим в верхней панели.',
+        areas: [],
+      }
+  }
+})
 
 async function refreshUser() {
   try {
@@ -161,166 +148,98 @@ async function refreshUser() {
         </h1>
 
         <p class="welcome-panel__description">
-          Здесь собраны предметы, тесты, результаты
-          и основные рабочие разделы платформы.
+          Это обзор текущего рабочего пространства.
+          Основная навигация теперь находится в боковом меню,
+          поэтому главная страница не дублирует его пункты.
         </p>
       </div>
 
-      <div class="user-summary">
-        <div class="user-summary__item">
-          <span class="user-summary__label">
-            Пользователь
-          </span>
+      <div class="workspace-badge" aria-label="Текущий рабочий режим">
+        <span class="workspace-badge__label">
+          Текущий режим
+        </span>
 
-          <strong class="user-summary__value">
-            {{ displayName }}
-          </strong>
-        </div>
-
-        <div class="user-summary__item">
-          <span class="user-summary__label">
-            Роли
-          </span>
-
-          <strong class="user-summary__value">
-            {{ roleText }}
-          </strong>
-        </div>
-
-        <div class="user-summary__item">
-          <span class="user-summary__label">
-            Текущий режим
-          </span>
-
-          <strong class="user-summary__value">
-            {{ workspaceRoleText }}
-          </strong>
-        </div>
-
-        <UiButton
-          type="button"
-          :loading="authStore.loading"
-          loading-text="Обновление..."
-          @click="refreshUser"
-        >
-          Обновить данные
-        </UiButton>
+        <strong class="workspace-badge__value">
+          {{ workspaceRoleText }}
+        </strong>
       </div>
     </section>
 
-    <section class="home-section">
-      <div class="home-section__header">
-        <div>
-          <h2>Основные разделы</h2>
+    <section class="home-grid">
+      <article class="home-panel home-panel--workspace">
+        <div class="home-panel__header">
+          <div>
+            <p class="home-panel__eyebrow">
+              Рабочая область
+            </p>
 
-          <p>
-            Быстрый доступ к наиболее часто используемым страницам.
-          </p>
+            <h2>{{ workspaceSummary.title }}</h2>
+          </div>
         </div>
-      </div>
 
-      <div class="action-grid">
-        <RouterLink
-          v-for="item in commonActions"
-          :key="item.title"
-          class="action-card"
-          :to="item.route"
+        <p class="home-panel__description">
+          {{ workspaceSummary.description }}
+        </p>
+
+        <div
+          v-if="workspaceSummary.areas.length"
+          class="workspace-areas"
+          aria-label="Доступные направления работы"
         >
-          <strong class="action-card__title">
-            {{ item.title }}
-          </strong>
-
-          <span class="action-card__description">
-            {{ item.description }}
-          </span>
-
-          <span class="action-card__open">
-            Открыть →
-          </span>
-        </RouterLink>
-      </div>
-    </section>
-
-    <section
-      v-if="authStore.isTeacherMode || authStore.isAdminMode"
-      class="home-section"
-    >
-      <div class="home-section__header">
-        <div>
-          <h2>
-            {{
-              authStore.isAdminMode
-                ? 'Учебный контент'
-                : 'Работа преподавателя'
-            }}
-          </h2>
-
-          <p>
-            {{
-              authStore.isAdminMode
-                ? 'Административный доступ к тестам, вопросам, лекциям и учебным материалам.'
-                : 'Тесты, вопросы, лекции и учебные материалы.'
-            }}
-          </p>
+          <UiTag
+            v-for="area in workspaceSummary.areas"
+            :key="area"
+            variant="secondary"
+          >
+            {{ area }}
+          </UiTag>
         </div>
-      </div>
 
-      <div class="action-grid">
-        <RouterLink
-          v-for="item in teacherActions"
-          :key="item.title"
-          class="action-card"
-          :to="item.route"
-        >
-          <strong class="action-card__title">
-            {{ item.title }}
-          </strong>
+        <p class="home-panel__hint">
+          Для перехода между разделами используйте Sidebar слева.
+          На узких экранах он открывается отдельной кнопкой меню.
+        </p>
+      </article>
 
-          <span class="action-card__description">
-            {{ item.description }}
-          </span>
+      <article class="home-panel">
+        <div class="home-panel__header">
+          <div>
+            <p class="home-panel__eyebrow">
+              Учётная запись
+            </p>
 
-          <span class="action-card__open">
-            Открыть →
-          </span>
-        </RouterLink>
-      </div>
-    </section>
-
-    <section
-      v-if="authStore.isAdminMode"
-      class="home-section"
-    >
-      <div class="home-section__header">
-        <div>
-          <h2>Администрирование</h2>
-
-          <p>
-            Основные справочники и управление платформой.
-          </p>
+            <h2>Текущая сессия</h2>
+          </div>
         </div>
-      </div>
 
-      <div class="action-grid">
-        <RouterLink
-          v-for="item in adminActions"
-          :key="item.title"
-          class="action-card"
-          :to="item.route"
-        >
-          <strong class="action-card__title">
-            {{ item.title }}
-          </strong>
+        <dl class="account-summary">
+          <div class="account-summary__item">
+            <dt>Пользователь</dt>
+            <dd>{{ displayName }}</dd>
+          </div>
 
-          <span class="action-card__description">
-            {{ item.description }}
-          </span>
+          <div class="account-summary__item">
+            <dt>Роли</dt>
+            <dd>{{ roleText }}</dd>
+          </div>
 
-          <span class="action-card__open">
-            Открыть →
-          </span>
-        </RouterLink>
-      </div>
+          <div class="account-summary__item">
+            <dt>Рабочий режим</dt>
+            <dd>{{ workspaceRoleText }}</dd>
+          </div>
+        </dl>
+
+        <div class="home-panel__actions">
+          <UiButton
+            type="button"
+            :loading="authStore.loading"
+            loading-text="Обновление..."
+            @click="refreshUser"
+          >
+            Обновить данные
+          </UiButton>
+        </div>
+      </article>
     </section>
   </div>
 </template>
@@ -328,51 +247,39 @@ async function refreshUser() {
 <style scoped>
 .home-view {
   display: grid;
-  gap: 22px;
+  gap: var(--st-space-section);
 }
 
 .welcome-panel {
-  padding: 28px;
+  padding: clamp(22px, 4vw, 34px);
 
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
 
-  color:
-    var(--text);
+  color: var(--st-text);
+  background: var(--st-surface);
 
-  background:
-    var(--surface);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 16px;
-
-  box-shadow:
-    var(--shadow);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-card);
 }
 
-.welcome-panel__content {
-  align-self: center;
-}
-
-.welcome-panel__eyebrow {
+.welcome-panel__eyebrow,
+.home-panel__eyebrow {
   margin: 0 0 8px;
 
-  color:
-    var(--brand);
+  color: var(--st-primary);
 
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .welcome-panel__title {
-  max-width: 720px;
-
+  max-width: 760px;
   margin: 0;
 
   font-size: clamp(28px, 4vw, 42px);
@@ -381,168 +288,146 @@ async function refreshUser() {
 }
 
 .welcome-panel__description {
-  max-width: 680px;
-
+  max-width: 720px;
   margin: 14px 0 0;
 
-  color:
-    var(--text-secondary);
+  color: var(--st-text-secondary);
 
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.65;
 }
 
-.user-summary {
-  padding: 18px;
-
-  align-self: stretch;
+.workspace-badge {
+  min-width: 180px;
+  padding: 14px 16px;
 
   display: grid;
-  align-content: center;
-  gap: 14px;
+  gap: 4px;
 
-  background:
-    var(--surface-secondary);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 12px;
+  background: var(--st-primary-soft);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-lg);
 }
 
-.user-summary__item {
-  display: grid;
-  gap: 3px;
-}
-
-.user-summary__label {
-  color:
-    var(--text-secondary);
-
+.workspace-badge__label {
+  color: var(--st-text-secondary);
   font-size: 12px;
 }
 
-.user-summary__value {
-  overflow-wrap: anywhere;
-
-  font-size: 14px;
+.workspace-badge__value {
+  color: var(--st-primary-soft-text);
+  font-size: 15px;
 }
 
-.home-section {
-  padding: 22px;
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: var(--st-space-section);
+}
+
+.home-panel {
+  min-width: 0;
+  padding: var(--st-space-card);
 
   display: grid;
+  align-content: start;
   gap: 16px;
 
-  background:
-    var(--surface);
+  color: var(--st-text);
+  background: var(--st-surface);
 
-  border: 1px solid
-    var(--border);
-
-  border-radius: 14px;
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-card);
 }
 
-.home-section__header h2,
-.home-section__header p {
+.home-panel--workspace {
+  min-height: 100%;
+}
+
+.home-panel__header h2,
+.home-panel__description,
+.home-panel__hint {
   margin: 0;
 }
 
-.home-section__header h2 {
-  color:
-    var(--text);
-
+.home-panel__header h2 {
   font-size: 20px;
 }
 
-.home-section__header p {
-  margin-top: 5px;
+.home-panel__description,
+.home-panel__hint {
+  color: var(--st-text-secondary);
+  line-height: 1.6;
+}
 
-  color:
-    var(--text-secondary);
-
+.home-panel__description {
   font-size: 14px;
 }
 
-.action-grid {
+.home-panel__hint {
+  padding: 12px 14px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-md);
+
+  font-size: 13px;
+}
+
+.workspace-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-summary {
+  margin: 0;
   display: grid;
-  grid-template-columns:
-    repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
 }
 
-.action-card {
-  min-height: 138px;
+.account-summary__item {
+  padding-bottom: 12px;
 
-  padding: 16px;
+  display: grid;
+  gap: 4px;
 
-  display: flex;
-  flex-direction: column;
-
-  color:
-    var(--text);
-
-  background:
-    var(--surface-secondary);
-
-  border: 1px solid
-    var(--border);
-
-  border-radius: 11px;
-
-  text-decoration: none;
-
-  transition:
-    border-color 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  border-bottom: 1px solid var(--st-border);
 }
 
-.action-card:hover {
-  transform: translateY(-2px);
-
-  border-color:
-    var(--brand);
-
-  box-shadow:
-    var(--shadow-hover);
+.account-summary__item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
-.action-card__title {
-  font-size: 16px;
+.account-summary dt {
+  color: var(--st-text-muted);
+  font-size: 12px;
 }
 
-.action-card__description {
-  margin-top: 7px;
+.account-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 
-  color:
-    var(--text-secondary);
-
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.action-card__open {
-  margin-top: auto;
-  padding-top: 14px;
-
-  color:
-    var(--brand);
-
-  font-size: 13px;
+  color: var(--st-text);
+  font-size: 14px;
   font-weight: 700;
 }
 
-@media (max-width: 760px) {
-  .welcome-panel {
-    padding: 20px;
+.home-panel__actions {
+  margin-top: auto;
+  padding-top: 4px;
+}
 
+@media (max-width: 860px) {
+  .welcome-panel,
+  .home-grid {
     grid-template-columns: 1fr;
-    gap: 18px;
   }
 
-  .home-section {
-    padding: 18px;
+  .workspace-badge {
+    min-width: 0;
   }
 }
 
@@ -552,16 +437,8 @@ async function refreshUser() {
   }
 
   .welcome-panel,
-  .home-section {
-    border-radius: 12px;
-  }
-
-  .action-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .action-card {
-    min-height: 120px;
+  .home-panel {
+    border-radius: var(--st-radius-lg);
   }
 }
 </style>

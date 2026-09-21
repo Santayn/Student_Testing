@@ -7,7 +7,13 @@ import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 
+import {
+  provideBreadcrumbContext,
+} from '@/navigation'
+
 const route = useRoute()
+
+provideBreadcrumbContext()
 
 const showSidebar = computed(() => {
   return Boolean(route.meta.navKey)

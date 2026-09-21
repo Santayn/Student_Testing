@@ -97,13 +97,6 @@ const currentRoles = computed(() => {
         >
           Профиль
         </UiButton>
-
-        <UiButton
-          type="button"
-          @click="$router.back()"
-        >
-          Назад
-        </UiButton>
       </div>
     </UiCard>
   </section>

@@ -18,6 +18,10 @@ import {
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
 
 import {
+  useBreadcrumbContext,
+} from '@/navigation'
+
+import {
   UiAlert,
   UiButton,
   UiCard,
@@ -77,6 +81,35 @@ const subjectId = computed(() => {
     : null
 })
 
+useBreadcrumbContext(() => {
+  const current = lecture.value
+  const currentLectureId =
+    lectureId.value
+
+  const matchesCurrentLecture =
+    Number(current?.id) ===
+    currentLectureId
+
+  const loadedSubjectId =
+    matchesCurrentLecture
+      ? Number(current?.subjectId)
+      : null
+
+  return {
+    lectureId: currentLectureId,
+    lectureTitle:
+      matchesCurrentLecture
+        ? current?.title
+        : null,
+    subjectId:
+      Number.isFinite(
+        loadedSubjectId
+      ) && loadedSubjectId > 0
+        ? loadedSubjectId
+        : subjectId.value,
+  }
+})
+
 const pageTitle = computed(() => {
   return (
     lecture.value?.title ||
@@ -131,32 +164,6 @@ const lectureMeta = computed(() => {
     parts.join(', ') ||
     'Материалы и тесты лекции.'
   )
-})
-
-const backRoute = computed(() => {
-  if (subjectId.value) {
-    return {
-      name: 'subject-lectures',
-
-      params: {
-        subjectId:
-          subjectId.value,
-      },
-
-      query: {
-        ...(route.query.facultyId
-          ? {
-              facultyId:
-                route.query.facultyId,
-            }
-          : {}),
-      },
-    }
-  }
-
-  return {
-    name: 'subjects',
-  }
 })
 
 const materialColumns = [
@@ -657,12 +664,6 @@ onMounted(loadLecture)
     narrow
   >
     <template #actions>
-      <UiButton
-        :to="backRoute"
-      >
-        К списку лекций
-      </UiButton>
-
       <UiButton
         :loading="loading"
         loading-text="Обновление..."

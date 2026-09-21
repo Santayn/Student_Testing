@@ -142,23 +142,18 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
 })
 
 /*
- * Sidebar описывается только через destination keys.
+ * Sidebar описывается только через устойчивые destination keys.
+ * Команды создания/изменения остаются контекстными действиями страниц.
  * label можно переопределить для конкретного workspace,
  * не меняя каноническое название destination/breadcrumb.
  */
 export const WORKSPACE_NAVIGATION = Object.freeze({
   STUDENT: [
     {
-      key: 'main',
-      label: 'Основное',
-      items: [
-        NAV_KEYS.HOME,
-      ],
-    },
-    {
       key: 'learning',
       label: 'Обучение',
       items: [
+        NAV_KEYS.HOME,
         NAV_KEYS.SUBJECTS,
         NAV_KEYS.RESULTS,
       ],
@@ -174,16 +169,10 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
 
   TEACHER: [
     {
-      key: 'main',
-      label: 'Основное',
-      items: [
-        NAV_KEYS.HOME,
-      ],
-    },
-    {
       key: 'learning',
       label: 'Обучение',
       items: [
+        NAV_KEYS.HOME,
         {
           key: NAV_KEYS.SUBJECTS,
           label: 'Мои предметы',
@@ -195,25 +184,17 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       key: 'content',
       label: 'Учебный контент',
       items: [
-        NAV_KEYS.TEACHER_QUESTIONS,
         NAV_KEYS.TEACHER_TOPICS,
+        NAV_KEYS.TEACHER_QUESTIONS,
         NAV_KEYS.TEACHER_LECTURES,
         NAV_KEYS.TEACHER_COURSES,
       ],
     },
     {
-      key: 'work',
-      label: 'Работа',
+      key: 'workload',
+      label: 'Нагрузка',
       items: [
         NAV_KEYS.TEACHER_WORKLOAD,
-      ],
-    },
-    {
-      key: 'quick-actions',
-      label: 'Быстрое действие',
-      kind: 'actions',
-      items: [
-        NAV_KEYS.TEACHER_TEST_CREATE,
       ],
     },
     {
@@ -227,39 +208,11 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
 
   ADMIN: [
     {
-      key: 'main',
-      label: 'Основное',
-      items: [
-        NAV_KEYS.HOME,
-      ],
-    },
-    {
       key: 'overview',
       label: 'Обзор',
       items: [
-        {
-          key: NAV_KEYS.SUBJECTS,
-          label: 'Доступные предметы',
-        },
+        NAV_KEYS.HOME,
         NAV_KEYS.RESULTS,
-      ],
-    },
-    {
-      key: 'content',
-      label: 'Учебный контент',
-      items: [
-        NAV_KEYS.TEACHER_QUESTIONS,
-        NAV_KEYS.TEACHER_TOPICS,
-        NAV_KEYS.TEACHER_LECTURES,
-        NAV_KEYS.TEACHER_COURSES,
-      ],
-    },
-    {
-      key: 'quick-actions',
-      label: 'Быстрое действие',
-      kind: 'actions',
-      items: [
-        NAV_KEYS.TEACHER_TEST_CREATE,
       ],
     },
     {
@@ -273,7 +226,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
     },
     {
       key: 'assignments',
-      label: 'Назначения',
+      label: 'Назначения и нагрузка',
       items: [
         NAV_KEYS.ADMIN_FACULTY_SUBJECTS,
         NAV_KEYS.ADMIN_TEACHER_SUBJECTS,
@@ -281,8 +234,22 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       ],
     },
     {
+      key: 'content',
+      label: 'Учебный контент',
+      items: [
+        {
+          key: NAV_KEYS.SUBJECTS,
+          label: 'Доступные предметы',
+        },
+        NAV_KEYS.TEACHER_TOPICS,
+        NAV_KEYS.TEACHER_QUESTIONS,
+        NAV_KEYS.TEACHER_LECTURES,
+        NAV_KEYS.TEACHER_COURSES,
+      ],
+    },
+    {
       key: 'access',
-      label: 'Доступ',
+      label: 'Управление доступом',
       items: [
         NAV_KEYS.ADMIN_USERS,
       ],

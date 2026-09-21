@@ -18,6 +18,7 @@ describe('App', () => {
         stubs: {
           AppHeader: true,
           AppSidebar: true,
+          AppBreadcrumb: true,
           AppFooter: true,
           RouterView: true,
         },
@@ -29,6 +30,7 @@ describe('App', () => {
       'app-body--with-sidebar'
     )
     expect(wrapper.find('app-sidebar-stub').exists()).toBe(true)
+    expect(wrapper.find('app-breadcrumb-stub').exists()).toBe(true)
     expect(wrapper.find('router-view-stub').exists()).toBe(true)
   })
 })
