@@ -56,10 +56,10 @@ defineProps({
 <style scoped>
 .results-page {
   color: var(--st-text);
-  width: min(1180px, 100%);
+  width: 100%;
 
   margin: 0 auto;
-  padding: 24px;
+  padding: 0 0 24px;
 
   display: grid;
   gap: 18px;
@@ -131,7 +131,7 @@ defineProps({
 
 @media (max-width: 720px) {
   .results-page {
-    padding: 14px;
+    padding: 0 0 18px;
   }
 
   .results-page__header {
@@ -146,7 +146,8 @@ defineProps({
     justify-content: stretch;
   }
 
-  .results-page__actions :deep(.ui-button) {
+  .results-page__actions :deep(.st-ui-button),
+  .results-page__actions :deep(.st-ui-link-button) {
     flex: 1 1 auto;
   }
 }
@@ -157,7 +158,8 @@ defineProps({
     flex-direction: column;
   }
 
-  .results-page__actions :deep(.ui-button) {
+  .results-page__actions :deep(.st-ui-button),
+  .results-page__actions :deep(.st-ui-link-button) {
     width: 100%;
   }
 }

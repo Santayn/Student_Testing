@@ -27,6 +27,7 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
+  UiTag,
 } from '@/components/ui'
 
 import {
@@ -223,155 +224,112 @@ onMounted(loadSubject)
 </script>
 
 <template>
-  <SubjectsPageShell
-    :title="pageTitle"
-    :subtitle="pageSubtitle"
-    narrow
-  >
-    <UiAlert
-      v-if="error"
-      variant="danger"
-      :message="error"
-    />
+  <SubjectsPageShell :title="pageTitle" :subtitle="pageSubtitle" narrow>
+    <UiAlert v-if="error" variant="danger" :message="error" />
 
     <UiEmptyState
-      v-if="
-        loading &&
-        !subject
-      "
-      description="Загрузка предмета..."
+      v-if="loading && !subject"
+      title="Загружаем предмет"
+      description="Получаем описание и доступные разделы."
     />
 
-    <UiCard
-      v-else-if="subject"
-      title="Информация о предмете"
-    >
-      <dl class="subject-data">
-        <div class="subject-data__row">
-          <dt>ID</dt>
-          <dd>
-            {{ subject.id ?? '—' }}
-          </dd>
+    <template v-else-if="subject">
+      <UiCard compact>
+        <div class="subject-hero">
+          <div class="subject-hero__icon" aria-hidden="true"><i class="pi pi-book" /></div>
+          <div class="subject-hero__copy">
+            <div class="subject-hero__meta">
+              <UiTag :value="`ID ${subject.id ?? '—'}`" />
+            </div>
+            <p>{{ subject.description || 'Описание предмета пока не заполнено.' }}</p>
+          </div>
         </div>
+      </UiCard>
 
-        <div class="subject-data__row">
-          <dt>Предмет</dt>
-          <dd>
-            {{ subject.name || '—' }}
-          </dd>
-        </div>
-
-        <div class="subject-data__row">
-          <dt>Описание</dt>
-          <dd>
-            {{
-              subject.description ||
-              '—'
-            }}
-          </dd>
-        </div>
-      </dl>
-
-      <template #footer>
-        <div class="subject-actions">
-          <template
-            v-if="
-              authStore.isTeacherMode ||
-              authStore.isAdminMode
-            "
-          >
-            <UiButton
-              variant="primary"
-              :to="teacherLecturesRoute"
-            >
-              Лекции
-            </UiButton>
-
-            <UiButton
-              :to="teacherTopicsRoute"
-            >
-              Тематики
-            </UiButton>
-          </template>
-
+      <section class="subject-destinations">
+        <article class="subject-destination">
+          <div>
+            <span class="subject-destination__eyebrow">Учебный раздел</span>
+            <h2>Лекции</h2>
+            <p>Материалы, опубликованные лекции и доступные тесты по предмету.</p>
+          </div>
           <UiButton
-            v-else
             variant="primary"
-            :to="studentLecturesRoute"
+            :to="authStore.isTeacherMode || authStore.isAdminMode ? teacherLecturesRoute : studentLecturesRoute"
           >
-            Лекции
+            Открыть лекции
           </UiButton>
-        </div>
-      </template>
-    </UiCard>
+        </article>
+
+        <article
+          v-if="authStore.isTeacherMode || authStore.isAdminMode"
+          class="subject-destination"
+        >
+          <div>
+            <span class="subject-destination__eyebrow">Структура предмета</span>
+            <h2>Тематики</h2>
+            <p>Управление тематикой, к которой привязываются вопросы и учебный контент.</p>
+          </div>
+          <UiButton :to="teacherTopicsRoute">Открыть тематики</UiButton>
+        </article>
+      </section>
+    </template>
   </SubjectsPageShell>
 </template>
 
 <style scoped>
-.subject-data {
-  margin: 0;
-
+.subject-hero {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.subject-data__row {
-  padding: 12px 0;
-
+.subject-hero__icon {
+  width: 52px;
+  height: 52px;
   display: grid;
-  grid-template-columns:
-    minmax(120px, 180px)
-    minmax(0, 1fr);
+  place-items: center;
+  color: var(--st-primary-soft-text);
+  background: var(--st-primary-soft);
+  border-radius: 14px;
+  font-size: 21px;
+}
+
+.subject-hero__copy {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.subject-hero__meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.subject-hero p { margin: 0; color: var(--st-text-secondary); line-height: 1.65; overflow-wrap: anywhere; }
+
+.subject-destinations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 14px;
-
-  border-bottom:
-    1px solid var(--border);
 }
 
-.subject-data__row:first-child {
-  padding-top: 0;
+.subject-destination {
+  min-width: 0;
+  padding: 18px;
+  display: grid;
+  align-content: space-between;
+  gap: 18px;
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-card);
 }
 
-.subject-data__row:last-child {
-  padding-bottom: 0;
+.subject-destination__eyebrow { color: var(--st-text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.subject-destination h2 { margin: 5px 0 0; color: var(--st-text); font-size: 19px; }
+.subject-destination p { margin: 8px 0 0; color: var(--st-text-secondary); font-size: 13px; line-height: 1.55; }
+.subject-destination :deep(.st-ui-link-button) { justify-self: start; }
 
-  border-bottom: 0;
-}
-
-.subject-data dt {
-  color: var(--text-secondary);
-
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.subject-data dd {
-  margin: 0;
-
-  color: var(--text);
-
-  overflow-wrap: anywhere;
-}
-
-.subject-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-@media (max-width: 560px) {
-  .subject-data__row {
-    grid-template-columns: 1fr;
-    gap: 4px;
-  }
-
-  .subject-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .subject-actions :deep(.ui-button) {
-    width: 100%;
-  }
+@media (max-width: 480px) {
+  .subject-hero { grid-template-columns: 1fr; }
+  .subject-destination :deep(.st-ui-link-button) { width: 100%; justify-content: center; }
 }
 </style>

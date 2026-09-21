@@ -53,6 +53,7 @@ import {
   UiInput,
   UiRadio,
   UiSelect,
+  UiTag,
 } from '@/components/ui'
 
 const route = useRoute()
@@ -947,6 +948,7 @@ onMounted(loadTest)
   <TestsPageShell
     :title="pageTitle"
     :subtitle="pageSubtitle"
+    narrow
   >
     <template #actions>
       <UiButton
@@ -995,26 +997,14 @@ onMounted(loadTest)
       >
         <div class="test-question">
           <div class="test-question__meta">
-            <span>
-              Вопрос
-              {{ index + 1 }}
-            </span>
-
-            <span>
-              {{
-                question.points ??
-                0
-              }}
-              балл.
-            </span>
-
-            <span>
-              {{
-                questionTypeLabel(
-                  question
-                )
-              }}
-            </span>
+            <UiTag :value="`Вопрос ${index + 1}`" />
+            <UiTag
+              variant="info"
+              :value="`${question.points ?? 0} балл.`"
+            />
+            <UiTag
+              :value="questionTypeLabel(question)"
+            />
           </div>
 
           <h2 class="test-question__title">
@@ -1274,23 +1264,11 @@ onMounted(loadTest)
   gap: 7px;
 }
 
-.test-question__meta span {
-  padding: 4px 7px;
-
-  color: var(--text-secondary);
-  background: var(--surface-secondary);
-
-  border: 1px solid var(--border);
-  border-radius: 999px;
-
-  font-size: 11px;
-  font-weight: 700;
-}
 
 .test-question__title {
   margin: 0;
 
-  color: var(--text);
+  color: var(--st-text);
 
   font-size: 17px;
   line-height: 1.45;
@@ -1312,10 +1290,10 @@ onMounted(loadTest)
 .test-matching__column {
   padding: 14px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 10px;
 }
 
@@ -1336,7 +1314,7 @@ onMounted(loadTest)
 }
 
 .test-matching__row {
-  min-height: 40px;
+  min-height: 44px;
 
   display: grid;
   grid-template-columns:
@@ -1347,31 +1325,31 @@ onMounted(loadTest)
 }
 
 .test-matching__number {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
 
-  color: var(--text);
-  background: var(--surface);
+  color: var(--st-text);
+  background: var(--st-surface);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 999px;
 
   font-weight: 800;
 }
 
 .test-matching__select {
-  width: 58px;
-  min-width: 58px;
+  width: 64px;
+  min-width: 64px;
 }
 
 .test-matching__hint {
   margin: 10px 0 0;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 12px;
   line-height: 1.45;
@@ -1391,10 +1369,10 @@ onMounted(loadTest)
 .test-result-detail {
   padding: 13px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 9px;
 }
 
@@ -1419,7 +1397,7 @@ onMounted(loadTest)
 }
 
 .test-result-detail__data dt {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 11px;
   font-weight: 700;

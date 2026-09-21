@@ -26,7 +26,7 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
-  UiTable,
+  UiTag,
 } from '@/components/ui'
 
 import {
@@ -166,63 +166,6 @@ const lectureMeta = computed(() => {
   )
 })
 
-const materialColumns = [
-  {
-    key: 'fileName',
-    label: 'Файл',
-    value: (row) =>
-      row.fileName ||
-      `Материал #${row.id}`,
-  },
-  {
-    key: 'contentType',
-    label: 'Тип',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
-
-const testColumns = [
-  {
-    key: 'title',
-    label: 'Тест',
-    value: (row) =>
-      row.title ||
-      `Тест #${row.id}`,
-  },
-  {
-    key: 'questionCount',
-    label: 'Вопросов',
-  },
-  {
-    key: 'attemptsAllowed',
-    label: 'Попытки',
-    value: (row) =>
-      attemptsText(row),
-    sortValue: (row) =>
-      row.attemptsLeft ?? -1,
-  },
-  {
-    key: 'availability',
-    label: 'Доступность',
-    value: (row) =>
-      testStatusTitle(row),
-    sortValue: (row) =>
-      row.canResume ||
-      row.canStartNew
-        ? 1
-        : 0,
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
-
 function validPositiveId(value) {
   const id = Number(value)
 
@@ -319,6 +262,22 @@ function testStatusDescription(test) {
   }
 
   return 'Тест сейчас недоступен.'
+}
+
+function testStatusVariant(test) {
+  if (test.canResume || test.canStartNew) {
+    return 'success'
+  }
+
+  if (test.availabilityCheckFailed) {
+    return 'warning'
+  }
+
+  if (test.attemptsChecked && test.attemptsLeft <= 0) {
+    return 'danger'
+  }
+
+  return 'secondary'
 }
 
 function withClientAvailability(source) {
@@ -658,294 +617,168 @@ onMounted(loadLecture)
 </script>
 
 <template>
-  <LecturesPageShell
-    :title="pageTitle"
-    :subtitle="lectureMeta"
-    narrow
-  >
+  <LecturesPageShell :title="pageTitle" :subtitle="lectureMeta" narrow>
     <template #actions>
-      <UiButton
-        :loading="loading"
-        loading-text="Обновление..."
-        @click="loadLecture"
-      >
+      <UiButton :loading="loading" loading-text="Обновление..." @click="loadLecture">
         Обновить
       </UiButton>
     </template>
 
-    <UiAlert
-      v-if="error"
-      variant="danger"
-      :message="error"
-    />
+    <UiAlert v-if="error" variant="danger" :message="error" />
 
     <UiEmptyState
-      v-if="
-        loading &&
-        !lecture
-      "
-      description="Загрузка лекции..."
+      v-if="loading && !lecture"
+      title="Загружаем лекцию"
+      description="Получаем описание, материалы и доступные тесты."
     />
 
-    <UiCard
-      v-else-if="lecture"
-      title="О лекции"
-    >
-      <dl class="lecture-data">
-        <div class="lecture-data__row">
-          <dt>Описание</dt>
+    <template v-else-if="lecture">
+      <UiCard compact>
+        <div class="lecture-overview">
+          <div class="lecture-overview__description">
+            <span class="lecture-overview__eyebrow">О лекции</span>
+            <p>{{ lecture.description || 'Описание лекции пока не заполнено.' }}</p>
+          </div>
 
-          <dd>
-            {{
-              lecture.description ||
-              '—'
-            }}
-          </dd>
+          <div class="lecture-overview__meta">
+            <UiTag v-if="lecture.courseName" :value="lecture.courseName" />
+            <UiTag
+              v-if="lecture.versionNumber != null"
+              variant="info"
+              :value="`Версия ${lecture.versionNumber}`"
+            />
+            <UiTag
+              v-if="lecture.ordinal != null"
+              :value="`Лекция ${lecture.ordinal}`"
+            />
+          </div>
         </div>
+      </UiCard>
 
-        <div class="lecture-data__row">
-          <dt>Курс</dt>
-
-          <dd>
-            {{
-              lecture.courseName ||
-              '—'
-            }}
-          </dd>
-        </div>
-
-        <div class="lecture-data__row">
-          <dt>Версия</dt>
-
-          <dd>
-            {{
-              lecture.versionNumber ??
-              '—'
-            }}
-          </dd>
-        </div>
-
-        <div class="lecture-data__row">
-          <dt>Номер лекции</dt>
-
-          <dd>
-            {{
-              lecture.ordinal ??
-              '—'
-            }}
-          </dd>
-        </div>
-      </dl>
-    </UiCard>
-
-    <UiCard
-      title="Материалы лекции"
-      :description="
-        materials.length
-          ? `Файлов: ${materials.length}`
-          : 'Прикреплённые материалы'
-      "
-    >
-      <UiTable
-        :columns="materialColumns"
-        :rows="materials"
-        :loading="loading"
-        loading-message="Загрузка материалов..."
-        empty-message="Для этой лекции пока нет прикреплённых материалов."
-        :default-sort="{
-          key: 'fileName',
-          direction: 'asc',
-        }"
+      <UiCard
+        title="Материалы"
+        :description="materials.length ? `Файлов: ${materials.length}` : 'Прикреплённые материалы лекции'"
       >
-        <template #cell-fileName="{ row }">
-          <strong>
-            {{
-              row.fileName ||
-              `Материал #${row.id}`
-            }}
-          </strong>
-        </template>
+        <UiEmptyState
+          v-if="!materials.length"
+          compact
+          description="Для этой лекции пока нет прикреплённых материалов."
+        />
 
-        <template #cell-contentType="{ row }">
-          {{
-            row.contentType ||
-            'Файл'
-          }}
-        </template>
-
-        <template #cell-actions="{ row }">
-          <UiButton
-            size="sm"
-            :loading="
-              downloadingMaterialId ===
-              row.id
-            "
-            loading-text="Скачивание..."
-            @click="
-              downloadMaterial(row)
-            "
-          >
-            Скачать
-          </UiButton>
-        </template>
-      </UiTable>
-    </UiCard>
-
-    <UiCard
-      title="Тесты по лекции"
-      :description="
-        tests.length
-          ? `Тестов: ${tests.length}`
-          : 'Опубликованные тесты'
-      "
-    >
-      <UiTable
-        :columns="testColumns"
-        :rows="tests"
-        :loading="loading"
-        loading-message="Загрузка тестов..."
-        empty-message="Для этой лекции пока нет опубликованных тестов."
-        :default-sort="{
-          key: 'title',
-          direction: 'asc',
-        }"
-      >
-        <template #cell-title="{ row }">
-          <div class="lecture-test">
-            <strong>
-              {{
-                row.title ||
-                `Тест #${row.id}`
-              }}
-            </strong>
-
-            <span
-              v-if="row.description"
-              class="lecture-test__description"
+        <div v-else class="lecture-materials">
+          <article v-for="material in materials" :key="material.id" class="lecture-material">
+            <div class="lecture-material__icon" aria-hidden="true"><i class="pi pi-file" /></div>
+            <div class="lecture-material__copy">
+              <strong>{{ material.fileName || `Материал #${material.id}` }}</strong>
+              <UiTag :value="material.contentType || 'Файл'" />
+            </div>
+            <UiButton
+              size="sm"
+              :loading="downloadingMaterialId === material.id"
+              loading-text="Скачивание..."
+              @click="downloadMaterial(material)"
             >
-              {{ row.description }}
-            </span>
-          </div>
-        </template>
+              Скачать
+            </UiButton>
+          </article>
+        </div>
+      </UiCard>
 
-        <template #cell-questionCount="{ row }">
-          {{
-            row.questionCount ??
-            '—'
-          }}
-        </template>
+      <UiCard
+        title="Тесты"
+        :description="tests.length ? `Доступно тестов: ${tests.length}` : 'Опубликованные тесты лекции'"
+      >
+        <UiEmptyState
+          v-if="!tests.length"
+          compact
+          description="Для этой лекции пока нет опубликованных тестов."
+        />
 
-        <template #cell-attemptsAllowed="{ row }">
-          {{ attemptsText(row) }}
-        </template>
+        <div v-else class="lecture-tests">
+          <article v-for="testItem in tests" :key="testItem.id" class="lecture-test-card">
+            <div class="lecture-test-card__header">
+              <div class="lecture-test-card__copy">
+                <h3>{{ testItem.title || `Тест #${testItem.id}` }}</h3>
+                <p v-if="testItem.description">{{ testItem.description }}</p>
+              </div>
+              <UiTag
+                :variant="testStatusVariant(testItem)"
+                :value="testStatusTitle(testItem)"
+              />
+            </div>
 
-        <template #cell-availability="{ row }">
-          <div class="lecture-test">
-            <strong>
-              {{ testStatusTitle(row) }}
-            </strong>
+            <div class="lecture-test-card__meta">
+              <span><strong>{{ testItem.questionCount ?? '—' }}</strong> вопросов</span>
+              <span><strong>{{ attemptsText(testItem) }}</strong></span>
+            </div>
 
-            <span class="lecture-test__description">
-              {{ testStatusDescription(row) }}
-            </span>
-          </div>
-        </template>
+            <p class="lecture-test-card__status">{{ testStatusDescription(testItem) }}</p>
 
-        <template #cell-actions="{ row }">
-          <UiButton
-            v-if="
-              row.canResume ||
-              row.canStartNew
-            "
-            size="sm"
-            variant="primary"
-            :to="testRoute(row)"
-          >
-            {{
-              row.canResume
-                ? 'Продолжить тест'
-                : 'Пройти тест'
-            }}
-          </UiButton>
+            <UiButton
+              v-if="testItem.canResume || testItem.canStartNew"
+              variant="primary"
+              :to="testRoute(testItem)"
+            >
+              {{ testItem.canResume ? 'Продолжить тест' : 'Пройти тест' }}
+            </UiButton>
 
-          <UiButton
-            v-else
-            size="sm"
-            disabled
-          >
-            {{ testStatusTitle(row) }}
-          </UiButton>
-        </template>
-      </UiTable>
-    </UiCard>
+            <UiButton v-else disabled>
+              {{ testStatusTitle(testItem) }}
+            </UiButton>
+          </article>
+        </div>
+      </UiCard>
+    </template>
   </LecturesPageShell>
 </template>
 
 <style scoped>
-.lecture-data {
-  margin: 0;
+.lecture-overview { display: grid; gap: 14px; }
+.lecture-overview__description { min-width: 0; display: grid; gap: 7px; }
+.lecture-overview__eyebrow { color: var(--st-text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.lecture-overview p { margin: 0; color: var(--st-text-secondary); line-height: 1.65; overflow-wrap: anywhere; }
+.lecture-overview__meta { display: flex; flex-wrap: wrap; gap: 7px; }
 
-  display: grid;
-}
-
-.lecture-data__row {
-  padding: 12px 0;
-
-  display: grid;
-  grid-template-columns:
-    minmax(130px, 190px)
-    minmax(0, 1fr);
-  gap: 14px;
-
-  border-bottom:
-    1px solid var(--border);
-}
-
-.lecture-data__row:first-child {
-  padding-top: 0;
-}
-
-.lecture-data__row:last-child {
-  padding-bottom: 0;
-
-  border-bottom: 0;
-}
-
-.lecture-data dt {
-  color: var(--text-secondary);
-
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.lecture-data dd {
-  margin: 0;
-
-  color: var(--text);
-
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.lecture-test {
+.lecture-materials { display: grid; gap: 10px; }
+.lecture-material {
   min-width: 0;
-
+  padding: 12px;
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-control);
 }
+.lecture-material__icon { width: 40px; height: 40px; display: grid; place-items: center; color: var(--st-primary-soft-text); background: var(--st-primary-soft); border-radius: 10px; }
+.lecture-material__copy { min-width: 0; display: grid; justify-items: start; gap: 7px; }
+.lecture-material__copy strong { max-width: 100%; color: var(--st-text); overflow-wrap: anywhere; }
 
-.lecture-test__description {
-  color: var(--text-secondary);
-
-  font-size: 12px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+.lecture-tests { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 12px; }
+.lecture-test-card {
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
 }
+.lecture-test-card__header { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.lecture-test-card__copy { min-width: 0; display: grid; gap: 6px; }
+.lecture-test-card h3, .lecture-test-card p { margin: 0; }
+.lecture-test-card h3 { color: var(--st-text); font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+.lecture-test-card__copy p, .lecture-test-card__status { color: var(--st-text-secondary); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.lecture-test-card__meta { display: flex; flex-wrap: wrap; gap: 8px 14px; color: var(--st-text-secondary); font-size: 12px; }
+.lecture-test-card__meta strong { color: var(--st-text); }
+.lecture-test-card :deep(.st-ui-link-button), .lecture-test-card :deep(.st-ui-button) { justify-self: start; }
 
 @media (max-width: 560px) {
-  .lecture-data__row {
-    grid-template-columns: 1fr;
-    gap: 4px;
-  }
+  .lecture-material { grid-template-columns: auto minmax(0, 1fr); }
+  .lecture-material :deep(.st-ui-button) { grid-column: 1 / -1; width: 100%; }
+  .lecture-test-card__header { flex-direction: column; }
+  .lecture-test-card :deep(.st-ui-link-button), .lecture-test-card :deep(.st-ui-button) { width: 100%; justify-content: center; }
 }
 </style>

@@ -19,9 +19,9 @@ import SubjectsPageShell from '@/components/subjects/SubjectsPageShell.vue'
 import {
   UiAlert,
   UiButton,
-  UiCard,
-  UiInput,
-  UiTable,
+  UiEmptyState,
+  UiSearchInput,
+  UiTag,
 } from '@/components/ui'
 
 import {
@@ -49,25 +49,6 @@ const groups = ref([])
 const faculties = ref([])
 
 const filter = ref('')
-
-const columns = [
-  {
-    key: 'name',
-    label: 'Предмет',
-    value: (row) =>
-      row.name ||
-      `Предмет #${row.id}`,
-  },
-  {
-    key: 'id',
-    label: 'ID',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
 const filteredSubjects = computed(() => {
   const query =
@@ -296,7 +277,7 @@ onMounted(loadSubjects)
 <template>
   <SubjectsPageShell
     title="Мои предметы"
-    subtitle="Для студентов отображаются предметы по активным учебным группам, для преподавателей и администраторов — доступные дисциплины."
+    subtitle="Откройте предмет, чтобы перейти к его лекциям и учебным материалам."
   >
     <template #actions>
       <UiButton
@@ -314,62 +295,190 @@ onMounted(loadSubjects)
       :message="error"
     />
 
-    <UiAlert
-      variant="info"
-      :message="metaText"
+    <section class="subjects-overview">
+      <div class="subjects-overview__copy">
+        <strong>{{ metaText }}</strong>
+        <span>Доступно предметов: {{ subjects.length }}</span>
+      </div>
+
+      <UiSearchInput
+        v-model="filter"
+        class="subjects-overview__search"
+        label="Поиск"
+        placeholder="Название предмета"
+      />
+    </section>
+
+    <UiEmptyState
+      v-if="loading && !subjects.length"
+      title="Загружаем предметы"
+      description="Список появится после получения учебного контекста."
     />
 
-    <UiCard
-      title="Поиск"
-      description="Фильтр применяется по названию предмета."
-      compact
-    >
-      <UiInput
-        v-model="filter"
-        type="search"
-        label="Поиск по предметам"
-        placeholder="Введите название предмета"
-      />
-    </UiCard>
-
-    <UiCard
-      title="Предметы"
+    <UiEmptyState
+      v-else-if="!error && !filteredSubjects.length"
+      title="Предметы не найдены"
       :description="
-        filteredSubjects.length
-          ? `Найдено предметов: ${filteredSubjects.length}`
-          : 'Список доступных предметов'
+        filter.trim()
+          ? 'Попробуйте изменить поисковый запрос.'
+          : 'Для текущего учебного контекста доступных предметов нет.'
       "
-    >
-      <UiTable
-        :columns="columns"
-        :rows="filteredSubjects"
-        :loading="loading"
-        loading-message="Загрузка предметов..."
-        empty-message="Подходящие предметы не найдены."
-        :default-sort="{
-          key: 'name',
-          direction: 'asc',
-        }"
-      >
-        <template #cell-name="{ row }">
-          <strong>
-            {{
-              row.name ||
-              `Предмет #${row.id}`
-            }}
-          </strong>
-        </template>
+    />
 
-        <template #cell-actions="{ row }">
-          <UiButton
-            size="sm"
-            variant="primary"
-            :to="subjectRoute(row)"
-          >
-            Открыть
-          </UiButton>
-        </template>
-      </UiTable>
-    </UiCard>
+    <div v-else class="subjects-grid">
+      <article
+        v-for="subjectItem in filteredSubjects"
+        :key="subjectItem.id"
+        class="subject-tile"
+      >
+        <div class="subject-tile__icon" aria-hidden="true">
+          <i class="pi pi-book" />
+        </div>
+
+        <div class="subject-tile__body">
+          <div class="subject-tile__heading">
+            <h2>
+              {{ subjectItem.name || `Предмет #${subjectItem.id}` }}
+            </h2>
+            <UiTag :value="`#${subjectItem.id}`" />
+          </div>
+
+          <p>
+            Перейдите в предмет, чтобы открыть доступные лекции и продолжить обучение.
+          </p>
+        </div>
+
+        <UiButton
+          variant="primary"
+          :to="subjectRoute(subjectItem)"
+        >
+          Открыть предмет
+        </UiButton>
+      </article>
+    </div>
   </SubjectsPageShell>
 </template>
+
+<style scoped>
+.subjects-overview {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  align-items: end;
+  gap: 16px;
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+}
+
+.subjects-overview__copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.subjects-overview__copy strong {
+  color: var(--st-text);
+  line-height: 1.45;
+}
+
+.subjects-overview__copy span {
+  color: var(--st-text-secondary);
+  font-size: 13px;
+}
+
+.subjects-overview__search {
+  min-width: 0;
+}
+
+.subjects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+}
+
+.subject-tile {
+  min-width: 0;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-card);
+}
+
+.subject-tile__icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--st-primary-soft-text);
+  background: var(--st-primary-soft);
+  border-radius: 12px;
+  font-size: 18px;
+}
+
+.subject-tile__body {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.subject-tile__heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.subject-tile h2,
+.subject-tile p {
+  margin: 0;
+}
+
+.subject-tile h2 {
+  min-width: 0;
+  color: var(--st-text);
+  font-size: 17px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.subject-tile p {
+  color: var(--st-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.subject-tile :deep(.st-ui-link-button) {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+@media (max-width: 720px) {
+  .subjects-overview {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .subject-tile {
+    grid-template-columns: 1fr;
+  }
+
+  .subject-tile__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .subject-tile :deep(.st-ui-link-button) {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>

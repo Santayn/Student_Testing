@@ -9,7 +9,7 @@ import {
 } from '@vue/test-utils'
 
 import {
-  UiTable,
+  UiTag,
 } from '@/components/ui'
 import ResultAttemptCard from '@/components/results/ResultAttemptCard.vue'
 
@@ -27,7 +27,7 @@ function attempt() {
       {
         questionText: '2 + 2?',
         givenAnswer: '4',
-        correctAnswer: '4',
+        correctAnswer: 'Секретный правильный ответ',
         correct: true,
         questionPoints: 2,
         awardedPoints: 2,
@@ -38,68 +38,8 @@ function attempt() {
   }
 }
 
-function columnLabels(mode) {
-  const wrapper = shallowMount(
-    ResultAttemptCard,
-    {
-      props: {
-        attempt: attempt(),
-        mode,
-        open: true,
-      },
-    }
-  )
-
-  const table = wrapper.findComponent(
-    UiTable
-  )
-
-  expect(table.exists()).toBe(true)
-
-  const labels = table
-    .props('columns')
-    .map((column) => column.label)
-
-  wrapper.unmount()
-  return labels
-}
-
 describe('result attempt visibility', () => {
-  it('does not expose per-question correctness columns in student mode', () => {
-    const labels = columnLabels('student')
-
-    expect(labels).toEqual([
-      '#',
-      'Вопрос',
-      'Ответ студента',
-    ])
-    expect(labels).not.toContain(
-      'Правильный ответ'
-    )
-    expect(labels).not.toContain(
-      'Результат'
-    )
-    expect(labels).not.toContain(
-      'Баллы'
-    )
-  })
-
-  it('keeps correctness columns in teacher mode', () => {
-    const labels = columnLabels('teacher')
-
-    expect(labels).toContain(
-      'Правильный ответ'
-    )
-    expect(labels).toContain(
-      'Результат'
-    )
-    expect(labels).toContain(
-      'Баллы'
-    )
-  })
-
-
-  it('removes teacher-only row data before UiTable receives student rows', () => {
+  it('renders student answers as responsive cards without teacher-only grading data', () => {
     const wrapper = shallowMount(
       ResultAttemptCard,
       {
@@ -111,22 +51,23 @@ describe('result attempt visibility', () => {
       }
     )
 
-    const table = wrapper.findComponent(
-      UiTable
-    )
+    expect(
+      wrapper.findAll('.result-answer')
+    ).toHaveLength(1)
 
-    expect(table.props('rows')).toEqual([
-      {
-        displayIndex: 1,
-        questionText: '2 + 2?',
-        givenAnswer: '4',
-      },
-    ])
+    expect(wrapper.text()).toContain('2 + 2?')
+    expect(wrapper.text()).toContain('Ответ студента')
+    expect(wrapper.text()).not.toContain('Правильный ответ')
+    expect(wrapper.text()).not.toContain('Секретный правильный ответ')
+    expect(wrapper.text()).not.toContain('Скрытая заметка')
+    expect(
+      wrapper.find('.result-answer__data--teacher').exists()
+    ).toBe(false)
 
     wrapper.unmount()
   })
 
-  it('keeps teacher grading row data in teacher mode', () => {
+  it('keeps teacher grading data in the teacher card layout', () => {
     const wrapper = shallowMount(
       ResultAttemptCard,
       {
@@ -138,18 +79,12 @@ describe('result attempt visibility', () => {
       }
     )
 
-    const table = wrapper.findComponent(
-      UiTable
-    )
-
-    expect(table.props('rows')[0]).toMatchObject({
-      correctAnswer: '4',
-      correct: true,
-      questionPoints: 2,
-      awardedPoints: 2,
-      gradingStatus: 'correct',
-      gradingNote: 'Скрытая заметка',
-    })
+    expect(wrapper.text()).toContain('Правильный ответ')
+    expect(wrapper.text()).toContain('Секретный правильный ответ')
+    expect(wrapper.text()).toContain('2 из 2')
+    expect(
+      wrapper.find('.result-answer__data--teacher').exists()
+    ).toBe(true)
 
     wrapper.unmount()
   })
@@ -179,35 +114,16 @@ describe('result attempt visibility', () => {
       }
     )
 
-    const table = wrapper.findComponent(
-      UiTable
-    )
-
-    const statusColumn = table
-      .props('columns')
+    const statusTag = wrapper
+      .findAllComponents(UiTag)
       .find(
-        (column) =>
-          column.key === 'status'
+        (tag) =>
+          tag.props('value') === 'Частично верно'
       )
 
-    const pointsColumn = table
-      .props('columns')
-      .find(
-        (column) =>
-          column.key === 'points'
-      )
-
-    const row = wrapper.props(
-      'attempt'
-    ).results[0]
-
-    expect(
-      statusColumn.value(row)
-    ).toBe('Частично верно')
-
-    expect(
-      pointsColumn.value(row)
-    ).toBe('5 / 10')
+    expect(statusTag).toBeTruthy()
+    expect(statusTag.props('variant')).toBe('warning')
+    expect(wrapper.text()).toContain('5 из 10')
 
     wrapper.unmount()
   })

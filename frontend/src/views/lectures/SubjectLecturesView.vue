@@ -24,8 +24,8 @@ import {
 import {
   UiAlert,
   UiButton,
-  UiCard,
-  UiTable,
+  UiEmptyState,
+  UiTag,
 } from '@/components/ui'
 
 import {
@@ -89,37 +89,6 @@ const pageSubtitle = computed(() => {
     `Лекций: ${lectures.value.length}`
   )
 })
-
-const columns = [
-  {
-    key: 'ordinal',
-    label: '№',
-  },
-  {
-    key: 'title',
-    label: 'Лекция',
-    value: (row) =>
-      row.title ||
-      `Лекция #${row.id}`,
-  },
-  {
-    key: 'courseName',
-    label: 'Курс',
-  },
-  {
-    key: 'versionNumber',
-    label: 'Версия',
-  },
-  {
-    key: 'id',
-    label: 'ID',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
 function lectureRoute(lecture) {
   return {
@@ -236,68 +205,97 @@ onMounted(loadLectures)
 </script>
 
 <template>
-  <LecturesPageShell
-    :title="pageTitle"
-    :subtitle="pageSubtitle"
-  >
+  <LecturesPageShell :title="pageTitle" :subtitle="pageSubtitle">
     <template #actions>
-      <UiButton
-        :loading="loading"
-        loading-text="Обновление..."
-        @click="loadLectures"
-      >
+      <UiButton :loading="loading" loading-text="Обновление..." @click="loadLectures">
         Обновить
       </UiButton>
     </template>
 
-    <UiAlert
-      v-if="error"
-      variant="danger"
-      :message="error"
+    <UiAlert v-if="error" variant="danger" :message="error" />
+
+    <UiEmptyState
+      v-if="loading && !lectures.length"
+      title="Загружаем лекции"
+      description="Получаем доступные материалы предмета."
     />
 
-    <UiCard title="Лекции">
-      <UiTable
-        :columns="columns"
-        :rows="lectures"
-        :loading="loading"
-        loading-message="Загрузка лекций..."
-        empty-message="Для этого предмета пока нет доступных лекций."
-        :default-sort="{
-          key: 'ordinal',
-          direction: 'asc',
-        }"
-      >
-        <template #cell-title="{ row }">
-          <strong>
-            {{
-              row.title ||
-              `Лекция #${row.id}`
-            }}
-          </strong>
-        </template>
+    <UiEmptyState
+      v-else-if="!error && !lectures.length"
+      title="Лекций пока нет"
+      description="Для этого предмета ещё не опубликованы доступные лекции."
+    />
 
-        <template #cell-courseName="{ row }">
-          {{ row.courseName || '—' }}
-        </template>
+    <div v-else class="lectures-grid">
+      <article v-for="lecture in lectures" :key="lecture.id" class="lecture-tile">
+        <div class="lecture-tile__top">
+          <div class="lecture-tile__ordinal">{{ lecture.ordinal ?? '—' }}</div>
+          <div class="lecture-tile__copy">
+            <h2>{{ lecture.title || `Лекция #${lecture.id}` }}</h2>
+            <div class="lecture-tile__meta">
+              <UiTag v-if="lecture.courseName" :value="lecture.courseName" />
+              <UiTag
+                v-if="lecture.versionNumber != null"
+                variant="info"
+                :value="`Версия ${lecture.versionNumber}`"
+              />
+            </div>
+          </div>
+        </div>
 
-        <template #cell-versionNumber="{ row }">
-          {{
-            row.versionNumber ??
-            '—'
-          }}
-        </template>
-
-        <template #cell-actions="{ row }">
-          <UiButton
-            size="sm"
-            variant="primary"
-            :to="lectureRoute(row)"
-          >
-            Открыть
-          </UiButton>
-        </template>
-      </UiTable>
-    </UiCard>
+        <UiButton variant="primary" :to="lectureRoute(lecture)">
+          Открыть лекцию
+        </UiButton>
+      </article>
+    </div>
   </LecturesPageShell>
 </template>
+
+<style scoped>
+.lectures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+}
+
+.lecture-tile {
+  min-width: 0;
+  padding: 18px;
+  display: grid;
+  align-content: space-between;
+  gap: 20px;
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-card);
+}
+
+.lecture-tile__top {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 13px;
+  align-items: start;
+}
+
+.lecture-tile__ordinal {
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  display: grid;
+  place-items: center;
+  color: var(--st-primary-soft-text);
+  background: var(--st-primary-soft);
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+.lecture-tile__copy { min-width: 0; display: grid; gap: 10px; }
+.lecture-tile h2 { margin: 0; color: var(--st-text); font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.lecture-tile__meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.lecture-tile :deep(.st-ui-link-button) { justify-self: start; }
+
+@media (max-width: 480px) {
+  .lecture-tile :deep(.st-ui-link-button) { width: 100%; justify-content: center; }
+}
+</style>

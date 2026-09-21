@@ -94,13 +94,13 @@ describe('contextual navigation responsibility', () => {
   })
 
   it('keeps useful actions tied to the current entity', () => {
-    expect(subjectDetails).toContain(':to="studentLecturesRoute"')
-    expect(subjectDetails).toContain(':to="teacherLecturesRoute"')
+    expect(subjectDetails).toContain('studentLecturesRoute')
+    expect(subjectDetails).toContain('teacherLecturesRoute')
     expect(subjectDetails).toContain(':to="teacherTopicsRoute"')
 
     expect(subjectLectures).toContain('@click="loadLectures"')
     expect(lectureDetails).toContain('@click="loadLecture"')
-    expect(lectureDetails).toContain(':to="testRoute(row)"')
+    expect(lectureDetails).toContain(':to="testRoute(testItem)"')
     expect(testView).toContain('@click="submitTest"')
     expect(teacherWorkload).toContain('@click="assignLectures"')
   })

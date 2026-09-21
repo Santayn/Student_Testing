@@ -1254,7 +1254,12 @@ onMounted(init)
       "
     >
       <UiEmptyState
-        v-if="
+        v-if="loadingInitial"
+        description="Загрузка страницы результатов..."
+      />
+
+      <UiEmptyState
+        v-else-if="
           loadingResults &&
           !resultData
         "
@@ -1317,8 +1322,12 @@ onMounted(init)
 
 .results-filters--student {
   grid-template-columns:
-    repeat(2, minmax(0, 1fr))
-    minmax(180px, 260px);
+    repeat(2, minmax(0, 1fr));
+}
+
+.results-filters--student .results-filters__submit {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .results-filters__submit {
@@ -1328,7 +1337,7 @@ onMounted(init)
 .results-breadcrumbs {
   margin-bottom: 12px;
 
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 13px;
   line-height: 1.5;
@@ -1349,15 +1358,15 @@ onMounted(init)
   display: grid;
   gap: 5px;
 
-  color: var(--text);
-  background: var(--surface-secondary);
+  color: var(--st-text);
+  background: var(--st-surface-muted);
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 9px;
 }
 
 .results-stat span {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
 
   font-size: 12px;
   font-weight: 700;
@@ -1385,8 +1394,11 @@ onMounted(init)
     grid-template-columns: 1fr;
   }
 
-  .results-filters__submit {
+  .results-filters__submit,
+  .results-filters--student .results-filters__submit {
     width: 100%;
+    grid-column: auto;
+    justify-self: stretch;
   }
 }
 

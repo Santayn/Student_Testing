@@ -14,46 +14,15 @@ import {
 
 import {
   UiEmptyState,
-  UiTable,
+  UiTag,
 } from '@/components/ui'
 
 const props = defineProps({
-  attempt: {
-    type: Object,
-    required: true,
-  },
-
-  mode: {
-    type: String,
-    default: 'student',
-  },
-
-  open: {
-    type: Boolean,
-    default: false,
-  },
-
-  best: {
-    type: Boolean,
-    default: false,
-  },
+  attempt: { type: Object, required: true },
+  mode: { type: String, default: 'student' },
+  open: { type: Boolean, default: false },
+  best: { type: Boolean, default: false },
 })
-
-const studentColumns = [
-  {
-    key: 'displayIndex',
-    label: '#',
-    sortable: false,
-  },
-  {
-    key: 'questionText',
-    label: 'Вопрос',
-  },
-  {
-    key: 'givenAnswer',
-    label: 'Ответ студента',
-  },
-]
 
 const displayAttempt = computed(() => {
   if (props.mode === 'teacher') {
@@ -65,83 +34,24 @@ const displayAttempt = computed(() => {
   )
 })
 
-const teacherOnlyColumns = [
-  {
-    key: 'correctAnswer',
-    label: 'Правильный ответ',
-  },
-  {
-    key: 'status',
-    label: 'Результат',
-    value: (row) =>
-      gradingStatusLabel(row),
-    sortValue: (row) => {
-      const status =
-        normalizeGradingStatus(row)
-
-      if (status === 'correct') {
-        return 2
-      }
-
-      return status === 'partial'
-        ? 1
-        : 0
-    },
-  },
-  {
-    key: 'points',
-    label: 'Баллы',
-    value: (row) => {
-      const score =
-        resultItemScore(row)
-
-      return (
-        `${formatScoreNumber(score.awardedPoints)} / ` +
-        `${formatScoreNumber(score.questionPoints)}`
-      )
-    },
-    sortValue: (row) =>
-      resultItemScore(row)
-        .awardedPoints,
-  },
-]
-
-const columns = computed(() => {
-  if (props.mode === 'teacher') {
-    return [
-      ...studentColumns,
-      ...teacherOnlyColumns,
-    ]
+const stats = computed(() => (
+  displayAttempt.value.stats ?? {
+    total: 0,
+    right: 0,
+    percent: 0,
   }
+))
 
-  return studentColumns
-})
-
-const stats = computed(() => {
-  return (
-    displayAttempt.value.stats ?? {
-      total: 0,
-      right: 0,
-      percent: 0,
-    }
-  )
-})
-
-const score = computed(() => {
-  return attemptScoreSummary(
+const score = computed(() => (
+  attemptScoreSummary(
     displayAttempt.value
   )
-})
+))
 
-const testName = computed(() => {
-  return (
-    displayAttempt.value.testName ||
-    `Тест #${
-      displayAttempt.value.testId ??
-      '?'
-    }`
-  )
-})
+const testName = computed(() => (
+  displayAttempt.value.testName ||
+  `Тест #${displayAttempt.value.testId ?? '?'}`
+))
 
 const metaText = computed(() => {
   const parts = []
@@ -149,33 +59,20 @@ const metaText = computed(() => {
   if (props.mode === 'teacher') {
     parts.push(
       displayAttempt.value.studentName ||
-      `Студент #${
-        displayAttempt.value.studentId ??
-        '?'
-      }`
+      `Студент #${displayAttempt.value.studentId ?? '?'}`
     )
   } else {
     parts.push('Ваша попытка')
   }
 
-  if (
-    displayAttempt.value.attemptOrdinal
-  ) {
-    parts.push(
-      `Попытка ${
-        displayAttempt.value
-          .attemptOrdinal
-      }`
-    )
+  if (displayAttempt.value.attemptOrdinal) {
+    parts.push(`Попытка ${displayAttempt.value.attemptOrdinal}`)
   }
 
-  if (
-    displayAttempt.value.completedAt
-  ) {
+  if (displayAttempt.value.completedAt) {
     parts.push(
       formatDateTime(
-        displayAttempt.value
-          .completedAt
+        displayAttempt.value.completedAt
       )
     )
   }
@@ -184,20 +81,16 @@ const metaText = computed(() => {
 })
 
 const rows = computed(() => {
-  const source =
-    Array.isArray(
-      displayAttempt.value.results
-    )
-      ? displayAttempt.value.results
-      : []
-
-  return source.map(
-    (row, index) => ({
-      ...row,
-      displayIndex:
-        index + 1,
-    })
+  const source = Array.isArray(
+    displayAttempt.value.results
   )
+    ? displayAttempt.value.results
+    : []
+
+  return source.map((row, index) => ({
+    ...row,
+    displayIndex: index + 1,
+  }))
 })
 
 function formatScoreNumber(value) {
@@ -209,25 +102,22 @@ function formatScoreNumber(value) {
 
   return new Intl.NumberFormat(
     'ru-RU',
-    {
-      maximumFractionDigits: 2,
-    }
+    { maximumFractionDigits: 2 }
   ).format(number)
 }
 
-function statusClass(row) {
-  const status =
-    normalizeGradingStatus(row)
+function statusVariant(row) {
+  const status = normalizeGradingStatus(row)
 
   if (status === 'correct') {
-    return 'result-attempt__status--success'
+    return 'success'
   }
 
   if (status === 'partial') {
-    return 'result-attempt__status--warning'
+    return 'warning'
   }
 
-  return 'result-attempt__status--danger'
+  return 'danger'
 }
 
 function formatDateTime(value) {
@@ -238,9 +128,7 @@ function formatDateTime(value) {
         dateStyle: 'short',
         timeStyle: 'short',
       }
-    ).format(
-      new Date(value)
-    )
+    ).format(new Date(value))
   } catch {
     return value || ''
   }
@@ -254,51 +142,19 @@ function formatDateTime(value) {
   >
     <summary class="result-attempt__summary">
       <div class="result-attempt__title">
-        <strong>
-          {{ testName }}
-        </strong>
-
-        <small>
-          {{ metaText }}
-        </small>
+        <strong>{{ testName }}</strong>
+        <small>{{ metaText }}</small>
       </div>
 
       <div class="result-attempt__stats">
-        <span
+        <UiTag
           v-if="best"
-          class="result-attempt__badge result-attempt__badge--success"
-        >
-          Лучшая попытка
-        </span>
-
-        <span
-          class="result-attempt__badge"
-          :class="{
-            'result-attempt__badge--success':
-              Number(stats.right) > 0 &&
-              Number(stats.right) ===
-                Number(stats.total),
-          }"
-        >
-          {{
-            stats.right ?? 0
-          }}
-          из
-          {{
-            stats.total ?? 0
-          }}
-        </span>
-
-        <span class="result-attempt__badge">
-          {{ formatScoreNumber(score.score) }}
-          из
-          {{ formatScoreNumber(score.maxScore) }}
-          баллов
-        </span>
-
-        <span class="result-attempt__badge">
-          {{ formatScoreNumber(score.percent) }}%
-        </span>
+          variant="success"
+          value="Лучшая попытка"
+        />
+        <UiTag :value="`${stats.right ?? 0} из ${stats.total ?? 0}`" />
+        <UiTag :value="`${formatScoreNumber(score.score)} из ${formatScoreNumber(score.maxScore)} баллов`" />
+        <UiTag variant="info" :value="`${formatScoreNumber(score.percent)}%`" />
       </div>
     </summary>
 
@@ -309,58 +165,56 @@ function formatDateTime(value) {
         compact
       />
 
-      <UiTable
+      <div
         v-else
-        :columns="columns"
-        :rows="rows"
-        empty-message="Для этой попытки нет доступных ответов."
+        class="result-answer-list"
       >
-        <template #cell-questionText="{ row }">
-          {{
-            row.questionText ||
-            '—'
-          }}
-        </template>
+        <article
+          v-for="row in rows"
+          :key="`${row.displayIndex}-${row.questionText}`"
+          class="result-answer"
+        >
+          <div class="result-answer__heading">
+            <span class="result-answer__number">{{ row.displayIndex }}</span>
+            <div class="result-answer__question">
+              <span>Вопрос</span>
+              <strong>{{ row.questionText || '—' }}</strong>
+            </div>
 
-        <template #cell-givenAnswer="{ row }">
-          {{
-            row.givenAnswer ||
-            '—'
-          }}
-        </template>
+            <UiTag
+              v-if="mode === 'teacher'"
+              :variant="statusVariant(row)"
+              :value="gradingStatusLabel(row)"
+            />
+          </div>
 
-        <template #cell-correctAnswer="{ row }">
-          {{
-            row.correctAnswer ||
-            '—'
-          }}
-        </template>
-
-        <template #cell-status="{ row }">
-          <strong
-            class="result-attempt__status"
-            :class="statusClass(row)"
+          <div
+            class="result-answer__data"
+            :class="{ 'result-answer__data--teacher': mode === 'teacher' }"
           >
-            {{ gradingStatusLabel(row) }}
-          </strong>
-        </template>
+            <div>
+              <span>Ответ студента</span>
+              <strong>{{ row.givenAnswer || '—' }}</strong>
+            </div>
 
-        <template #cell-points="{ row }">
-          {{
-            formatScoreNumber(
-              resultItemScore(row)
-                .awardedPoints
-            )
-          }}
-          /
-          {{
-            formatScoreNumber(
-              resultItemScore(row)
-                .questionPoints
-            )
-          }}
-        </template>
-      </UiTable>
+            <template v-if="mode === 'teacher'">
+              <div>
+                <span>Правильный ответ</span>
+                <strong>{{ row.correctAnswer || '—' }}</strong>
+              </div>
+
+              <div>
+                <span>Баллы</span>
+                <strong>
+                  {{ formatScoreNumber(resultItemScore(row).awardedPoints) }}
+                  из
+                  {{ formatScoreNumber(resultItemScore(row).questionPoints) }}
+                </strong>
+              </div>
+            </template>
+          </div>
+        </article>
+      </div>
     </div>
   </details>
 </template>
@@ -368,41 +222,40 @@ function formatDateTime(value) {
 <style scoped>
 .result-attempt {
   overflow: hidden;
-
-  color: var(--text);
-  background: var(--surface);
-
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  color: var(--st-text);
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-card);
 }
 
 .result-attempt__summary {
+  min-height: 58px;
   padding: 14px 16px;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-
   cursor: pointer;
-
   list-style-position: inside;
 }
 
 .result-attempt__summary:hover {
-  background: var(--surface-secondary);
+  background: var(--st-surface-muted);
 }
 
 .result-attempt__title {
   min-width: 0;
-
   display: grid;
   gap: 4px;
 }
 
-.result-attempt__title small {
-  color: var(--text-secondary);
+.result-attempt__title strong {
+  overflow-wrap: anywhere;
+}
 
+.result-attempt__title small {
+  color: var(--st-text-secondary);
   line-height: 1.4;
 }
 
@@ -414,40 +267,81 @@ function formatDateTime(value) {
   gap: 7px;
 }
 
-.result-attempt__badge {
-  padding: 4px 8px;
-
-  color: var(--text);
-  background: var(--surface-secondary);
-
-  border: 1px solid var(--border);
-  border-radius: 999px;
-
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.result-attempt__badge--success {
-  color: var(--success);
-  background: var(--success-soft);
-  border-color: var(--success);
-}
-
 .result-attempt__body {
   padding: 0 14px 14px;
 }
 
-.result-attempt__status--success {
-  color: var(--success);
+.result-answer-list {
+  display: grid;
+  gap: 10px;
 }
 
-.result-attempt__status--warning {
-  color: var(--warning);
+.result-answer {
+  min-width: 0;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-control);
 }
 
-.result-attempt__status--danger {
-  color: var(--danger);
+.result-answer__heading {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.result-answer__number {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: var(--st-primary-soft-text);
+  background: var(--st-primary-soft);
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+.result-answer__question {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.result-answer__question span,
+.result-answer__data span {
+  color: var(--st-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.result-answer__question strong,
+.result-answer__data strong {
+  color: var(--st-text);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.result-answer__data {
+  display: grid;
+  gap: 10px;
+}
+
+.result-answer__data--teacher {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.result-answer__data > div {
+  min-width: 0;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: 8px;
 }
 
 @media (max-width: 720px) {
@@ -458,6 +352,19 @@ function formatDateTime(value) {
 
   .result-attempt__stats {
     justify-content: flex-start;
+  }
+
+  .result-answer__heading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .result-answer__heading :deep(.st-ui-tag) {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .result-answer__data--teacher {
+    grid-template-columns: 1fr;
   }
 }
 </style>
