@@ -5,12 +5,13 @@ import {
   ref,
   watch,
 } from 'vue'
+import {
+  useRouter,
+} from 'vue-router'
 
 import {
   getApiErrorMessage,
   groupsApi,
-  lecturesApi,
-  membershipsApi,
   teachingApi,
 } from '@/api'
 
@@ -18,11 +19,9 @@ import {
   UiAlert,
   UiButton,
   UiCard,
-  UiCheckbox,
   UiEmptyState,
   UiInput,
   UiSelect,
-  UiTable,
 } from '@/components/ui'
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
@@ -39,18 +38,13 @@ import {
   createLatestRequestGuard,
 } from '@/utils/latestRequest'
 
-import {
-  revalidateAssignableTeacherMembershipIds,
-} from '@/utils/teacherMembershipEligibility'
+const router = useRouter()
 
 const {
   subjectMemberships,
   subjects,
-  membershipOptions,
   loadTeacherSubjects,
 } = useTeacherSubjects()
-
-let rowSequence = 0
 
 const studyCourse = ref(1)
 const semester = ref(1)
@@ -59,18 +53,9 @@ const academicYear = ref(
 )
 
 const assignments = ref([])
-const lectureAssignmentsByTeachingId =
-  ref(new Map())
-const lectureCatalogByMembershipId =
-  ref(new Map())
-
-const subjectRows = ref([
-  createSubjectRow(),
-])
+const loadTypes = ref([])
 
 const loading = ref(false)
-const assigning = ref(false)
-const savingStatusId = ref(null)
 const initialized = ref(false)
 
 const notice = ref({
@@ -90,13 +75,6 @@ const courseOptions = [1, 2, 3, 4, 5, 6]
 const semesterOptions = [
   { value: 1, label: '1' },
   { value: 2, label: '2' },
-]
-
-const statusOptions = [
-  { value: 1, label: 'Активно' },
-  { value: 2, label: 'Черновик' },
-  { value: 3, label: 'Закрыто' },
-  { value: 4, label: 'В паузе' },
 ]
 
 const membershipById = computed(() => {
@@ -121,128 +99,14 @@ const subjectById = computed(() => {
   )
 })
 
-const activeAssignments = computed(() => {
-  return assignments.value.filter(
-    (item) =>
-      Number(item.status) === 1
-  )
-})
-
-const availableMembershipIds = computed(() => {
-  return [
-    ...new Set(
-      activeAssignments.value
-        .map((item) => Number(item.subjectMembershipId))
-        .filter((id) => id && membershipById.value.has(id))
-    ),
-  ]
-})
-
-const availableSubjectIds = computed(() => {
-  return [
-    ...new Set(
-      availableMembershipIds.value
-        .map((membershipId) =>
-          membershipById.value.get(
-            Number(membershipId)
-          )?.subjectId
-        )
-        .filter(Boolean)
-        .map(Number)
-    ),
-  ]
-})
-
-const currentLectureAssignments = computed(() => {
-  return [
-    ...lectureAssignmentsByTeachingId
-      .value.values(),
-  ].flat()
-})
-
-const activeGroupCount = computed(() => {
-  return new Set(
-    activeAssignments.value
-      .map((item) => Number(item.groupId))
-      .filter(Boolean)
-  ).size
-})
-
-const selectedTasks = computed(() => {
-  return subjectRows.value.flatMap(
-    (row) => {
-      if (!row.subjectMembershipId) {
-        return []
-      }
-
-      const lectureIds = [
-        ...new Set(
-          row.lectureIds
-            .map(Number)
-            .filter(Boolean)
-        ),
+const loadTypeById = computed(() => {
+  return new Map(
+    loadTypes.value.map(
+      (item) => [
+        Number(item.id),
+        item,
       ]
-
-      const assignmentIds = [
-        ...new Set(
-          row.teachingAssignmentIds
-            .map(Number)
-            .filter(Boolean)
-        ),
-      ]
-
-      return lectureIds.flatMap(
-        (lectureId) =>
-          assignmentIds.map(
-            (teachingAssignmentId) => ({
-              rowId: row.id,
-              subjectMembershipId:
-                Number(row.subjectMembershipId),
-              subjectId:
-                Number(
-                  membershipById.value.get(
-                    Number(row.subjectMembershipId)
-                  )?.subjectId
-                ),
-              lectureId,
-              teachingAssignmentId,
-            })
-          )
-      )
-    }
-  )
-})
-
-const pendingTasks = computed(() => {
-  return selectedTasks.value.filter(
-    (task) =>
-      !existingLectureAssignment(
-        task
-      )
-  )
-})
-
-const duplicateTasks = computed(() => {
-  return selectedTasks.value.filter(
-    (task) =>
-      existingLectureAssignment(task)
-  )
-})
-
-const incompleteRows = computed(() => {
-  return subjectRows.value.filter(
-    (row) =>
-      row.subjectMembershipId &&
-      (!row.lectureIds.length ||
-        !row.teachingAssignmentIds.length)
-  )
-})
-
-const canAssign = computed(() => {
-  return (
-    pendingTasks.value.length > 0 &&
-    incompleteRows.value.length === 0 &&
-    !assigning.value
+    )
   )
 })
 
@@ -254,93 +118,87 @@ const periodLabel = computed(() => {
   )
 })
 
-const groupedCurrentAssignments = computed(() => {
-  const assignmentById = new Map(
-    assignments.value.map(
-      (item) => [
-        Number(item.id),
-        item,
-      ]
-    )
-  )
+const subjectCount = computed(() => {
+  return new Set(
+    assignments.value
+      .map((item) =>
+        Number(item.subjectMembershipId)
+      )
+      .filter(Boolean)
+  ).size
+})
 
+const groupCount = computed(() => {
+  return new Set(
+    assignments.value
+      .map((item) => Number(item.groupId))
+      .filter(Boolean)
+  ).size
+})
+
+const totalHoursPerWeek = computed(() => {
+  return assignments.value.reduce(
+    (sum, item) =>
+      sum + Number(item.hoursPerWeek ?? 0),
+    0
+  )
+})
+
+const groupedAssignments = computed(() => {
   const groups = new Map()
 
-  currentLectureAssignments.value
-    .forEach((lectureAssignment) => {
-      const assignment =
-        assignmentById.get(
-          Number(
-            lectureAssignment
-              .teachingAssignmentId
-          )
-        )
+  assignments.value.forEach(
+    (assignment) => {
+      const membershipId = Number(
+        assignment.subjectMembershipId
+      )
 
-      if (!assignment) {
+      if (!membershipId) {
         return
       }
 
-      const subjectMembershipId =
-        Number(assignment.subjectMembershipId)
-      const subjectId =
-        assignmentSubjectId(assignment)
-
-      if (!groups.has(subjectMembershipId)) {
-        groups.set(subjectMembershipId, [])
+      if (!groups.has(membershipId)) {
+        groups.set(membershipId, [])
       }
 
-      groups.get(subjectMembershipId).push({
-        ...lectureAssignment,
-        assignment,
-        subjectMembershipId,
-        subjectId,
-        lecture:
-          lectureMeta(
-            lectureAssignment
-              .courseLectureId
-          ),
-      })
-    })
+      groups.get(membershipId).push(
+        assignment
+      )
+    }
+  )
 
   return [...groups.entries()]
-    .map(([subjectMembershipId, items]) => ({
-      subjectMembershipId,
-      subjectId:
+    .map(([subjectMembershipId, items]) => {
+      const membership =
         membershipById.value.get(
           Number(subjectMembershipId)
-        )?.subjectId ?? null,
-      subjectName:
-        membershipLabel(subjectMembershipId),
-      items: items.sort(
-        (left, right) =>
-          Number(
-            left.lecture?.ordinal ?? 0
-          ) -
-            Number(
-              right.lecture?.ordinal ?? 0
+        )
+
+      const subjectId = Number(
+        membership?.subjectId
+      )
+
+      return {
+        subjectMembershipId,
+        subjectId,
+        subjectName:
+          subjectName(subjectId),
+        items: [...items].sort(
+          (left, right) =>
+            groupName(left).localeCompare(
+              groupName(right),
+              'ru'
             ) ||
-          String(
-            left.lecture?.title ?? ''
-          ).localeCompare(
-            String(
-              right.lecture?.title ?? ''
-            ),
-            'ru'
-          ) ||
-          String(
-            groupName(
-              left.assignment.groupId
-            )
-          ).localeCompare(
-            String(
-              groupName(
-                right.assignment.groupId
+            loadTypeName(left.loadTypeId)
+              .localeCompare(
+                loadTypeName(
+                  right.loadTypeId
+                ),
+                'ru'
               )
-            ),
-            'ru'
-          )
-      ),
-    }))
+        ),
+      }
+    })
     .sort(
       (left, right) =>
         left.subjectName.localeCompare(
@@ -350,46 +208,11 @@ const groupedCurrentAssignments = computed(() => {
     )
 })
 
-const currentColumns = [
-  {
-    key: 'lecture',
-    label: 'Лекция',
-    value: (row) =>
-      row.lecture
-        ? `${row.lecture.ordinal}. ${row.lecture.title}`
-        : `Лекция #${row.courseLectureId}`,
-  },
-  {
-    key: 'group',
-    label: 'Группа',
-    value: (row) =>
-      groupName(row.assignment.groupId),
-  },
-  {
-    key: 'status',
-    label: 'Статус',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
-
-function createSubjectRow(
-  subjectMembershipId = null
-) {
-  rowSequence += 1
-
-  return {
-    id: rowSequence,
-    subjectMembershipId,
-    lectureIds: [],
-    teachingAssignmentIds: [],
-  }
-}
-
 function subjectName(subjectId) {
+  if (!subjectId) {
+    return 'Предмет не определён'
+  }
+
   return (
     subjectById.value.get(
       Number(subjectId)
@@ -398,302 +221,110 @@ function subjectName(subjectId) {
   )
 }
 
-function membershipLabel(subjectMembershipId) {
-  const option = membershipOptions.value.find(
-    (item) =>
-      Number(item.value) ===
-      Number(subjectMembershipId)
+function groupName(assignment) {
+  return (
+    assignment.groupName ||
+    assignment.groupCode ||
+    `Группа #${assignment.groupId}`
   )
+}
 
-  if (option) {
-    return option.label
+function loadTypeName(loadTypeId) {
+  return (
+    loadTypeById.value.get(
+      Number(loadTypeId)
+    )?.name ??
+    `Тип нагрузки #${loadTypeId}`
+  )
+}
+
+function statusLabel(status) {
+  switch (Number(status)) {
+    case 1:
+      return 'Активно'
+    case 2:
+      return 'Черновик'
+    case 3:
+      return 'Закрыто'
+    case 4:
+      return 'Приостановлено'
+    default:
+      return `Статус #${status}`
+  }
+}
+
+function statusClass(status) {
+  switch (Number(status)) {
+    case 1:
+      return 'teacher-status teacher-status--success'
+    case 2:
+      return 'teacher-status teacher-status--warning'
+    case 3:
+      return 'teacher-status'
+    case 4:
+      return 'teacher-status teacher-status--danger'
+    default:
+      return 'teacher-status'
+  }
+}
+
+function formatHours(value) {
+  const numeric = Number(value ?? 0)
+
+  if (!Number.isFinite(numeric)) {
+    return '0'
   }
 
-  const membership = membershipById.value.get(
-    Number(subjectMembershipId)
-  )
-
-  return membership
-    ? subjectName(membership.subjectId)
-    : `Назначение #${subjectMembershipId}`
+  return numeric.toLocaleString('ru-RU', {
+    maximumFractionDigits: 2,
+  })
 }
 
-function assignmentSubjectId(
-  assignment
-) {
-  return (
-    membershipById.value.get(
-      Number(
-        assignment.subjectMembershipId
-      )
-    )?.subjectId ?? null
-  )
+function subjectRoute(group) {
+  if (!group.subjectId) {
+    return null
+  }
+
+  return {
+    name: 'subject-details',
+    params: {
+      subjectId: group.subjectId,
+    },
+  }
 }
 
-function groupName(groupId) {
-  const assignment =
-    assignments.value.find(
-      (item) =>
-        Number(item.groupId) ===
-        Number(groupId)
-    )
-
-  return (
-    assignment?.groupName ||
-    assignment?.groupCode ||
-    `Группа #${groupId}`
-  )
-}
-
-function activeAssignmentsForMembership(
-  subjectMembershipId
-) {
-  return activeAssignments.value.filter(
-    (assignment) =>
-      Number(assignment.subjectMembershipId) ===
-      Number(subjectMembershipId)
-  )
-}
-
-function lectureCatalog(subjectMembershipId) {
-  return (
-    lectureCatalogByMembershipId.value.get(
-      Number(subjectMembershipId)
-    ) ?? []
-  )
-}
-
-function lectureMeta(lectureId) {
-  const requested = Number(lectureId)
-
-  for (
-    const lectures of
-    lectureCatalogByMembershipId.value.values()
+function workloadLectureRoute(group) {
+  if (
+    !group.subjectId ||
+    !group.subjectMembershipId
   ) {
-    const lecture = lectures.find(
-      (item) =>
-        Number(item.id) === requested
-    )
-
-    if (lecture) {
-      return lecture
-    }
+    return null
   }
 
-  return null
-}
-
-function existingLectureAssignment(task) {
-  return (
-    lectureAssignmentsByTeachingId.value
-      .get(
-        Number(
-          task.teachingAssignmentId
-        )
-      ) ?? []
-  ).find(
-    (item) =>
-      Number(item.courseLectureId) ===
-      Number(task.lectureId)
-  ) ?? null
-}
-
-function membershipOptionsForRow(row) {
-  const selectedElsewhere = new Set(
-    subjectRows.value
-      .filter(
-        (item) =>
-          item.id !== row.id &&
-          item.subjectMembershipId
-      )
-      .map(
-        (item) =>
-          Number(item.subjectMembershipId)
-      )
-  )
-
-  const available = new Set(
-    availableMembershipIds.value.map(Number)
-  )
-
-  return membershipOptions.value.filter(
-    (option) => {
-      const membershipId = Number(option.value)
-
-      return (
-        available.has(membershipId) &&
-        (!selectedElsewhere.has(membershipId) ||
-          membershipId ===
-            Number(row.subjectMembershipId))
-      )
-    }
-  )
-}
-
-function normalizeRows() {
-  const available = new Set(
-    availableMembershipIds.value
-  )
-
-  subjectRows.value.forEach(
-    (row) => {
-      if (
-        !row.subjectMembershipId ||
-        !available.has(
-          Number(row.subjectMembershipId)
-        )
-      ) {
-        row.lectureIds = []
-        row.teachingAssignmentIds = []
-        return
-      }
-
-      const assignmentIds = new Set(
-        activeAssignmentsForMembership(
-          row.subjectMembershipId
-        ).map(
-          (item) => Number(item.id)
-        )
-      )
-
-      row.teachingAssignmentIds =
-        row.teachingAssignmentIds
-          .map(Number)
-          .filter(
-            (id) =>
-              assignmentIds.has(id)
-          )
-
-      const lectureIds = new Set(
-        lectureCatalog(row.subjectMembershipId)
-          .map((item) => Number(item.id))
-      )
-
-      row.lectureIds =
-        row.lectureIds
-          .map(Number)
-          .filter(
-            (id) =>
-              lectureIds.has(id)
-          )
-    }
-  )
-
-  if (!subjectRows.value.length) {
-    subjectRows.value = [
-      createSubjectRow(),
-    ]
-  }
-}
-
-async function fetchLectureCatalog(
-  subjectMembershipId,
-  membershipLookup = membershipById.value
-) {
-  const numericMembershipId =
-    Number(subjectMembershipId)
-
-  if (!numericMembershipId) {
-    return []
-  }
-
-  const membership =
-    membershipLookup.get(
-      numericMembershipId
-    )
-
-  if (!membership) {
-    return []
-  }
-
-  const response =
-    await lecturesApi.getAll({
+  return {
+    name: 'teacher-lectures',
+    query: {
+      subjectId: group.subjectId,
       subjectMembershipId:
-        membership.id,
-    })
-
-  return listFromResponse(response)
-    .sort(
-      (left, right) =>
-        Number(left.ordinal ?? 0) -
-          Number(right.ordinal ?? 0) ||
-        String(left.title ?? '')
-          .localeCompare(
-            String(right.title ?? ''),
-            'ru'
-          )
-    )
+        group.subjectMembershipId,
+    },
+  }
 }
 
-async function ensureLectureCatalog(
-  subjectMembershipId
-) {
-  const numericMembershipId =
-    Number(subjectMembershipId)
-
-  if (
-    !numericMembershipId ||
-    lectureCatalogByMembershipId.value.has(
-      numericMembershipId
-    )
-  ) {
+function openRoute(route) {
+  if (!route) {
     return
   }
 
-  const catalog =
-    await fetchLectureCatalog(
-      numericMembershipId
-    )
-
-  if (
-    !membershipById.value.has(
-      numericMembershipId
-    )
-  ) {
-    return
-  }
-
-  const next = new Map(
-    lectureCatalogByMembershipId.value
-  )
-
-  next.set(
-    numericMembershipId,
-    catalog
-  )
-
-  lectureCatalogByMembershipId.value = next
+  router.push(route)
 }
 
-async function loadLectureAssignments(
-  sourceAssignments
-) {
-  const pairs =
-    await Promise.all(
-      sourceAssignments.map(
-        async (assignment) => ({
-          teachingAssignmentId:
-            assignment.id,
-          response:
-            await teachingApi
-              .getLectureAssignments({
-                teachingAssignmentId:
-                  assignment.id,
-              }),
-        })
-      )
-    )
+async function loadLoadTypes() {
+  const response =
+    await teachingApi.getLoadTypes()
 
-  return new Map(
-    pairs.map((pair) => [
-      Number(
-        pair.teachingAssignmentId
-      ),
-      listFromResponse(
-        pair.response
-      ),
-    ])
-  )
+  loadTypes.value =
+    listFromResponse(response)
 }
 
 async function refreshAssignments() {
@@ -705,12 +336,15 @@ async function refreshAssignments() {
     assignmentsRequest.begin()
 
   const periodContext = {
-    studyCourse:
-      Number(studyCourse.value),
-    semester:
-      Number(semester.value),
-    academicYear:
-      Number(academicYear.value),
+    studyCourse: Number(
+      studyCourse.value
+    ),
+    semester: Number(
+      semester.value
+    ),
+    academicYear: Number(
+      academicYear.value
+    ),
   }
 
   const membershipSnapshot =
@@ -720,48 +354,32 @@ async function refreshAssignments() {
       })
     )
 
-  const membershipLookup = new Map(
-    membershipSnapshot.map(
-      (membership) => [
-        Number(membership.id),
-        membership,
-      ]
-    )
-  )
-
   loading.value = true
   notice.value.message = ''
 
   try {
     if (!membershipSnapshot.length) {
       if (
-        !assignmentsRequest.isCurrent(
+        assignmentsRequest.isCurrent(
           requestId
         )
       ) {
-        return
+        assignments.value = []
       }
 
-      assignments.value = []
-      lectureAssignmentsByTeachingId.value =
-        new Map()
-      lectureCatalogByMembershipId.value =
-        new Map()
-      normalizeRows()
       return
     }
 
-    const responses =
-      await Promise.all(
-        membershipSnapshot.map(
-          (membership) =>
-            teachingApi.getAssignments({
-              subjectMembershipId:
-                membership.id,
-              ...periodContext,
-            })
-        )
+    const responses = await Promise.all(
+      membershipSnapshot.map(
+        (membership) =>
+          teachingApi.getAssignments({
+            subjectMembershipId:
+              membership.id,
+            ...periodContext,
+          })
       )
+    )
 
     if (
       !assignmentsRequest.isCurrent(
@@ -771,76 +389,34 @@ async function refreshAssignments() {
       return
     }
 
-    const rawAssignments =
-      responses
-        .flatMap(listFromResponse)
-        .filter(
-          (item, index, items) =>
-            items.findIndex(
-              (other) =>
-                Number(other.id) ===
-                Number(item.id)
-            ) === index
-        )
+    const rawAssignments = responses
+      .flatMap(listFromResponse)
+      .filter(
+        (item, index, items) =>
+          items.findIndex(
+            (other) =>
+              Number(other.id) ===
+              Number(item.id)
+          ) === index
+      )
 
     const groupIds = [
       ...new Set(
         rawAssignments
-          .map(
-            (item) =>
-              Number(item.groupId)
+          .map((item) =>
+            Number(item.groupId)
           )
           .filter(Boolean)
       ),
     ]
 
-    const activeMembershipIds = [
-      ...new Set(
-        rawAssignments
-          .filter(
-            (item) =>
-              Number(item.status) === 1
-          )
-          .map(
-            (item) =>
-              Number(
-                item.subjectMembershipId
-              )
-          )
-          .filter(
-            (id) =>
-              id &&
-              membershipLookup.has(id)
-          )
-      ),
-    ]
-
-    const [
-      groupResponses,
-      nextLectureAssignments,
-      lectureCatalogPairs,
-    ] = await Promise.all([
-      Promise.all(
+    const groupResponses =
+      await Promise.all(
         groupIds.map(
           (groupId) =>
             groupsApi.getById(groupId)
         )
-      ),
-      loadLectureAssignments(
-        rawAssignments
-      ),
-      Promise.all(
-        activeMembershipIds.map(
-          async (membershipId) => [
-            membershipId,
-            await fetchLectureCatalog(
-              membershipId,
-              membershipLookup
-            ),
-          ]
-        )
-      ),
-    ])
+      )
 
     if (
       !assignmentsRequest.isCurrent(
@@ -860,7 +436,7 @@ async function refreshAssignments() {
         ])
     )
 
-    const nextAssignments =
+    assignments.value =
       rawAssignments.map(
         (item) => ({
           ...item,
@@ -874,15 +450,6 @@ async function refreshAssignments() {
             )?.code ?? null,
         })
       )
-
-    assignments.value =
-      nextAssignments
-    lectureAssignmentsByTeachingId.value =
-      nextLectureAssignments
-    lectureCatalogByMembershipId.value =
-      new Map(lectureCatalogPairs)
-
-    normalizeRows()
   } catch (error) {
     if (
       !assignmentsRequest.isCurrent(
@@ -896,7 +463,7 @@ async function refreshAssignments() {
       type: 'danger',
       message: getApiErrorMessage(
         error,
-        'Не удалось загрузить персональную нагрузку'
+        'Не удалось загрузить назначенную учебную нагрузку.'
       ),
     }
   } finally {
@@ -910,188 +477,6 @@ async function refreshAssignments() {
   }
 }
 
-async function changeRowMembership(
-  row,
-  subjectMembershipId
-) {
-  row.subjectMembershipId = subjectMembershipId
-    ? Number(subjectMembershipId)
-    : null
-
-  row.lectureIds = []
-  row.teachingAssignmentIds = []
-
-  if (row.subjectMembershipId) {
-    await ensureLectureCatalog(
-      row.subjectMembershipId
-    )
-  }
-}
-
-function addRow() {
-  subjectRows.value.push(
-    createSubjectRow()
-  )
-}
-
-function removeRow(rowId) {
-  subjectRows.value =
-    subjectRows.value.filter(
-      (row) => row.id !== rowId
-    )
-
-  if (!subjectRows.value.length) {
-    subjectRows.value = [
-      createSubjectRow(),
-    ]
-  }
-}
-
-async function assignLectures() {
-  if (incompleteRows.value.length) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Заполните все выбранные строки: в каждой строке должны быть предмет, лекции и группы.',
-    }
-    return
-  }
-
-  const tasks =
-    pendingTasks.value.map(
-      (task) => ({
-        ...task,
-      })
-    )
-
-  if (!tasks.length) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Нет новых назначений для сохранения.',
-    }
-    return
-  }
-
-  assigning.value = true
-
-  try {
-    await revalidateAssignableTeacherMembershipIds({
-      api: membershipsApi,
-      membershipIds:
-        tasks.map(
-          (task) =>
-            task.subjectMembershipId
-        ),
-    })
-
-    const results =
-      await Promise.allSettled(
-        tasks.map(
-          (task) =>
-            teachingApi
-              .createLectureAssignment(
-                task.teachingAssignmentId,
-                {
-                  courseLectureId:
-                    Number(task.lectureId),
-                  availableFromUtc: null,
-                  dueToUtc: null,
-                  closedAtUtc: null,
-                  required: true,
-                  minProgressPercent: 100,
-                  status: 1,
-                }
-              )
-        )
-      )
-
-    const successCount =
-      results.filter(
-        (item) =>
-          item.status === 'fulfilled'
-      ).length
-
-    const errors = results
-      .filter(
-        (item) =>
-          item.status === 'rejected'
-      )
-      .map(
-        (item) =>
-          getApiErrorMessage(
-            item.reason,
-            'Не удалось создать назначение.'
-          )
-      )
-
-    notice.value = {
-      type: errors.length
-        ? 'warning'
-        : 'success',
-      message:
-        `Создано назначений: ${successCount}.` +
-        (errors.length
-          ? ` Ошибки: ${errors.join(' | ')}`
-          : ''),
-    }
-
-    await refreshAssignments()
-  } catch (error) {
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось проверить актуальность преподавательских назначений'
-      ),
-    }
-  } finally {
-    assigning.value = false
-  }
-}
-
-async function saveStatus(row) {
-  const assignmentId =
-    Number(row.id)
-  const nextStatus =
-    Number(row.status)
-
-  savingStatusId.value = assignmentId
-
-  try {
-    await teachingApi
-      .updateLectureAssignmentStatus(
-        assignmentId,
-        {
-          status: nextStatus,
-        }
-      )
-
-    notice.value = {
-      type: 'success',
-      message:
-        'Статус назначения обновлён.',
-    }
-
-    await refreshAssignments()
-  } catch (error) {
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось обновить статус назначения'
-      ),
-    }
-  } finally {
-    if (
-      savingStatusId.value ===
-      assignmentId
-    ) {
-      savingStatusId.value = null
-    }
-  }
-}
-
 watch(
   [studyCourse, semester, academicYear],
   () => {
@@ -1101,24 +486,21 @@ watch(
 
 onMounted(async () => {
   try {
-    await loadTeacherSubjects()
+    await Promise.all([
+      loadTeacherSubjects(),
+      loadLoadTypes(),
+    ])
+
     initialized.value = true
-
-    if (!subjectMemberships.value.length) {
-      notice.value = {
-        type: 'info',
-        message:
-          'Нет предметов преподавателя для учебной нагрузки.',
-      }
-    }
-
     await refreshAssignments()
   } catch (error) {
+    initialized.value = true
+
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
         error,
-        error.message
+        'Не удалось загрузить данные преподавателя.'
       ),
     }
   }
@@ -1127,9 +509,20 @@ onMounted(async () => {
 
 <template>
   <TeacherPageShell
-    title="Персональная нагрузка"
-    subtitle="Соберите выдачу лекций: выберите предмет, лекции и группы из вашей текущей нагрузки по выбранному периоду."
+    title="Моя нагрузка"
+    subtitle="Просматривайте учебную нагрузку, назначенную администратором. Изменение предметов, групп, типов нагрузки и часов выполняется только в административном разделе."
   >
+    <template #actions>
+      <UiButton
+        size="sm"
+        :loading="loading"
+        loading-text="Обновление..."
+        @click="refreshAssignments"
+      >
+        Обновить
+      </UiButton>
+    </template>
+
     <UiAlert
       v-if="notice.message"
       :variant="notice.type"
@@ -1140,306 +533,285 @@ onMounted(async () => {
 
     <section class="teacher-stat-grid">
       <div class="teacher-stat">
-        <span class="teacher-stat__label">
-          Период
-        </span>
-        <span class="teacher-stat__value">
-          {{ periodLabel }}
-        </span>
+        <span class="teacher-stat__label">Период</span>
+        <span class="teacher-stat__value">{{ periodLabel }}</span>
       </div>
 
       <div class="teacher-stat">
-        <span class="teacher-stat__label">
-          Предметов в нагрузке
-        </span>
-        <span class="teacher-stat__value">
-          {{ availableSubjectIds.length }}
-        </span>
+        <span class="teacher-stat__label">Предметов</span>
+        <span class="teacher-stat__value">{{ subjectCount }}</span>
       </div>
 
       <div class="teacher-stat">
-        <span class="teacher-stat__label">
-          Групп в выборке
-        </span>
-        <span class="teacher-stat__value">
-          {{ activeGroupCount }}
-        </span>
+        <span class="teacher-stat__label">Групп</span>
+        <span class="teacher-stat__value">{{ groupCount }}</span>
       </div>
 
       <div class="teacher-stat">
-        <span class="teacher-stat__label">
-          Назначенных лекций
-        </span>
-        <span class="teacher-stat__value">
-          {{ currentLectureAssignments.length }}
-        </span>
+        <span class="teacher-stat__label">Часов в неделю</span>
+        <span class="teacher-stat__value">{{ formatHours(totalHoursPerWeek) }}</span>
       </div>
     </section>
 
-    <div class="teacher-layout">
-      <div class="teacher-stack">
-        <UiCard title="Период нагрузки">
-          <div class="teacher-grid--3 teacher-grid">
-            <UiSelect
-              v-model="studyCourse"
-              label="Курс"
-              :options="courseOptions"
-            />
+    <UiCard
+      title="Период"
+      description="Фильтр влияет только на просмотр вашей назначенной нагрузки."
+    >
+      <div class="teacher-grid teacher-grid--3">
+        <UiSelect
+          v-model="studyCourse"
+          label="Курс"
+          :options="courseOptions"
+        />
 
-            <UiSelect
-              v-model="semester"
-              label="Семестр"
-              :options="semesterOptions"
-            />
+        <UiSelect
+          v-model="semester"
+          label="Семестр"
+          :options="semesterOptions"
+        />
 
-            <UiInput
-              v-model="academicYear"
-              label="Учебный год"
-              type="number"
-              min="2000"
-              step="1"
-              required
-            />
-          </div>
-        </UiCard>
+        <UiInput
+          v-model="academicYear"
+          label="Учебный год"
+          type="number"
+          min="2000"
+          step="1"
+          required
+        />
+      </div>
+    </UiCard>
 
-        <UiCard
-          title="Предметы, лекции и группы"
-          description="Каждая строка описывает одну комбинацию: предмет, выбранные лекции и учебные группы из текущей нагрузки по периоду."
+    <UiCard
+      title="Назначенная нагрузка"
+      description="Страница работает только в режиме просмотра. Изменения нагрузки выполняет администратор системы."
+    >
+      <UiEmptyState
+        v-if="loading"
+        description="Загрузка назначенной нагрузки..."
+        compact
+      />
+
+      <UiEmptyState
+        v-else-if="!subjectMemberships.length"
+        description="У преподавателя пока нет активных назначений на предметы."
+        compact
+      />
+
+      <UiEmptyState
+        v-else-if="!assignments.length"
+        description="По выбранному периоду учебная нагрузка не найдена."
+        compact
+      />
+
+      <div
+        v-else
+        class="teacher-stack"
+      >
+        <section
+          v-for="group in groupedAssignments"
+          :key="group.subjectMembershipId"
+          class="teacher-workload-subject"
         >
-          <template #actions>
-            <UiButton
-              size="sm"
-              :disabled="!availableSubjectIds.length"
-              @click="addRow"
-            >
-              Добавить предмет
-            </UiButton>
-          </template>
+          <div class="teacher-workload-subject__header">
+            <div class="teacher-workload-subject__heading">
+              <span class="teacher-muted">
+                Назначение #{{ group.subjectMembershipId }}
+              </span>
 
-          <UiEmptyState
-            v-if="loading"
-            description="Загрузка текущей нагрузки..."
-            compact
-          />
+              <h2 class="teacher-workload-subject__title">
+                {{ group.subjectName }}
+              </h2>
 
-          <UiEmptyState
-            v-else-if="!availableSubjectIds.length"
-            description="По выбранному периоду активных назначений пока нет."
-            compact
-          />
-
-          <div
-            v-else
-            class="teacher-stack"
-          >
-            <article
-              v-for="row in subjectRows"
-              :key="row.id"
-              class="teacher-row-card"
-            >
-              <div class="teacher-row-card__header">
-                <UiSelect
-                  :model-value="row.subjectMembershipId || ''"
-                  label="Предмет / преподаватель"
-                  :options="membershipOptionsForRow(row)"
-                  placeholder="Выберите предмет"
-                  @update:model-value="
-                    changeRowMembership(
-                      row,
-                      $event
-                    )
-                  "
-                />
-
-                <UiButton
-                  variant="danger"
-                  size="sm"
-                  :disabled="subjectRows.length === 1"
-                  @click="removeRow(row.id)"
-                >
-                  Удалить
-                </UiButton>
-              </div>
-
-              <div class="teacher-selection-grid">
-                <div class="teacher-stack">
-                  <strong>Лекции</strong>
-
-                  <UiEmptyState
-                    v-if="!row.subjectMembershipId"
-                    description="Сначала выберите предмет."
-                    compact
-                  />
-
-                  <UiEmptyState
-                    v-else-if="!lectureCatalog(row.subjectMembershipId).length"
-                    description="У этого предмета пока нет лекций."
-                    compact
-                  />
-
-                  <div
-                    v-else
-                    class="teacher-scroll-list"
-                  >
-                    <UiCheckbox
-                      mode="multiple"
-                      v-for="lecture in lectureCatalog(row.subjectMembershipId)"
-                      :key="lecture.id"
-                      v-model="row.lectureIds"
-                      :value="lecture.id"
-                      :label="`${lecture.ordinal}. ${lecture.title}`"
-                      :description="lecture.description || 'Без описания'"
-                    />
-                  </div>
-                </div>
-
-                <div class="teacher-stack">
-                  <strong>Группы</strong>
-
-                  <UiEmptyState
-                    v-if="!row.subjectMembershipId"
-                    description="Сначала выберите предмет."
-                    compact
-                  />
-
-                  <UiEmptyState
-                    v-else-if="!activeAssignmentsForMembership(row.subjectMembershipId).length"
-                    description="Для выбранного предмета нет активных групп по периоду."
-                    compact
-                  />
-
-                  <div
-                    v-else
-                    class="teacher-scroll-list"
-                  >
-                    <UiCheckbox
-                      mode="multiple"
-                      v-for="assignment in activeAssignmentsForMembership(row.subjectMembershipId)"
-                      :key="assignment.id"
-                      v-model="row.teachingAssignmentIds"
-                      :value="assignment.id"
-                      :label="groupName(assignment.groupId)"
-                      :description="periodLabel"
-                    />
-                  </div>
-                </div>
-              </div>
-            </article>
-          </div>
-        </UiCard>
-
-        <UiCard
-          title="План назначений"
-          :description="
-            `Новых: ${pendingTasks.length}. Уже назначено: ${duplicateTasks.length}. Всего комбинаций: ${selectedTasks.length}.`
-          "
-        >
-          <div class="teacher-stack">
-            <UiEmptyState
-              v-if="!selectedTasks.length"
-              description="Выберите предмет, лекции и группы."
-              compact
-            />
-
-            <div
-              v-else
-              class="teacher-list"
-            >
-              <div
-                v-for="row in subjectRows.filter(item => item.subjectMembershipId)"
-                :key="row.id"
-                class="teacher-list-item"
-              >
-                <strong>
-                  {{ membershipLabel(row.subjectMembershipId) }}
-                </strong>
-
-                <span class="teacher-muted">
-                  Лекций: {{ row.lectureIds.length }},
-                  групп: {{ row.teachingAssignmentIds.length }}.
-                </span>
-              </div>
+              <span class="teacher-muted">
+                {{ group.items.length }} {{ group.items.length === 1 ? 'запись' : 'записей' }} нагрузки
+              </span>
             </div>
 
-            <UiButton
-              variant="primary"
-              size="lg"
-              :loading="assigning"
-              loading-text="Назначение..."
-              :disabled="!canAssign"
-              @click="assignLectures"
-            >
-              Назначить выбранные лекции
-            </UiButton>
+            <div class="teacher-actions">
+              <UiButton
+                size="sm"
+                variant="secondary"
+                :disabled="!subjectRoute(group)"
+                @click="openRoute(subjectRoute(group))"
+              >
+                К предмету
+              </UiButton>
+
+              <UiButton
+                size="sm"
+                variant="secondary"
+                :disabled="!workloadLectureRoute(group)"
+                @click="openRoute(workloadLectureRoute(group))"
+              >
+                Лекции
+              </UiButton>
+            </div>
           </div>
-        </UiCard>
-      </div>
 
-      <UiCard
-        title="Текущие назначения лекций"
-        description="Просматривайте уже выданные лекции по группам. Статус можно менять прямо здесь."
-      >
-        <UiEmptyState
-          v-if="loading"
-          description="Загрузка назначений..."
-          compact
-        />
-
-        <UiEmptyState
-          v-else-if="!assignments.length"
-          description="По выбранному периоду учебная нагрузка не найдена."
-          compact
-        />
-
-        <UiEmptyState
-          v-else-if="!groupedCurrentAssignments.length"
-          description="Для активных групп назначенных лекций пока нет."
-          compact
-        />
-
-        <div
-          v-else
-          class="teacher-stack"
-        >
-          <UiCard
-            v-for="group in groupedCurrentAssignments"
-            :key="group.subjectMembershipId"
-            :title="group.subjectName"
-            :description="`${group.items.length} назначений / ${periodLabel}`"
-            compact
-          >
-            <UiTable
-              :columns="currentColumns"
-              :rows="group.items"
-              :default-sort="{
-                key: 'lecture',
-                direction: 'asc',
-              }"
+          <div class="teacher-entity-list">
+            <article
+              v-for="assignment in group.items"
+              :key="assignment.id"
+              class="teacher-entity-card"
             >
-              <template #cell-status="{ row }">
-                <UiSelect
-                  v-model="row.status"
-                  :options="statusOptions"
-                  size="sm"
-                />
-              </template>
+              <div class="teacher-entity-card__heading">
+                <span class="teacher-entity-card__eyebrow">
+                  {{ groupName(assignment) }}
+                </span>
 
-              <template #cell-actions="{ row }">
-                <UiButton
-                  variant="primary"
-                  size="sm"
-                  :loading="savingStatusId === row.id"
-                  loading-text="Сохранение..."
-                  @click="saveStatus(row)"
-                >
-                  Сохранить
-                </UiButton>
-              </template>
-            </UiTable>
-          </UiCard>
-        </div>
-      </UiCard>
-    </div>
+                <h3 class="teacher-entity-card__title">
+                  {{ loadTypeName(assignment.loadTypeId) }}
+                </h3>
+              </div>
+
+              <div class="teacher-workload-meta">
+                <div class="teacher-workload-meta__item">
+                  <span class="teacher-muted">Статус</span>
+                  <span :class="statusClass(assignment.status)">
+                    {{ statusLabel(assignment.status) }}
+                  </span>
+                </div>
+
+                <div class="teacher-workload-meta__item">
+                  <span class="teacher-muted">Часов в неделю</span>
+                  <strong>{{ formatHours(assignment.hoursPerWeek) }}</strong>
+                </div>
+
+                <div class="teacher-workload-meta__item">
+                  <span class="teacher-muted">Группа</span>
+                  <strong>{{ groupName(assignment) }}</strong>
+                </div>
+
+                <div class="teacher-workload-meta__item">
+                  <span class="teacher-muted">Курс</span>
+                  <strong>{{ assignment.studyCourse ?? studyCourse }}</strong>
+                </div>
+
+                <div class="teacher-workload-meta__item">
+                  <span class="teacher-muted">Семестр</span>
+                  <strong>{{ assignment.semester }}</strong>
+                </div>
+
+                <div class="teacher-workload-meta__item">
+                  <span class="teacher-muted">Учебный год</span>
+                  <strong>{{ assignment.academicYear }}</strong>
+                </div>
+              </div>
+
+              <div
+                v-if="assignment.courseVersionId"
+                class="teacher-muted"
+              >
+                Версия курса: #{{ assignment.courseVersionId }}
+              </div>
+
+              <p
+                v-if="assignment.notes"
+                class="teacher-workload-notes"
+              >
+                {{ assignment.notes }}
+              </p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </UiCard>
   </TeacherPageShell>
 </template>
+
+<style scoped>
+.teacher-workload-subject {
+  min-width: 0;
+  padding: 14px;
+
+  display: grid;
+  gap: 12px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+}
+
+.teacher-workload-subject__header {
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.teacher-workload-subject__heading {
+  min-width: 0;
+
+  display: grid;
+  gap: 4px;
+}
+
+.teacher-workload-subject__title {
+  margin: 0;
+
+  overflow-wrap: anywhere;
+
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.teacher-workload-meta {
+  min-width: 0;
+
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.teacher-workload-meta__item {
+  min-width: 0;
+  padding: 9px 10px;
+
+  display: grid;
+  align-content: start;
+  gap: 4px;
+
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: 8px;
+}
+
+.teacher-workload-meta__item strong {
+  overflow-wrap: anywhere;
+}
+
+.teacher-workload-notes {
+  margin: 0;
+  padding-top: 10px;
+
+  color: var(--st-text-secondary);
+
+  border-top: 1px solid var(--st-border);
+
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .teacher-workload-meta {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .teacher-workload-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-workload-subject__header .teacher-actions,
+  .teacher-workload-subject__header .teacher-actions > * {
+    width: 100%;
+  }
+}
+</style>

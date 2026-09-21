@@ -86,7 +86,7 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
 
   [NAV_KEYS.TEACHER_WORKLOAD]: {
     key: NAV_KEYS.TEACHER_WORKLOAD,
-    label: 'Персональная нагрузка',
+    label: 'Моя нагрузка',
     icon: 'pi pi-calendar',
     routeName: 'teacher-workload',
   },

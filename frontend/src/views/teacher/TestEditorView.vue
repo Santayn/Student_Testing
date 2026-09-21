@@ -27,7 +27,6 @@ import {
   UiEmptyState,
   UiInput,
   UiSelect,
-  UiTable,
   UiTextarea,
 } from '@/components/ui'
 
@@ -177,30 +176,6 @@ const ruleSummary = computed(() => {
   )
 })
 
-const questionColumns = [
-  {
-    key: 'ordinal',
-    label: '#',
-  },
-  {
-    key: 'type',
-    label: 'Тип',
-    value: (row) =>
-      questionTypeLabel(row.type),
-  },
-  {
-    key: 'question',
-    label: 'Вопрос',
-  },
-  {
-    key: 'active',
-    label: 'Статус',
-    value: (row) =>
-      row.active
-        ? 'Активен'
-        : 'Скрыт',
-  },
-]
 
 function questionTypeLabel(type) {
   switch (Number(type)) {
@@ -854,10 +829,7 @@ onMounted(async () => {
               label="Предмет"
               :options="membershipOptions"
               placeholder="Выберите предмет"
-              :disabled="
-                loadingSubjects ||
-                !membershipOptions.length
-              "
+              :disabled="loadingSubjects || !membershipOptions.length"
             />
 
             <div>
@@ -872,17 +844,13 @@ onMounted(async () => {
               />
 
               <UiEmptyState
-                v-else-if="
-                  loadingContext
-                "
+                v-else-if="loadingContext"
                 description="Загрузка групп..."
                 compact
               />
 
               <UiEmptyState
-                v-else-if="
-                  !groupTargets.length
-                "
+                v-else-if="!groupTargets.length"
                 description="Для этого предмета пока нет активных назначений на учебные группы."
                 compact
               />
@@ -898,9 +866,7 @@ onMounted(async () => {
                   v-model="selectedGroupIds"
                   :value="target.groupId"
                   :label="target.groupName"
-                  :description="
-                    `Назначений: ${target.assignmentIds.length}`
-                  "
+                  :description="`Назначений: ${target.assignmentIds.length}`"
                 />
               </div>
             </div>
@@ -914,7 +880,7 @@ onMounted(async () => {
                 :disabled="!topicOptions.length"
               />
 
-              <div class="teacher-inline-actions">
+              <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
                 <UiButton
                   :to="{
                     name: 'teacher-topics',
@@ -959,7 +925,7 @@ onMounted(async () => {
           title="Правила отбора вопросов"
           :description="ruleSummary"
         >
-          <div class="teacher-publication-fields">
+          <div class="teacher-grid--3 teacher-grid">
             <UiInput
               v-model="form.questionCount"
               label="Всего вопросов"
@@ -1012,7 +978,7 @@ onMounted(async () => {
           </div>
         </UiCard>
 
-        <UiCard title="Публикация">
+        <UiCard title="Публикация и доступ">
           <div class="teacher-stack">
             <div class="teacher-grid--3 teacher-grid">
               <UiSelect
@@ -1051,36 +1017,61 @@ onMounted(async () => {
 
       <UiCard
         title="Вопросы выбранной темы"
-        :description="
-          `Всего: ${questions.length}. Активных: ${activeQuestions.length}.`
-        "
+        :description="`Всего: ${questions.length}. Активных: ${activeQuestions.length}.`"
       >
-        <UiTable
-          :columns="questionColumns"
-          :rows="questions"
-          :loading="loadingQuestions"
-          empty-message="Список вопросов пуст."
-          :default-sort="{
-            key: 'ordinal',
-            direction: 'asc',
-          }"
-        >
-          <template #cell-question="{ row }">
-            <strong>{{ row.question }}</strong>
-          </template>
+        <UiEmptyState
+          v-if="loadingQuestions"
+          description="Загрузка вопросов..."
+          compact
+        />
 
-          <template #cell-active="{ row }">
-            <span
-              class="teacher-status"
-              :class="{
-                'teacher-status--success':
-                  row.active,
-              }"
-            >
-              {{ row.active ? 'Активен' : 'Скрыт' }}
-            </span>
-          </template>
-        </UiTable>
+        <UiEmptyState
+          v-else-if="!selectedTopicId"
+          description="Выберите тему, чтобы проверить доступный банк вопросов."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!questions.length"
+          description="Список вопросов пуст."
+          compact
+        />
+
+        <div
+          v-else
+          class="teacher-entity-list"
+        >
+          <article
+            v-for="question in questions"
+            :key="question.id"
+            class="teacher-entity-card"
+          >
+            <div class="teacher-entity-card__header">
+              <div class="teacher-entity-card__heading">
+                <span class="teacher-entity-card__eyebrow">
+                  {{ question.ordinal }} · {{ questionTypeLabel(question.type) }}
+                </span>
+                <h3 class="teacher-entity-card__title">
+                  {{ question.question }}
+                </h3>
+              </div>
+
+              <span
+                class="teacher-status"
+                :class="{
+                  'teacher-status--success': question.active,
+                }"
+              >
+                {{ question.active ? 'Активен' : 'Скрыт' }}
+              </span>
+            </div>
+
+            <div class="teacher-entity-card__meta">
+              <span>Баллы: {{ question.points }}</span>
+              <span>ID: {{ question.id }}</span>
+            </div>
+          </article>
+        </div>
       </UiCard>
     </div>
   </TeacherPageShell>

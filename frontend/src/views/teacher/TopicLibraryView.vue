@@ -19,9 +19,9 @@ import {
   UiAlert,
   UiButton,
   UiCard,
+  UiEmptyState,
   UiInput,
   UiSelect,
-  UiTable,
   UiTextarea,
 } from '@/components/ui'
 
@@ -72,21 +72,6 @@ const form = ref({
   description: '',
 })
 
-const topicColumns = [
-  {
-    key: 'ordinal',
-    label: 'Порядок',
-  },
-  {
-    key: 'name',
-    label: 'Тема',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
 const canEdit = computed(() => {
   return Boolean(
@@ -525,10 +510,7 @@ onMounted(async () => {
               label="Предмет преподавателя"
               :options="membershipOptions"
               placeholder="Выберите предмет"
-              :disabled="
-                loadingSubjects ||
-                !membershipOptions.length
-              "
+              :disabled="loadingSubjects || !membershipOptions.length"
             />
 
             <UiAlert
@@ -543,9 +525,7 @@ onMounted(async () => {
               <UiButton
                 :to="{
                   name: 'teacher-questions',
-                  query: routeQuery(
-                    form.id
-                  ),
+                  query: routeQuery(form.id),
                 }"
               >
                 Вопросы темы
@@ -554,9 +534,7 @@ onMounted(async () => {
               <UiButton
                 :to="{
                   name: 'teacher-test-create',
-                  query: routeQuery(
-                    form.id
-                  ),
+                  query: routeQuery(form.id),
                 }"
               >
                 Создать тест
@@ -566,11 +544,7 @@ onMounted(async () => {
         </UiCard>
 
         <UiCard
-          :title="
-            form.id
-              ? 'Редактирование темы'
-              : 'Новая тема'
-          "
+          :title="form.id ? 'Редактирование темы' : 'Новая тема'"
         >
           <div class="teacher-stack">
             <div class="teacher-grid">
@@ -629,33 +603,54 @@ onMounted(async () => {
             : 'Предмет не выбран.'
         "
       >
-        <UiTable
-          :columns="topicColumns"
-          :rows="topics"
-          :loading="loading"
-          loading-message="Загрузка тем..."
-          empty-message="Для выбранного назначения преподавателя пока нет тем."
-          :default-sort="{
-            key: 'ordinal',
-            direction: 'asc',
-          }"
-        >
-          <template #cell-name="{ row }">
-            <div class="teacher-stack">
-              <strong>{{ row.name }}</strong>
-              <span class="teacher-muted">
-                {{ row.description || 'Без описания' }}
-              </span>
-            </div>
-          </template>
+        <UiEmptyState
+          v-if="loading"
+          description="Загрузка тем..."
+          compact
+        />
 
-          <template #cell-actions="{ row }">
-            <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
+        <UiEmptyState
+          v-else-if="!selectedMembership"
+          description="Выберите предмет преподавателя, чтобы увидеть его темы."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!topics.length"
+          description="Для выбранного назначения преподавателя пока нет тем."
+          compact
+        />
+
+        <div
+          v-else
+          class="teacher-entity-list"
+        >
+          <article
+            v-for="topic in topics"
+            :key="topic.id"
+            class="teacher-entity-card"
+          >
+            <div class="teacher-entity-card__header">
+              <div class="teacher-entity-card__heading">
+                <span class="teacher-entity-card__eyebrow">
+                  Тема {{ topic.ordinal }}
+                </span>
+                <h3 class="teacher-entity-card__title">
+                  {{ topic.name }}
+                </h3>
+              </div>
+            </div>
+
+            <p class="teacher-entity-card__description">
+              {{ topic.description || 'Описание пока не добавлено.' }}
+            </p>
+
+            <div class="teacher-entity-card__actions">
               <UiButton
                 size="sm"
                 :to="{
                   name: 'teacher-questions',
-                  query: routeQuery(row.id),
+                  query: routeQuery(topic.id),
                 }"
               >
                 Вопросы
@@ -665,15 +660,15 @@ onMounted(async () => {
                 size="sm"
                 :to="{
                   name: 'teacher-test-create',
-                  query: routeQuery(row.id),
+                  query: routeQuery(topic.id),
                 }"
               >
-                Тест
+                Создать тест
               </UiButton>
 
               <UiButton
                 size="sm"
-                @click="editTopic(row)"
+                @click="editTopic(topic)"
               >
                 Изменить
               </UiButton>
@@ -681,15 +676,15 @@ onMounted(async () => {
               <UiButton
                 variant="danger"
                 size="sm"
-                :loading="deletingId === row.id"
+                :loading="deletingId === topic.id"
                 loading-text="Удаление..."
-                @click="deleteTopic(row)"
+                @click="deleteTopic(topic)"
               >
                 Удалить
               </UiButton>
             </div>
-          </template>
-        </UiTable>
+          </article>
+        </div>
       </UiCard>
     </div>
   </TeacherPageShell>

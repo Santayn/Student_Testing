@@ -101,8 +101,8 @@ describe('AppBreadcrumb', () => {
       name: 'RouterLink',
     })
 
-    expect(links).toHaveLength(3)
-    expect(links[0].props('to')).toEqual({
+    expect(links).toHaveLength(4)
+    expect(links[1].props('to')).toEqual({
       name: 'subjects',
       query: {
         facultyId: '3',
@@ -235,6 +235,42 @@ describe('AppBreadcrumb', () => {
       'ООП',
       'Наследование',
     ])
+  })
+
+  it('renders a deterministic desktop back control to the parent breadcrumb route', () => {
+    currentRoute = {
+      name: 'lecture-details',
+      params: {
+        lectureId: '9',
+      },
+      query: {
+        subjectId: '42',
+        facultyId: '3',
+      },
+      meta: {
+        breadcrumbKey: 'lecture-details',
+      },
+    }
+
+    const wrapper = mountBreadcrumb()
+    const back = wrapper.find('.app-breadcrumb__back')
+
+    expect(back.exists()).toBe(true)
+    expect(back.attributes('aria-label')).toBe('Назад: Лекции')
+
+    const links = wrapper.findAllComponents({
+      name: 'RouterLink',
+    })
+
+    expect(links[0].props('to')).toEqual({
+      name: 'subject-lectures',
+      params: {
+        subjectId: '42',
+      },
+      query: {
+        facultyId: '3',
+      },
+    })
   })
 
 })

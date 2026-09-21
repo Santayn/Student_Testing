@@ -25,7 +25,6 @@ import {
   UiFileInput,
   UiInput,
   UiSelect,
-  UiTable,
   UiTextarea,
 } from '@/components/ui'
 
@@ -200,61 +199,7 @@ const questionStats = computed(() => {
   )
 })
 
-const questionColumns = [
-  {
-    key: 'ordinal',
-    label: '#',
-  },
-  {
-    key: 'type',
-    label: 'Тип',
-    value: (row) =>
-      questionTypeLabel(row.type),
-  },
-  {
-    key: 'question',
-    label: 'Вопрос',
-  },
-  {
-    key: 'points',
-    label: 'Баллы',
-  },
-  {
-    key: 'active',
-    label: 'Статус',
-    value: (row) =>
-      row.active
-        ? 'Активен'
-        : 'Скрыт',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
-const optionColumns = [
-  {
-    key: 'ordinal',
-    label: 'Порядок',
-  },
-  {
-    key: 'text',
-    label: 'Вариант',
-  },
-  {
-    key: 'correct',
-    label: 'Правильный',
-    value: (row) =>
-      row.correct ? 'Да' : 'Нет',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
 function questionTypeLabel(type) {
   switch (Number(type)) {
@@ -1006,101 +951,91 @@ onMounted(async () => {
       @close="notice.message = ''"
     />
 
-    <UiCard
-      title="Контекст вопросов"
-      description="Выберите предмет и тему."
-    >
-      <div class="teacher-stack">
-        <div class="teacher-grid">
-          <UiSelect
-            v-model="selectedMembershipId"
-            label="Предмет"
-            :options="membershipOptions"
-            placeholder="Выберите предмет"
-            :disabled="
-              loadingSubjects ||
-              !membershipOptions.length
-            "
-          />
+    <div class="teacher-grid">
+      <UiCard
+        title="Контекст вопросов"
+        description="Выберите предмет и тему."
+      >
+        <div class="teacher-stack">
+          <div class="teacher-grid">
+            <UiSelect
+              v-model="selectedMembershipId"
+              label="Предмет"
+              :options="membershipOptions"
+              placeholder="Выберите предмет"
+              :disabled="loadingSubjects || !membershipOptions.length"
+            />
 
+            <UiSelect
+              v-model="selectedTopicId"
+              label="Тема"
+              :options="topicOptions"
+              placeholder="Выберите тему"
+              :disabled="!topicOptions.length"
+            />
+          </div>
+
+          <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
+            <UiButton
+              :to="{
+                name: 'teacher-topics',
+                query: routeQuery(),
+              }"
+            >
+              Темы предмета
+            </UiButton>
+
+            <UiButton
+              v-if="selectedTopicId"
+              :to="{
+                name: 'teacher-test-create',
+                query: routeQuery(),
+              }"
+            >
+              Создать тест по теме
+            </UiButton>
+          </div>
+        </div>
+      </UiCard>
+
+      <UiCard
+        title="Импорт из Word"
+        description="Импортируйте .docx сразу в выбранную тему без отдельного экрана."
+      >
+        <div class="teacher-stack">
           <UiSelect
-            v-model="selectedTopicId"
-            label="Тема"
+            v-model="selectedImportTopicId"
+            label="Тема для импорта"
             :options="topicOptions"
             placeholder="Выберите тему"
             :disabled="!topicOptions.length"
           />
-        </div>
 
-        <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
-          <UiButton
-            :to="{
-              name: 'teacher-topics',
-              query: routeQuery(),
-            }"
-          >
-            Темы предмета
-          </UiButton>
+          <UiFileInput
+            :key="fileInputKey"
+            label="Файл .docx"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            :disabled="!selectedImportTopicId"
+            @files-change="onWordFiles"
+          />
 
-          <UiButton
-            v-if="selectedTopicId"
-            :to="{
-              name: 'teacher-test-create',
-              query: routeQuery(),
-            }"
-          >
-            Создать тест по теме
-          </UiButton>
-        </div>
-      </div>
-    </UiCard>
-
-    <UiCard
-      title="Импорт из Word"
-      description="Файл .docx импортируется в выбранную тему; вопросы и варианты ответа создаются по содержимому документа."
-    >
-      <div class="teacher-stack">
-        <UiSelect
-          v-model="selectedImportTopicId"
-          label="Тема для импорта"
-          :options="topicOptions"
-          placeholder="Выберите тему"
-          :disabled="!topicOptions.length"
-        />
-
-        <UiFileInput
-          :key="fileInputKey"
-          label="Файл .docx"
-          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          :disabled="!selectedImportTopicId"
-          @files-change="onWordFiles"
-        />
-
-        <div class="teacher-actions">
           <UiButton
             variant="primary"
             :loading="importing"
             loading-text="Импорт..."
-            :disabled="
-              !selectedImportTopicId ||
-              !wordFiles.length
-            "
+            :disabled="!selectedImportTopicId || !wordFiles.length"
             @click="importWord"
           >
             Импортировать вопросы
           </UiButton>
         </div>
-      </div>
-    </UiCard>
+      </UiCard>
+    </div>
 
     <div class="teacher-layout">
       <div class="teacher-stack">
         <UiCard
-          :title="
-            questionForm.id
-              ? 'Редактирование вопроса'
-              : 'Новый вопрос'
-          "
+          :title="questionForm.id ? 'Редактирование вопроса' : 'Новый вопрос'"
         >
           <div class="teacher-stack">
             <UiTextarea
@@ -1188,43 +1123,65 @@ onMounted(async () => {
           title="Варианты ответа"
           :description="
             !questionForm.id
-              ? 'Выберите вопрос для редактирования вариантов ответа.'
+              ? 'Сначала выберите вопрос в банке.'
               : !isSelectableType
                 ? 'Для этого типа вопроса варианты ответа не используются.'
-                : 'Варианты отсортированы по порядку вывода.'
+                : 'Редактируйте варианты прямо под вопросом.'
           "
         >
           <div class="teacher-stack">
-            <UiTable
-              v-if="
-                questionForm.id &&
-                isSelectableType
-              "
-              :columns="optionColumns"
-              :rows="options"
-              :loading="loadingOptions"
-              empty-message="У этого вопроса пока нет вариантов ответа."
-              :default-sort="{
-                key: 'ordinal',
-                direction: 'asc',
-              }"
-            >
-              <template #cell-actions="{ row }">
-                <UiButton
-                  size="sm"
-                  @click="editOption(row)"
-                >
-                  Изменить
-                </UiButton>
-              </template>
-            </UiTable>
+            <UiEmptyState
+              v-if="!questionForm.id"
+              description="Выберите вопрос справа, чтобы работать с вариантами ответа."
+              compact
+            />
 
-            <template
-              v-if="
-                questionForm.id &&
-                isSelectableType
-              "
-            >
+            <UiEmptyState
+              v-else-if="!isSelectableType"
+              description="У текстовых вопросов и вопросов на соответствие отдельного списка вариантов нет."
+              compact
+            />
+
+            <template v-else>
+              <UiEmptyState
+                v-if="loadingOptions"
+                description="Загрузка вариантов..."
+                compact
+              />
+
+              <UiEmptyState
+                v-else-if="!options.length"
+                description="У этого вопроса пока нет вариантов ответа."
+                compact
+              />
+
+              <div
+                v-else
+                class="teacher-choice-list"
+              >
+                <div
+                  v-for="option in options"
+                  :key="option.id"
+                  class="teacher-choice-row"
+                >
+                  <div class="teacher-choice-row__copy">
+                    <strong class="teacher-choice-row__title">
+                      {{ option.ordinal }}. {{ option.text }}
+                    </strong>
+                    <span class="teacher-choice-row__meta">
+                      {{ option.correct ? 'Правильный вариант' : 'Обычный вариант' }}
+                    </span>
+                  </div>
+
+                  <UiButton
+                    size="sm"
+                    @click="editOption(option)"
+                  >
+                    Изменить
+                  </UiButton>
+                </div>
+              </div>
+
               <div class="teacher-divider" />
 
               <UiInput
@@ -1258,9 +1215,7 @@ onMounted(async () => {
                   Сохранить вариант
                 </UiButton>
 
-                <UiButton
-                  @click="resetOptionForm"
-                >
+                <UiButton @click="resetOptionForm">
                   Очистить
                 </UiButton>
               </div>
@@ -1270,62 +1225,89 @@ onMounted(async () => {
       </div>
 
       <UiCard
-        title="Вопросы выбранной темы"
+        title="Банк вопросов темы"
         :description="questionStats"
       >
-        <UiTable
-          :columns="questionColumns"
-          :rows="questions"
-          :loading="loading"
-          empty-message="В выбранной теме пока нет вопросов."
-          :default-sort="{
-            key: 'ordinal',
-            direction: 'asc',
-          }"
+        <UiEmptyState
+          v-if="loading"
+          description="Загрузка вопросов..."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!selectedTopicId"
+          description="Выберите тему, чтобы открыть банк вопросов."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!questions.length"
+          description="В выбранной теме пока нет вопросов."
+          compact
+        />
+
+        <div
+          v-else
+          class="teacher-entity-list"
         >
-          <template #cell-question="{ row }">
-            <div class="teacher-stack">
-              <strong>{{ row.question }}</strong>
+          <article
+            v-for="question in questions"
+            :key="question.id"
+            class="teacher-entity-card"
+            :class="{
+              'teacher-entity-card--selected':
+                Number(questionForm.id) === Number(question.id),
+            }"
+          >
+            <div class="teacher-entity-card__header">
+              <div class="teacher-entity-card__heading">
+                <span class="teacher-entity-card__eyebrow">
+                  {{ question.ordinal }} · {{ questionTypeLabel(question.type) }}
+                </span>
+                <h3 class="teacher-entity-card__title">
+                  {{ question.question }}
+                </h3>
+              </div>
 
               <span
-                v-if="questionDisplayAnswer(row)"
-                class="teacher-muted"
+                class="teacher-status"
+                :class="{
+                  'teacher-status--success': question.active,
+                }"
               >
-                {{ questionDisplayAnswer(row) }}
+                {{ question.active ? 'Активен' : 'Скрыт' }}
               </span>
             </div>
-          </template>
 
-          <template #cell-active="{ row }">
-            <span
-              class="teacher-status"
-              :class="{
-                'teacher-status--success':
-                  row.active,
-              }"
+            <p
+              v-if="questionDisplayAnswer(question)"
+              class="teacher-entity-card__description"
             >
-              {{ row.active ? 'Активен' : 'Скрыт' }}
-            </span>
-          </template>
+              {{ questionDisplayAnswer(question) }}
+            </p>
 
-          <template #cell-actions="{ row }">
-            <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
+            <div class="teacher-entity-card__meta">
+              <span>Баллы: {{ question.points }}</span>
+              <span>ID: {{ question.id }}</span>
+            </div>
+
+            <div class="teacher-entity-card__actions">
               <UiButton
                 size="sm"
-                @click="editQuestion(row)"
+                @click="editQuestion(question)"
               >
                 Изменить
               </UiButton>
 
               <UiButton
                 size="sm"
-                @click="toggleQuestionActive(row)"
+                @click="toggleQuestionActive(question)"
               >
-                {{ row.active ? 'Скрыть' : 'Активировать' }}
+                {{ question.active ? 'Скрыть' : 'Активировать' }}
               </UiButton>
             </div>
-          </template>
-        </UiTable>
+          </article>
+        </div>
       </UiCard>
     </div>
   </TeacherPageShell>

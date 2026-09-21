@@ -98,7 +98,7 @@ describe('stale context hardening', () => {
       .toContain(':disabled="loading || saving"')
   })
 
-  it('builds teacher workload off a captured period and commits it atomically', () => {
+  it('builds read-only teacher workload off a captured period and commits it atomically', () => {
     const view = source(
       '../views/teacher/TeacherWorkloadView.vue'
     )
@@ -116,27 +116,27 @@ describe('stale context hardening', () => {
       .toContain('const membershipSnapshot =')
 
     expect(view)
-      .toContain('loadLectureAssignments(\n        rawAssignments')
+      .toContain('const rawAssignments = responses')
 
     expect(view)
-      .toContain('new Map(lectureCatalogPairs)')
+      .toContain('groupsApi.getById(groupId)')
   })
 
-  it('captures teacher workload mutation payloads before awaiting', () => {
+  it('keeps teacher workload free from mutation requests', () => {
     const view = source(
       '../views/teacher/TeacherWorkloadView.vue'
     )
 
     expect(view)
-      .toContain('const tasks =\n    pendingTasks.value.map(')
+      .not.toContain('createAssignment(')
 
     expect(view)
-      .toContain('tasks.map(\n          (task) =>')
+      .not.toContain('updateAssignment(')
 
     expect(view)
-      .toContain('const assignmentId =')
+      .not.toContain('createLectureAssignment(')
 
     expect(view)
-      .toContain('const nextStatus =')
+      .not.toContain('updateLectureAssignmentStatus(')
   })
 })

@@ -25,7 +25,6 @@ import {
   UiFileInput,
   UiInput,
   UiSelect,
-  UiTable,
   UiTextarea,
 } from '@/components/ui'
 
@@ -87,37 +86,6 @@ const form = ref({
   testIds: [],
 })
 
-const lectureColumns = [
-  {
-    key: 'ordinal',
-    label: '#',
-  },
-  {
-    key: 'title',
-    label: 'Лекция',
-  },
-  {
-    key: 'tests',
-    label: 'Тесты',
-    value: (row) =>
-      lectureTestSummary(row.id),
-    sortValue: (row) =>
-      lectureTestSummary(row.id),
-  },
-  {
-    key: 'publicVisible',
-    label: 'Статус',
-    value: (row) =>
-      row.publicVisible
-        ? 'Видима'
-        : 'Скрыта',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
 const canEdit = computed(() => {
   return Boolean(
@@ -744,10 +712,7 @@ onMounted(async () => {
               label="Предмет"
               :options="membershipOptions"
               placeholder="Выберите предмет"
-              :disabled="
-                loadingSubjects ||
-                !membershipOptions.length
-              "
+              :disabled="loadingSubjects || !membershipOptions.length"
             />
 
             <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
@@ -782,11 +747,7 @@ onMounted(async () => {
         </UiCard>
 
         <UiCard
-          :title="
-            form.id
-              ? 'Редактирование лекции'
-              : 'Новая лекция'
-          "
+          :title="form.id ? 'Редактирование лекции' : 'Новая лекция'"
         >
           <div class="teacher-stack">
             <UiInput
@@ -942,74 +903,95 @@ onMounted(async () => {
         </UiCard>
       </div>
 
-      <div class="teacher-stack">
-        <UiCard
-          title="Список лекций"
-          :description="
-            selectedSubject
-              ? `Предмет: ${selectedSubject.name}. Всего: ${lectures.length}.`
-              : 'Предмет не выбран.'
-          "
+      <UiCard
+        title="Лекции предмета"
+        :description="
+          selectedSubject
+            ? `Предмет: ${selectedSubject.name}. Всего: ${lectures.length}.`
+            : 'Предмет не выбран.'
+        "
+      >
+        <UiEmptyState
+          v-if="loading"
+          description="Загрузка лекций..."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!selectedMembership"
+          description="Выберите предмет преподавателя, чтобы открыть его лекции."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!lectures.length"
+          description="Для выбранного предмета пока нет лекций."
+          compact
+        />
+
+        <div
+          v-else
+          class="teacher-entity-list"
         >
-          <UiTable
-            :columns="lectureColumns"
-            :rows="lectures"
-            :loading="loading"
-            empty-message="Для выбранного предмета пока нет лекций."
-            :default-sort="{
-              key: 'ordinal',
-              direction: 'asc',
+          <article
+            v-for="lecture in lectures"
+            :key="lecture.id"
+            class="teacher-entity-card"
+            :class="{
+              'teacher-entity-card--selected':
+                Number(form.id) === Number(lecture.id),
             }"
           >
-            <template #cell-title="{ row }">
-              <div class="teacher-stack">
-                <strong>{{ row.title }}</strong>
-                <span class="teacher-muted">
-                  {{ row.description || 'Без описания' }}
+            <div class="teacher-entity-card__header">
+              <div class="teacher-entity-card__heading">
+                <span class="teacher-entity-card__eyebrow">
+                  Лекция {{ lecture.ordinal }}
                 </span>
+                <h3 class="teacher-entity-card__title">
+                  {{ lecture.title }}
+                </h3>
               </div>
-            </template>
 
-            <template #cell-publicVisible="{ row }">
               <span
                 class="teacher-status"
                 :class="{
-                  'teacher-status--success':
-                    row.publicVisible,
+                  'teacher-status--success': lecture.publicVisible,
                 }"
               >
-                {{ row.publicVisible ? 'Видима' : 'Скрыта' }}
+                {{ lecture.publicVisible ? 'Видима' : 'Скрыта' }}
               </span>
-            </template>
+            </div>
 
-            <template #cell-actions="{ row }">
-              <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
-                <UiButton
-                  size="sm"
-                  @click="editLecture(row)"
-                >
-                  Изменить
-                </UiButton>
+            <p class="teacher-entity-card__description">
+              {{ lecture.description || 'Описание пока не добавлено.' }}
+            </p>
 
-                <UiButton
-                  variant="danger"
-                  size="sm"
-                  :loading="deletingId === row.id"
-                  loading-text="Удаление..."
-                  @click="deleteLecture(row)"
-                >
-                  Удалить
-                </UiButton>
-              </div>
-            </template>
-          </UiTable>
-        </UiCard>
+            <div class="teacher-entity-card__meta">
+              <span>{{ lectureTestSummary(lecture.id) }}</span>
+              <span>ID: {{ lecture.id }}</span>
+            </div>
 
-        <UiCard
-          title="Связанный поток"
-          description="Лекции становятся опорой для тестов и учебных назначений. Порядок и ключ контента формируются автоматически, а к одной лекции можно привязать несколько тестов."
-        />
-      </div>
+            <div class="teacher-entity-card__actions">
+              <UiButton
+                size="sm"
+                @click="editLecture(lecture)"
+              >
+                Изменить
+              </UiButton>
+
+              <UiButton
+                variant="danger"
+                size="sm"
+                :loading="deletingId === lecture.id"
+                loading-text="Удаление..."
+                @click="deleteLecture(lecture)"
+              >
+                Удалить
+              </UiButton>
+            </div>
+          </article>
+        </div>
+      </UiCard>
     </div>
   </TeacherPageShell>
 </template>

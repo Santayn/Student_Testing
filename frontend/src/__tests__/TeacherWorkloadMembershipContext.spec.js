@@ -19,30 +19,51 @@ function source(relativePath) {
 }
 
 describe('teacher workload membership context', () => {
-  it('keeps duplicate subject memberships separate for admin workload', () => {
+  it('keeps duplicate subject memberships separate in the read-only workload view', () => {
     const workload = source(
       '../views/teacher/TeacherWorkloadView.vue'
     )
 
     expect(workload)
-      .toContain('availableMembershipIds')
+      .toContain('const membershipSnapshot =')
 
     expect(workload)
-      .toContain('row.subjectMembershipId')
+      .toContain('subjectMembershipId:\n              membership.id')
 
     expect(workload)
-      .toContain('activeAssignmentsForMembership')
+      .toContain('const groupedAssignments = computed(')
 
     expect(workload)
-      .toContain('membershipOptionsForRow')
+      .toContain('assignment.subjectMembershipId')
 
     expect(workload)
-      .toContain('membershipLabel(row.subjectMembershipId)')
-
-    expect(workload)
-      .toContain('subjectMembershipId:\n        membership.id')
+      .toContain(':key="group.subjectMembershipId"')
 
     expect(workload)
       .not.toContain('membershipBySubjectId')
+  })
+
+  it('does not expose workload mutation controls to teachers', () => {
+    const workload = source(
+      '../views/teacher/TeacherWorkloadView.vue'
+    )
+
+    expect(workload)
+      .toContain('teachingApi.getAssignments')
+
+    expect(workload)
+      .toContain('Изменения нагрузки выполняет администратор системы')
+
+    expect(workload)
+      .not.toContain('createLectureAssignment')
+
+    expect(workload)
+      .not.toContain('updateLectureAssignmentStatus')
+
+    expect(workload)
+      .not.toContain('assignLectures')
+
+    expect(workload)
+      .not.toContain('UiCheckbox')
   })
 })

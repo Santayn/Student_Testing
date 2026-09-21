@@ -90,7 +90,6 @@ describe('contextual navigation responsibility', () => {
     expect(testView).not.toContain('@click="goBack"')
     expect(testView).not.toContain('function goBack')
     expect(testView).not.toContain('useRouter')
-    expect(teacherWorkload).not.toContain("name: 'teacher-lectures'")
   })
 
   it('keeps useful actions tied to the current entity', () => {
@@ -102,7 +101,8 @@ describe('contextual navigation responsibility', () => {
     expect(lectureDetails).toContain('@click="loadLecture"')
     expect(lectureDetails).toContain(':to="testRoute(testItem)"')
     expect(testView).toContain('@click="submitTest"')
-    expect(teacherWorkload).toContain('@click="assignLectures"')
+    expect(teacherWorkload).toContain('workloadLectureRoute')
+    expect(teacherWorkload).toContain('subjectRoute(group)')
   })
 
   it('keeps explicit safe exits on error pages', () => {

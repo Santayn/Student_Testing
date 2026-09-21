@@ -20,9 +20,9 @@ import {
   UiButton,
   UiCard,
   UiCheckbox,
+  UiEmptyState,
   UiInput,
   UiSelect,
-  UiTable,
   UiTextarea,
 } from '@/components/ui'
 
@@ -111,53 +111,7 @@ const templateCreationAllowed = computed(() => {
   })
 })
 
-const templateColumns = [
-  {
-    key: 'name',
-    label: 'Название',
-  },
-  {
-    key: 'publicVisible',
-    label: 'Статус',
-    value: (row) =>
-      row.publicVisible
-        ? 'Виден'
-        : 'Черновик',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
-const versionColumns = [
-  {
-    key: 'versionNumber',
-    label: 'Версия',
-  },
-  {
-    key: 'title',
-    label: 'Название',
-  },
-  {
-    key: 'description',
-    label: 'Описание',
-  },
-  {
-    key: 'published',
-    label: 'Статус',
-    value: (row) =>
-      row.published
-        ? 'Опубликована'
-        : 'Черновик',
-  },
-  {
-    key: 'actions',
-    label: 'Действия',
-    sortable: false,
-  },
-]
 
 function routeQuery(versionId = null) {
   const query = {}
@@ -724,10 +678,7 @@ onMounted(async () => {
               label="Предмет преподавателя"
               :options="membershipOptions"
               placeholder="Выберите предмет"
-              :disabled="
-                loadingSubjects ||
-                !membershipOptions.length
-              "
+              :disabled="loadingSubjects || !membershipOptions.length"
             />
 
             <UiButton
@@ -801,11 +752,7 @@ onMounted(async () => {
         </UiCard>
 
         <UiCard
-          :title="
-            versionForm.id
-              ? 'Редактирование версии'
-              : 'Новая версия'
-          "
+          :title="versionForm.id ? 'Редактирование версии' : 'Новая версия'"
           :description="
             selectedTemplate
               ? `Шаблон: ${selectedTemplate.name}`
@@ -880,55 +827,73 @@ onMounted(async () => {
           title="Шаблоны курса"
           :description="`Всего: ${templates.length}`"
         >
-          <UiTable
-            :columns="templateColumns"
-            :rows="templates"
-            :loading="loading"
-            empty-message="У выбранного предмета пока нет шаблонов курса."
-            :default-sort="{
-              key: 'name',
-              direction: 'asc',
-            }"
+          <UiEmptyState
+            v-if="loading"
+            description="Загрузка шаблонов..."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!selectedSubjectId"
+            description="Выберите предмет преподавателя, чтобы открыть его шаблоны курса."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!templates.length"
+            description="У выбранного предмета пока нет шаблонов курса."
+            compact
+          />
+
+          <div
+            v-else
+            class="teacher-entity-list"
           >
-            <template #cell-name="{ row }">
-              <div class="teacher-stack">
-                <strong>{{ row.name }}</strong>
-                <span class="teacher-muted">
-                  ID {{ row.id }}
+            <article
+              v-for="courseTemplate in templates"
+              :key="courseTemplate.id"
+              class="teacher-entity-card"
+              :class="{
+                'teacher-entity-card--selected':
+                  Number(selectedTemplateId) === Number(courseTemplate.id),
+              }"
+            >
+              <div class="teacher-entity-card__header">
+                <div class="teacher-entity-card__heading">
+                  <span class="teacher-entity-card__eyebrow">
+                    Шаблон #{{ courseTemplate.id }}
+                  </span>
+                  <h3 class="teacher-entity-card__title">
+                    {{ courseTemplate.name }}
+                  </h3>
+                </div>
+
+                <span
+                  class="teacher-status"
+                  :class="{
+                    'teacher-status--success': courseTemplate.publicVisible,
+                  }"
+                >
+                  {{ courseTemplate.publicVisible ? 'Виден' : 'Черновик' }}
                 </span>
               </div>
-            </template>
 
-            <template #cell-publicVisible="{ row }">
-              <span
-                class="teacher-status"
-                :class="{
-                  'teacher-status--success':
-                    row.publicVisible,
-                }"
-              >
-                {{ row.publicVisible ? 'Виден' : 'Черновик' }}
-              </span>
-            </template>
-
-            <template #cell-actions="{ row }">
-              <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
+              <div class="teacher-entity-card__actions">
                 <UiButton
                   :variant="
-                    Number(selectedTemplateId) ===
-                    Number(row.id)
+                    Number(selectedTemplateId) === Number(courseTemplate.id)
                       ? 'primary'
                       : 'secondary'
                   "
                   size="sm"
-                  @click="selectTemplate(row.id)"
+                  @click="selectTemplate(courseTemplate.id)"
                 >
                   Версии
                 </UiButton>
 
                 <UiButton
                   size="sm"
-                  @click="editTemplate(row)"
+                  @click="editTemplate(courseTemplate)"
                 >
                   Изменить
                 </UiButton>
@@ -936,97 +901,108 @@ onMounted(async () => {
                 <UiButton
                   variant="danger"
                   size="sm"
-                  :loading="deletingTemplateId === row.id"
+                  :loading="deletingTemplateId === courseTemplate.id"
                   loading-text="Удаление..."
-                  @click="deleteTemplate(row)"
+                  @click="deleteTemplate(courseTemplate)"
                 >
                   Удалить
                 </UiButton>
               </div>
-            </template>
-          </UiTable>
+            </article>
+          </div>
         </UiCard>
 
         <UiCard
           title="Версии выбранного шаблона"
           :description="`Всего: ${versions.length}`"
         >
-          <UiTable
-            :columns="versionColumns"
-            :rows="versions"
-            :loading="loadingVersions"
-            empty-message="Версии не выбраны или пока не созданы."
-            :default-sort="{
-              key: 'versionNumber',
-              direction: 'asc',
-            }"
-          >
-            <template #cell-versionNumber="{ row }">
-              <strong>
-                v{{ row.versionNumber }}
-              </strong>
-            </template>
+          <UiEmptyState
+            v-if="loadingVersions"
+            description="Загрузка версий..."
+            compact
+          />
 
-            <template #cell-description="{ row }">
-              <div class="teacher-stack">
-                <span>
-                  {{ row.description || '—' }}
-                </span>
+          <UiEmptyState
+            v-else-if="!selectedTemplateId"
+            description="Выберите шаблон курса выше."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!versions.length"
+            description="У выбранного шаблона пока нет версий."
+            compact
+          />
+
+          <div
+            v-else
+            class="teacher-entity-list"
+          >
+            <article
+              v-for="version in versions"
+              :key="version.id"
+              class="teacher-entity-card"
+            >
+              <div class="teacher-entity-card__header">
+                <div class="teacher-entity-card__heading">
+                  <span class="teacher-entity-card__eyebrow">
+                    Версия {{ version.versionNumber }}
+                  </span>
+                  <h3 class="teacher-entity-card__title">
+                    {{ version.title }}
+                  </h3>
+                </div>
+
                 <span
-                  v-if="row.changeNotes"
-                  class="teacher-muted"
+                  class="teacher-status"
+                  :class="{
+                    'teacher-status--success': version.published,
+                  }"
                 >
-                  {{ row.changeNotes }}
+                  {{ version.published ? 'Опубликована' : 'Черновик' }}
                 </span>
               </div>
-            </template>
 
-            <template #cell-published="{ row }">
-              <span
-                class="teacher-status"
-                :class="{
-                  'teacher-status--success':
-                    row.published,
-                }"
+              <p class="teacher-entity-card__description">
+                {{ version.description || 'Описание пока не добавлено.' }}
+              </p>
+
+              <p
+                v-if="version.changeNotes"
+                class="teacher-entity-card__description"
               >
-                {{ row.published ? 'Опубликована' : 'Черновик' }}
-              </span>
-            </template>
+                Изменения: {{ version.changeNotes }}
+              </p>
 
-            <template #cell-actions="{ row }">
-              <div class="teacher-inline-actions teacher-inline-actions--mobile-stack">
+              <div class="teacher-entity-card__actions">
                 <UiButton
                   size="sm"
-                  @click="editVersion(row)"
+                  @click="editVersion(version)"
                 >
                   Изменить
                 </UiButton>
 
                 <UiButton
-                  :variant="
-                    row.published
-                      ? 'secondary'
-                      : 'primary'
-                  "
+                  :variant="version.published ? 'secondary' : 'primary'"
                   size="sm"
-                  :loading="publishingVersionId === row.id"
-                  @click="publishVersion(row)"
+                  :loading="publishingVersionId === version.id"
+                  @click="publishVersion(version)"
                 >
-                  {{ row.published ? 'Снять публикацию' : 'Опубликовать' }}
+                  {{ version.published ? 'Снять публикацию' : 'Опубликовать' }}
                 </UiButton>
 
                 <UiButton
                   size="sm"
                   :to="{
                     name: 'teacher-lectures',
-                    query: routeQuery(row.id),
+                    query: routeQuery(version.id),
                   }"
                 >
                   Лекции
                 </UiButton>
               </div>
-            </template>
-          </UiTable>
+            </article>
+          </div>
         </UiCard>
       </div>
     </div>
