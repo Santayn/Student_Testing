@@ -1,11 +1,15 @@
 import axios from 'axios'
 
+import {
+  API_TIMEOUTS,
+} from './timeouts'
+
 const clientConfig = {
   baseURL:
     import.meta.env
       .VITE_API_BASE_URL ||
     '/api/v1',
-  timeout: 15000,
+  timeout: API_TIMEOUTS.standard,
 
   headers: {
     Accept: 'application/json',

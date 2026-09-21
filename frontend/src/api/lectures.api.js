@@ -1,4 +1,5 @@
 import http from './http'
+import { API_TIMEOUTS } from './timeouts'
 
 export const lecturesApi = {
   getAll(params = {}) {
@@ -39,7 +40,10 @@ export const lecturesApi = {
 
     return http.post(
       `/lectures/${lectureId}/materials`,
-      formData
+      formData,
+      {
+        timeout: API_TIMEOUTS.fileTransfer,
+      }
     )
   },
 
@@ -48,6 +52,7 @@ export const lecturesApi = {
       `/lectures/${lectureId}/materials/${materialId}/download`,
       {
         responseType: 'blob',
+        timeout: API_TIMEOUTS.fileTransfer,
       }
     )
   },

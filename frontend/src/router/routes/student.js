@@ -18,11 +18,13 @@ const learningMeta = {
 const studentLearningMeta = {
   requiresAuth: true,
   roles: STUDENT_LEARNING_ROLES,
+  workspaceRoles: STUDENT_LEARNING_ROLES,
 }
 
 const testTakingMeta = {
   requiresAuth: true,
   roles: TEST_TAKER_ROLES,
+  workspaceRoles: TEST_TAKER_ROLES,
 }
 
 export const studentRoutes = [

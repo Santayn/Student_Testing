@@ -1,4 +1,5 @@
 import http from './http'
+import { API_TIMEOUTS } from './timeouts'
 
 export const questionsApi = {
   getAll(params = {}) {
@@ -43,6 +44,12 @@ export const questionsApi = {
       }
     })
 
-    return http.post('/questions/import', formData)
+    return http.post(
+      '/questions/import',
+      formData,
+      {
+        timeout: API_TIMEOUTS.fileTransfer,
+      }
+    )
   },
 }

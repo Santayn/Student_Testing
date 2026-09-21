@@ -1,4 +1,5 @@
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -12,6 +13,7 @@ import {
 } from '@vue/test-utils'
 
 import {
+  defineComponent,
   nextTick,
 } from 'vue'
 
@@ -61,12 +63,92 @@ vi.mock('@/api', () => ({
 }))
 
 import { learningApi } from '@/api'
-import TestsPageShell from '@/components/tests/TestsPageShell.vue'
-import {
-  UiAlert,
-  UiButton,
-} from '@/components/ui'
 import TestView from '@/views/tests/TestView.vue'
+
+const TestsPageShellStub = defineComponent({
+  name: 'TestsPageShell',
+  props: {
+    title: {
+      type: String,
+      required: true,
+    },
+    subtitle: {
+      type: String,
+      default: '',
+    },
+  },
+  template: `
+    <main data-testid="tests-page-shell">
+      <h1 data-testid="page-title">{{ title }}</h1>
+      <div data-testid="page-actions">
+        <slot name="actions" />
+      </div>
+      <div data-testid="page-content">
+        <slot />
+      </div>
+    </main>
+  `,
+})
+
+const UiButtonStub = defineComponent({
+  name: 'UiButton',
+  props: {
+    disabled: {
+      type: Boolean,
+      default: false,
+    },
+    loading: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['click'],
+  template: `
+    <button
+      type="button"
+      :disabled="disabled || loading"
+      @click="$emit('click', $event)"
+    >
+      <slot />
+    </button>
+  `,
+})
+
+const UiAlertStub = defineComponent({
+  name: 'UiAlert',
+  props: {
+    message: {
+      type: String,
+      default: '',
+    },
+  },
+  template: `
+    <div data-testid="alert">{{ message }}</div>
+  `,
+})
+
+const mountedWrappers = []
+
+function mountTestView() {
+  const wrapper = shallowMount(TestView, {
+    global: {
+      stubs: {
+        TestsPageShell: TestsPageShellStub,
+        UiButton: UiButtonStub,
+        UiAlert: UiAlertStub,
+      },
+    },
+  })
+
+  mountedWrappers.push(wrapper)
+  return wrapper
+}
+
+afterEach(() => {
+  mountedWrappers.splice(0).forEach((wrapper) => {
+    wrapper.unmount()
+  })
+})
 
 function deferred() {
   let resolve
@@ -122,6 +204,24 @@ function setRoute(
     String(assignmentId)
 }
 
+function submitButton(wrapper) {
+  const button = wrapper
+    .findAll('button')
+    .find((candidate) => (
+      candidate.text().includes(
+        'Завершить тест'
+      )
+    ))
+
+  if (!button) {
+    throw new Error(
+      'Submit button was not rendered by TestView.'
+    )
+  }
+
+  return button
+}
+
 describe('TestView request context integrity', () => {
   beforeEach(() => {
     sessionStorage.clear()
@@ -153,7 +253,7 @@ describe('TestView request context integrity', () => {
       )
 
     const wrapper =
-      shallowMount(TestView)
+      mountTestView()
 
     await nextTick()
 
@@ -192,14 +292,13 @@ describe('TestView request context integrity', () => {
 
     expect(
       wrapper
-        .findComponent(TestsPageShell)
-        .props('title')
+        .get('[data-testid="page-title"]')
+        .text()
     ).toBe('Новый тест')
 
-    const buttons =
-      wrapper.findAllComponents(UiButton)
+    await submitButton(wrapper)
+      .trigger('click')
 
-    await buttons[1].trigger('click')
     await flushPromises()
 
     expect(
@@ -216,6 +315,7 @@ describe('TestView request context integrity', () => {
 
   it('ignores a submit response after the route changes to another test', async () => {
     const submit = deferred()
+    const secondLoad = deferred()
 
     learningApi.startAttempt
       .mockResolvedValueOnce(
@@ -226,13 +326,8 @@ describe('TestView request context integrity', () => {
           title: 'Первый тест',
         })
       )
-      .mockResolvedValueOnce(
-        startResponse({
-          testId: 13,
-          assignmentId: 35,
-          attemptId: 500,
-          title: 'Второй тест',
-        })
+      .mockImplementationOnce(
+        () => secondLoad.promise
       )
 
     learningApi.submitAttempt
@@ -241,14 +336,13 @@ describe('TestView request context integrity', () => {
       )
 
     const wrapper =
-      shallowMount(TestView)
+      mountTestView()
 
     await flushPromises()
 
-    const buttons =
-      wrapper.findAllComponents(UiButton)
+    await submitButton(wrapper)
+      .trigger('click')
 
-    await buttons[1].trigger('click')
     await nextTick()
 
     expect(
@@ -259,7 +353,32 @@ describe('TestView request context integrity', () => {
     )
 
     setRoute(13, 35)
+    await nextTick()
+
+    expect(
+      learningApi.startAttempt
+    ).toHaveBeenCalledWith(35)
+
+    expect(
+      learningApi.startAttempt
+    ).toHaveBeenCalledTimes(2)
+
+    secondLoad.resolve(
+      startResponse({
+        testId: 13,
+        assignmentId: 35,
+        attemptId: 500,
+        title: 'Второй тест',
+      })
+    )
+
     await flushPromises()
+
+    expect(
+      wrapper
+        .get('[data-testid="page-title"]')
+        .text()
+    ).toBe('Второй тест')
 
     submit.resolve({
       data: {
@@ -274,12 +393,12 @@ describe('TestView request context integrity', () => {
 
     expect(
       wrapper
-        .findComponent(TestsPageShell)
-        .props('title')
+        .get('[data-testid="page-title"]')
+        .text()
     ).toBe('Второй тест')
 
     expect(
-      wrapper.findComponent(UiAlert).exists()
+      wrapper.find('[data-testid="alert"]').exists()
     ).toBe(false)
   })
 
@@ -294,23 +413,20 @@ describe('TestView request context integrity', () => {
     )
 
     const wrapper =
-      shallowMount(TestView)
+      mountTestView()
 
     await flushPromises()
 
     const alert =
-      wrapper.findComponent(UiAlert)
+      wrapper.get('[data-testid="alert"]')
 
-    expect(alert.exists()).toBe(true)
-    expect(alert.props('message')).toContain(
+    expect(alert.text()).toContain(
       'не соответствует открытому тесту'
     )
 
-    const buttons =
-      wrapper.findAllComponents(UiButton)
-
-    await buttons[1].trigger('click')
-    await flushPromises()
+    expect(
+      submitButton(wrapper).attributes('disabled')
+    ).toBeDefined()
 
     expect(
       learningApi.submitAttempt
@@ -328,20 +444,76 @@ describe('TestView request context integrity', () => {
     )
 
     const wrapper =
-      shallowMount(TestView)
+      mountTestView()
 
     await flushPromises()
 
     const alert =
-      wrapper.findComponent(UiAlert)
+      wrapper.get('[data-testid="alert"]')
 
-    expect(alert.exists()).toBe(true)
-    expect(alert.props('message')).toContain(
+    expect(alert.text()).toContain(
       'не соответствует открытому тесту'
     )
 
     expect(
+      submitButton(wrapper).attributes('disabled')
+    ).toBeDefined()
+
+    expect(
       learningApi.submitAttempt
     ).not.toHaveBeenCalled()
+  })
+
+  it('blocks a blind second submit when the first request outcome is unknown', async () => {
+    learningApi.startAttempt.mockResolvedValue(
+      startResponse({
+        testId: 12,
+        assignmentId: 34,
+        attemptId: 601,
+        title: 'Тест с долгой отправкой',
+      })
+    )
+
+    learningApi.submitAttempt.mockRejectedValue({
+      code: 'ECONNABORTED',
+      isAxiosError: true,
+      config: {
+        url: '/submit',
+      },
+    })
+
+    const wrapper =
+      mountTestView()
+
+    await flushPromises()
+
+    await submitButton(wrapper)
+      .trigger('click')
+
+    await flushPromises()
+
+    expect(
+      learningApi.submitAttempt
+    ).toHaveBeenCalledTimes(1)
+
+    const alert =
+      wrapper.get('[data-testid="alert"]')
+
+    expect(alert.text()).toContain(
+      'повторная отправка заблокирована'
+    )
+
+    expect(
+      submitButton(wrapper).attributes('disabled')
+    ).toBeDefined()
+
+    await submitButton(wrapper)
+      .trigger('click')
+
+    await flushPromises()
+
+    expect(
+      learningApi.submitAttempt
+    ).toHaveBeenCalledTimes(1)
   })
 })

@@ -10,10 +10,12 @@ import http from '@/api/http'
 import { coursesApi } from '@/api/courses.api'
 import { learningApi } from '@/api/learning.api'
 import { lecturesApi } from '@/api/lectures.api'
+import { questionsApi } from '@/api/questions.api'
 import { membershipsApi } from '@/api/memberships.api'
 import { resultsApi } from '@/api/results.api'
 import { teachingApi } from '@/api/teaching.api'
 import { testsApi } from '@/api/tests.api'
+import { API_TIMEOUTS } from '@/api/timeouts'
 
 vi.mock('@/api/http', () => ({
   default: {
@@ -81,7 +83,7 @@ describe('frontend API contracts', () => {
 
     expect(http.post).toHaveBeenCalledTimes(1)
 
-    const [url, body] = http.post.mock.calls[0]
+    const [url, body, config] = http.post.mock.calls[0]
 
     expect(url).toBe('/lectures/9/materials')
     expect(body).toBeInstanceOf(FormData)
@@ -90,6 +92,9 @@ describe('frontend API contracts', () => {
       second,
     ])
     expect(body.has('file')).toBe(false)
+    expect(config).toEqual({
+      timeout: API_TIMEOUTS.fileTransfer,
+    })
   })
 
   it('updates a full subject membership through the supported endpoint', async () => {
@@ -197,6 +202,9 @@ describe('frontend API contracts', () => {
       '/public/learning/attempts/10/submit',
       {
         questionIds: [1],
+      },
+      {
+        timeout: API_TIMEOUTS.submitAttempt,
       }
     )
 
@@ -206,6 +214,40 @@ describe('frontend API contracts', () => {
         givenAnswer: '4',
       },
     ])
+  })
+
+  it('downloads student materials without the short JSON timeout', async () => {
+    http.get.mockResolvedValue({ data: new Blob() })
+
+    await learningApi.downloadMaterial(5, 8)
+
+    expect(http.get).toHaveBeenCalledWith(
+      '/public/learning/lectures/5/materials/8/download',
+      {
+        responseType: 'blob',
+        timeout: API_TIMEOUTS.fileTransfer,
+      }
+    )
+  })
+
+  it('imports question files without the short JSON timeout', async () => {
+    http.post.mockResolvedValue({ data: {} })
+
+    const file = new File(['questions'], 'questions.xlsx')
+
+    await questionsApi.importFile(file, {
+      testId: 7,
+    })
+
+    const [url, body, config] = http.post.mock.calls[0]
+
+    expect(url).toBe('/questions/import')
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.get('file')).toBe(file)
+    expect(body.get('testId')).toBe('7')
+    expect(config).toEqual({
+      timeout: API_TIMEOUTS.fileTransfer,
+    })
   })
 
   it('publishes a course version with the required empty request body', async () => {

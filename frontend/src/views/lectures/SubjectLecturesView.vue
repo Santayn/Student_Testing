@@ -28,6 +28,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const route = useRoute()
 
 const subject = ref(null)
@@ -35,6 +39,9 @@ const lectures = ref([])
 
 const loading = ref(false)
 const error = ref('')
+
+const lecturesRequest =
+  createLatestRequestGuard()
 
 const subjectId = computed(() => {
   return Number(
@@ -142,17 +149,24 @@ function lectureRoute(lecture) {
 }
 
 async function loadLectures() {
+  const requestId =
+    lecturesRequest.begin()
+
+  const requestedSubjectId =
+    Number(subjectId.value)
+
   if (
     !Number.isFinite(
-      subjectId.value
+      requestedSubjectId
     ) ||
-    subjectId.value <= 0
+    requestedSubjectId <= 0
   ) {
     error.value =
       'Не указан корректный subjectId.'
 
     subject.value = null
     lectures.value = []
+    loading.value = false
 
     return
   }
@@ -166,14 +180,22 @@ async function loadLectures() {
       lecturesResponse,
     ] = await Promise.all([
       learningApi.getSubject(
-        subjectId.value
+        requestedSubjectId
       ),
 
       learningApi
         .getSubjectLectures(
-          subjectId.value
+          requestedSubjectId
         ),
     ])
+
+    if (
+      !lecturesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     subject.value =
       subjectResponse.data ?? null
@@ -183,6 +205,14 @@ async function loadLectures() {
         lecturesResponse
       )
   } catch (requestError) {
+    if (
+      !lecturesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     subject.value = null
     lectures.value = []
 
@@ -192,7 +222,13 @@ async function loadLectures() {
         'Не удалось загрузить список лекций.'
       )
   } finally {
-    loading.value = false
+    if (
+      lecturesRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 

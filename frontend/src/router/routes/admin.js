@@ -5,6 +5,7 @@ import {
 const adminMeta = {
   requiresAuth: true,
   roles: ADMIN_ROLES,
+  workspaceRoles: ADMIN_ROLES,
   sidebar: true,
 }
 

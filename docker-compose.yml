@@ -53,11 +53,16 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_PUBLIC_REGISTRATION_ENABLED: ${APP_PUBLIC_REGISTRATION_ENABLED:-false}
+        VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-15000}
+        VITE_SUBMIT_TIMEOUT_MS: ${VITE_SUBMIT_TIMEOUT_MS:-180000}
+        VITE_FILE_TRANSFER_TIMEOUT_MS: ${VITE_FILE_TRANSFER_TIMEOUT_MS:-0}
     image: student-test-frontend:latest
     container_name: student-test-frontend
     environment:
       BACKEND_HOST: backend
       BACKEND_PORT: "8080"
+      PROXY_SEND_TIMEOUT: ${FRONTEND_PROXY_SEND_TIMEOUT:-300s}
+      PROXY_READ_TIMEOUT: ${FRONTEND_PROXY_READ_TIMEOUT:-300s}
     depends_on:
       backend:
         condition: service_healthy

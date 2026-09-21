@@ -42,6 +42,7 @@ describe('student public-learning router contract', () => {
     expect(value.meta).toMatchObject({
       requiresAuth: true,
       roles: STUDENT_LEARNING_ROLES,
+      workspaceRoles: STUDENT_LEARNING_ROLES,
     })
   })
 
@@ -51,6 +52,7 @@ describe('student public-learning router contract', () => {
     expect(value.meta).toMatchObject({
       requiresAuth: true,
       roles: TEST_TAKER_ROLES,
+      workspaceRoles: TEST_TAKER_ROLES,
     })
   })
 

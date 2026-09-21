@@ -419,8 +419,14 @@ onBeforeUnmount(() => {
   border: 1px solid var(--header-button-border);
   border-radius: 8px;
 
+  color-scheme: dark;
   font: inherit;
   font-size: 13px;
+}
+
+.workspace-role-switcher__select option {
+  color: var(--header-text);
+  background: var(--header-bg);
 }
 
 .app-header__nav-link {

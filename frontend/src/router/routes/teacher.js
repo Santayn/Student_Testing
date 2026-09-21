@@ -5,6 +5,7 @@ import {
 const teacherMeta = {
   requiresAuth: true,
   roles: TEACHER_ROLES,
+  workspaceRoles: TEACHER_ROLES,
   sidebar: true,
 }
 

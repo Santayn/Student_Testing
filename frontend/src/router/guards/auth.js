@@ -31,6 +31,20 @@ function requiredRoleGroups(to) {
     )
 }
 
+function requiredWorkspaceRoleGroups(to) {
+  return matchedMeta(to)
+    .map(
+      (meta) =>
+        Array.isArray(meta.workspaceRoles)
+          ? meta.workspaceRoles
+          : []
+    )
+    .filter(
+      (roles) =>
+        roles.length > 0
+    )
+}
+
 function routeRequiresAuth(to) {
   const meta =
     matchedMeta(to)
@@ -40,7 +54,8 @@ function routeRequiresAuth(to) {
       (item) =>
         item.requiresAuth === true
     ) ||
-    requiredRoleGroups(to).length > 0
+    requiredRoleGroups(to).length > 0 ||
+    requiredWorkspaceRoleGroups(to).length > 0
   )
 }
 
@@ -88,6 +103,18 @@ function hasRequiredRoles(
   )
 }
 
+function hasRequiredWorkspaceRoles(
+  authStore,
+  roleGroups
+) {
+  return roleGroups.every(
+    (roles) =>
+      roles.includes(
+        authStore.workspaceRole
+      )
+  )
+}
+
 function authenticatedLanding(authStore) {
   return {
     name: hasWorkspaceAccess(authStore)
@@ -118,6 +145,9 @@ export async function authGuard(to) {
 
   const roleGroups =
     requiredRoleGroups(to)
+
+  const workspaceRoleGroups =
+    requiredWorkspaceRoleGroups(to)
 
   if (
     requiresAuth &&
@@ -210,6 +240,23 @@ export async function authGuard(to) {
     !hasRequiredRoles(
       authStore,
       roleGroups
+    )
+  ) {
+    return {
+      name: 'forbidden',
+
+      query: {
+        from:
+          to.fullPath,
+      },
+    }
+  }
+
+  if (
+    workspaceRoleGroups.length > 0 &&
+    !hasRequiredWorkspaceRoles(
+      authStore,
+      workspaceRoleGroups
     )
   ) {
     return {

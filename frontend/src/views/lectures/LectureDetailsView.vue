@@ -33,6 +33,10 @@ import {
   listFromResponse,
 } from '@/utils/apiData'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -43,14 +47,14 @@ const tests = ref([])
 const loading = ref(false)
 const error = ref('')
 
+const lectureRequest =
+  createLatestRequestGuard()
+
 const downloadingMaterialId =
   ref(null)
 
 const canTakeTests = computed(() => {
-  return (
-    authStore.isStudent ||
-    authStore.isAdmin
-  )
+  return authStore.isStudentMode
 })
 
 const lectureId = computed(() => {
@@ -526,11 +530,17 @@ async function downloadMaterial(
 }
 
 async function loadLecture() {
+  const requestId =
+    lectureRequest.begin()
+
+  const requestedLectureId =
+    Number(lectureId.value)
+
   if (
     !Number.isFinite(
-      lectureId.value
+      requestedLectureId
     ) ||
-    lectureId.value <= 0
+    requestedLectureId <= 0
   ) {
     error.value =
       'Не указан корректный lectureId.'
@@ -538,6 +548,7 @@ async function loadLecture() {
     lecture.value = null
     materials.value = []
     tests.value = []
+    loading.value = false
 
     return
   }
@@ -552,18 +563,26 @@ async function loadLecture() {
       testsResponse,
     ] = await Promise.all([
       learningApi.getLecture(
-        lectureId.value
+        requestedLectureId
       ),
 
       learningApi
         .getLectureMaterials(
-          lectureId.value
+          requestedLectureId
         ),
 
       learningApi.getLectureTests(
-        lectureId.value
+        requestedLectureId
       ),
     ])
+
+    if (
+      !lectureRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     lecture.value =
       lectureResponse.data ?? null
@@ -580,6 +599,14 @@ async function loadLecture() {
         )
       )
   } catch (requestError) {
+    if (
+      !lectureRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     lecture.value = null
     materials.value = []
     tests.value = []
@@ -590,7 +617,13 @@ async function loadLecture() {
         'Не удалось загрузить данные лекции.'
       )
   } finally {
-    loading.value = false
+    if (
+      lectureRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 

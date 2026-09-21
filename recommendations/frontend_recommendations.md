@@ -1,6 +1,6 @@
 # Аудит и рекомендации frontend ↔ backend
 
-Дата проверки: **20.09.2026**.
+Дата проверки: **21.09.2026**.
 
 ## Границы аудита
 
@@ -26,278 +26,86 @@ Backend в рамках этой работы считается **неизме�
 
 | ID | Приоритет | Статус | Проблема | Где исправлять |
 |---|---|---|---|---|
-| FE-4 | 🔴 P1 | CONFIRMED | Общий Axios timeout 15s опасен для submit теста с LLM и создаёт неопределённое состояние | frontend; надёжное решение частично backend-blocked |
-| FE-5 | 🟠 P1/P2 | CONFIRMED | Незавершённые ответы теста полностью теряются после reload | frontend |
-| FE-6 | 🟠 P2 | CONFIRMED | Один timeout 15s применяется к загрузке/скачиванию больших материалов | frontend / frontend nginx |
-| FE-7 | 🟠 P2 | CONFIRMED | Router проверяет все роли аккаунта, а не выбранный `workspaceRole` | frontend |
-| FE-8 | 🟠 P2 | CONFIRMED | Несколько route/context-driven view не используют latest-request guard | frontend |
 | FE-9 | 🟡 P2 | BACKEND BLOCKED | Надёжный таймер теста невозможно построить по текущему student DTO | backend contract + frontend после него |
 | FE-10 | 🟡 P2 | BACKEND BLOCKED | Безопасное хранение refresh-сессии с HttpOnly cookie не поддерживается текущим auth API | backend auth contract + frontend после него |
 
-P0-проблем, требующих немедленной остановки frontend, в статическом аудите не обнаружено.
+P0-проблем, требующих немедленной остановки frontend, в статическом аудите не обнаружено. FE-4/FE-6 закрыты на шаге timeout-hardening, FE-5 — на шаге draft recovery, FE-7 — на шаге workspace route isolation, FE-8 — на шаге stale-context hardening; остаточная неопределённость неидемпотентного submit зафиксирована как backend-blocked.
+
+---
+
+# Закрытые frontend-проблемы
+
+## FE-8. Route/context-driven loaders защищены от stale response — DONE
+
+Реализовано на frontend без изменения backend:
+
+- `SubjectLecturesView`, `LectureDetailsView` и `SubjectDetailsView` используют `createLatestRequestGuard()` и коммитят state/error/loading только для последнего актуального запроса;
+- route ID захватывается до `await`, поэтому запрос не перечитывает уже изменившийся `route.params`;
+- `SubjectDetailsView` дополнительно перезагружает данные при смене effective `isStudentMode`, потому что shared route использует разные API-flow для student и teacher/admin;
+- `FacultySubjectsView` защищает загрузку назначенных предметов от старого ответа после быстрой смены факультета;
+- base loading и faculty-context loading разделены, поэтому завершение одного запроса больше не сбрасывает индикатор второго;
+- add/remove предметов факультета используют `targetFacultyId`, захваченный до batch-operation, и не перечитывают изменяемый `facultyId` внутри длительной mutation;
+- выбор факультета блокируется на время batch mutation как дополнительный технический interlock;
+- `TeacherWorkloadView` загружает период во временные структуры (`assignments`, группы, lecture assignments, lecture catalogs) и атомарно коммитит их только если request token всё ещё актуален;
+- период (`studyCourse`, `semester`, `academicYear`) и membership snapshot захватываются до сетевых запросов;
+- payload массового назначения лекций и status-update захватывается до `await`, чтобы длительная операция не читала изменившийся reactive context;
+- повторный аудит `views` с `watch + async loader` не выявил оставшихся экранов без latest-request guard.
+
+Добавлен regression/contract test `StaleContextHardening.spec.js`.
+
+## FE-7. Workspace mode теперь ограничивает role-specific маршруты — DONE
+
+Реализовано на frontend без изменения backend:
+
+- существующая `meta.roles` сохранена как проверка того, какие роли вообще есть у аккаунта;
+- для role-specific маршрутов добавлена отдельная `meta.workspaceRoles`;
+- `authGuard` теперь требует, чтобы текущий `authStore.workspaceRole` входил в разрешённые workspace-роли маршрута;
+- `/teacher/**` доступен только в `TEACHER`/`ADMIN` mode в рамках уже существующего account-role контракта;
+- `/admin/**` доступен только в `ADMIN` mode;
+- student-only `/public/learning/**` flow и `/tests/:testId` доступны только в `STUDENT` mode;
+- shared routes (`/subjects`, `/subject-details`, `/results`, `/profile`, `/`) не получили дополнительного mode-lock и продолжают выбирать API-flow внутри view;
+- `LectureDetailsView` больше не использует raw account roles для доступности прохождения теста и ориентируется на effective `isStudentMode`.
+
+Добавлены regression-тесты, которые проверяют multi-role аккаунты и запрещают переход в route другого активного workspace без переключения режима.
+
+## FE-4. Operation-specific timeout и защита от слепого повторного submit — DONE
+
+Реализовано на frontend:
+
+- обычные JSON-запросы сохраняют короткий timeout;
+- `submitAttempt` использует отдельный увеличенный timeout;
+- upload/download/import больше не наследуют короткий JSON-timeout;
+- frontend-Nginx имеет согласованные увеличенные proxy timeout;
+- при timeout/network failure во время финального submit текущий экран блокирует слепую повторную отправку, потому что исход операции неизвестен.
+
+Остаточный риск нельзя устранить только frontend-кодом: надёжная reconciliation/idempotency семантика для финального submit остаётся в `backend_recommendations.md`.
+
+## FE-6. Timeout больших файлов — DONE
+
+Файловые операции переведены на отдельный timeout-класс (`0` по умолчанию на Axios-уровне), а proxy idle timeouts frontend-Nginx увеличены и вынесены в runtime-конфигурацию.
+
+## FE-5. Восстановление незавершённых ответов после reload — DONE
+
+Реализовано на frontend без изменения backend:
+
+- добавлено отдельное `sessionStorage`-хранилище `student-test-draft:v1`;
+- draft привязан к `testId + assignmentId + attemptId`;
+- перед восстановлением проверяется полный fingerprint набора вопросов: ID, тип, текст и допустимые варианты;
+- при несовпадении attempt/context/question contract draft удаляется и не применяется;
+- single/multiple/text ответы восстанавливаются только в пределах допустимых текущих значений;
+- matching-ответы сохраняются как `right value -> prompt ordinal`, поэтому повторное перемешивание `matchingOptions` backend-ом не ломает восстановление;
+- изменения ответов сохраняются синхронным watcher-ом best-effort, чтобы минимизировать потерю последнего ввода перед reload;
+- после подтверждённого успешного submit draft удаляется;
+- при неизвестном исходе submit draft сохраняется, потому что frontend не может достоверно определить состояние попытки без backend reconciliation API.
+
+Добавлены regression-тесты для совместимого resume, другого `attemptId`, изменения question contract, shuffled matching options, autosave и очистки после успешного submit.
+
 
 ---
 
 # Подтверждённые frontend-проблемы
 
-## FE-4. Глобальный Axios timeout 15 секунд опасен для submit теста
-
-**Приоритет: P1.**
-
-`frontend/src/api/http.js`:
-
-```js
-const clientConfig = {
-  ...
-  timeout: 15000,
-}
-```
-
-Этот timeout применяется ко всем операциям, включая:
-
-```text
-POST /public/learning/attempts/{attemptId}/submit
-```
-
-Backend выполняет оценивание текстовых ответов синхронно в submit path. При включённой local LLM конфигурация backend допускает timeout модели до:
-
-```text
-12 секунд на один inference
-```
-
-Несколько текстовых вопросов могут последовательно занять больше 15 секунд.
-
-### Почему это опаснее обычного timeout
-
-Submit не является простым read-запросом.
-
-Возможен сценарий:
-
-1. frontend отправил submit;
-2. backend продолжает обработку;
-3. через 15 секунд Axios завершает запрос как `ECONNABORTED`;
-4. frontend показывает «сервер слишком долго отвечает»;
-5. backend спустя несколько секунд успешно завершает attempt;
-6. пользователь повторяет submit;
-7. backend уже отвечает «attempt is not in progress».
-
-То есть frontend не знает, завершилась операция или нет.
-
-### Что можно исправить сейчас на frontend
-
-1. Убрать единый timeout как правило для всех операций.
-2. Ввести operation-specific timeout, например отдельный большой timeout для `submitAttempt`.
-3. На timeout/network error после submit **не делать автоматический повтор неидемпотентного POST**.
-4. Сохранять `pendingSubmit` context в `sessionStorage` до отправки.
-5. После неоднозначной ошибки пытаться сверить attempt по `/results/student/data?testId=...` и `attemptId` до разрешения повторной сдачи.
-
-### Ограничение
-
-Это только mitigation. Полностью надёжный submit при долгом grading требует backend idempotency/status/async grading. Соответствующая backend-рекомендация дополнена отдельно.
-
----
-
-## FE-5. Незавершённые ответы полностью теряются после reload
-
-**Приоритет: P1/P2.**
-
-Текущий `TestView` хранит ответы только в reactive memory:
-
-```text
-singleAnswers
-multipleAnswers
-textAnswers
-matchingAnswers
-```
-
-`sessionStorage` используется только для **уже завершённой** попытки (`completedTestSession.js`).
-
-При reload:
-
-1. backend resume возвращает тот же attempt и тот же набор вопросов;
-2. backend student start DTO не возвращает draft-ответы;
-3. `initializeAnswers()` очищает все поля;
-4. всё введённое до reload теряется.
-
-Для длинных тестов это реальная потеря пользовательских данных.
-
-### Что исправить только на frontend
-
-Добавить отдельное хранилище draft-сессии, привязанное минимум к:
-
-```text
-attemptId
-testId
-assignmentId
-questionIds
-```
-
-Сохранять изменения best-effort в `sessionStorage`.
-
-После resume восстанавливать draft **только если**:
-
-- backend вернул тот же `attemptId`;
-- assignment/test context совпадает;
-- question set совместим.
-
-Для matching-вопросов нельзя полагаться только на индекс элемента: backend повторно перемешивает `matchingOptions`. Draft нужно хранить по стабильному значению пары/правой части, а при restore заново сопоставлять с текущим порядком.
-
-Очищать draft после подтверждённого успешного submit.
-
-Backend менять не требуется для локального recovery.
-
----
-
-## FE-6. 15-секундный timeout конфликтует с разрешённым размером файлов
-
-**Приоритет: P2.**
-
-Backend разрешает:
-
-```text
-max-file-size: 50MB
-max-request-size: 200MB
-```
-
-Frontend Nginx разрешает:
-
-```text
-client_max_body_size 200m
-proxy_send_timeout 60s
-proxy_read_timeout 60s
-```
-
-но Axios обрывает любую операцию через 15 секунд.
-
-Это касается:
-
-```text
-lecturesApi.uploadMaterials()
-lecturesApi.downloadMaterial()
-learningApi.downloadMaterial()
-questionsApi.importFile()
-```
-
-При реальном размере 50–200 MB или медленном соединении клиентский timeout становится самым жёстким ограничением.
-
-### Что исправить
-
-Ввести разные timeout-классы:
-
-```text
-обычные JSON request     -> 15s
-file upload/download     -> >= proxy timeout или 0 с явной отменой пользователем
-long command/submit      -> отдельный лимит
-```
-
-Лучше вынести значения в конфигурацию (`VITE_*_TIMEOUT_MS`) вместо одного hardcode.
-
-При изменении timeout необходимо согласовать его с `frontend/docker/nginx.conf.template`, иначе браузер и proxy будут расходиться.
-
----
-
-## FE-7. Workspace mode не является ограничением маршрутизации
-
-**Приоритет: P2.**
-
-В store уже существует единый выбранный режим:
-
-```text
-workspaceRole
-isStudentMode
-isTeacherMode
-isAdminMode
-```
-
-и `WorkspaceMode.spec.js` прямо проверяет идею «one consistent mode for a multi-role account».
-
-Однако `authGuard` проверяет route только через полный набор account roles:
-
-```js
-authStore.hasAnyRole(...roles)
-```
-
-Следствие для аккаунта `STUDENT + TEACHER`:
-
-- выбран `STUDENT` mode;
-- sidebar показывает student context;
-- ручной переход на `/teacher/...` всё равно проходит route guard, потому что account содержит `TEACHER`.
-
-Это не повышает backend privileges, но нарушает техническую изоляцию рабочего контекста и может запускать API-flow другой роли.
-
-### Дополнительный пример
-
-`LectureDetailsView.vue` использует:
-
-```js
-authStore.isStudent || authStore.isAdmin
-```
-
-вместо effective mode.
-
-### Что исправить
-
-Разделить два понятия:
-
-```text
-account roles       -> какие режимы вообще доступны
-workspaceRole       -> какой frontend-flow разрешён сейчас
-```
-
-Для role-specific routes добавить проверку effective workspace mode. Общие маршруты (`/subjects`, `/results`, `/profile`) могут остаться shared и выбирать поведение внутри view.
-
-Backend менять не требуется для frontend mode isolation.
-
-Сильная server-side изоляция effective mode остаётся отдельной backend-рекомендацией №14.
-
----
-
-## FE-8. Route/context-driven loaders не везде защищены от stale response
-
-**Приоритет: P2.**
-
-В проекте уже есть хороший utility:
-
-```text
-createLatestRequestGuard()
-```
-
-Он используется в `CourseTemplatesView`, `QuestionsView`, `TestEditorView`, `TopicLibraryView`, `LectureManagementView`, `ResultsView`, `TeachingTemplatesView`.
-
-Но аналогичная защита отсутствует как минимум в:
-
-```text
-views/tests/TestView.vue                 <- самый опасный случай, выделен отдельно FE-2
-views/lectures/SubjectLecturesView.vue
-views/lectures/LectureDetailsView.vue
-views/subjects/SubjectDetailsView.vue
-views/admin/FacultySubjectsView.vue
-views/teacher/TeacherWorkloadView.vue
-```
-
-При быстром изменении route/filter старый ответ способен перезаписать новый context. Даже если это не приводит к security bypass, возможны:
-
-- данные старой лекции под новым URL;
-- тесты старой лекции в новом контексте;
-- прежний предмет после смены subjectId;
-- прежняя выборка после смены фильтра;
-- преждевременный `loading=false` из `finally` старого запроса.
-
-### Что исправить
-
-Для всех запросов, результат которых зависит от изменяемого route/filter/context:
-
-```text
-begin request
-capture context
-await
-check request is current
-only then commit state
-```
-
-Для mutable admin/teacher экранов additionally захватывать ID контекста непосредственно перед mutation и не читать `ref.value` повторно внутри long-running batch.
-
----
+На текущем этапе подтверждённых технических frontend-проблем, которые можно надёжно исправить без изменения backend-контракта, не осталось. Оставшиеся пункты FE-9/FE-10 требуют изменений backend и поэтому не имплементируются сейчас.
 
 # Backend-blocked frontend work
 
@@ -425,38 +233,16 @@ create Test
 
 # Рекомендуемый порядок frontend-исправлений
 
-1. **FE-4** — разделить timeout по типам операций и добавить recovery для неоднозначного submit.
-2. **FE-5** — сохранять draft незавершённой попытки по `attemptId`.
-3. **FE-7** — привести route guards к effective `workspaceRole` для role-specific workspace.
-4. **FE-8** — распространить latest-request pattern на оставшиеся context-driven loaders.
-5. **FE-6** — согласовать file-transfer timeouts с Nginx и backend limits.
-6. **FE-9/FE-10** — не имплементировать до появления соответствующего backend-контракта.
+1. **FE-8** — распространить latest-request pattern на оставшиеся context-driven loaders.
+2. **FE-9/FE-10** — не имплементировать до появления соответствующего backend-контракта.
 
 ---
 
 # Regression tests, которые стоит добавить вместе с исправлениями
 
-Минимальный набор:
+Для FE-4/FE-6 regression-проверки уже добавлены в `ApiContracts.spec.js` и `TestViewRace.spec.js`. Для FE-5 добавлены `TestAttemptDraft.spec.js` и `TestViewDraft.spec.js`.
 
-```text
-ApiContracts.spec.js
-- long-operation API methods use explicit timeout config
-
-TestDraftSession.spec.js
-- draft survives reload for same attemptId
-- draft is discarded for another attemptId
-- matching draft restores by stable value, not shuffled index
-- draft clears after confirmed submit
-
-WorkspaceRouteGuard.spec.js
-- STUDENT+TEACHER in STUDENT mode cannot open teacher-only route
-- the same account in TEACHER mode can open it
-- shared routes remain available
-
-LongOperationTimeout.spec.js
-- submit/file operations do not inherit the generic 15s timeout
-- timeout after submit does not trigger blind duplicate POST
-```
+Для FE-7 добавлены `WorkspaceRouteGuard.spec.js` и `LectureDetailsWorkspaceMode.spec.js`, а `StudentLearningRouterContract.spec.js` расширен проверками `workspaceRoles`.
 
 ---
 

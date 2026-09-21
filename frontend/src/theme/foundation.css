@@ -70,6 +70,114 @@
     border-color: var(--st-danger);
   }
 
+  /*
+   * Select trigger + popup.
+   * PrimeVue mounts the popup under <body>, so popup styles must live in
+   * the global foundation layer rather than inside UiSelect.vue.
+   */
+  .st-ui-control.p-select {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+  }
+
+  .st-ui-control.p-select:not(.p-disabled):hover {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+  }
+
+  .st-ui-control.p-select .p-select-label {
+    color: var(--st-text);
+  }
+
+  .st-ui-control.p-select .p-select-label.p-placeholder {
+    color: var(--st-text-muted);
+  }
+
+  .st-ui-control.p-select .p-select-dropdown,
+  .st-ui-control.p-select .p-select-clear-icon {
+    color: var(--st-text-secondary);
+  }
+
+  .p-select-overlay {
+    overflow: hidden;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: 10px;
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .p-select-header {
+    padding: 8px;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-border);
+  }
+
+  .p-select-filter.p-inputtext {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+    border-radius: 7px;
+  }
+
+  .p-select-filter.p-inputtext:enabled:focus,
+  .p-select-filter.p-inputtext:focus {
+    border-color: var(--st-primary);
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .p-select-list-container {
+    scrollbar-color: var(--st-border) transparent;
+  }
+
+  .p-select-list {
+    padding: 5px;
+  }
+
+  .p-select-option {
+    min-height: 36px;
+    margin: 1px 0;
+    padding: 8px 10px;
+    color: var(--st-text);
+    background: transparent;
+    border-radius: 7px;
+    transition:
+      color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .p-select-option:not(.p-disabled):hover,
+  .p-select-option.p-focus,
+  .p-select-option[data-p-focused='true'] {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .p-select-option.p-select-option-selected,
+  .p-select-option.p-selected,
+  .p-select-option[data-p-selected='true'] {
+    color: var(--st-primary-soft-text);
+    background: var(--st-primary-soft);
+    font-weight: 650;
+  }
+
+  .p-select-option.p-select-option-selected:hover,
+  .p-select-option.p-selected.p-focus,
+  .p-select-option[data-p-selected='true'][data-p-focused='true'] {
+    background: color-mix(in srgb, var(--st-primary) 18%, var(--st-surface));
+  }
+
+  .p-select-option.p-disabled,
+  .p-select-option[data-p-disabled='true'] {
+    color: var(--st-text-muted);
+    opacity: 0.58;
+  }
+
+  .p-select-empty-message {
+    padding: 12px 10px;
+    color: var(--st-text-secondary);
+  }
+
   .st-ui-search {
     width: 100%;
     min-height: var(--st-control-height);
@@ -473,19 +581,60 @@
   .st-ui-action-menu.p-menu {
     min-width: 190px;
     padding: 6px;
+    color: var(--st-text);
+    background: var(--st-surface);
     border: 1px solid var(--st-border);
     border-radius: 10px;
     box-shadow: var(--st-shadow-elevated);
   }
 
-  .st-ui-action-menu.p-menu .p-menuitem-link {
+  .st-ui-action-menu.p-menu .p-menu-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-content {
+    color: var(--st-text);
+    background: transparent;
     border-radius: 7px;
+    transition:
+      color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-link {
+    min-height: 36px;
+    padding: 8px 10px;
+    color: inherit;
+    border-radius: 7px;
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-icon {
+    color: var(--st-text-secondary);
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-content:hover,
+  .st-ui-action-menu.p-menu .p-menuitem-content.p-focus,
+  .st-ui-action-menu.p-menu .p-menuitem-content[data-p-focused='true'] {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-action-menu.p-menu .p-menu-separator {
+    margin: 5px 4px;
+    border-color: var(--st-border);
   }
 
   .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-link,
   .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-icon,
   .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-label {
     color: var(--st-danger);
+  }
+
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-content:hover,
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-content.p-focus,
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-content[data-p-focused='true'] {
+    background: var(--st-danger-soft);
   }
 
   @media (max-width: 640px) {

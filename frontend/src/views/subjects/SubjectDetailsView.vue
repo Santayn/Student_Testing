@@ -29,6 +29,10 @@ import {
   useAuthStore,
 } from '@/stores/auth'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const route = useRoute()
 
 const authStore =
@@ -37,6 +41,9 @@ const authStore =
 const loading = ref(false)
 const error = ref('')
 const subject = ref(null)
+
+const subjectRequest =
+  createLatestRequestGuard()
 
 const subjectId = computed(() => {
   return Number(
@@ -133,15 +140,24 @@ const teacherTopicsRoute =
   }))
 
 async function loadSubject() {
+  const requestId =
+    subjectRequest.begin()
+
+  const requestedSubjectId =
+    Number(subjectId.value)
+  const requestedStudentMode =
+    authStore.isStudentMode
+
   if (
     !Number.isFinite(
-      subjectId.value
+      requestedSubjectId
     ) ||
-    subjectId.value <= 0
+    requestedSubjectId <= 0
   ) {
     subject.value = null
     error.value =
       'Не указан корректный subjectId.'
+    loading.value = false
 
     return
   }
@@ -151,17 +167,33 @@ async function loadSubject() {
 
   try {
     const response =
-      authStore.isStudentMode
+      requestedStudentMode
         ? await learningApi.getSubject(
-            subjectId.value
+            requestedSubjectId
           )
         : await subjectsApi.getById(
-            subjectId.value
+            requestedSubjectId
           )
+
+    if (
+      !subjectRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     subject.value =
       response.data ?? null
   } catch (requestError) {
+    if (
+      !subjectRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     subject.value = null
 
     error.value =
@@ -170,12 +202,21 @@ async function loadSubject() {
         'Не удалось загрузить предмет.'
       )
   } finally {
-    loading.value = false
+    if (
+      subjectRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loading.value = false
+    }
   }
 }
 
 watch(
-  subjectId,
+  [
+    subjectId,
+    () => authStore.isStudentMode,
+  ],
   loadSubject
 )
 

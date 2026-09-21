@@ -56,10 +56,26 @@ const faculty = ref(null)
 const accepted = ref(true)
 const role = ref('student')
 const selectedTeacher = ref('Тиликин А. Ю.')
+const overlaySelect = ref('teacher')
+const overlaySearchSelect = ref('KB')
 const foundationSearch = ref('')
 const foundationTitle = ref('Лабораторная работа')
 const foundationFaculty = ref('IT')
 const foundationDialogVisible = ref(false)
+
+const overlaySelectOptions = [
+  { label: 'Студент', value: 'student' },
+  { label: 'Преподаватель', value: 'teacher' },
+  { label: 'Администратор', value: 'admin' },
+]
+
+const overlayFacultyOptions = [
+  { label: 'Информационные технологии', value: 'IT' },
+  { label: 'Кибербезопасность', value: 'KB' },
+  { label: 'Экономика', value: 'EC' },
+  { label: 'Прикладная математика', value: 'PM' },
+  { label: 'Информационная безопасность', value: 'IB' },
+]
 
 const faculties = [
   {
@@ -215,7 +231,7 @@ const actionMenuItems = [
   {
     label: 'Удалить',
     icon: 'pi pi-trash',
-    class: 'showcase-menu-danger',
+    class: 'st-ui-action-menu__danger showcase-menu-danger',
     command: () => runShowcaseAction('Удалить'),
   },
 ]
@@ -275,6 +291,7 @@ function showToast() {
     <Menu
       id="showcase-actions-menu"
       ref="actionMenu"
+      class="st-ui-action-menu"
       :model="actionMenuItems"
       popup
     />
@@ -424,6 +441,48 @@ function showToast() {
             </div>
           </template>
         </UiTable>
+      </div>
+    </UiCard>
+
+    <UiCard
+      title="Select и dropdown · dark theme"
+      description="Проверка popup-слоёв: обычный select, поиск по option и контекстное меню по кнопке «…». Переключайте тему кнопками вверху страницы."
+    >
+      <div class="grid gap-5 lg:grid-cols-[1fr_1fr_0.8fr]">
+        <UiSelect
+          v-model="overlaySelect"
+          label="Роль"
+          hint="Проверяем selected, hover и focus option."
+          :options="overlaySelectOptions"
+          clearable
+        />
+
+        <UiSelect
+          v-model="overlaySearchSelect"
+          label="Факультет с поиском"
+          hint="Проверяем filter input и длинный dropdown."
+          :options="overlayFacultyOptions"
+          filter
+          clearable
+        />
+
+        <div class="grid content-start gap-2">
+          <span class="text-xs font-semibold text-muted-color">
+            Контекстное меню
+          </span>
+          <div
+            class="flex min-h-10 items-center justify-between rounded-[var(--st-radius-control)] border border-[var(--st-border)] bg-[var(--st-surface)] px-3"
+          >
+            <span class="text-sm text-[var(--st-text)]">Тестовая запись</span>
+            <UiActionMenu
+              :items="foundationRowActions({ name: 'Тестовая запись' })"
+              aria-label="Действия с тестовой записью"
+            />
+          </div>
+          <span class="text-xs leading-5 text-[var(--st-text-secondary)]">
+            Проверяем обычные пункты, separator, hover/focus и danger-состояние.
+          </span>
+        </div>
       </div>
     </UiCard>
 

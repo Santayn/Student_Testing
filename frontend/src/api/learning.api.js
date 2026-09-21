@@ -3,6 +3,7 @@ import {
 } from '@/utils/resultContracts'
 
 import http from './http'
+import { API_TIMEOUTS } from './timeouts'
 
 export const learningApi = {
   getSubject(subjectId) {
@@ -51,7 +52,10 @@ export const learningApi = {
   ) {
     const response = await http.post(
       `/public/learning/attempts/${attemptId}/submit`,
-      data
+      data,
+      {
+        timeout: API_TIMEOUTS.submitAttempt,
+      }
     )
 
     return {
@@ -70,6 +74,7 @@ export const learningApi = {
       `/public/learning/lectures/${lectureId}/materials/${materialId}/download`,
       {
         responseType: 'blob',
+        timeout: API_TIMEOUTS.fileTransfer,
       }
     )
   },

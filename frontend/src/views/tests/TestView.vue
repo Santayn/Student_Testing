@@ -28,6 +28,12 @@ import {
 } from '@/utils/completedTestSession'
 
 import {
+  clearTestAttemptDraft,
+  readTestAttemptDraft,
+  saveTestAttemptDraft,
+} from '@/utils/testAttemptDraft'
+
+import {
   sanitizeStudentSubmitResult,
 } from '@/utils/resultContracts'
 
@@ -51,6 +57,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
+const submitOutcomeUnknown = ref(false)
 
 const error = ref('')
 
@@ -62,6 +69,8 @@ const resultData = ref(null)
 
 const loadRequest = createLatestRequestGuard()
 const submitRequest = createLatestRequestGuard()
+
+let draftPersistencePaused = false
 
 const singleAnswers =
   reactive({})
@@ -172,6 +181,7 @@ function isSameRouteContext(context) {
 }
 
 function resetTestState() {
+  submitOutcomeUnknown.value = false
   test.value = null
   questions.value = []
   attemptId.value = null
@@ -208,6 +218,29 @@ function assertStartAttemptContext(data, context) {
       'Backend вернул попытку, которая не соответствует открытому тесту.'
     )
   }
+}
+
+
+function hasUnknownRequestOutcome(errorValue) {
+  if (!errorValue) {
+    return false
+  }
+
+  if (
+    errorValue.code === 'ECONNABORTED' ||
+    errorValue.code === 'ERR_NETWORK'
+  ) {
+    return true
+  }
+
+  const looksLikeAxiosError =
+    errorValue.isAxiosError === true ||
+    Boolean(errorValue.config)
+
+  return (
+    looksLikeAxiosError &&
+    !errorValue.response
+  )
 }
 
 function questionType(question) {
@@ -347,6 +380,95 @@ function initializeAnswers() {
       textAnswers[id] = ''
     }
   )
+}
+
+function applyDraftAnswers(draft) {
+  if (!draft) {
+    return
+  }
+
+  Object.entries(
+    draft.singleAnswers ?? {}
+  ).forEach(([id, value]) => {
+    singleAnswers[id] = value
+  })
+
+  Object.entries(
+    draft.multipleAnswers ?? {}
+  ).forEach(([id, value]) => {
+    multipleAnswers[id] =
+      Array.isArray(value)
+        ? [...value]
+        : []
+  })
+
+  Object.entries(
+    draft.textAnswers ?? {}
+  ).forEach(([id, value]) => {
+    textAnswers[id] =
+      String(value ?? '')
+  })
+
+  Object.entries(
+    draft.matchingAnswers ?? {}
+  ).forEach(([id, value]) => {
+    matchingAnswers[id] =
+      Array.isArray(value)
+        ? [...value]
+        : []
+  })
+}
+
+function restoreCurrentAttemptDraft(
+  context
+) {
+  const draft =
+    readTestAttemptDraft({
+      testId: context.testId,
+      assignmentId:
+        context.assignmentId,
+      attemptId:
+        attemptId.value,
+      questions:
+        questions.value,
+    })
+
+  applyDraftAnswers(draft)
+}
+
+function persistCurrentAttemptDraft() {
+  if (
+    draftPersistencePaused ||
+    submitted.value ||
+    !attemptId.value ||
+    !questions.value.length
+  ) {
+    return
+  }
+
+  const context =
+    currentRouteContext()
+
+  if (
+    !context.testId ||
+    !context.assignmentId
+  ) {
+    return
+  }
+
+  saveTestAttemptDraft({
+    testId: context.testId,
+    assignmentId:
+      context.assignmentId,
+    attemptId:
+      attemptId.value,
+    questions:
+      questions.value,
+    singleAnswers,
+    multipleAnswers,
+    textAnswers,
+    matchingAnswers,
+  })
 }
 
 function serializeMatchingAnswer(
@@ -541,6 +663,11 @@ async function loadTest() {
       return
     }
 
+    clearTestAttemptDraft(
+      context.testId,
+      context.assignmentId
+    )
+
     attemptId.value =
       completedSession.attemptId
 
@@ -595,7 +722,16 @@ async function loadTest() {
         ? data.questions
         : []
 
-    initializeAnswers()
+    draftPersistencePaused = true
+
+    try {
+      initializeAnswers()
+      restoreCurrentAttemptDraft(
+        context
+      )
+    } finally {
+      draftPersistencePaused = false
+    }
   } catch (requestError) {
     if (
       !loadRequest.isCurrent(requestId) ||
@@ -624,6 +760,7 @@ async function loadTest() {
 async function submitTest() {
   if (
     submitting.value ||
+    submitOutcomeUnknown.value ||
     submitted.value ||
     !questions.value.length ||
     !attemptId.value
@@ -677,6 +814,11 @@ async function submitTest() {
         response.data
       )
 
+    clearTestAttemptDraft(
+      context.testId,
+      context.assignmentId
+    )
+
     saveCompletedTestSession({
       testId: context.testId,
       assignmentId: context.assignmentId,
@@ -709,6 +851,15 @@ async function submitTest() {
       !isSameRouteContext(context) ||
       Number(attemptId.value) !== context.attemptId
     ) {
+      return
+    }
+
+    if (hasUnknownRequestOutcome(requestError)) {
+      submitOutcomeUnknown.value = true
+      error.value =
+        'Связь с сервером прервалась во время отправки. ' +
+        'Результат попытки неизвестен, поэтому повторная отправка заблокирована. ' +
+        'Откройте результаты или вернитесь к тесту позже, чтобы не отправить попытку повторно.'
       return
     }
 
@@ -745,6 +896,30 @@ onBeforeRouteLeave(() => {
 })
 
 watch(
+  singleAnswers,
+  persistCurrentAttemptDraft,
+  { deep: true, flush: 'sync' }
+)
+
+watch(
+  multipleAnswers,
+  persistCurrentAttemptDraft,
+  { deep: true, flush: 'sync' }
+)
+
+watch(
+  textAnswers,
+  persistCurrentAttemptDraft,
+  { deep: true, flush: 'sync' }
+)
+
+watch(
+  matchingAnswers,
+  persistCurrentAttemptDraft,
+  { deep: true, flush: 'sync' }
+)
+
+watch(
   () => [
     route.params.testId,
     route.query.assignmentId,
@@ -774,6 +949,7 @@ onMounted(loadTest)
         :disabled="
           loading ||
           submitted ||
+          submitOutcomeUnknown ||
           !questions.length
         "
         @click="submitTest"
@@ -1005,7 +1181,7 @@ onMounted(loadTest)
         block
         :loading="submitting"
         loading-text="Отправка ответов..."
-        :disabled="submitted"
+        :disabled="submitted || submitOutcomeUnknown"
         @click="submitTest"
       >
         Завершить тест
