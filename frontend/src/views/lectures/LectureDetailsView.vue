@@ -406,6 +406,21 @@ function testRoute(test) {
       test.assignmentId
   }
 
+  if (subjectId.value) {
+    query.subjectId =
+      subjectId.value
+  }
+
+  if (lectureId.value) {
+    query.lectureId =
+      lectureId.value
+  }
+
+  if (route.query.facultyId) {
+    query.facultyId =
+      route.query.facultyId
+  }
+
   return {
     name: 'test',
 

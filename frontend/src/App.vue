@@ -4,12 +4,13 @@ import { useRoute } from 'vue-router'
 
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
+import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 
 const route = useRoute()
 
 const showSidebar = computed(() => {
-  return route.meta.sidebar === true
+  return Boolean(route.meta.navKey)
 })
 </script>
 
@@ -26,6 +27,7 @@ const showSidebar = computed(() => {
       <AppSidebar v-if="showSidebar" />
 
       <main class="app-main">
+        <AppBreadcrumb />
         <RouterView />
       </main>
     </div>

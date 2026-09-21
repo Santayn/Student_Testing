@@ -5,6 +5,10 @@ import {
   TEST_TAKER_ROLES,
 } from '../roles'
 
+import {
+  NAV_KEYS,
+} from '@/navigation/navigation.config'
+
 const authenticatedMeta = {
   requiresAuth: true,
   roles: WORKSPACE_ROLES,
@@ -27,6 +31,18 @@ const testTakingMeta = {
   workspaceRoles: TEST_TAKER_ROLES,
 }
 
+function navigationMeta(
+  baseMeta,
+  navKey,
+  breadcrumbKey
+) {
+  return {
+    ...baseMeta,
+    navKey,
+    breadcrumbKey,
+  }
+}
+
 export const studentRoutes = [
   {
     path: '/',
@@ -37,7 +53,11 @@ export const studentRoutes = [
         '@/views/HomeView.vue'
       ),
 
-    meta: authenticatedMeta,
+    meta: navigationMeta(
+      authenticatedMeta,
+      NAV_KEYS.HOME,
+      'home'
+    ),
   },
 
   {
@@ -49,7 +69,11 @@ export const studentRoutes = [
         '@/views/ProfileView.vue'
       ),
 
-    meta: authenticatedMeta,
+    meta: navigationMeta(
+      authenticatedMeta,
+      NAV_KEYS.PROFILE,
+      'profile'
+    ),
   },
 
   {
@@ -61,7 +85,11 @@ export const studentRoutes = [
         '@/views/subjects/SubjectsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: navigationMeta(
+      learningMeta,
+      NAV_KEYS.SUBJECTS,
+      'subjects'
+    ),
   },
 
   {
@@ -73,7 +101,11 @@ export const studentRoutes = [
         '@/views/subjects/SubjectDetailsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: navigationMeta(
+      learningMeta,
+      NAV_KEYS.SUBJECTS,
+      'subject-details'
+    ),
   },
 
   {
@@ -85,7 +117,11 @@ export const studentRoutes = [
         '@/views/lectures/SubjectLecturesView.vue'
       ),
 
-    meta: studentLearningMeta,
+    meta: navigationMeta(
+      studentLearningMeta,
+      NAV_KEYS.SUBJECTS,
+      'subject-lectures'
+    ),
   },
 
   {
@@ -97,7 +133,11 @@ export const studentRoutes = [
         '@/views/lectures/LectureDetailsView.vue'
       ),
 
-    meta: studentLearningMeta,
+    meta: navigationMeta(
+      studentLearningMeta,
+      NAV_KEYS.SUBJECTS,
+      'lecture-details'
+    ),
   },
 
   {
@@ -109,7 +149,11 @@ export const studentRoutes = [
         '@/views/tests/TestView.vue'
       ),
 
-    meta: testTakingMeta,
+    meta: navigationMeta(
+      testTakingMeta,
+      NAV_KEYS.SUBJECTS,
+      'test'
+    ),
   },
 
   {
@@ -121,6 +165,10 @@ export const studentRoutes = [
         '@/views/results/ResultsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: navigationMeta(
+      learningMeta,
+      NAV_KEYS.RESULTS,
+      'results'
+    ),
   },
 ]

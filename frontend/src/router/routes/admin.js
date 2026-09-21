@@ -2,11 +2,25 @@ import {
   ADMIN_ROLES,
 } from '../roles'
 
+import {
+  NAV_KEYS,
+} from '@/navigation/navigation.config'
+
 const adminMeta = {
   requiresAuth: true,
   roles: ADMIN_ROLES,
   workspaceRoles: ADMIN_ROLES,
-  sidebar: true,
+}
+
+function navigationMeta(
+  navKey,
+  breadcrumbKey
+) {
+  return {
+    ...adminMeta,
+    navKey,
+    breadcrumbKey,
+  }
 }
 
 export const adminRoutes = [
@@ -19,7 +33,10 @@ export const adminRoutes = [
         '@/views/admin/UsersView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_USERS,
+      'admin-users'
+    ),
   },
 
   {
@@ -31,7 +48,10 @@ export const adminRoutes = [
         '@/views/admin/FacultiesView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_FACULTIES,
+      'admin-faculties'
+    ),
   },
 
   {
@@ -43,7 +63,10 @@ export const adminRoutes = [
         '@/views/admin/GroupsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_GROUPS,
+      'admin-groups'
+    ),
   },
 
   {
@@ -55,7 +78,10 @@ export const adminRoutes = [
         '@/views/admin/SubjectsAdminView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_SUBJECTS,
+      'admin-subjects'
+    ),
   },
 
   {
@@ -67,7 +93,10 @@ export const adminRoutes = [
         '@/views/admin/FacultySubjectsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_FACULTY_SUBJECTS,
+      'admin-faculty-subjects'
+    ),
   },
 
   {
@@ -79,7 +108,10 @@ export const adminRoutes = [
         '@/views/admin/TeacherSubjectsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_TEACHER_SUBJECTS,
+      'admin-teacher-subjects'
+    ),
   },
 
   {
@@ -91,6 +123,9 @@ export const adminRoutes = [
         '@/views/admin/TeachingTemplatesView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_TEACHING,
+      'admin-teaching'
+    ),
   },
 ]

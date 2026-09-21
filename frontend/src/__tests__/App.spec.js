@@ -6,7 +6,7 @@ import App from '../App.vue'
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     meta: {
-      sidebar: true,
+      navKey: 'home',
     },
   }),
 }))

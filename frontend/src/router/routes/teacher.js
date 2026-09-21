@@ -2,11 +2,25 @@ import {
   TEACHER_ROLES,
 } from '../roles'
 
+import {
+  NAV_KEYS,
+} from '@/navigation/navigation.config'
+
 const teacherMeta = {
   requiresAuth: true,
   roles: TEACHER_ROLES,
   workspaceRoles: TEACHER_ROLES,
-  sidebar: true,
+}
+
+function navigationMeta(
+  navKey,
+  breadcrumbKey
+) {
+  return {
+    ...teacherMeta,
+    navKey,
+    breadcrumbKey,
+  }
 }
 
 export const teacherRoutes = [
@@ -19,7 +33,10 @@ export const teacherRoutes = [
         '@/views/teacher/QuestionsView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_QUESTIONS,
+      'teacher-questions'
+    ),
   },
 
   {
@@ -31,7 +48,10 @@ export const teacherRoutes = [
         '@/views/teacher/TestEditorView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_TEST_CREATE,
+      'teacher-test-create'
+    ),
   },
 
   {
@@ -43,7 +63,10 @@ export const teacherRoutes = [
         '@/views/teacher/LectureManagementView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_LECTURES,
+      'teacher-lectures'
+    ),
   },
 
   {
@@ -55,7 +78,10 @@ export const teacherRoutes = [
         '@/views/teacher/TopicLibraryView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_TOPICS,
+      'teacher-topics'
+    ),
   },
 
   {
@@ -67,7 +93,10 @@ export const teacherRoutes = [
         '@/views/teacher/CourseTemplatesView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_COURSES,
+      'teacher-courses'
+    ),
   },
 
   {
@@ -79,6 +108,9 @@ export const teacherRoutes = [
         '@/views/teacher/TeacherWorkloadView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_WORKLOAD,
+      'teacher-workload'
+    ),
   },
 ]

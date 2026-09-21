@@ -31,6 +31,10 @@ import {
   runBatchOperation,
 } from '@/utils/batchOperation'
 
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
 const faculties = ref([])
 const subjects = ref([])
 const assignedSubjects = ref([])
@@ -39,8 +43,19 @@ const facultyId = ref('')
 const addSelection = ref([])
 const removeSelection = ref([])
 
-const loading = ref(false)
+const loadingBase = ref(false)
+const loadingAssigned = ref(false)
 const saving = ref(false)
+
+const assignedSubjectsRequest =
+  createLatestRequestGuard()
+
+const loading = computed(() => {
+  return (
+    loadingBase.value ||
+    loadingAssigned.value
+  )
+})
 
 const notice = ref({
   type: 'info',
@@ -84,7 +99,7 @@ function clearNotice() {
 }
 
 async function loadBaseData() {
-  loading.value = true
+  loadingBase.value = true
 
   try {
     const [
@@ -130,26 +145,46 @@ async function loadBaseData() {
       )
     )
   } finally {
-    loading.value = false
+    loadingBase.value = false
   }
 }
 
 async function loadAssignedSubjects() {
+  const requestId =
+    assignedSubjectsRequest.begin()
+
+  const requestedFacultyId =
+    Number(facultyId.value)
+
   addSelection.value = []
   removeSelection.value = []
 
-  if (!facultyId.value) {
+  if (
+    !Number.isInteger(
+      requestedFacultyId
+    ) ||
+    requestedFacultyId <= 0
+  ) {
     assignedSubjects.value = []
+    loadingAssigned.value = false
     return
   }
 
-  loading.value = true
+  loadingAssigned.value = true
 
   try {
     const response =
       await facultiesApi.getSubjects(
-        Number(facultyId.value)
+        requestedFacultyId
       )
+
+    if (
+      !assignedSubjectsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
     assignedSubjects.value =
       listFromResponse(response).sort(
@@ -162,6 +197,14 @@ async function loadAssignedSubjects() {
           )
       )
   } catch (error) {
+    if (
+      !assignedSubjectsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
     showNotice(
       'error',
       getApiErrorMessage(
@@ -170,7 +213,13 @@ async function loadAssignedSubjects() {
       )
     )
   } finally {
-    loading.value = false
+    if (
+      assignedSubjectsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingAssigned.value = false
+    }
   }
 }
 
@@ -178,9 +227,14 @@ async function addSubjects() {
   const ids = uniqueNumbers(
     addSelection.value
   )
+  const targetFacultyId =
+    Number(facultyId.value)
 
   if (
-    !facultyId.value ||
+    !Number.isInteger(
+      targetFacultyId
+    ) ||
+    targetFacultyId <= 0 ||
     !ids.length
   ) {
     return
@@ -194,7 +248,7 @@ async function addSubjects() {
         ids,
         (subjectId) =>
           facultiesApi.addSubject(
-            Number(facultyId.value),
+            targetFacultyId,
             subjectId
           )
       )
@@ -208,6 +262,13 @@ async function addSubjects() {
       )
       .slice(0, 3)
       .join(' | ')
+
+    if (
+      Number(facultyId.value) !==
+      targetFacultyId
+    ) {
+      return
+    }
 
     showNotice(
       result.failureCount
@@ -233,9 +294,14 @@ async function removeSubjects() {
   const ids = uniqueNumbers(
     removeSelection.value
   )
+  const targetFacultyId =
+    Number(facultyId.value)
 
   if (
-    !facultyId.value ||
+    !Number.isInteger(
+      targetFacultyId
+    ) ||
+    targetFacultyId <= 0 ||
     !ids.length
   ) {
     return
@@ -249,7 +315,7 @@ async function removeSubjects() {
         ids,
         (subjectId) =>
           facultiesApi.removeSubject(
-            Number(facultyId.value),
+            targetFacultyId,
             subjectId
           )
       )
@@ -263,6 +329,13 @@ async function removeSubjects() {
       )
       .slice(0, 3)
       .join(' | ')
+
+    if (
+      Number(facultyId.value) !==
+      targetFacultyId
+    ) {
+      return
+    }
 
     showNotice(
       result.failureCount
@@ -309,7 +382,7 @@ onMounted(loadBaseData)
 
         <UiSelect
           v-model="facultyId"
-          :disabled="loading"
+          :disabled="loading || saving"
         >
           <option value="">
             Выберите факультет

@@ -1,6 +1,17 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import { useRoute } from 'vue-router'
+
+import {
+  getActiveNavigationKey,
+  getWorkspaceNavigation,
+} from '@/navigation'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -8,90 +19,25 @@ const authStore = useAuthStore()
 
 const mobileOpen = ref(false)
 
-const teacherItems = [
-  {
-    label: 'Вопросы',
-    route: { name: 'teacher-questions' },
-  },
-  {
-    label: 'Создать тест',
-    route: { name: 'teacher-test-create' },
-  },
-  {
-    label: 'Лекции',
-    route: { name: 'teacher-lectures' },
-  },
-  {
-    label: 'Темы предмета',
-    route: { name: 'teacher-topics' },
-  },
-  {
-    label: 'Шаблоны курса',
-    route: { name: 'teacher-courses' },
-  },
-  {
-    label: 'Нагрузка',
-    route: { name: 'teacher-workload' },
-  },
-]
-
-const adminItems = [
-  {
-    label: 'Пользователи',
-    route: { name: 'admin-users' },
-  },
-  {
-    label: 'Факультеты',
-    route: { name: 'admin-faculties' },
-  },
-  {
-    label: 'Группы',
-    route: { name: 'admin-groups' },
-  },
-  {
-    label: 'Предметы',
-    route: { name: 'admin-subjects' },
-  },
-  {
-    label: 'Предметы факультета',
-    route: { name: 'admin-faculty-subjects' },
-  },
-  {
-    label: 'Предметы преподавателей',
-    route: { name: 'admin-teacher-subjects' },
-  },
-  {
-    label: 'Преподавательская нагрузка',
-    route: { name: 'admin-teaching' },
-  },
-]
-
 const sections = computed(() => {
-  const result = []
-
-  if (authStore.isTeacherMode) {
-    result.push({
-      title: 'Преподаватель',
-      items: teacherItems,
-    })
-  }
-
-  if (authStore.isAdminMode) {
-    result.push({
-      title: 'Учебный контент',
-      items: teacherItems,
-    })
-
-    result.push({
-      title: 'Администрирование',
-      items: adminItems,
-    })
-  }
-
-  return result
+  return getWorkspaceNavigation(
+    authStore.workspaceRole
+  )
 })
 
-const visible = computed(() => sections.value.length > 0)
+const activeKey = computed(() => {
+  return getActiveNavigationKey(route)
+})
+
+const visible = computed(() => {
+  return sections.value.some(
+    (section) => section.items.length > 0
+  )
+})
+
+function isActive(item) {
+  return item.key === activeKey.value
+}
 
 function openMobile() {
   mobileOpen.value = true
@@ -197,20 +143,44 @@ onBeforeUnmount(() => {
       <nav class="app-sidebar__nav">
         <section
           v-for="section in sections"
-          :key="section.title"
+          :key="section.key"
           class="app-sidebar__section"
+          :class="{
+            'app-sidebar__section--actions':
+              section.kind === 'actions',
+          }"
         >
           <h2 class="app-sidebar__title">
-            {{ section.title }}
+            {{ section.label }}
           </h2>
 
           <RouterLink
             v-for="item in section.items"
-            :key="item.label"
+            :key="item.key"
             class="app-sidebar__link"
+            :class="{
+              'app-sidebar__link--active':
+                isActive(item),
+              'app-sidebar__link--action':
+                section.kind === 'actions',
+            }"
             :to="item.route"
+            :aria-current="
+              isActive(item)
+                ? 'page'
+                : undefined
+            "
           >
-            {{ item.label }}
+            <i
+              v-if="item.icon"
+              class="app-sidebar__icon"
+              :class="item.icon"
+              aria-hidden="true"
+            />
+
+            <span>
+              {{ item.label }}
+            </span>
           </RouterLink>
         </section>
       </nav>
@@ -274,6 +244,7 @@ onBeforeUnmount(() => {
 
   display: flex;
   align-items: center;
+  gap: 9px;
 
   color:
     var(--st-shell-text);
@@ -288,12 +259,35 @@ onBeforeUnmount(() => {
     color 0.15s ease;
 }
 
-.app-sidebar__link:hover {
+.app-sidebar__icon {
+  width: 18px;
+
+  flex: 0 0 18px;
+
+  color:
+    var(--st-shell-muted);
+
+  text-align: center;
+
+  transition: color 0.15s ease;
+}
+
+.app-sidebar__link:hover,
+.app-sidebar__link:focus-visible {
   background:
     var(--st-shell-hover);
 }
 
-.app-sidebar__link.router-link-active {
+.app-sidebar__link:focus-visible {
+  outline: 2px solid
+    var(--st-primary);
+  outline-offset: 2px;
+
+  box-shadow:
+    var(--st-focus-shadow);
+}
+
+.app-sidebar__link--active {
   color:
     var(--st-shell-text);
 
@@ -301,6 +295,29 @@ onBeforeUnmount(() => {
     var(--st-shell-active);
 
   font-weight: 600;
+}
+
+.app-sidebar__link--active .app-sidebar__icon {
+  color:
+    var(--st-primary);
+}
+
+.app-sidebar__section--actions .app-sidebar__link {
+  border: 1px solid
+    var(--st-shell-border);
+}
+
+.app-sidebar__section--actions .app-sidebar__link--action {
+  background:
+    var(--st-shell-hover);
+}
+
+.app-sidebar__section--actions
+  .app-sidebar__link--action:hover,
+.app-sidebar__section--actions
+  .app-sidebar__link--action:focus-visible {
+  background:
+    var(--st-shell-active);
 }
 
 .app-sidebar__mobile-header,

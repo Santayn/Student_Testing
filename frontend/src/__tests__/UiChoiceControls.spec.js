@@ -1,22 +1,89 @@
+import { defineComponent, h } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import Checkbox from 'primevue/checkbox'
-import RadioButton from 'primevue/radiobutton'
 
 import UiCheckbox from '@/components/ui/UiCheckbox.vue'
 import UiRadio from '@/components/ui/UiRadio.vue'
 
+const CheckboxContractStub = defineComponent({
+  name: 'Checkbox',
+  props: {
+    inputId: { type: String, default: '' },
+    modelValue: { type: null, default: false },
+    value: { type: null, default: undefined },
+    binary: { type: Boolean, default: false },
+    trueValue: { type: null, default: true },
+    falseValue: { type: null, default: false },
+    disabled: { type: Boolean, default: false },
+    readonly: { type: Boolean, default: false },
+    required: { type: Boolean, default: false },
+    invalid: { type: Boolean, default: false },
+    indeterminate: { type: Boolean, default: false },
+    pt: { type: Object, default: undefined },
+  },
+  emits: [
+    'update:modelValue',
+    'update:indeterminate',
+    'change',
+    'focus',
+    'blur',
+  ],
+  setup(props) {
+    return () => h('input', {
+      id: props.inputId,
+      type: 'checkbox',
+    })
+  },
+})
+
+const RadioContractStub = defineComponent({
+  name: 'RadioButton',
+  props: {
+    inputId: { type: String, default: '' },
+    modelValue: { type: null, default: null },
+    value: { type: null, default: undefined },
+    name: { type: String, default: '' },
+    disabled: { type: Boolean, default: false },
+    readonly: { type: Boolean, default: false },
+    invalid: { type: Boolean, default: false },
+    pt: { type: Object, default: undefined },
+  },
+  emits: [
+    'update:modelValue',
+    'change',
+    'focus',
+    'blur',
+  ],
+  setup(props) {
+    return () => h('input', {
+      id: props.inputId,
+      type: 'radio',
+      name: props.name,
+    })
+  },
+})
+
+function mountChoice(component, props) {
+  return mount(component, {
+    props,
+    global: {
+      stubs: {
+        Checkbox: CheckboxContractStub,
+        RadioButton: RadioContractStub,
+      },
+    },
+  })
+}
+
 describe('Ui choice control contracts', () => {
   it('uses explicit binary checkbox mode by default', async () => {
-    const wrapper = mount(UiCheckbox, {
-      props: {
-        modelValue: false,
-        label: 'Уведомления',
-        description: 'Описание',
-      },
+    const wrapper = mountChoice(UiCheckbox, {
+      modelValue: false,
+      label: 'Уведомления',
+      description: 'Описание',
     })
 
-    const control = wrapper.findComponent(Checkbox)
+    const control = wrapper.findComponent(CheckboxContractStub)
 
     expect(wrapper.element.tagName).toBe('LABEL')
     expect(wrapper.classes()).toContain('st-ui-checkbox')
@@ -31,16 +98,14 @@ describe('Ui choice control contracts', () => {
   })
 
   it('uses explicit multiple checkbox mode without inferring it from modelValue', async () => {
-    const wrapper = mount(UiCheckbox, {
-      props: {
-        modelValue: [],
-        mode: 'multiple',
-        value: 17,
-        label: 'Предмет',
-      },
+    const wrapper = mountChoice(UiCheckbox, {
+      modelValue: [],
+      mode: 'multiple',
+      value: 17,
+      label: 'Предмет',
     })
 
-    const control = wrapper.findComponent(Checkbox)
+    const control = wrapper.findComponent(CheckboxContractStub)
 
     expect(control.props('binary')).toBe(false)
     expect(control.props('value')).toBe(17)
@@ -52,17 +117,15 @@ describe('Ui choice control contracts', () => {
   })
 
   it('keeps the entire radio row associated with one native input and forwards one change event', async () => {
-    const wrapper = mount(UiRadio, {
-      props: {
-        modelValue: 'student',
-        value: 'teacher',
-        name: 'role',
-        label: 'Преподаватель',
-        description: 'Описание роли',
-      },
+    const wrapper = mountChoice(UiRadio, {
+      modelValue: 'student',
+      value: 'teacher',
+      name: 'role',
+      label: 'Преподаватель',
+      description: 'Описание роли',
     })
 
-    const control = wrapper.findComponent(RadioButton)
+    const control = wrapper.findComponent(RadioContractStub)
     const event = new Event('change')
 
     expect(wrapper.element.tagName).toBe('LABEL')
@@ -81,34 +144,33 @@ describe('Ui choice control contracts', () => {
   })
 
   it('forwards readonly, invalid and checkbox indeterminate states to PrimeVue', () => {
-    const checkbox = mount(UiCheckbox, {
-      props: {
-        modelValue: false,
-        label: 'Состояние',
-        readonly: true,
-        invalid: true,
-        indeterminate: true,
-      },
+    const checkbox = mountChoice(UiCheckbox, {
+      modelValue: false,
+      label: 'Состояние',
+      readonly: true,
+      invalid: true,
+      indeterminate: true,
     })
-    const radio = mount(UiRadio, {
-      props: {
-        modelValue: null,
-        value: 'x',
-        name: 'state',
-        label: 'Состояние',
-        readonly: true,
-        invalid: true,
-      },
+    const radio = mountChoice(UiRadio, {
+      modelValue: null,
+      value: 'x',
+      name: 'state',
+      label: 'Состояние',
+      readonly: true,
+      invalid: true,
     })
 
-    expect(checkbox.findComponent(Checkbox).props('readonly')).toBe(true)
-    expect(checkbox.findComponent(Checkbox).props('invalid')).toBe(true)
-    expect(checkbox.findComponent(Checkbox).props('indeterminate')).toBe(true)
+    const checkboxControl = checkbox.findComponent(CheckboxContractStub)
+    const radioControl = radio.findComponent(RadioContractStub)
+
+    expect(checkboxControl.props('readonly')).toBe(true)
+    expect(checkboxControl.props('invalid')).toBe(true)
+    expect(checkboxControl.props('indeterminate')).toBe(true)
     expect(checkbox.classes()).toContain('st-ui-choice--readonly')
     expect(checkbox.classes()).toContain('st-ui-choice--invalid')
 
-    expect(radio.findComponent(RadioButton).props('readonly')).toBe(true)
-    expect(radio.findComponent(RadioButton).props('invalid')).toBe(true)
+    expect(radioControl.props('readonly')).toBe(true)
+    expect(radioControl.props('invalid')).toBe(true)
     expect(radio.classes()).toContain('st-ui-choice--readonly')
     expect(radio.classes()).toContain('st-ui-choice--invalid')
   })
