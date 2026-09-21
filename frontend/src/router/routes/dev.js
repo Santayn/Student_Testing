@@ -1,5 +1,18 @@
 export const devRoutes = [
   {
+    path: '/overlay-components-preview',
+    name: 'overlay-components-preview',
+
+    component: () =>
+      import(
+        '@/views/dev/OverlayComponentsPreviewView.vue'
+      ),
+
+    meta: {
+      public: true,
+    },
+  },
+  {
     path: '/ui-components-preview',
     name: 'ui-components-preview',
 

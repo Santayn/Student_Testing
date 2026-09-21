@@ -128,11 +128,18 @@ describe('teacher membership mutation guard', () => {
         .toContain('ensureSelectedMembershipActive()')
     }
 
-    expect(
-      source('../views/teacher/TeacherWorkloadView.vue')
-    ).toContain(
-      'revalidateAssignableTeacherMembershipIds'
+    const workload = source(
+      '../views/teacher/TeacherWorkloadView.vue'
     )
+
+    expect(workload)
+      .not.toContain('createAssignment(')
+    expect(workload)
+      .not.toContain('updateAssignment(')
+    expect(workload)
+      .not.toContain('createLectureAssignment(')
+    expect(workload)
+      .not.toContain('updateLectureAssignmentStatus(')
 
     expect(
       source('../views/admin/TeachingTemplatesView.vue')

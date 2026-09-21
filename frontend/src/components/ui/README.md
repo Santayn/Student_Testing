@@ -20,10 +20,14 @@ folder.
 - `UiAlert` — inline messages.
 - `UiCard` — bordered, low-shadow surface.
 - `UiToolbar` — page/table action strip.
+- `UiFilterBar` — workspace search/filter/action strip with a responsive mobile stack.
 - `UiTable` — project DataTable wrapper with project columns and cell slots.
 - `UiActionMenu` — ellipsis popup actions.
-- `UiDialog` — project modal shell.
+- `UiDialog` — compact CRUD modal shell backed by PrimeVue Dialog.
+- `UiDrawer` — side editor backed by PrimeVue Drawer; becomes full-screen on phones.
+- `UiUnsavedChangesConfirm` — shared confirmation for closing a dirty overlay form.
 - `UiToastHost` + `useUiToast()` — system notifications.
+- `useOverlayForm()` — entity-agnostic create/edit, dirty, saving and close lifecycle for overlay forms.
 
 ## Design rules
 
@@ -35,3 +39,14 @@ folder.
   internal vertical divider.
 - Destructive actions use semantic danger styling; do not introduce a second
   brand accent color.
+
+## Overlay policy
+
+- Keep list/workspace pages visible for browsing, searching and filtering.
+- Use `UiDialog` for short CRUD forms.
+- Use `UiDrawer` for medium editors that need more vertical space and context.
+- Keep long, multi-step workflows on dedicated routes.
+- Keep only one working overlay open at a time; a small confirmation dialog may sit above it.
+- Route changes are not required for ordinary create/edit overlays.
+- PrimeVue owns portal, focus trap, keyboard and overlay mechanics; Tailwind and
+  `--st-*` tokens are used for content layout and project styling.

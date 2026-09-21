@@ -8,6 +8,7 @@ const expectedComponents = [
   'UiCard',
   'UiCheckbox',
   'UiDialog',
+  'UiDrawer',
   'UiField',
   'UiInput',
   'UiRadio',
@@ -18,6 +19,7 @@ const expectedComponents = [
   'UiTextarea',
   'UiToastHost',
   'UiToolbar',
+  'UiUnsavedChangesConfirm',
 ]
 
 describe('UI foundation public surface', () => {
@@ -25,6 +27,7 @@ describe('UI foundation public surface', () => {
     for (const name of expectedComponents) {
       expect(ui[name], `${name} must be exported`).toBeTruthy()
     }
+    expect(typeof ui.useOverlayForm).toBe('function')
     expect(typeof ui.useUiToast).toBe('function')
   })
 })

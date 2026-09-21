@@ -8,7 +8,16 @@ const props = defineProps({
   dismissableMask: { type: Boolean, default: false },
   closeOnEscape: { type: Boolean, default: true },
   closable: { type: Boolean, default: true },
+  blockScroll: { type: Boolean, default: true },
+  draggable: { type: Boolean, default: false },
+  maximizable: { type: Boolean, default: false },
   width: { type: String, default: '32rem' },
+  breakpoints: {
+    type: Object,
+    default: () => ({
+      '640px': 'calc(100vw - 1rem)',
+    }),
+  },
 })
 
 const emit = defineEmits(['update:modelValue', 'show', 'hide'])
@@ -23,6 +32,10 @@ const emit = defineEmits(['update:modelValue', 'show', 'hide'])
     :dismissable-mask="dismissableMask"
     :close-on-escape="closeOnEscape"
     :closable="closable"
+    :block-scroll="blockScroll"
+    :draggable="draggable"
+    :maximizable="maximizable"
+    :breakpoints="breakpoints"
     :style="{ width, maxWidth: 'calc(100vw - 2rem)' }"
     @update:visible="emit('update:modelValue', $event)"
     @show="emit('show')"
