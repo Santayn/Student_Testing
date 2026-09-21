@@ -820,6 +820,7 @@ onMounted(async () => {
                 class="teacher-selection-grid"
               >
                 <UiCheckbox
+                  mode="multiple"
                   v-for="test in availableTests"
                   :key="test.id"
                   v-model="form.testIds"

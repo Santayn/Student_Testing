@@ -62,7 +62,15 @@ function handleChange(event) {
   border-radius: var(--st-radius-control);
   font: inherit;
   font-size: 13px;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.st-ui-file-input:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
 }
 
 .st-ui-file-input:focus-visible {
@@ -75,8 +83,20 @@ function handleChange(event) {
   border-color: var(--st-danger);
 }
 
+.st-ui-file-input--invalid:not(:disabled):hover,
+.st-ui-file-input--invalid:focus-visible {
+  border-color: var(--st-danger);
+}
+
+.st-ui-file-input--invalid:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-danger) 20%, transparent);
+}
+
 .st-ui-file-input:disabled {
-  opacity: 0.58;
+  color: var(--st-text-muted);
+  background: var(--st-surface-muted);
+  border-color: var(--st-border);
+  opacity: 1;
   cursor: not-allowed;
 }
 
@@ -90,5 +110,21 @@ function handleChange(event) {
   font: inherit;
   font-weight: 650;
   cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.st-ui-file-input:not(:disabled)::file-selector-button:hover {
+  background: color-mix(in srgb, var(--st-primary-soft) 42%, var(--st-surface-muted));
+  border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+}
+
+.st-ui-file-input:disabled::file-selector-button {
+  color: var(--st-text-muted);
+  background: color-mix(in srgb, var(--st-surface-muted) 82%, var(--st-surface));
+  border-color: var(--st-border);
+  cursor: not-allowed;
 }
 </style>

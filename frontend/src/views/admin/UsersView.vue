@@ -451,6 +451,7 @@ onMounted(loadData)
         <template #cell-roles="{ row }">
           <div class="user-role-list">
             <UiCheckbox
+              mode="multiple"
               v-for="role in roles"
               :key="role.id"
               v-model="

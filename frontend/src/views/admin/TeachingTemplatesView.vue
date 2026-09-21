@@ -1250,6 +1250,7 @@ onMounted(loadBaseData)
                 class="admin-checkbox-list"
               >
                 <UiCheckbox
+                  mode="multiple"
                   v-for="group in groups"
                   :key="group.id"
                   v-model="row.groupIds"

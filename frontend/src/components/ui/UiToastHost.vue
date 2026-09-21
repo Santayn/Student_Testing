@@ -8,5 +8,5 @@ defineProps({
 </script>
 
 <template>
-  <Toast :position="position" :group="group" />
+  <Toast class="st-ui-toast-host" :position="position" :group="group" />
 </template>

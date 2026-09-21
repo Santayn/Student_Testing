@@ -12,7 +12,10 @@ folder.
 - `UiInput` / `UiTextarea` — text controls with a shared field shell.
 - `UiSearchInput` — Academic Navy search control with an internal icon zone.
 - `UiSelect` — single select with normalized option mapping.
-- `UiCheckbox` / `UiRadio` — choice controls.
+- `UiCheckbox` / `UiRadio` — choice controls. `UiCheckbox` uses an explicit
+  `mode="binary"` (default) or `mode="multiple"`; array mode must not be inferred
+  from the current `modelValue`. `UiRadio` requires a shared `name` for every
+  option in one group. The complete labelled row is the interaction target.
 - `UiTag` — semantic statuses.
 - `UiAlert` — inline messages.
 - `UiCard` — bordered, low-shadow surface.

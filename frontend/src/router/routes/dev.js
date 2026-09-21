@@ -1,5 +1,18 @@
 export const devRoutes = [
   {
+    path: '/ui-components-preview',
+    name: 'ui-components-preview',
+
+    component: () =>
+      import(
+        '@/views/dev/UiComponentsPreviewView.vue'
+      ),
+
+    meta: {
+      public: true,
+    },
+  },
+  {
     path: '/primevue-preview',
     name: 'primevue-preview',
 

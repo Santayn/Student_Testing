@@ -22,17 +22,34 @@ defineProps({
   justify-items: center;
   gap: 6px;
   color: var(--st-text-secondary);
-  background: var(--st-surface-muted);
-  border: 1px dashed var(--st-border);
+  background: color-mix(in srgb, var(--st-surface-muted) 72%, var(--st-surface));
+  border: 1px dashed color-mix(in srgb, var(--st-border) 86%, var(--st-text-muted));
   border-radius: var(--st-radius-card);
   font-size: 13px;
   text-align: center;
 }
 
-.st-ui-empty--compact { padding: 16px; }
-.st-ui-empty__title { color: var(--st-text); font-size: 14px; }
-.st-ui-empty__description { margin: 0; line-height: 1.5; }
-.st-ui-empty__content { width: 100%; }
+.st-ui-empty--compact {
+  padding: 16px;
+}
+
+.st-ui-empty__title {
+  color: var(--st-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.st-ui-empty__description {
+  margin: 0;
+  color: var(--st-text-secondary);
+  line-height: 1.5;
+}
+
+.st-ui-empty__content {
+  width: 100%;
+  color: var(--st-text-secondary);
+}
+
 .st-ui-empty__actions {
   margin-top: 4px;
   display: flex;

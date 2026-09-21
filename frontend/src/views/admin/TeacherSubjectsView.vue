@@ -513,6 +513,7 @@ onMounted(loadData)
           class="admin-checkbox-list"
         >
           <UiCheckbox
+            mode="multiple"
             v-for="subject in freeSubjects"
             :key="subject.id"
             v-model="availableSelection"
@@ -576,6 +577,7 @@ onMounted(loadData)
           class="admin-checkbox-list"
         >
           <UiCheckbox
+            mode="multiple"
             v-for="
               membership in
               teacherMemberships

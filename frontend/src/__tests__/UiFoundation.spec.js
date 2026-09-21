@@ -52,6 +52,13 @@ describe('UI foundation', () => {
             public: true,
           },
         }),
+        expect.objectContaining({
+          path: '/ui-components-preview',
+          name: 'ui-components-preview',
+          meta: {
+            public: true,
+          },
+        }),
       ])
     )
   })

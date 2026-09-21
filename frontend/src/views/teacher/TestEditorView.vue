@@ -892,6 +892,7 @@ onMounted(async () => {
                 class="teacher-selection-grid"
               >
                 <UiCheckbox
+                  mode="multiple"
                   v-for="target in groupTargets"
                   :key="target.groupId"
                   v-model="selectedGroupIds"

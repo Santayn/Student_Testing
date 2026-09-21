@@ -19,6 +19,7 @@ const severity = computed(() => props.variant === 'warning' ? 'warn' : props.var
 <template>
   <Tag
     class="st-ui-tag"
+    :class="`st-ui-tag--${variant}`"
     :value="value || undefined"
     :severity="severity"
     :icon="icon || undefined"

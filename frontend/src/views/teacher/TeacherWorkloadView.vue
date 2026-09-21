@@ -36,10 +36,6 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
-
-import {
   revalidateAssignableTeacherMembershipIds,
 } from '@/utils/teacherMembershipEligibility'
 
@@ -77,9 +73,6 @@ const notice = ref({
   type: 'info',
   message: '',
 })
-
-const assignmentsRequest =
-  createLatestRequestGuard()
 
 const courseOptions = [1, 2, 3, 4, 5, 6]
   .map((value) => ({
@@ -586,45 +579,6 @@ function normalizeRows() {
   }
 }
 
-async function fetchLectureCatalog(
-  subjectMembershipId,
-  membershipLookup = membershipById.value
-) {
-  const numericMembershipId =
-    Number(subjectMembershipId)
-
-  if (!numericMembershipId) {
-    return []
-  }
-
-  const membership =
-    membershipLookup.get(
-      numericMembershipId
-    )
-
-  if (!membership) {
-    return []
-  }
-
-  const response =
-    await lecturesApi.getAll({
-      subjectMembershipId:
-        membership.id,
-    })
-
-  return listFromResponse(response)
-    .sort(
-      (left, right) =>
-        Number(left.ordinal ?? 0) -
-          Number(right.ordinal ?? 0) ||
-        String(left.title ?? '')
-          .localeCompare(
-            String(right.title ?? ''),
-            'ru'
-          )
-    )
-}
-
 async function ensureLectureCatalog(
   subjectMembershipId
 ) {
@@ -640,18 +594,20 @@ async function ensureLectureCatalog(
     return
   }
 
-  const catalog =
-    await fetchLectureCatalog(
+  const membership =
+    membershipById.value.get(
       numericMembershipId
     )
 
-  if (
-    !membershipById.value.has(
-      numericMembershipId
-    )
-  ) {
+  if (!membership) {
     return
   }
+
+  const response =
+    await lecturesApi.getAll({
+      subjectMembershipId:
+        membership.id,
+    })
 
   const next = new Map(
     lectureCatalogByMembershipId.value
@@ -659,18 +615,26 @@ async function ensureLectureCatalog(
 
   next.set(
     numericMembershipId,
-    catalog
+    listFromResponse(response)
+      .sort(
+        (left, right) =>
+          Number(left.ordinal ?? 0) -
+            Number(right.ordinal ?? 0) ||
+          String(left.title ?? '')
+            .localeCompare(
+              String(right.title ?? ''),
+              'ru'
+            )
+      )
   )
 
   lectureCatalogByMembershipId.value = next
 }
 
-async function loadLectureAssignments(
-  sourceAssignments
-) {
+async function loadLectureAssignments() {
   const pairs =
     await Promise.all(
-      sourceAssignments.map(
+      assignments.value.map(
         async (assignment) => ({
           teachingAssignmentId:
             assignment.id,
@@ -684,16 +648,17 @@ async function loadLectureAssignments(
       )
     )
 
-  return new Map(
-    pairs.map((pair) => [
-      Number(
-        pair.teachingAssignmentId
-      ),
-      listFromResponse(
-        pair.response
-      ),
-    ])
-  )
+  lectureAssignmentsByTeachingId.value =
+    new Map(
+      pairs.map((pair) => [
+        Number(
+          pair.teachingAssignmentId
+        ),
+        listFromResponse(
+          pair.response
+        ),
+      ])
+    )
 }
 
 async function refreshAssignments() {
@@ -701,47 +666,11 @@ async function refreshAssignments() {
     return
   }
 
-  const requestId =
-    assignmentsRequest.begin()
-
-  const periodContext = {
-    studyCourse:
-      Number(studyCourse.value),
-    semester:
-      Number(semester.value),
-    academicYear:
-      Number(academicYear.value),
-  }
-
-  const membershipSnapshot =
-    subjectMemberships.value.map(
-      (membership) => ({
-        ...membership,
-      })
-    )
-
-  const membershipLookup = new Map(
-    membershipSnapshot.map(
-      (membership) => [
-        Number(membership.id),
-        membership,
-      ]
-    )
-  )
-
   loading.value = true
   notice.value.message = ''
 
   try {
-    if (!membershipSnapshot.length) {
-      if (
-        !assignmentsRequest.isCurrent(
-          requestId
-        )
-      ) {
-        return
-      }
-
+    if (!subjectMemberships.value.length) {
       assignments.value = []
       lectureAssignmentsByTeachingId.value =
         new Map()
@@ -753,23 +682,20 @@ async function refreshAssignments() {
 
     const responses =
       await Promise.all(
-        membershipSnapshot.map(
+        subjectMemberships.value.map(
           (membership) =>
             teachingApi.getAssignments({
               subjectMembershipId:
                 membership.id,
-              ...periodContext,
+              studyCourse:
+                Number(studyCourse.value),
+              semester:
+                Number(semester.value),
+              academicYear:
+                Number(academicYear.value),
             })
         )
       )
-
-    if (
-      !assignmentsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
 
     const rawAssignments =
       responses
@@ -794,61 +720,13 @@ async function refreshAssignments() {
       ),
     ]
 
-    const activeMembershipIds = [
-      ...new Set(
-        rawAssignments
-          .filter(
-            (item) =>
-              Number(item.status) === 1
-          )
-          .map(
-            (item) =>
-              Number(
-                item.subjectMembershipId
-              )
-          )
-          .filter(
-            (id) =>
-              id &&
-              membershipLookup.has(id)
-          )
-      ),
-    ]
-
-    const [
-      groupResponses,
-      nextLectureAssignments,
-      lectureCatalogPairs,
-    ] = await Promise.all([
-      Promise.all(
+    const groupResponses =
+      await Promise.all(
         groupIds.map(
           (groupId) =>
             groupsApi.getById(groupId)
         )
-      ),
-      loadLectureAssignments(
-        rawAssignments
-      ),
-      Promise.all(
-        activeMembershipIds.map(
-          async (membershipId) => [
-            membershipId,
-            await fetchLectureCatalog(
-              membershipId,
-              membershipLookup
-            ),
-          ]
-        )
-      ),
-    ])
-
-    if (
-      !assignmentsRequest.isCurrent(
-        requestId
       )
-    ) {
-      return
-    }
 
     const groupsById = new Map(
       groupResponses
@@ -860,7 +738,7 @@ async function refreshAssignments() {
         ])
     )
 
-    const nextAssignments =
+    assignments.value =
       rawAssignments.map(
         (item) => ({
           ...item,
@@ -875,23 +753,19 @@ async function refreshAssignments() {
         })
       )
 
-    assignments.value =
-      nextAssignments
-    lectureAssignmentsByTeachingId.value =
-      nextLectureAssignments
+    await loadLectureAssignments()
+
     lectureCatalogByMembershipId.value =
-      new Map(lectureCatalogPairs)
+      new Map()
+
+    await Promise.all(
+      availableMembershipIds.value.map(
+        ensureLectureCatalog
+      )
+    )
 
     normalizeRows()
   } catch (error) {
-    if (
-      !assignmentsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
     notice.value = {
       type: 'danger',
       message: getApiErrorMessage(
@@ -900,13 +774,7 @@ async function refreshAssignments() {
       ),
     }
   } finally {
-    if (
-      assignmentsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      loading.value = false
-    }
+    loading.value = false
   }
 }
 
@@ -957,14 +825,7 @@ async function assignLectures() {
     return
   }
 
-  const tasks =
-    pendingTasks.value.map(
-      (task) => ({
-        ...task,
-      })
-    )
-
-  if (!tasks.length) {
+  if (!pendingTasks.value.length) {
     notice.value = {
       type: 'danger',
       message:
@@ -979,7 +840,7 @@ async function assignLectures() {
     await revalidateAssignableTeacherMembershipIds({
       api: membershipsApi,
       membershipIds:
-        tasks.map(
+        pendingTasks.value.map(
           (task) =>
             task.subjectMembershipId
         ),
@@ -987,7 +848,7 @@ async function assignLectures() {
 
     const results =
       await Promise.allSettled(
-        tasks.map(
+        pendingTasks.value.map(
           (task) =>
             teachingApi
               .createLectureAssignment(
@@ -1051,19 +912,14 @@ async function assignLectures() {
 }
 
 async function saveStatus(row) {
-  const assignmentId =
-    Number(row.id)
-  const nextStatus =
-    Number(row.status)
-
-  savingStatusId.value = assignmentId
+  savingStatusId.value = row.id
 
   try {
     await teachingApi
       .updateLectureAssignmentStatus(
-        assignmentId,
+        row.id,
         {
-          status: nextStatus,
+          status: Number(row.status),
         }
       )
 
@@ -1083,12 +939,7 @@ async function saveStatus(row) {
       ),
     }
   } finally {
-    if (
-      savingStatusId.value ===
-      assignmentId
-    ) {
-      savingStatusId.value = null
-    }
+    savingStatusId.value = null
   }
 }
 
@@ -1293,6 +1144,7 @@ onMounted(async () => {
                     class="teacher-scroll-list"
                   >
                     <UiCheckbox
+                      mode="multiple"
                       v-for="lecture in lectureCatalog(row.subjectMembershipId)"
                       :key="lecture.id"
                       v-model="row.lectureIds"
@@ -1323,6 +1175,7 @@ onMounted(async () => {
                     class="teacher-scroll-list"
                   >
                     <UiCheckbox
+                      mode="multiple"
                       v-for="assignment in activeAssignmentsForMembership(row.subjectMembershipId)"
                       :key="assignment.id"
                       v-model="row.teachingAssignmentIds"

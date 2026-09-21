@@ -24,6 +24,7 @@ const severity = computed(() => {
 <template>
   <Message
     class="st-ui-alert"
+    :class="`st-ui-alert--${variant}`"
     :severity="severity"
     :closable="closable"
     @close="emit('close')"

@@ -96,6 +96,7 @@ function onClick(event) {
     v-else
     class="st-ui-button"
     :class="[
+      `st-ui-button--${variant}`,
       `st-ui-button--${size}`,
       { 'st-ui-button--block': block },
     ]"

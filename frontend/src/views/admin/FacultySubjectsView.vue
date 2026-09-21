@@ -31,10 +31,6 @@ import {
   runBatchOperation,
 } from '@/utils/batchOperation'
 
-import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
-
 const faculties = ref([])
 const subjects = ref([])
 const assignedSubjects = ref([])
@@ -43,19 +39,8 @@ const facultyId = ref('')
 const addSelection = ref([])
 const removeSelection = ref([])
 
-const loadingBase = ref(false)
-const loadingAssigned = ref(false)
+const loading = ref(false)
 const saving = ref(false)
-
-const assignedSubjectsRequest =
-  createLatestRequestGuard()
-
-const loading = computed(() => {
-  return (
-    loadingBase.value ||
-    loadingAssigned.value
-  )
-})
 
 const notice = ref({
   type: 'info',
@@ -99,7 +84,7 @@ function clearNotice() {
 }
 
 async function loadBaseData() {
-  loadingBase.value = true
+  loading.value = true
 
   try {
     const [
@@ -145,46 +130,26 @@ async function loadBaseData() {
       )
     )
   } finally {
-    loadingBase.value = false
+    loading.value = false
   }
 }
 
 async function loadAssignedSubjects() {
-  const requestId =
-    assignedSubjectsRequest.begin()
-
-  const requestedFacultyId =
-    Number(facultyId.value)
-
   addSelection.value = []
   removeSelection.value = []
 
-  if (
-    !Number.isInteger(
-      requestedFacultyId
-    ) ||
-    requestedFacultyId <= 0
-  ) {
+  if (!facultyId.value) {
     assignedSubjects.value = []
-    loadingAssigned.value = false
     return
   }
 
-  loadingAssigned.value = true
+  loading.value = true
 
   try {
     const response =
       await facultiesApi.getSubjects(
-        requestedFacultyId
+        Number(facultyId.value)
       )
-
-    if (
-      !assignedSubjectsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
 
     assignedSubjects.value =
       listFromResponse(response).sort(
@@ -197,14 +162,6 @@ async function loadAssignedSubjects() {
           )
       )
   } catch (error) {
-    if (
-      !assignedSubjectsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
     showNotice(
       'error',
       getApiErrorMessage(
@@ -213,13 +170,7 @@ async function loadAssignedSubjects() {
       )
     )
   } finally {
-    if (
-      assignedSubjectsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      loadingAssigned.value = false
-    }
+    loading.value = false
   }
 }
 
@@ -227,14 +178,9 @@ async function addSubjects() {
   const ids = uniqueNumbers(
     addSelection.value
   )
-  const targetFacultyId =
-    Number(facultyId.value)
 
   if (
-    !Number.isInteger(
-      targetFacultyId
-    ) ||
-    targetFacultyId <= 0 ||
+    !facultyId.value ||
     !ids.length
   ) {
     return
@@ -248,7 +194,7 @@ async function addSubjects() {
         ids,
         (subjectId) =>
           facultiesApi.addSubject(
-            targetFacultyId,
+            Number(facultyId.value),
             subjectId
           )
       )
@@ -262,13 +208,6 @@ async function addSubjects() {
       )
       .slice(0, 3)
       .join(' | ')
-
-    if (
-      Number(facultyId.value) !==
-      targetFacultyId
-    ) {
-      return
-    }
 
     showNotice(
       result.failureCount
@@ -294,14 +233,9 @@ async function removeSubjects() {
   const ids = uniqueNumbers(
     removeSelection.value
   )
-  const targetFacultyId =
-    Number(facultyId.value)
 
   if (
-    !Number.isInteger(
-      targetFacultyId
-    ) ||
-    targetFacultyId <= 0 ||
+    !facultyId.value ||
     !ids.length
   ) {
     return
@@ -315,7 +249,7 @@ async function removeSubjects() {
         ids,
         (subjectId) =>
           facultiesApi.removeSubject(
-            targetFacultyId,
+            Number(facultyId.value),
             subjectId
           )
       )
@@ -329,13 +263,6 @@ async function removeSubjects() {
       )
       .slice(0, 3)
       .join(' | ')
-
-    if (
-      Number(facultyId.value) !==
-      targetFacultyId
-    ) {
-      return
-    }
 
     showNotice(
       result.failureCount
@@ -382,7 +309,7 @@ onMounted(loadBaseData)
 
         <UiSelect
           v-model="facultyId"
-          :disabled="loading || saving"
+          :disabled="loading"
         >
           <option value="">
             Выберите факультет
@@ -442,6 +369,7 @@ onMounted(loadBaseData)
           class="admin-checkbox-list"
         >
           <UiCheckbox
+            mode="multiple"
             v-for="subject in availableSubjects"
             :key="subject.id"
             v-model="addSelection"
@@ -493,6 +421,7 @@ onMounted(loadBaseData)
           class="admin-checkbox-list"
         >
           <UiCheckbox
+            mode="multiple"
             v-for="subject in assignedSubjects"
             :key="subject.id"
             v-model="removeSelection"
