@@ -9,24 +9,30 @@ import {
 
 import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
-import AdminTable from '@/components/admin/AdminTable.vue'
 
 import {
+  UiAlert,
   UiButton,
   UiCard,
   UiCheckbox,
+  UiDialog,
+  UiDrawer,
   UiEmptyState,
+  UiFilterBar,
   UiInput,
   UiSelect,
+  UiTag,
   UiTextarea,
+  UiUnsavedChangesConfirm,
+  useOverlayForm,
 } from '@/components/ui'
 
 import {
+  coursesApi,
   facultiesApi,
   getApiErrorMessage,
   groupsApi,
   membershipsApi,
-  subjectsApi,
   teachingApi,
   usersApi,
 } from '@/api'
@@ -47,12 +53,7 @@ import {
 } from '@/utils/latestRequest'
 
 const TEACHER_ROLE = 1
-
-const DEFAULT_LOAD_TYPE_NAME =
-  'Основная нагрузка'
-
-const DEFAULT_LOAD_TYPE_DESCRIPTION =
-  'Системный тип нагрузки для шаблонов факультета'
+const MAX_HOURS_PER_WEEK = 9999.99
 
 const STATUS_LABELS = {
   1: 'Активно',
@@ -61,7 +62,32 @@ const STATUS_LABELS = {
   4: 'В паузе',
 }
 
-let rowSequence = 0
+const STATUS_OPTIONS = Object.entries(
+  STATUS_LABELS
+).map(([value, label]) => ({
+  value: String(value),
+  label,
+}))
+
+const COURSE_OPTIONS = Array.from(
+  { length: 6 },
+  (_, index) => ({
+    value: String(index + 1),
+    label: String(index + 1),
+  })
+)
+
+const SEMESTER_OPTIONS = [
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+]
+
+const SORT_OPTIONS = [
+  { value: 'subject-asc', label: 'Предмет А–Я' },
+  { value: 'teacher-asc', label: 'Преподаватель А–Я' },
+  { value: 'group-asc', label: 'Группа А–Я' },
+  { value: 'hours-desc', label: 'Часы: больше → меньше' },
+]
 
 const faculties = ref([])
 const facultySubjects = ref([])
@@ -71,40 +97,546 @@ const teacherMemberships = ref([])
 const assignments = ref([])
 const loadTypes = ref([])
 
-const defaultLoadTypeId = ref(null)
+const loadingBase = ref(false)
+const loadingContext = ref(false)
+const loadingAssignments = ref(false)
+const initialized = ref(false)
 
-const loading = ref(false)
-const saving = ref(false)
-
-const facultyContextRequest = createLatestRequestGuard()
+const contextRequest = createLatestRequestGuard()
 const assignmentsRequest = createLatestRequestGuard()
+const courseVersionsRequest = createLatestRequestGuard()
 
-const period = reactive({
+const context = reactive({
+  facultyId: '',
   studyCourse: '1',
   semester: '1',
-  academicYear: '',
-  facultyId: '',
-  status: '1',
-  notes: '',
+  academicYear: String(new Date().getFullYear()),
 })
 
-const rows = ref([])
+const searchQuery = ref('')
+const subjectFilter = ref('all')
+const teacherFilter = ref('all')
+const groupFilter = ref('all')
+const loadTypeFilter = ref('all')
+const statusFilter = ref('all')
+const sortMode = ref('subject-asc')
 
 const notice = ref({
   type: 'info',
   message: '',
 })
 
-function createRow() {
-  rowSequence += 1
+const assignmentFormError = ref('')
+const groupSearchQuery = ref('')
+const courseVersionChoices = ref([])
+const loadingCourseVersions = ref(false)
 
-  return {
-    id: rowSequence,
+const loadTypeFormError = ref('')
+const loadTypeSearchQuery = ref('')
+
+const {
+  form: assignmentForm,
+  model: assignmentDrawerModel,
+  isCreate: assignmentIsCreate,
+  saving: assignmentSaving,
+  confirmCloseVisible: assignmentCloseConfirmVisible,
+  openCreate: openCreateAssignmentForm,
+  openEdit: openEditAssignmentForm,
+  requestClose: requestCloseAssignmentDrawer,
+  discardAndClose: discardAssignmentAndClose,
+  continueEditing: continueAssignmentEditing,
+  beginSaving: beginAssignmentSaving,
+  finishSaving: finishAssignmentSaving,
+  failSaving: failAssignmentSaving,
+} = useOverlayForm({
+  createDefault: () => ({
+    id: null,
     subjectId: '',
-    teacherMembershipId: '',
+    subjectMembershipId: '',
+    groupId: '',
     groupIds: [],
+    loadTypeId: '',
+    courseVersionId: '',
+    semester: context.semester,
+    studyCourse: context.studyCourse,
+    academicYear: context.academicYear,
+    hoursPerWeek: '',
+    status: '1',
+    notes: '',
+  }),
+  mapEntity: (assignment) => {
+    const membership = membershipById(
+      assignment?.subjectMembershipId
+    )
+
+    return {
+      id: assignment?.id ?? null,
+      subjectId: membership?.subjectId
+        ? String(membership.subjectId)
+        : '',
+      subjectMembershipId:
+        assignment?.subjectMembershipId
+          ? String(assignment.subjectMembershipId)
+          : '',
+      groupId: assignment?.groupId
+        ? String(assignment.groupId)
+        : '',
+      groupIds: [],
+      loadTypeId: assignment?.loadTypeId
+        ? String(assignment.loadTypeId)
+        : '',
+      courseVersionId:
+        assignment?.courseVersionId
+          ? String(assignment.courseVersionId)
+          : '',
+      semester: String(
+        assignment?.semester ?? context.semester
+      ),
+      studyCourse: String(
+        assignment?.studyCourse ?? context.studyCourse
+      ),
+      academicYear: String(
+        assignment?.academicYear ?? context.academicYear
+      ),
+      hoursPerWeek:
+        assignment?.hoursPerWeek ?? '',
+      status: String(
+        assignment?.status ?? 1
+      ),
+      notes: assignment?.notes ?? '',
+    }
+  },
+})
+
+const {
+  form: loadTypeForm,
+  model: loadTypeDialogModel,
+  isCreate: loadTypeIsCreate,
+  dirty: loadTypeDirty,
+  saving: loadTypeSaving,
+  confirmCloseVisible: loadTypeCloseConfirmVisible,
+  openCreate: openCreateLoadTypeForm,
+  openEdit: openEditLoadTypeForm,
+  requestClose: requestCloseLoadTypeDialog,
+  discardAndClose: discardLoadTypeAndClose,
+  continueEditing: continueLoadTypeEditing,
+  beginSaving: beginLoadTypeSaving,
+  finishSaving: finishLoadTypeSaving,
+  failSaving: failLoadTypeSaving,
+  resetToBaseline: resetLoadTypeToBaseline,
+} = useOverlayForm({
+  createDefault: () => ({
+    id: null,
+    name: '',
+    description: '',
+  }),
+  mapEntity: (loadType) => ({
+    id: loadType?.id ?? null,
+    name: loadType?.name ?? '',
+    description: loadType?.description ?? '',
+  }),
+})
+
+const loading = computed(() => (
+  loadingBase.value ||
+  loadingContext.value ||
+  loadingAssignments.value
+))
+
+const selectedFaculty = computed(() => {
+  return faculties.value.find(
+    (item) =>
+      Number(item.id) ===
+      Number(context.facultyId)
+  ) ?? null
+})
+
+const facultyOptions = computed(() => {
+  return faculties.value.map((faculty) => ({
+    value: String(faculty.id),
+    label: faculty.name,
+  }))
+})
+
+const subjectOptions = computed(() => {
+  return facultySubjects.value.map(
+    (subject) => ({
+      value: String(subject.id),
+      label: subject.name,
+    })
+  )
+})
+
+const groupOptions = computed(() => {
+  return groups.value.map((group) => ({
+    value: String(group.id),
+    label: group.code
+      ? `${group.name} · ${group.code}`
+      : group.name,
+  }))
+})
+
+const loadTypeOptions = computed(() => {
+  return loadTypes.value.map((loadType) => ({
+    value: String(loadType.id),
+    label: loadType.name,
+  }))
+})
+
+const assignmentSubjectFilterOptions = computed(() => [
+  { value: 'all', label: 'Все предметы' },
+  ...subjectOptions.value,
+])
+
+const assignmentGroupFilterOptions = computed(() => [
+  { value: 'all', label: 'Все группы' },
+  ...groupOptions.value,
+])
+
+const assignmentLoadTypeFilterOptions = computed(() => [
+  { value: 'all', label: 'Все типы' },
+  ...loadTypeOptions.value,
+])
+
+const assignmentStatusFilterOptions = [
+  { value: 'all', label: 'Все статусы' },
+  ...STATUS_OPTIONS,
+]
+
+const assignmentTeacherFilterOptions = computed(() => {
+  const seenPeople = new Set()
+  const result = []
+
+  assignments.value.forEach((assignment) => {
+    const membership = membershipById(
+      assignment.subjectMembershipId
+    )
+    const personId = Number(
+      membership?.personId
+    )
+
+    if (!personId || seenPeople.has(personId)) {
+      return
+    }
+
+    seenPeople.add(personId)
+    result.push({
+      value: String(personId),
+      label: personLabel(personId),
+    })
+  })
+
+  result.sort((left, right) =>
+    left.label.localeCompare(
+      right.label,
+      'ru'
+    )
+  )
+
+  return [
+    { value: 'all', label: 'Все преподаватели' },
+    ...result,
+  ]
+})
+
+const assignmentDrawerTitle = computed(() => {
+  return assignmentIsCreate.value
+    ? 'Новое назначение нагрузки'
+    : 'Изменение учебной нагрузки'
+})
+
+const loadTypeDialogTitle = computed(() => {
+  return 'Типы нагрузки'
+})
+
+const loadTypeEditorTitle = computed(() => {
+  return loadTypeIsCreate.value
+    ? 'Новый тип нагрузки'
+    : 'Редактирование типа'
+})
+
+const activeAssignments = computed(() => {
+  return assignments.value.filter(
+    (item) => Number(item.status) === 1
+  )
+})
+
+const summary = computed(() => ({
+  assignments: assignments.value.length,
+  active: activeAssignments.value.length,
+  hours: activeAssignments.value.reduce(
+    (sum, item) =>
+      sum + Number(item.hoursPerWeek ?? 0),
+    0
+  ),
+  teachers: new Set(
+    activeAssignments.value
+      .map((item) =>
+        membershipById(
+          item.subjectMembershipId
+        )?.personId
+      )
+      .filter(Boolean)
+      .map(Number)
+  ).size,
+}))
+
+const hasActiveFilters = computed(() => {
+  return (
+    Boolean(searchQuery.value.trim()) ||
+    subjectFilter.value !== 'all' ||
+    teacherFilter.value !== 'all' ||
+    groupFilter.value !== 'all' ||
+    loadTypeFilter.value !== 'all' ||
+    statusFilter.value !== 'all' ||
+    sortMode.value !== 'subject-asc'
+  )
+})
+
+const filteredAssignments = computed(() => {
+  const query = searchQuery.value
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+
+  const result = assignments.value.filter(
+    (assignment) => {
+      const membership = membershipById(
+        assignment.subjectMembershipId
+      )
+      const subjectId = Number(
+        membership?.subjectId
+      )
+      const personId = Number(
+        membership?.personId
+      )
+
+      if (
+        subjectFilter.value !== 'all' &&
+        String(subjectId) !== subjectFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        teacherFilter.value !== 'all' &&
+        String(personId) !== teacherFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        groupFilter.value !== 'all' &&
+        String(assignment.groupId) !== groupFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        loadTypeFilter.value !== 'all' &&
+        String(assignment.loadTypeId) !== loadTypeFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        statusFilter.value !== 'all' &&
+        String(assignment.status) !== statusFilter.value
+      ) {
+        return false
+      }
+
+      if (!query) {
+        return true
+      }
+
+      return [
+        subjectName(subjectId),
+        personLabel(personId),
+        groupName(assignment.groupId),
+        loadTypeName(assignment.loadTypeId),
+        STATUS_LABELS[Number(assignment.status)],
+        assignment.notes,
+        assignment.hoursPerWeek,
+      ]
+        .filter(
+          (value) =>
+            value !== null &&
+            value !== undefined
+        )
+        .join(' ')
+        .toLocaleLowerCase('ru-RU')
+        .includes(query)
+    }
+  )
+
+  return [...result].sort(
+    (left, right) => {
+      if (sortMode.value === 'hours-desc') {
+        return (
+          Number(right.hoursPerWeek ?? 0) -
+          Number(left.hoursPerWeek ?? 0)
+        )
+      }
+
+      if (sortMode.value === 'teacher-asc') {
+        return teacherNameForAssignment(
+          left
+        ).localeCompare(
+          teacherNameForAssignment(right),
+          'ru'
+        )
+      }
+
+      if (sortMode.value === 'group-asc') {
+        return groupName(
+          left.groupId
+        ).localeCompare(
+          groupName(right.groupId),
+          'ru'
+        )
+      }
+
+      return assignmentSubjectName(
+        left
+      ).localeCompare(
+        assignmentSubjectName(right),
+        'ru'
+      )
+    }
+  )
+})
+
+const filterResultText = computed(() => {
+  return `Показано: ${filteredAssignments.value.length} из ${assignments.value.length}`
+})
+
+const teacherOptionsForForm = computed(() => {
+  const subjectId = Number(
+    assignmentForm.subjectId
+  )
+  const currentMembershipId = Number(
+    assignmentForm.subjectMembershipId
+  )
+
+  if (!subjectId) {
+    return []
   }
-}
+
+  return teacherMemberships.value
+    .filter((membership) => (
+      Number(membership.subjectId) === subjectId &&
+      (
+        isAssignableTeacherMembership(
+          membership
+        ) ||
+        Number(membership.id) ===
+          currentMembershipId
+      )
+    ))
+    .map((membership) => ({
+      value: String(membership.id),
+      label: teacherMembershipLabel(
+        membership
+      ),
+      disabled:
+        !isAssignableTeacherMembership(
+          membership
+        ) &&
+        Number(membership.id) !==
+          currentMembershipId,
+    }))
+    .sort((left, right) =>
+      left.label.localeCompare(
+        right.label,
+        'ru'
+      )
+    )
+})
+
+const filteredGroupsForCreate = computed(() => {
+  const query = groupSearchQuery.value
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+
+  return groups.value.filter((group) => {
+    if (!query) {
+      return true
+    }
+
+    return [
+      group.name,
+      group.code,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase('ru-RU')
+      .includes(query)
+  })
+})
+
+const courseVersionOptions = computed(() => {
+  const options = [
+    {
+      value: '',
+      label: 'Без версии курса',
+    },
+  ]
+
+  courseVersionChoices.value.forEach(
+    (item) => {
+      options.push({
+        value: String(item.id),
+        label: item.label,
+      })
+    }
+  )
+
+  const currentId = String(
+    assignmentForm.courseVersionId ?? ''
+  )
+
+  if (
+    currentId &&
+    !options.some(
+      (item) => item.value === currentId
+    )
+  ) {
+    options.push({
+      value: currentId,
+      label: 'Текущая версия курса (не найдена в доступных)',
+    })
+  }
+
+  return options
+})
+
+const filteredLoadTypes = computed(() => {
+  const query = loadTypeSearchQuery.value
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+
+  return loadTypes.value
+    .filter((item) => {
+      if (!query) {
+        return true
+      }
+
+      return [
+        item.name,
+        item.description,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('ru-RU')
+        .includes(query)
+    })
+    .sort((left, right) =>
+      String(left.name ?? '').localeCompare(
+        String(right.name ?? ''),
+        'ru'
+      )
+    )
+})
 
 function showNotice(type, message) {
   notice.value = {
@@ -117,20 +649,29 @@ function clearNotice() {
   notice.value.message = ''
 }
 
-function setDefaultAcademicYear() {
-  period.academicYear =
-    String(new Date().getFullYear())
+function resetFilters() {
+  searchQuery.value = ''
+  subjectFilter.value = 'all'
+  teacherFilter.value = 'all'
+  groupFilter.value = 'all'
+  loadTypeFilter.value = 'all'
+  statusFilter.value = 'all'
+  sortMode.value = 'subject-asc'
 }
 
-function personLabel(personId) {
-  const person = people.value.find(
+function personById(personId) {
+  return people.value.find(
     (item) =>
       Number(item.id) ===
       Number(personId)
-  )
+  ) ?? null
+}
+
+function personLabel(personId) {
+  const person = personById(personId)
 
   if (!person) {
-    return `Преподаватель #${personId}`
+    return 'Преподаватель'
   }
 
   return (
@@ -143,8 +684,24 @@ function personLabel(personId) {
       .join(' ')
       .trim() ||
     person.fullName ||
-    `Преподаватель #${person.id}`
+    'Преподаватель'
   )
+}
+
+function teacherMembershipLabel(membership) {
+  const person = personById(
+    membership?.personId
+  )
+  const name = personLabel(
+    membership?.personId
+  )
+  const email = String(
+    person?.email ?? ''
+  ).trim()
+
+  return email
+    ? `${name} · ${email}`
+    : name
 }
 
 function subjectName(subjectId) {
@@ -154,109 +711,177 @@ function subjectName(subjectId) {
         Number(item.id) ===
         Number(subjectId)
     )?.name ??
-    `Предмет #${subjectId}`
+    'Предмет'
   )
 }
 
 function groupName(groupId) {
-  return (
-    groups.value.find(
-      (item) =>
-        Number(item.id) ===
-        Number(groupId)
-    )?.name ??
-    `Группа #${groupId}`
+  const group = groups.value.find(
+    (item) =>
+      Number(item.id) ===
+      Number(groupId)
   )
+
+  if (!group) {
+    return 'Группа'
+  }
+
+  return group.code
+    ? `${group.name} · ${group.code}`
+    : group.name
 }
 
 function membershipById(id) {
   return teacherMemberships.value.find(
     (item) =>
       Number(item.id) === Number(id)
-  )
+  ) ?? null
 }
 
-function teacherNameForMembership(id) {
-  const membership =
-    membershipById(id)
-
-  return membership
-    ? personLabel(
-        membership.personId
-      )
-    : `Membership #${id}`
-}
-
-const assignmentColumns = computed(() => [
-  {
-    key: 'subject',
-    label: 'Предмет',
-    value: (row) =>
-      subjectName(
-        membershipById(
-          row.subjectMembershipId
-        )?.subjectId
-      ),
-  },
-  {
-    key: 'group',
-    label: 'Группа',
-    value: (row) =>
-      groupName(row.groupId),
-  },
-  {
-    key: 'teacher',
-    label: 'Преподаватель',
-    value: (row) =>
-      teacherNameForMembership(
-        row.subjectMembershipId
-      ),
-  },
-  {
-    key: 'status',
-    label: 'Статус',
-    value: (row) =>
-      STATUS_LABELS[
-        Number(row.status)
-      ] ?? row.status,
-  },
-  {
-    key: 'notes',
-    label: 'Примечание',
-  },
-  {
-    key: 'actions',
-    label: 'Действие',
-    sortable: false,
-  },
-])
-
-function teachersForSubject(subjectId) {
-  return teacherMemberships.value.filter(
-    (item) =>
-      Number(item.subjectId) ===
-        Number(subjectId) &&
-      isAssignableTeacherMembership(item)
-  )
-}
-
-function teachersForAssignment(assignment) {
-  const currentMembershipId =
-    Number(assignment?.subjectMembershipId)
-
-  const subjectId =
-    membershipById(
-      currentMembershipId
-    )?.subjectId
-
-  return teacherMemberships.value.filter(
-    (item) =>
-      Number(item.subjectId) ===
-        Number(subjectId) &&
-      (isAssignableTeacherMembership(item) ||
+function loadTypeName(loadTypeId) {
+  return (
+    loadTypes.value.find(
+      (item) =>
         Number(item.id) ===
-          currentMembershipId)
+        Number(loadTypeId)
+    )?.name ??
+    'Тип нагрузки'
   )
+}
+
+function assignmentSubjectName(assignment) {
+  const membership = membershipById(
+    assignment?.subjectMembershipId
+  )
+
+  return subjectName(
+    membership?.subjectId
+  )
+}
+
+function teacherNameForAssignment(assignment) {
+  const membership = membershipById(
+    assignment?.subjectMembershipId
+  )
+
+  return personLabel(
+    membership?.personId
+  )
+}
+
+function statusVariant(status) {
+  const normalized = Number(status)
+
+  if (normalized === 1) {
+    return 'success'
+  }
+
+  if (normalized === 4) {
+    return 'warning'
+  }
+
+  if (normalized === 3) {
+    return 'secondary'
+  }
+
+  return 'info'
+}
+
+function formatHours(value) {
+  const number = Number(value ?? 0)
+
+  if (!Number.isFinite(number)) {
+    return '0'
+  }
+
+  return number.toLocaleString(
+    'ru-RU',
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }
+  )
+}
+
+function assignmentPeriodLabel(assignment) {
+  return (
+    `${assignment.academicYear}, ` +
+    `${assignment.studyCourse} курс, ` +
+    `${assignment.semester} семестр`
+  )
+}
+
+function normalizedAssignmentTerm(form = assignmentForm) {
+  return {
+    subjectId: Number(form.subjectId),
+    studyCourse: Number(form.studyCourse),
+    semester: Number(form.semester),
+    academicYear: Number(form.academicYear),
+  }
+}
+
+function assignmentConflictForGroup(
+  groupId,
+  form = assignmentForm
+) {
+  const term = normalizedAssignmentTerm(
+    form
+  )
+
+  if (
+    !term.subjectId ||
+    !term.studyCourse ||
+    !term.semester ||
+    !term.academicYear
+  ) {
+    return null
+  }
+
+  return assignments.value.find(
+    (assignment) => {
+      if (
+        Number(assignment.id) ===
+        Number(form.id)
+      ) {
+        return false
+      }
+
+      const membership = membershipById(
+        assignment.subjectMembershipId
+      )
+
+      return (
+        Number(membership?.subjectId) ===
+          term.subjectId &&
+        Number(assignment.groupId) ===
+          Number(groupId) &&
+        Number(assignment.studyCourse) ===
+          term.studyCourse &&
+        Number(assignment.semester) ===
+          term.semester &&
+        Number(assignment.academicYear) ===
+          term.academicYear
+      )
+    }
+  ) ?? null
+}
+
+function groupHasConflict(groupId) {
+  return Boolean(
+    assignmentConflictForGroup(groupId)
+  )
+}
+
+function groupConflictDescription(groupId) {
+  const conflict = assignmentConflictForGroup(
+    groupId
+  )
+
+  if (!conflict) {
+    return ''
+  }
+
+  return `Для этого предмета в выбранном периоде нагрузка уже назначена.`
 }
 
 async function currentAssignableMembershipIds(
@@ -268,194 +893,689 @@ async function currentAssignableMembershipIds(
   })
 }
 
-const selectedFaculty = computed(() => {
-  return faculties.value.find(
-    (item) =>
-      Number(item.id) ===
-      Number(period.facultyId)
+function assignmentValidationMessage() {
+  const subjectId = Number(
+    assignmentForm.subjectId
   )
-})
-
-const activeAssignments = computed(() => {
-  return assignments.value.filter(
-    (item) =>
-      Number(item.status) !== 3
+  const membershipId = Number(
+    assignmentForm.subjectMembershipId
   )
-})
+  const loadTypeId = Number(
+    assignmentForm.loadTypeId
+  )
+  const studyCourse = Number(
+    assignmentForm.studyCourse
+  )
+  const semester = Number(
+    assignmentForm.semester
+  )
+  const academicYear = Number(
+    assignmentForm.academicYear
+  )
+  const hours = Number(
+    assignmentForm.hoursPerWeek
+  )
+  const status = Number(
+    assignmentForm.status
+  )
+  const notes = String(
+    assignmentForm.notes ?? ''
+  )
 
-const summary = computed(() => ({
-  subjects:
-    facultySubjects.value.length,
-  groups: groups.value.length,
-  assignments:
-    activeAssignments.value.length,
-}))
+  if (!subjectId) {
+    return 'Выберите предмет.'
+  }
 
-function normalizeRow(row) {
-  const teachers =
-    teachersForSubject(
-      row.subjectId
-    )
+  if (!membershipId) {
+    return 'Выберите преподавателя.'
+  }
+
+  const membership = membershipById(
+    membershipId
+  )
 
   if (
-    !teachers.some(
-      (item) =>
-        Number(item.id) ===
-        Number(
-          row.teacherMembershipId
-        )
-    )
+    !membership ||
+    Number(membership.subjectId) !== subjectId
   ) {
-    row.teacherMembershipId = ''
+    return 'Выбранный преподаватель больше не связан с этим предметом.'
   }
 
-  row.groupIds = uniqueNumbers(
-    row.groupIds
-  ).filter(
-    (groupId) =>
-      groups.value.some(
-        (group) =>
-          Number(group.id) ===
-          Number(groupId)
+  if (assignmentIsCreate.value) {
+    const groupIds = uniqueNumbers(
+      assignmentForm.groupIds
+    )
+
+    if (!groupIds.length) {
+      return 'Выберите хотя бы одну группу.'
+    }
+
+    if (
+      groupIds.some(
+        (groupId) =>
+          assignmentConflictForGroup(
+            groupId
+          )
       )
-  )
-}
-
-function addRow() {
-  rows.value.push(
-    createRow()
-  )
-}
-
-function removeRow(rowId) {
-  rows.value =
-    rows.value.filter(
-      (row) =>
-        row.id !== rowId
+    ) {
+      return 'Для одной из выбранных групп уже существует нагрузка по этому предмету и периоду.'
+    }
+  } else {
+    const groupId = Number(
+      assignmentForm.groupId
     )
 
-  if (!rows.value.length) {
-    addRow()
+    if (!groupId) {
+      return 'Выберите группу.'
+    }
+
+    if (
+      assignmentConflictForGroup(
+        groupId
+      )
+    ) {
+      return 'Для выбранной группы уже существует другая нагрузка по этому предмету и периоду.'
+    }
   }
-}
 
-function assignmentExists(
-  subjectMembershipId,
-  groupId
-) {
-  return assignments.value.some(
+  if (!loadTypeId) {
+    return 'Выберите тип нагрузки.'
+  }
+
+  if (!loadTypes.value.some(
     (item) =>
-      Number(
-        item.subjectMembershipId
-      ) ===
-        Number(
-          subjectMembershipId
-        ) &&
-      Number(item.groupId) ===
-        Number(groupId) &&
-      Number(item.semester) ===
-        Number(period.semester) &&
-      Number(item.studyCourse) ===
-        Number(period.studyCourse) &&
-      String(item.academicYear) ===
-        String(period.academicYear) &&
-      Number(item.status) !== 3
-  )
+      Number(item.id) === loadTypeId
+  )) {
+    return 'Выбранный тип нагрузки больше не существует.'
+  }
+
+  if (!Number.isInteger(studyCourse) || studyCourse < 1) {
+    return 'Курс должен быть положительным целым числом.'
+  }
+
+  if (![1, 2].includes(semester)) {
+    return 'Семестр должен быть 1 или 2.'
+  }
+
+  if (!Number.isInteger(academicYear) || academicYear < 2000) {
+    return 'Учебный год должен быть не меньше 2000.'
+  }
+
+  if (!Number.isFinite(hours) || hours < 0) {
+    return 'Часы в неделю должны быть неотрицательным числом.'
+  }
+
+  if (hours > MAX_HOURS_PER_WEEK) {
+    return `Часы в неделю не могут превышать ${MAX_HOURS_PER_WEEK}.`
+  }
+
+  if (!Object.hasOwn(STATUS_LABELS, status)) {
+    return 'Выберите корректный статус назначения.'
+  }
+
+  if (notes.length > 1000) {
+    return 'Примечание не может быть длиннее 1000 символов.'
+  }
+
+  return ''
 }
 
-async function ensureDefaultLoadType() {
-  const preferred =
-    loadTypes.value.find(
-      (item) =>
-        String(
-          item.name ?? ''
-        ).toLowerCase() ===
-        DEFAULT_LOAD_TYPE_NAME.toLowerCase()
-    )
+function loadTypeValidationMessage() {
+  const name = String(
+    loadTypeForm.name ?? ''
+  ).trim()
+  const description = String(
+    loadTypeForm.description ?? ''
+  ).trim()
 
-  if (preferred) {
-    defaultLoadTypeId.value =
-      preferred.id
+  if (!name) {
+    return 'Введите название типа нагрузки.'
+  }
+
+  if (name.length > 100) {
+    return 'Название типа нагрузки не может быть длиннее 100 символов.'
+  }
+
+  if (description.length > 1000) {
+    return 'Описание типа нагрузки не может быть длиннее 1000 символов.'
+  }
+
+  const normalizedName = name.toLocaleLowerCase(
+    'ru-RU'
+  )
+  const duplicate = loadTypes.value.find(
+    (item) =>
+      String(item.name ?? '')
+        .trim()
+        .toLocaleLowerCase('ru-RU') ===
+        normalizedName &&
+      String(item.id) !==
+        String(loadTypeForm.id ?? '')
+  )
+
+  if (duplicate) {
+    return `Тип нагрузки «${name}» уже существует.`
+  }
+
+  return ''
+}
+
+function openCreateAssignment() {
+  assignmentFormError.value = ''
+  groupSearchQuery.value = ''
+  courseVersionChoices.value = []
+
+  openCreateAssignmentForm({
+    semester: context.semester,
+    studyCourse: context.studyCourse,
+    academicYear: context.academicYear,
+  })
+}
+
+async function openEditAssignment(
+  assignment
+) {
+  assignmentFormError.value = ''
+  groupSearchQuery.value = ''
+  courseVersionChoices.value = []
+  openEditAssignmentForm(assignment)
+  await loadCourseVersionsForForm()
+}
+
+function onAssignmentSubjectChange() {
+  const membership = membershipById(
+    assignmentForm.subjectMembershipId
+  )
+
+  if (
+    membership &&
+    Number(membership.subjectId) !==
+      Number(assignmentForm.subjectId)
+  ) {
+    assignmentForm.subjectMembershipId = ''
+  }
+
+  assignmentForm.courseVersionId = ''
+  courseVersionChoices.value = []
+  assignmentFormError.value = ''
+}
+
+async function onAssignmentTeacherChange() {
+  assignmentForm.courseVersionId = ''
+  assignmentFormError.value = ''
+  await loadCourseVersionsForForm()
+}
+
+async function loadCourseVersionsForForm() {
+  const requestId = courseVersionsRequest.begin()
+  const membership = membershipById(
+    assignmentForm.subjectMembershipId
+  )
+  const subjectId = Number(
+    assignmentForm.subjectId
+  )
+
+  courseVersionChoices.value = []
+
+  if (
+    !membership ||
+    !subjectId ||
+    Number(membership.subjectId) !== subjectId
+  ) {
+    loadingCourseVersions.value = false
     return
   }
 
-  const response =
-    await teachingApi.createLoadType({
-      name:
-        DEFAULT_LOAD_TYPE_NAME,
-      description:
-        DEFAULT_LOAD_TYPE_DESCRIPTION,
-    })
+  loadingCourseVersions.value = true
 
-  defaultLoadTypeId.value =
-    response.data?.id
-
-  const refreshed =
-    await teachingApi.getLoadTypes()
-
-  loadTypes.value =
-    listFromResponse(refreshed)
-
-  if (!defaultLoadTypeId.value) {
-    defaultLoadTypeId.value =
-      loadTypes.value.find(
-        (item) =>
-          String(
-            item.name ?? ''
-          ).toLowerCase() ===
-          DEFAULT_LOAD_TYPE_NAME.toLowerCase()
-      )?.id ?? null
-  }
-}
-
-async function ensureSubjectLoadType(
-  subjectMembershipId
-) {
-  if (!defaultLoadTypeId.value) {
-    await ensureDefaultLoadType()
-  }
-
-  const response =
-    await teachingApi
-      .getSubjectLoadTypes({
-        subjectMembershipId,
-        teachingLoadTypeId:
-          defaultLoadTypeId.value,
+  try {
+    const templatesResponse =
+      await coursesApi.getTemplates({
+        subjectId,
+        authorPersonId: Number(
+          membership.personId
+        ),
       })
 
-  const existing =
-    listFromResponse(response)
+    if (
+      !courseVersionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
 
-  if (
-    existing.some(
-      (item) =>
-        Number(
-          item.teachingLoadTypeId
-        ) ===
-        Number(
-          defaultLoadTypeId.value
-        )
+    const templates = listFromResponse(
+      templatesResponse
     )
-  ) {
-    return
-  }
 
+    const versionResponses =
+      await Promise.all(
+        templates.map((template) =>
+          coursesApi
+            .getVersions(template.id)
+            .then((response) => ({
+              template,
+              versions:
+                listFromResponse(response),
+            }))
+        )
+      )
+
+    if (
+      !courseVersionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      return
+    }
+
+    courseVersionChoices.value =
+      versionResponses
+        .flatMap(({ template, versions }) =>
+          versions.map((version) => ({
+            ...version,
+            label:
+              `${template.name} · ` +
+              `версия ${version.versionNumber}` +
+              (version.title
+                ? ` · ${version.title}`
+                : '') +
+              (version.published
+                ? ' · опубликована'
+                : ' · черновик'),
+          }))
+        )
+        .sort(
+          (left, right) =>
+            left.label.localeCompare(
+              right.label,
+              'ru'
+            )
+        )
+  } catch (error) {
+    if (
+      courseVersionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      assignmentFormError.value =
+        getApiErrorMessage(
+          error,
+          'Не удалось загрузить версии курса для выбранного преподавателя.'
+        )
+    }
+  } finally {
+    if (
+      courseVersionsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingCourseVersions.value = false
+    }
+  }
+}
+
+async function ensureSelectedSubjectLoadType() {
   await teachingApi
     .addLoadTypeToSubjectMembership(
-      subjectMembershipId,
+      Number(
+        assignmentForm.subjectMembershipId
+      ),
       {
-        teachingLoadTypeId:
-          Number(
-            defaultLoadTypeId.value
-          ),
+        teachingLoadTypeId: Number(
+          assignmentForm.loadTypeId
+        ),
         notes:
-          'Автоматически добавлено из шаблона нагрузки',
+          'Добавлено администратором при настройке учебной нагрузки',
       }
     )
 }
 
+function assignmentPayload(groupId) {
+  return {
+    subjectMembershipId: Number(
+      assignmentForm.subjectMembershipId
+    ),
+    groupId: Number(groupId),
+    loadTypeId: Number(
+      assignmentForm.loadTypeId
+    ),
+    courseVersionId:
+      assignmentForm.courseVersionId
+        ? Number(
+            assignmentForm.courseVersionId
+          )
+        : null,
+    semester: Number(
+      assignmentForm.semester
+    ),
+    studyCourse: Number(
+      assignmentForm.studyCourse
+    ),
+    academicYear: Number(
+      assignmentForm.academicYear
+    ),
+    hoursPerWeek: Number(
+      assignmentForm.hoursPerWeek
+    ),
+    status: Number(
+      assignmentForm.status
+    ),
+    notes:
+      String(
+        assignmentForm.notes ?? ''
+      ).trim() || null,
+  }
+}
+
+async function validateSelectedTeacherMembership() {
+  const selectedId = Number(
+    assignmentForm.subjectMembershipId
+  )
+
+  const editingAssignment =
+    assignments.value.find(
+      (item) =>
+        Number(item.id) ===
+        Number(assignmentForm.id)
+    ) ?? null
+
+  const teacherChanged =
+    !editingAssignment ||
+    Number(
+      editingAssignment.subjectMembershipId
+    ) !== selectedId
+
+  const statusRequiresActiveTeacher =
+    [1, 2].includes(
+      Number(assignmentForm.status)
+    )
+
+  if (
+    assignmentIsCreate.value ||
+    teacherChanged ||
+    statusRequiresActiveTeacher
+  ) {
+    await currentAssignableMembershipIds([
+      selectedId,
+    ])
+  }
+}
+
+async function saveAssignment() {
+  if (assignmentSaving.value) {
+    return
+  }
+
+  assignmentFormError.value = ''
+
+  const validation =
+    assignmentValidationMessage()
+
+  if (validation) {
+    assignmentFormError.value = validation
+    return
+  }
+
+  beginAssignmentSaving()
+
+  try {
+    await validateSelectedTeacherMembership()
+    await ensureSelectedSubjectLoadType()
+
+    if (assignmentIsCreate.value) {
+      const groupIds = uniqueNumbers(
+        assignmentForm.groupIds
+      )
+
+      const results =
+        await Promise.allSettled(
+          groupIds.map((groupId) =>
+            teachingApi.createAssignment(
+              assignmentPayload(groupId)
+            )
+          )
+        )
+
+      const failedGroupIds = []
+      let successCount = 0
+      let firstError = null
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successCount += 1
+          return
+        }
+
+        failedGroupIds.push(
+          groupIds[index]
+        )
+        firstError ??= result.reason
+      })
+
+      await refreshAssignments()
+
+      if (failedGroupIds.length) {
+        const failedNames = failedGroupIds
+          .map(groupName)
+          .join(', ')
+
+        finishAssignmentSaving({
+          close: false,
+          values: {
+            ...assignmentForm,
+            groupIds: failedGroupIds,
+          },
+        })
+
+        assignmentFormError.value =
+          successCount
+            ? `Создано назначений: ${successCount}. Не удалось создать для групп: ${failedNames}. ${getApiErrorMessage(firstError, '')}`.trim()
+            : getApiErrorMessage(
+                firstError,
+                'Не удалось создать назначения.'
+              )
+        return
+      }
+
+      showNotice(
+        'success',
+        groupIds.length === 1
+          ? 'Учебная нагрузка создана.'
+          : `Создано назначений: ${groupIds.length}.`
+      )
+
+      finishAssignmentSaving({ close: true })
+      return
+    }
+
+    const previous = assignments.value.find(
+      (item) =>
+        Number(item.id) ===
+        Number(assignmentForm.id)
+    )
+
+    await teachingApi.updateAssignment(
+      assignmentForm.id,
+      assignmentPayload(
+        assignmentForm.groupId
+      )
+    )
+
+    const movedOutOfContext =
+      Number(assignmentForm.studyCourse) !==
+        Number(context.studyCourse) ||
+      Number(assignmentForm.semester) !==
+        Number(context.semester) ||
+      Number(assignmentForm.academicYear) !==
+        Number(context.academicYear) ||
+      (
+        previous &&
+        !groups.value.some(
+          (group) =>
+            Number(group.id) ===
+            Number(assignmentForm.groupId)
+        )
+      )
+
+    await refreshAssignments()
+
+    showNotice(
+      'success',
+      movedOutOfContext
+        ? 'Назначение обновлено и перенесено в другой учебный период.'
+        : 'Учебная нагрузка обновлена.'
+    )
+
+    finishAssignmentSaving({ close: true })
+  } catch (error) {
+    if (
+      error instanceof
+      TeacherMembershipEligibilityError
+    ) {
+      assignmentFormError.value =
+        'Выбранное назначение преподавателя больше не активно. Выберите преподавателя заново.'
+    } else {
+      assignmentFormError.value =
+        getApiErrorMessage(
+          error,
+          assignmentIsCreate.value
+            ? 'Не удалось создать учебную нагрузку.'
+            : 'Не удалось обновить учебную нагрузку.'
+        )
+    }
+
+    failAssignmentSaving()
+  }
+}
+
+function openLoadTypeManager() {
+  loadTypeFormError.value = ''
+  loadTypeSearchQuery.value = ''
+  openCreateLoadTypeForm()
+}
+
+function startNewLoadType() {
+  if (loadTypeDirty.value) {
+    loadTypeFormError.value =
+      'Сначала сохраните или отмените изменения текущего типа нагрузки.'
+    return
+  }
+
+  loadTypeFormError.value = ''
+  openCreateLoadTypeForm()
+}
+
+function editLoadType(loadType) {
+  if (loadTypeDirty.value) {
+    loadTypeFormError.value =
+      'Сначала сохраните или отмените изменения текущего типа нагрузки.'
+    return
+  }
+
+  loadTypeFormError.value = ''
+  openEditLoadTypeForm(loadType)
+}
+
+function cancelLoadTypeChanges() {
+  resetLoadTypeToBaseline()
+  loadTypeFormError.value = ''
+}
+
+async function saveLoadType() {
+  if (loadTypeSaving.value) {
+    return
+  }
+
+  loadTypeFormError.value = ''
+  const validation =
+    loadTypeValidationMessage()
+
+  if (validation) {
+    loadTypeFormError.value = validation
+    return
+  }
+
+  const creating = loadTypeIsCreate.value
+
+  beginLoadTypeSaving()
+
+  const payload = {
+    name: String(
+      loadTypeForm.name
+    ).trim(),
+    description:
+      String(
+        loadTypeForm.description ?? ''
+      ).trim() || null,
+  }
+
+  try {
+    const response = creating
+      ? await teachingApi.createLoadType(
+          payload
+        )
+      : await teachingApi.updateLoadType(
+          loadTypeForm.id,
+          payload
+        )
+
+    const saved = {
+      id: response.data?.id ??
+        loadTypeForm.id,
+      name: response.data?.name ??
+        payload.name,
+      description:
+        response.data?.description ??
+        payload.description ?? '',
+    }
+
+    await reloadLoadTypes()
+
+    if (creating) {
+      openEditLoadTypeForm(saved)
+    } else {
+      finishLoadTypeSaving({
+        close: false,
+        values: saved,
+      })
+    }
+
+    showNotice(
+      'success',
+      creating
+        ? 'Тип нагрузки создан.'
+        : 'Тип нагрузки обновлён.'
+    )
+  } catch (error) {
+    loadTypeFormError.value =
+      getApiErrorMessage(
+        error,
+        creating
+          ? 'Не удалось создать тип нагрузки.'
+          : 'Не удалось обновить тип нагрузки.'
+      )
+    failLoadTypeSaving()
+  }
+}
+
+async function reloadLoadTypes() {
+  const response =
+    await teachingApi.getLoadTypes()
+
+  loadTypes.value = listFromResponse(
+    response
+  ).sort((left, right) =>
+    String(left.name ?? '').localeCompare(
+      String(right.name ?? ''),
+      'ru'
+    )
+  )
+}
+
 async function loadBaseData() {
-  loading.value = true
+  loadingBase.value = true
 
   try {
     const [
@@ -473,15 +1593,18 @@ async function loadBaseData() {
       teachingApi.getLoadTypes(),
     ])
 
-    faculties.value =
-      listFromResponse(
-        facultiesResponse
+    faculties.value = listFromResponse(
+      facultiesResponse
+    ).sort((left, right) =>
+      String(left.name ?? '').localeCompare(
+        String(right.name ?? ''),
+        'ru'
       )
+    )
 
-    people.value =
-      listFromResponse(
-        peopleResponse
-      )
+    people.value = listFromResponse(
+      peopleResponse
+    )
 
     teacherMemberships.value =
       listFromResponse(
@@ -492,53 +1615,60 @@ async function loadBaseData() {
           TEACHER_ROLE
       )
 
-    loadTypes.value =
-      listFromResponse(
-        loadTypesResponse
+    loadTypes.value = listFromResponse(
+      loadTypesResponse
+    ).sort((left, right) =>
+      String(left.name ?? '').localeCompare(
+        String(right.name ?? ''),
+        'ru'
       )
-
-    await ensureDefaultLoadType()
+    )
 
     if (
-      !period.facultyId &&
-      faculties.value.length
-    ) {
-      period.facultyId = String(
-        faculties.value[0].id
+      !faculties.value.some(
+        (item) =>
+          String(item.id) ===
+          String(context.facultyId)
       )
+    ) {
+      context.facultyId =
+        faculties.value[0]?.id
+          ? String(
+              faculties.value[0].id
+            )
+          : ''
     }
   } catch (error) {
     showNotice(
       'error',
       getApiErrorMessage(
         error,
-        'Не удалось загрузить данные шаблонов'
+        'Не удалось загрузить справочники учебной нагрузки.'
       )
     )
   } finally {
-    loading.value = false
+    loadingBase.value = false
   }
 }
 
 async function loadFacultyContext() {
-  const requestId =
-    facultyContextRequest.begin()
-
+  const requestId = contextRequest.begin()
   assignmentsRequest.invalidate()
 
   const facultyId = Number(
-    period.facultyId || 0
+    context.facultyId
   )
 
+  facultySubjects.value = []
+  groups.value = []
+  assignments.value = []
+
   if (!facultyId) {
-    loading.value = false
-    facultySubjects.value = []
-    groups.value = []
-    assignments.value = []
+    loadingContext.value = false
     return
   }
 
-  loading.value = true
+  loadingContext.value = true
 
   try {
     const [
@@ -554,7 +1684,7 @@ async function loadFacultyContext() {
     ])
 
     if (
-      !facultyContextRequest.isCurrent(
+      !contextRequest.isCurrent(
         requestId
       )
     ) {
@@ -564,21 +1694,27 @@ async function loadFacultyContext() {
     facultySubjects.value =
       listFromResponse(
         subjectsResponse
+      ).sort((left, right) =>
+        String(left.name ?? '').localeCompare(
+          String(right.name ?? ''),
+          'ru'
+        )
       )
 
-    groups.value =
-      listFromResponse(
-        groupsResponse
+    groups.value = listFromResponse(
+      groupsResponse
+    ).sort((left, right) =>
+      groupSortLabel(left).localeCompare(
+        groupSortLabel(right),
+        'ru'
       )
-
-    rows.value.forEach(
-      normalizeRow
     )
 
+    resetFilters()
     await refreshAssignments()
   } catch (error) {
     if (
-      !facultyContextRequest.isCurrent(
+      !contextRequest.isCurrent(
         requestId
       )
     ) {
@@ -589,402 +1725,178 @@ async function loadFacultyContext() {
       'error',
       getApiErrorMessage(
         error,
-        'Не удалось загрузить факультет'
+        'Не удалось загрузить данные выбранного факультета.'
       )
     )
   } finally {
     if (
-      facultyContextRequest.isCurrent(
+      contextRequest.isCurrent(
         requestId
       )
     ) {
-      loading.value = false
+      loadingContext.value = false
     }
   }
+}
+
+function groupSortLabel(group) {
+  return `${group?.name ?? ''} ${group?.code ?? ''}`
 }
 
 async function refreshAssignments() {
-  const requestId =
-    assignmentsRequest.begin()
-
+  const requestId = assignmentsRequest.begin()
   const facultyId = Number(
-    period.facultyId || 0
+    context.facultyId
+  )
+  const academicYear = Number(
+    context.academicYear
   )
 
-  if (!facultyId) {
-    assignments.value = []
-    return
-  }
-
-  const params = {
-    facultyId,
-    studyCourse:
-      Number(period.studyCourse),
-    semester:
-      Number(period.semester),
-    academicYear:
-      Number(period.academicYear),
-  }
-
-  try {
-    const response =
-      await teachingApi
-        .getAssignments(params)
-
-    if (
-      !assignmentsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
-    assignments.value =
-      listFromResponse(response)
-  } catch (error) {
-    if (
-      !assignmentsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось загрузить назначения'
-      )
-    )
-  }
-}
-
-async function assignGroups() {
-  const completeRows =
-    rows.value.filter(
-      (row) =>
-        Number(row.subjectId) > 0 &&
-        Number(
-          row.teacherMembershipId
-        ) > 0 &&
-        uniqueNumbers(
-          row.groupIds
-        ).length > 0
-    )
-
   if (
-    !period.facultyId ||
-    !Number(period.academicYear)
+    !facultyId ||
+    !academicYear ||
+    academicYear < 2000
   ) {
-    showNotice(
-      'error',
-      'Заполните факультет и учебный год.'
-    )
+    assignments.value = []
+    loadingAssignments.value = false
     return
   }
 
-  if (!completeRows.length) {
-    showNotice(
-      'error',
-      'Добавьте предмет, преподавателя и хотя бы одну группу.'
-    )
-    return
-  }
+  loadingAssignments.value = true
 
   try {
-    await currentAssignableMembershipIds(
-      completeRows.map(
-        (row) =>
-          row.teacherMembershipId
+    const response = await teachingApi
+      .getAssignments({
+        facultyId,
+        studyCourse: Number(
+          context.studyCourse
+        ),
+        semester: Number(
+          context.semester
+        ),
+        academicYear,
+      })
+
+    if (
+      !assignmentsRequest.isCurrent(
+        requestId
       )
+    ) {
+      return
+    }
+
+    assignments.value = listFromResponse(
+      response
     )
   } catch (error) {
     if (
-      error instanceof
-      TeacherMembershipEligibilityError
+      !assignmentsRequest.isCurrent(
+        requestId
+      )
     ) {
-      completeRows
-        .filter(
-          (row) =>
-            !error.membershipId ||
-            Number(
-              row.teacherMembershipId
-            ) ===
-              Number(
-                error.membershipId
-              )
-        )
-        .forEach((row) => {
-          row.teacherMembershipId = ''
-        })
-
-      showNotice(
-        'error',
-        'Один или несколько преподавателей больше не активны для выбранных предметов. Выберите преподавателей заново.'
-      )
-    } else {
-      showNotice(
-        'error',
-        getApiErrorMessage(
-          error,
-          'Не удалось проверить актуальность преподавательских назначений'
-        )
-      )
+      return
     }
 
-    return
-  }
-
-  const tasks = []
-
-  for (const row of completeRows) {
-    for (
-      const groupId of
-      uniqueNumbers(row.groupIds)
-    ) {
-      if (
-        !assignmentExists(
-          row.teacherMembershipId,
-          groupId
-        )
-      ) {
-        tasks.push({
-          subjectMembershipId:
-            Number(
-              row.teacherMembershipId
-            ),
-          groupId,
-        })
-      }
-    }
-  }
-
-  if (!tasks.length) {
-    showNotice(
-      'info',
-      'Все выбранные назначения уже существуют.'
-    )
-    return
-  }
-
-  saving.value = true
-
-  try {
-    const membershipIds =
-      uniqueNumbers(
-        tasks.map(
-          (item) =>
-            item.subjectMembershipId
-        )
-      )
-
-    for (
-      const membershipId of
-      membershipIds
-    ) {
-      await ensureSubjectLoadType(
-        membershipId
-      )
-    }
-
-    const results =
-      await Promise.allSettled(
-        tasks.map(
-          (task) =>
-            teachingApi
-              .createAssignment({
-                subjectMembershipId:
-                  task.subjectMembershipId,
-                groupId:
-                  task.groupId,
-                loadTypeId:
-                  Number(
-                    defaultLoadTypeId.value
-                  ),
-                courseVersionId:
-                  null,
-                semester:
-                  Number(
-                    period.semester
-                  ),
-                studyCourse:
-                  Number(
-                    period.studyCourse
-                  ),
-                academicYear:
-                  Number(
-                    period.academicYear
-                  ),
-                hoursPerWeek: 0,
-                status:
-                  Number(period.status),
-                notes:
-                  period.notes.trim() ||
-                  null,
-              })
-        )
-      )
-
-    const successCount =
-      results.filter(
-        (item) =>
-          item.status ===
-          'fulfilled'
-      ).length
-
-    const failed =
-      results.filter(
-        (item) =>
-          item.status ===
-          'rejected'
-      ).length
-
-    if (!successCount) {
-      throw (
-        results.find(
-          (item) =>
-            item.status ===
-            'rejected'
-        )?.reason ??
-        new Error(
-          'Не удалось создать назначения'
-        )
-      )
-    }
-
-    showNotice(
-      failed ? 'warning' : 'success',
-      failed
-        ? `Создано: ${successCount}. Не удалось создать: ${failed}.`
-        : `Создано назначений: ${successCount}.`
-    )
-
-    period.notes = ''
-    await refreshAssignments()
-  } catch (error) {
     showNotice(
       'error',
       getApiErrorMessage(
         error,
-        'Не удалось создать назначения'
+        'Не удалось загрузить учебную нагрузку.'
       )
     )
   } finally {
-    saving.value = false
+    if (
+      assignmentsRequest.isCurrent(
+        requestId
+      )
+    ) {
+      loadingAssignments.value = false
+    }
   }
 }
 
-async function saveAssignment(
-  assignment
-) {
-  saving.value = true
+async function reloadAll() {
+  clearNotice()
+  await loadBaseData()
 
-  try {
-    await ensureSubjectLoadType(
-      assignment.subjectMembershipId
-    )
-
-    await teachingApi
-      .updateAssignment(
-        assignment.id,
-        {
-          subjectMembershipId:
-            Number(
-              assignment.subjectMembershipId
-            ),
-          groupId:
-            Number(
-              assignment.groupId
-            ),
-          loadTypeId:
-            assignment.loadTypeId ??
-            Number(
-              defaultLoadTypeId.value
-            ),
-          courseVersionId:
-            assignment.courseVersionId ??
-            null,
-          semester:
-            Number(
-              assignment.semester
-            ),
-          studyCourse:
-            Number(
-              assignment.studyCourse
-            ),
-          academicYear:
-            Number(
-              assignment.academicYear
-            ),
-          hoursPerWeek:
-            assignment.hoursPerWeek ??
-            0,
-          status:
-            Number(
-              assignment.status
-            ),
-          notes:
-            assignment.notes ?? null,
-        }
-      )
-
-    showNotice(
-      'success',
-      'Назначение обновлено.'
-    )
-
-    await refreshAssignments()
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось обновить назначение'
-      )
-    )
-  } finally {
-    saving.value = false
+  if (context.facultyId) {
+    await loadFacultyContext()
   }
 }
 
 watch(
-  () => period.facultyId,
-  loadFacultyContext
+  () => context.facultyId,
+  () => {
+    if (!initialized.value) {
+      return
+    }
+
+    loadFacultyContext()
+  }
 )
 
 watch(
   [
-    () => period.studyCourse,
-    () => period.semester,
-    () => period.academicYear,
+    () => context.studyCourse,
+    () => context.semester,
+    () => context.academicYear,
   ],
   () => {
-    if (period.facultyId) {
-      refreshAssignments()
+    if (
+      !initialized.value ||
+      !context.facultyId
+    ) {
+      return
     }
+
+    refreshAssignments()
   }
 )
 
-setDefaultAcademicYear()
-rows.value = [createRow()]
+onMounted(async () => {
+  await loadBaseData()
+  initialized.value = true
 
-onMounted(loadBaseData)
+  if (context.facultyId) {
+    await loadFacultyContext()
+  }
+})
 </script>
 
 <template>
   <AdminPageShell
-    title="Шаблоны нагрузки"
-    description="Назначение преподавателей на группы по предметам и учебному периоду."
+    title="Учебная нагрузка"
+    description="Настраивайте назначения преподавателей на группы: предмет, тип нагрузки, часы, учебный период и статус."
   >
     <template #actions>
       <UiButton
-        type="button"
-        :disabled="loading"
-        @click="loadBaseData"
-      >
-        Обновить справочники
-      </UiButton>
+        variant="secondary"
+        icon="pi pi-tags"
+        label="Типы нагрузки"
+        :disabled="loading || assignmentDrawerModel"
+        @click="openLoadTypeManager"
+      />
+
+      <UiButton
+        variant="secondary"
+        icon="pi pi-refresh"
+        label="Обновить"
+        :disabled="loading || assignmentDrawerModel"
+        @click="reloadAll"
+      />
+
+      <UiButton
+        variant="primary"
+        icon="pi pi-plus"
+        label="Добавить нагрузку"
+        :disabled="
+          loading ||
+          !selectedFaculty ||
+          !facultySubjects.length ||
+          !groups.length
+        "
+        @click="openCreateAssignment"
+      />
     </template>
 
     <AdminNotice
@@ -993,387 +1905,849 @@ onMounted(loadBaseData)
       @close="clearNotice"
     />
 
-    <section class="admin-summary">
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Факультет
-        </span>
+    <UiCard
+      title="Учебный период"
+      description="Контекст ограничивает список нагрузки. Период конкретного назначения можно изменить в боковой панели."
+    >
+      <div class="admin-form-grid admin-form-grid--4">
+        <UiSelect
+          v-model="context.facultyId"
+          label="Факультет"
+          :options="facultyOptions"
+          placeholder="Выберите факультет"
+          :filter="true"
+          filter-placeholder="Поиск факультета"
+          :disabled="loadingBase || assignmentDrawerModel"
+        />
 
-        <strong
-          class="admin-stat__value"
-          style="font-size: 15px;"
-        >
-          {{
-            selectedFaculty?.name ??
-            'Не выбран'
-          }}
-        </strong>
+        <UiSelect
+          v-model="context.studyCourse"
+          label="Курс"
+          :options="COURSE_OPTIONS"
+          :disabled="assignmentDrawerModel"
+        />
+
+        <UiSelect
+          v-model="context.semester"
+          label="Семестр"
+          :options="SEMESTER_OPTIONS"
+          :disabled="assignmentDrawerModel"
+        />
+
+        <UiInput
+          v-model="context.academicYear"
+          label="Учебный год"
+          type="number"
+          min="2000"
+          step="1"
+          placeholder="2026"
+          :disabled="assignmentDrawerModel"
+        />
       </div>
+    </UiCard>
 
+    <section class="admin-summary workload-summary">
       <div class="admin-stat">
         <span class="admin-stat__label">
-          Предметов
+          Назначений
         </span>
-
-        <strong class="admin-stat__value">
-          {{ summary.subjects }}
-        </strong>
-      </div>
-
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Групп
-        </span>
-
-        <strong class="admin-stat__value">
-          {{ summary.groups }}
-        </strong>
-      </div>
-
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Активных назначений
-        </span>
-
         <strong class="admin-stat__value">
           {{ summary.assignments }}
         </strong>
       </div>
+
+      <div class="admin-stat">
+        <span class="admin-stat__label">
+          Активных
+        </span>
+        <strong class="admin-stat__value">
+          {{ summary.active }}
+        </strong>
+      </div>
+
+      <div class="admin-stat">
+        <span class="admin-stat__label">
+          Активных часов / нед.
+        </span>
+        <strong class="admin-stat__value">
+          {{ formatHours(summary.hours) }}
+        </strong>
+      </div>
+
+      <div class="admin-stat">
+        <span class="admin-stat__label">
+          Преподавателей
+        </span>
+        <strong class="admin-stat__value">
+          {{ summary.teachers }}
+        </strong>
+      </div>
     </section>
 
-    <UiCard>
-      <div class="admin-card__header">
-        <div>
-          <h2>Параметры шаблона</h2>
-          <p>
-            Учебный период и факультет определяют область назначений.
-          </p>
-        </div>
-      </div>
-
-      <div class="admin-form-grid admin-form-grid--4">
-        <label class="admin-field">
-          <span>Курс</span>
-
-          <UiSelect
-            v-model="period.studyCourse"
-          >
-            <option
-              v-for="course in 6"
-              :key="course"
-              :value="String(course)"
-            >
-              {{ course }}
-            </option>
-          </UiSelect>
-        </label>
-
-        <label class="admin-field">
-          <span>Семестр</span>
-
-          <UiSelect
-            v-model="period.semester"
-          >
-            <option value="1">
-              1
-            </option>
-
-            <option value="2">
-              2
-            </option>
-          </UiSelect>
-        </label>
-
-        <label class="admin-field">
-          <span>Учебный год</span>
-
-          <UiInput
-            v-model="period.academicYear"
-            type="number"
-            min="2000"
-            step="1"
-            required
-            placeholder="2026"
-          />
-        </label>
-
-        <label class="admin-field">
-          <span>Факультет</span>
-
-          <UiSelect
-            v-model="period.facultyId"
-          >
-            <option value="">
-              Выберите факультет
-            </option>
-
-            <option
-              v-for="faculty in faculties"
-              :key="faculty.id"
-              :value="String(faculty.id)"
-            >
-              {{ faculty.name }}
-            </option>
-          </UiSelect>
-        </label>
-
-        <label class="admin-field">
-          <span>Статус новых назначений</span>
-
-          <UiSelect
-            v-model="period.status"
-          >
-            <option
-              v-for="(label, value) in STATUS_LABELS"
-              :key="value"
-              :value="String(value)"
-            >
-              {{ label }}
-            </option>
-          </UiSelect>
-        </label>
-
-        <label class="admin-field admin-field--wide">
-          <span>Примечание</span>
-
-          <UiTextarea
-            v-model="period.notes"
-          />
-        </label>
-      </div>
-    </UiCard>
-
-    <UiCard>
-      <div class="admin-card__header">
-        <div>
-          <h2>Предметы и преподаватели</h2>
-          <p>
-            Для каждой строки выберите предмет, преподавателя и группы.
-          </p>
-        </div>
-
-        <UiButton
-          type="button"
-          @click="addRow"
+    <UiCard
+      title="Назначения"
+      :description="selectedFaculty ? `Факультет: ${selectedFaculty.name}.` : 'Выберите факультет.'"
+    >
+      <div class="workload-stack">
+        <UiFilterBar
+          v-model="searchQuery"
+          aria-label="Фильтры учебной нагрузки"
+          search-placeholder="Предмет, преподаватель, группа, тип или примечание"
+          :result-text="filterResultText"
+          :reset-disabled="!hasActiveFilters"
+          @reset="resetFilters"
         >
-          + Добавить строку
-        </UiButton>
-      </div>
+          <template #filters>
+            <UiSelect
+              v-model="subjectFilter"
+              :options="assignmentSubjectFilterOptions"
+              aria-label="Фильтр по предмету"
+              size="sm"
+            />
 
-      <div class="admin-grid">
-        <UiCard
-          v-for="(row, index) in rows"
-          :key="row.id"
+            <UiSelect
+              v-model="teacherFilter"
+              :options="assignmentTeacherFilterOptions"
+              aria-label="Фильтр по преподавателю"
+              :filter="true"
+              filter-placeholder="Поиск преподавателя"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="groupFilter"
+              :options="assignmentGroupFilterOptions"
+              aria-label="Фильтр по группе"
+              :filter="true"
+              filter-placeholder="Поиск группы"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="loadTypeFilter"
+              :options="assignmentLoadTypeFilterOptions"
+              aria-label="Фильтр по типу нагрузки"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="statusFilter"
+              :options="assignmentStatusFilterOptions"
+              aria-label="Фильтр по статусу"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="sortMode"
+              :options="SORT_OPTIONS"
+              aria-label="Сортировка нагрузки"
+              size="sm"
+            />
+          </template>
+        </UiFilterBar>
+
+        <UiEmptyState
+          v-if="loadingAssignments || loadingContext"
+          description="Загрузка учебной нагрузки..."
           compact
+        />
+
+        <UiEmptyState
+          v-else-if="!selectedFaculty"
+          description="Выберите факультет, чтобы увидеть учебную нагрузку."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!assignments.length"
+          description="Для выбранного факультета и периода нагрузка ещё не назначена."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!filteredAssignments.length"
+          description="По текущим фильтрам назначения не найдены."
+          compact
+        />
+
+        <div
+          v-else
+          class="workload-grid"
         >
-          <div class="admin-card__header">
-            <div>
-              <h3>
-                Назначение {{ index + 1 }}
-              </h3>
-            </div>
+          <UiCard
+            v-for="assignment in filteredAssignments"
+            :key="assignment.id"
+            compact
+          >
+            <article class="workload-assignment">
+              <div class="workload-assignment__header">
+                <div class="workload-assignment__heading">
+                  <h3>
+                    {{ assignmentSubjectName(assignment) }}
+                  </h3>
 
-            <UiButton
-            variant="danger"
-            size="sm"
-              v-if="rows.length > 1"
-              type="button"
-              @click="removeRow(row.id)"
-            >
-              Удалить
-            </UiButton>
-          </div>
+                  <p>
+                    {{ teacherNameForAssignment(assignment) }}
+                  </p>
+                </div>
 
-          <div class="admin-form-grid">
-            <label class="admin-field">
-              <span>Предмет</span>
+                <div class="workload-assignment__tags">
+                  <UiTag
+                    :variant="statusVariant(assignment.status)"
+                    :value="STATUS_LABELS[Number(assignment.status)] ?? 'Статус'"
+                  />
 
-              <UiSelect
-                v-model="row.subjectId"
-                @change="normalizeRow(row)"
+                  <UiTag
+                    variant="info"
+                    :value="loadTypeName(assignment.loadTypeId)"
+                  />
+                </div>
+              </div>
+
+              <dl class="workload-assignment__meta">
+                <div>
+                  <dt>Группа</dt>
+                  <dd>{{ groupName(assignment.groupId) }}</dd>
+                </div>
+
+                <div>
+                  <dt>Часы в неделю</dt>
+                  <dd>{{ formatHours(assignment.hoursPerWeek) }}</dd>
+                </div>
+
+                <div>
+                  <dt>Период</dt>
+                  <dd>{{ assignmentPeriodLabel(assignment) }}</dd>
+                </div>
+
+                <div>
+                  <dt>Версия курса</dt>
+                  <dd>
+                    {{ assignment.courseVersionId ? 'Привязана' : 'Не выбрана' }}
+                  </dd>
+                </div>
+              </dl>
+
+              <p
+                v-if="assignment.notes"
+                class="workload-assignment__notes"
               >
-                <option value="">
-                  Выберите предмет
-                </option>
+                {{ assignment.notes }}
+              </p>
 
-                <option
-                  v-for="subject in facultySubjects"
-                  :key="subject.id"
-                  :value="String(subject.id)"
-                >
-                  {{ subject.name }}
-                </option>
-              </UiSelect>
-            </label>
-
-            <label class="admin-field">
-              <span>Преподаватель</span>
-
-              <UiSelect
-                v-model="row.teacherMembershipId"
-                :disabled="!row.subjectId"
-              >
-                <option value="">
-                  Выберите преподавателя
-                </option>
-
-                <option
-                  v-for="
-                    membership in
-                    teachersForSubject(
-                      row.subjectId
-                    )
-                  "
-                  :key="membership.id"
-                  :value="String(membership.id)"
-                >
-                  {{
-                    personLabel(
-                      membership.personId
-                    )
-                  }}
-                </option>
-              </UiSelect>
-            </label>
-
-            <div class="admin-field admin-field--wide">
-              <span>Группы</span>
-
-              <UiEmptyState
-                v-if="!groups.length"
-                description="Для факультета нет групп."
-                compact
-              />
-
-              <div
-                v-else
-                class="admin-checkbox-list"
-              >
-                <UiCheckbox
-                  mode="multiple"
-                  v-for="group in groups"
-                  :key="group.id"
-                  v-model="row.groupIds"
-                  :value="group.id"
-                  :label="group.name"
-                  :description="
-                    group.code ??
-                    `#${group.id}`
-                  "
+              <div class="workload-assignment__actions">
+                <UiButton
+                  variant="secondary"
+                  size="sm"
+                  icon="pi pi-pencil"
+                  label="Изменить"
+                  @click="openEditAssignment(assignment)"
                 />
               </div>
-            </div>
+            </article>
+          </UiCard>
+        </div>
+      </div>
+    </UiCard>
+
+    <UiDrawer
+      v-model="assignmentDrawerModel"
+      :title="assignmentDrawerTitle"
+      width="48rem"
+    >
+      <div class="workload-drawer">
+        <UiAlert
+          v-if="assignmentFormError"
+          variant="danger"
+          :message="assignmentFormError"
+        />
+
+        <UiAlert
+          v-if="!loadTypes.length"
+          variant="warning"
+          message="Сначала создайте хотя бы один тип нагрузки через действие «Типы нагрузки»."
+        />
+
+        <UiCard
+          title="Назначение"
+          description="Преподаватель выбирается среди активных назначений на выбранный предмет."
+          compact
+        >
+          <div class="admin-form-grid">
+            <UiSelect
+              v-model="assignmentForm.subjectId"
+              label="Предмет"
+              :options="subjectOptions"
+              placeholder="Выберите предмет"
+              :filter="true"
+              filter-placeholder="Поиск предмета"
+              required
+              :disabled="assignmentSaving"
+              @change="onAssignmentSubjectChange"
+            />
+
+            <UiSelect
+              v-model="assignmentForm.subjectMembershipId"
+              label="Преподаватель"
+              :options="teacherOptionsForForm"
+              placeholder="Выберите преподавателя"
+              :filter="true"
+              filter-placeholder="Поиск по ФИО или email"
+              required
+              :disabled="assignmentSaving || !assignmentForm.subjectId"
+              @change="onAssignmentTeacherChange"
+            />
+
+            <UiSelect
+              v-model="assignmentForm.loadTypeId"
+              label="Тип нагрузки"
+              :options="loadTypeOptions"
+              placeholder="Выберите тип нагрузки"
+              :filter="true"
+              filter-placeholder="Поиск типа"
+              required
+              :disabled="assignmentSaving || !loadTypes.length"
+            />
+
+            <UiInput
+              v-model="assignmentForm.hoursPerWeek"
+              label="Часы в неделю"
+              type="number"
+              min="0"
+              :max="MAX_HOURS_PER_WEEK"
+              step="0.25"
+              placeholder="2.00"
+              required
+              :disabled="assignmentSaving"
+            />
+
+            <UiSelect
+              v-model="assignmentForm.courseVersionId"
+              label="Версия курса"
+              :options="courseVersionOptions"
+              placeholder="Без версии курса"
+              :filter="true"
+              filter-placeholder="Поиск версии"
+              :disabled="assignmentSaving || loadingCourseVersions || !assignmentForm.subjectMembershipId"
+              hint="Необязательно. Показываются версии курса выбранного преподавателя по этому предмету."
+            />
+
+            <UiSelect
+              v-model="assignmentForm.status"
+              label="Статус"
+              :options="STATUS_OPTIONS"
+              required
+              :disabled="assignmentSaving"
+            />
           </div>
         </UiCard>
-      </div>
 
-      <div
-        class="admin-actions admin-actions--end admin-actions--mobile-stack"
-        style="margin-top: 16px;"
-      >
-        <UiButton
-            variant="primary"
-          type="button"
-          :disabled="saving || loading"
-          @click="assignGroups"
+        <UiCard
+          title="Учебный период"
+          description="Изменение периода у существующего назначения может переместить его из текущего списка."
+          compact
         >
-          {{
-            saving
-              ? 'Сохранение...'
-              : 'Создать назначения'
-          }}
-        </UiButton>
-      </div>
-    </UiCard>
+          <div class="admin-form-grid admin-form-grid--3">
+            <UiSelect
+              v-model="assignmentForm.studyCourse"
+              label="Курс"
+              :options="COURSE_OPTIONS"
+              required
+              :disabled="assignmentSaving"
+            />
 
-    <UiCard>
-      <div class="admin-card__header">
-        <div>
-          <h2>Текущие назначения</h2>
+            <UiSelect
+              v-model="assignmentForm.semester"
+              label="Семестр"
+              :options="SEMESTER_OPTIONS"
+              required
+              :disabled="assignmentSaving"
+            />
 
-          <p>
-            {{
-              period.academicYear
-            }},
-            курс
-            {{ period.studyCourse }},
-            семестр
-            {{ period.semester }}
-          </p>
-        </div>
+            <UiInput
+              v-model="assignmentForm.academicYear"
+              label="Учебный год"
+              type="number"
+              min="2000"
+              step="1"
+              required
+              :disabled="assignmentSaving"
+            />
+          </div>
+        </UiCard>
 
-        <UiButton
-          type="button"
-          @click="refreshAssignments"
+        <UiCard
+          v-if="assignmentIsCreate"
+          title="Группы"
+          description="Можно создать одинаковую нагрузку сразу для нескольких групп факультета."
+          compact
         >
-          Обновить
-        </UiButton>
-      </div>
+          <UiInput
+            v-model="groupSearchQuery"
+            label="Поиск группы"
+            placeholder="Название или код группы"
+            :disabled="assignmentSaving"
+          />
 
-      <AdminTable
-        :columns="assignmentColumns"
-        :rows="assignments"
-        empty-message="Назначения для выбранного периода не найдены."
-        :default-sort="{
-          key: 'subject',
-          direction: 'asc',
-        }"
-      >
-        <template #cell-teacher="{ row }">
-          <UiSelect
-            v-model="row.subjectMembershipId"
+          <div
+            v-if="filteredGroupsForCreate.length"
+            class="workload-group-picker"
           >
-            <option
-              v-for="
-                membership in
-                teachersForAssignment(
-                  row
+            <UiCheckbox
+              v-for="group in filteredGroupsForCreate"
+              :key="group.id"
+              v-model="assignmentForm.groupIds"
+              mode="multiple"
+              :value="group.id"
+              :label="group.name"
+              :description="
+                groupHasConflict(group.id)
+                  ? groupConflictDescription(group.id)
+                  : group.code || 'Доступна для назначения'
+              "
+              :disabled="
+                assignmentSaving ||
+                (
+                  groupHasConflict(group.id) &&
+                  !assignmentForm.groupIds.includes(group.id)
                 )
               "
-              :key="membership.id"
-              :value="membership.id"
-            >
-              {{
-                personLabel(
-                  membership.personId
-                )
-              }}
-            </option>
-          </UiSelect>
-        </template>
+            />
+          </div>
 
-        <template #cell-status="{ row }">
-          <UiSelect
-            v-model="row.status"
-          >
-            <option
-              v-for="(label, value) in STATUS_LABELS"
-              :key="value"
-              :value="Number(value)"
-            >
-              {{ label }}
-            </option>
-          </UiSelect>
-        </template>
-
-        <template #cell-notes="{ row }">
-          <UiInput
-            v-model="row.notes"
+          <UiEmptyState
+            v-else
+            description="Группы по поиску не найдены."
+            compact
           />
-        </template>
+        </UiCard>
 
-        <template #cell-actions="{ row }">
+        <UiCard
+          v-else
+          title="Группа"
+          description="Для одного существующего назначения выбирается одна группа."
+          compact
+        >
+          <UiSelect
+            v-model="assignmentForm.groupId"
+            label="Группа"
+            :options="groupOptions"
+            placeholder="Выберите группу"
+            :filter="true"
+            filter-placeholder="Поиск группы"
+            required
+            :disabled="assignmentSaving"
+          />
+        </UiCard>
+
+        <UiTextarea
+          v-model="assignmentForm.notes"
+          label="Примечание"
+          maxlength="1000"
+          placeholder="Необязательное примечание к нагрузке"
+          :disabled="assignmentSaving"
+        />
+      </div>
+
+      <template #footer>
+        <div class="workload-drawer__footer">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="assignmentSaving"
+            @click="requestCloseAssignmentDrawer"
+          />
+
           <UiButton
             variant="primary"
-            size="sm"
-            type="button"
-            :disabled="saving"
-            @click="saveAssignment(row)"
-          >
-            Сохранить
-          </UiButton>
-        </template>
-      </AdminTable>
-    </UiCard>
+            :label="assignmentIsCreate ? 'Создать нагрузку' : 'Сохранить изменения'"
+            :loading="assignmentSaving"
+            loading-text="Сохранение..."
+            :disabled="assignmentSaving || !loadTypes.length"
+            @click="saveAssignment"
+          />
+        </div>
+      </template>
+    </UiDrawer>
+
+    <UiUnsavedChangesConfirm
+      v-model="assignmentCloseConfirmVisible"
+      :busy="assignmentSaving"
+      @continue="continueAssignmentEditing"
+      @discard="discardAssignmentAndClose"
+    />
+
+    <UiDialog
+      v-model="loadTypeDialogModel"
+      :title="loadTypeDialogTitle"
+      width="52rem"
+    >
+      <div class="load-type-manager">
+        <UiAlert
+          v-if="loadTypeFormError"
+          variant="danger"
+          :message="loadTypeFormError"
+        />
+
+        <div class="load-type-manager__toolbar">
+          <UiInput
+            v-model="loadTypeSearchQuery"
+            label="Поиск"
+            placeholder="Название или описание"
+          />
+
+          <UiButton
+            variant="secondary"
+            icon="pi pi-plus"
+            label="Новый тип"
+            :disabled="loadTypeSaving"
+            @click="startNewLoadType"
+          />
+        </div>
+
+        <div class="load-type-manager__layout">
+          <section class="load-type-manager__list">
+            <UiEmptyState
+              v-if="!filteredLoadTypes.length"
+              description="Типы нагрузки не найдены."
+              compact
+            />
+
+            <template v-else>
+              <button
+                v-for="loadType in filteredLoadTypes"
+                :key="loadType.id"
+                type="button"
+                class="load-type-item"
+                :class="{
+                  'load-type-item--active':
+                    Number(loadTypeForm.id) === Number(loadType.id),
+                }"
+                :disabled="loadTypeSaving"
+                @click="editLoadType(loadType)"
+              >
+                <strong>{{ loadType.name }}</strong>
+                <span>{{ loadType.description || 'Без описания' }}</span>
+              </button>
+            </template>
+          </section>
+
+          <section class="load-type-manager__editor">
+            <h3>{{ loadTypeEditorTitle }}</h3>
+
+            <UiInput
+              v-model="loadTypeForm.name"
+              label="Название"
+              maxlength="100"
+              required
+              :disabled="loadTypeSaving"
+            />
+
+            <UiTextarea
+              v-model="loadTypeForm.description"
+              label="Описание"
+              maxlength="1000"
+              placeholder="Необязательное описание"
+              :disabled="loadTypeSaving"
+            />
+
+            <p class="load-type-manager__hint">
+              Тип нагрузки нельзя удалить через текущий backend API, но его название и описание можно изменить.
+            </p>
+
+            <div class="admin-actions admin-actions--end admin-actions--mobile-stack">
+              <UiButton
+                v-if="loadTypeDirty"
+                variant="secondary"
+                label="Отменить изменения"
+                :disabled="loadTypeSaving"
+                @click="cancelLoadTypeChanges"
+              />
+
+              <UiButton
+                variant="primary"
+                :label="loadTypeIsCreate ? 'Создать тип' : 'Сохранить тип'"
+                :loading="loadTypeSaving"
+                loading-text="Сохранение..."
+                :disabled="loadTypeSaving"
+                @click="saveLoadType"
+              />
+            </div>
+          </section>
+        </div>
+      </div>
+    </UiDialog>
+
+    <UiUnsavedChangesConfirm
+      v-model="loadTypeCloseConfirmVisible"
+      :busy="loadTypeSaving"
+      @continue="continueLoadTypeEditing"
+      @discard="discardLoadTypeAndClose"
+    />
   </AdminPageShell>
 </template>
+
+<style scoped>
+.workload-stack,
+.workload-drawer,
+.load-type-manager {
+  display: grid;
+  gap: 16px;
+}
+
+.workload-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(330px, 1fr)
+  );
+  gap: 12px;
+}
+
+.workload-assignment {
+  min-width: 0;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.workload-assignment__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workload-assignment__heading {
+  min-width: 0;
+}
+
+.workload-assignment__heading h3,
+.workload-assignment__heading p {
+  margin: 0;
+}
+
+.workload-assignment__heading h3 {
+  color: var(--st-text);
+
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.workload-assignment__heading p {
+  margin-top: 4px;
+
+  color: var(--st-text-secondary);
+
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.workload-assignment__tags {
+  max-width: 50%;
+
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workload-assignment__meta {
+  margin: 0;
+
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workload-assignment__meta > div {
+  min-width: 0;
+  padding: 10px;
+
+  display: grid;
+  gap: 3px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 9px;
+}
+
+.workload-assignment__meta dt {
+  color: var(--st-text-secondary);
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.workload-assignment__meta dd {
+  margin: 0;
+
+  color: var(--st-text);
+
+  overflow-wrap: anywhere;
+
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.workload-assignment__notes {
+  margin: 0;
+  padding: 10px 12px;
+
+  color: var(--st-text-secondary);
+  background: var(--st-surface-muted);
+  border-radius: 9px;
+
+  overflow-wrap: anywhere;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.workload-assignment__actions {
+  margin-top: auto;
+
+  display: flex;
+  justify-content: flex-end;
+}
+
+.workload-group-picker {
+  max-height: 360px;
+  overflow-y: auto;
+
+  margin-top: 12px;
+
+  display: grid;
+  gap: 7px;
+}
+
+.workload-drawer__footer {
+  width: 100%;
+
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.load-type-manager__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.load-type-manager__layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+}
+
+.load-type-manager__list,
+.load-type-manager__editor {
+  min-width: 0;
+
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.load-type-manager__list {
+  max-height: 430px;
+  overflow-y: auto;
+}
+
+.load-type-manager__editor {
+  padding: 14px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+}
+
+.load-type-manager__editor h3 {
+  margin: 0 0 2px;
+
+  color: var(--st-text);
+
+  font-size: 16px;
+}
+
+.load-type-item {
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+
+  color: var(--st-text);
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: 9px;
+
+  display: grid;
+  gap: 4px;
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.load-type-item:hover,
+.load-type-item--active {
+  border-color: var(--st-primary);
+}
+
+.load-type-item strong {
+  font-size: 13px;
+}
+
+.load-type-item span,
+.load-type-manager__hint {
+  color: var(--st-text-secondary);
+
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.load-type-manager__hint {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .load-type-manager__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .load-type-manager__list {
+    max-height: 240px;
+  }
+}
+
+@media (max-width: 640px) {
+  .workload-grid,
+  .workload-assignment__meta,
+  .load-type-manager__toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .workload-assignment__header {
+    flex-direction: column;
+  }
+
+  .workload-assignment__tags {
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .workload-assignment__actions,
+  .workload-assignment__actions > *,
+  .workload-drawer__footer,
+  .workload-drawer__footer > * {
+    width: 100%;
+  }
+
+  .workload-drawer__footer {
+    flex-direction: column-reverse;
+  }
+}
+</style>

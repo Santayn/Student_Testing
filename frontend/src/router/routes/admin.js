@@ -40,6 +40,21 @@ export const adminRoutes = [
   },
 
   {
+    path: '/admin/roles',
+    name: 'admin-roles',
+
+    component: () =>
+      import(
+        '@/views/admin/RolesPermissionsView.vue'
+      ),
+
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_ROLES,
+      'admin-roles'
+    ),
+  },
+
+  {
     path: '/admin/faculties',
     name: 'admin-faculties',
 

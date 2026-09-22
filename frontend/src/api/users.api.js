@@ -29,4 +29,13 @@ export const usersApi = {
       }
     )
   },
+
+  setActive(userId, active) {
+    return http.put(
+      `/users/${userId}/active`,
+      {
+        active: Boolean(active),
+      }
+    )
+  },
 }

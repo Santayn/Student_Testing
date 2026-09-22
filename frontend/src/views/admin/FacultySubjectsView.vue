@@ -10,11 +10,14 @@ import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
 import {
+  UiAlert,
   UiButton,
   UiCard,
-  UiCheckbox,
+  UiDialog,
   UiEmptyState,
+  UiFilterBar,
   UiSelect,
+  UiTag,
 } from '@/components/ui'
 
 import {
@@ -25,11 +28,7 @@ import {
 
 import {
   listFromResponse,
-  uniqueNumbers,
 } from '@/utils/apiData'
-import {
-  runBatchOperation,
-} from '@/utils/batchOperation'
 
 import {
   createLatestRequestGuard,
@@ -40,12 +39,16 @@ const subjects = ref([])
 const assignedSubjects = ref([])
 
 const facultyId = ref('')
-const addSelection = ref([])
-const removeSelection = ref([])
+const searchQuery = ref('')
+const sortMode = ref('name-asc')
 
 const loadingBase = ref(false)
 const loadingAssigned = ref(false)
-const saving = ref(false)
+const mutatingSubjectId = ref(null)
+
+const removeTarget = ref(null)
+const removeConfirmVisible = ref(false)
+const removeError = ref('')
 
 const assignedSubjectsRequest =
   createLatestRequestGuard()
@@ -57,9 +60,34 @@ const loading = computed(() => {
   )
 })
 
+const saving = computed(() => {
+  return mutatingSubjectId.value !== null
+})
+
 const notice = ref({
   type: 'info',
   message: '',
+})
+
+const facultyOptions = computed(() => {
+  return faculties.value
+    .map((faculty) => ({
+      value: String(faculty.id),
+      label: faculty.code
+        ? `${faculty.name} (${faculty.code})`
+        : faculty.name,
+    }))
+    .sort((left, right) =>
+      left.label.localeCompare(right.label, 'ru')
+    )
+})
+
+const selectedFaculty = computed(() => {
+  return faculties.value.find(
+    (item) =>
+      Number(item.id) ===
+      Number(facultyId.value)
+  ) ?? null
 })
 
 const assignedIds = computed(() => {
@@ -79,13 +107,87 @@ const availableSubjects = computed(() => {
   )
 })
 
-const selectedFaculty = computed(() => {
-  return faculties.value.find(
-    (item) =>
-      Number(item.id) ===
-      Number(facultyId.value)
+const hasActiveFilters = computed(() => {
+  return Boolean(searchQuery.value.trim()) ||
+    sortMode.value !== 'name-asc'
+})
+
+const filteredAssignedSubjects = computed(() => {
+  return filterAndSortSubjects(
+    assignedSubjects.value
   )
 })
+
+const filteredAvailableSubjects = computed(() => {
+  return filterAndSortSubjects(
+    availableSubjects.value
+  )
+})
+
+const filterResultText = computed(() => {
+  return (
+    `Назначено: ${filteredAssignedSubjects.value.length} из ${assignedSubjects.value.length}. ` +
+    `Доступно: ${filteredAvailableSubjects.value.length} из ${availableSubjects.value.length}.`
+  )
+})
+
+const sortOptions = [
+  {
+    value: 'name-asc',
+    label: 'Название А–Я',
+  },
+  {
+    value: 'name-desc',
+    label: 'Название Я–А',
+  },
+]
+
+function normalizedSearch() {
+  return searchQuery.value
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+}
+
+function subjectMatchesSearch(subject, query) {
+  if (!query) {
+    return true
+  }
+
+  return [
+    subject?.name,
+    subject?.description,
+  ]
+    .filter((value) => value !== null && value !== undefined)
+    .join(' ')
+    .toLocaleLowerCase('ru-RU')
+    .includes(query)
+}
+
+function filterAndSortSubjects(source) {
+  const query = normalizedSearch()
+
+  const result = source.filter(
+    (subject) => subjectMatchesSearch(subject, query)
+  )
+
+  return [...result].sort((left, right) => {
+    const comparison = String(
+      left?.name ?? ''
+    ).localeCompare(
+      String(right?.name ?? ''),
+      'ru'
+    )
+
+    return sortMode.value === 'name-desc'
+      ? -comparison
+      : comparison
+  })
+}
+
+function resetFilters() {
+  searchQuery.value = ''
+  sortMode.value = 'name-asc'
+}
 
 function showNotice(type, message) {
   notice.value = {
@@ -96,6 +198,52 @@ function showNotice(type, message) {
 
 function clearNotice() {
   notice.value.message = ''
+}
+
+function relationErrorMessage(error, fallback) {
+  const message = getApiErrorMessage(
+    error,
+    fallback
+  )
+
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes(
+      'subject is already linked to faculty'
+    )
+  ) {
+    return 'Этот предмет уже назначен факультету.'
+  }
+
+  if (
+    normalized.includes(
+      'teaching assignments exist'
+    )
+  ) {
+    return (
+      'Нельзя убрать предмет: он уже используется ' +
+      'в учебной нагрузке этого факультета.'
+    )
+  }
+
+  return message
+}
+
+function closeRemoveConfirm() {
+  if (saving.value) {
+    return
+  }
+
+  removeConfirmVisible.value = false
+  removeTarget.value = null
+  removeError.value = ''
+}
+
+function requestRemoveSubject(subject) {
+  removeTarget.value = subject
+  removeError.value = ''
+  removeConfirmVisible.value = true
 }
 
 async function loadBaseData() {
@@ -110,23 +258,23 @@ async function loadBaseData() {
       subjectsApi.getAll(),
     ])
 
-    faculties.value =
-      listFromResponse(
-        facultiesResponse
+    faculties.value = listFromResponse(
+      facultiesResponse
+    ).sort((left, right) =>
+      String(left?.name ?? '').localeCompare(
+        String(right?.name ?? ''),
+        'ru'
       )
+    )
 
-    subjects.value =
-      listFromResponse(
-        subjectsResponse
-      ).sort(
-        (a, b) =>
-          String(
-            a.name ?? ''
-          ).localeCompare(
-            String(b.name ?? ''),
-            'ru'
-          )
+    subjects.value = listFromResponse(
+      subjectsResponse
+    ).sort((left, right) =>
+      String(left?.name ?? '').localeCompare(
+        String(right?.name ?? ''),
+        'ru'
       )
+    )
 
     if (
       !facultyId.value &&
@@ -141,7 +289,7 @@ async function loadBaseData() {
       'error',
       getApiErrorMessage(
         error,
-        'Не удалось загрузить справочники'
+        'Не удалось загрузить факультеты и предметы.'
       )
     )
   } finally {
@@ -156,13 +304,10 @@ async function loadAssignedSubjects() {
   const requestedFacultyId =
     Number(facultyId.value)
 
-  addSelection.value = []
-  removeSelection.value = []
+  closeRemoveConfirm()
 
   if (
-    !Number.isInteger(
-      requestedFacultyId
-    ) ||
+    !Number.isInteger(requestedFacultyId) ||
     requestedFacultyId <= 0
   ) {
     assignedSubjects.value = []
@@ -187,15 +332,7 @@ async function loadAssignedSubjects() {
     }
 
     assignedSubjects.value =
-      listFromResponse(response).sort(
-        (a, b) =>
-          String(
-            a.name ?? ''
-          ).localeCompare(
-            String(b.name ?? ''),
-            'ru'
-          )
-      )
+      listFromResponse(response)
   } catch (error) {
     if (
       !assignedSubjectsRequest.isCurrent(
@@ -205,11 +342,13 @@ async function loadAssignedSubjects() {
       return
     }
 
+    assignedSubjects.value = []
+
     showNotice(
       'error',
       getApiErrorMessage(
         error,
-        'Не удалось загрузить предметы факультета'
+        'Не удалось загрузить предметы факультета.'
       )
     )
   } finally {
@@ -223,45 +362,30 @@ async function loadAssignedSubjects() {
   }
 }
 
-async function addSubjects() {
-  const ids = uniqueNumbers(
-    addSelection.value
-  )
+async function addSubject(subject) {
   const targetFacultyId =
     Number(facultyId.value)
 
+  const subjectId = Number(subject?.id)
+
   if (
-    !Number.isInteger(
-      targetFacultyId
-    ) ||
+    saving.value ||
+    !Number.isInteger(targetFacultyId) ||
     targetFacultyId <= 0 ||
-    !ids.length
+    !Number.isInteger(subjectId) ||
+    subjectId <= 0
   ) {
     return
   }
 
-  saving.value = true
+  mutatingSubjectId.value = subjectId
+  clearNotice()
 
   try {
-    const result =
-      await runBatchOperation(
-        ids,
-        (subjectId) =>
-          facultiesApi.addSubject(
+    await facultiesApi.addSubject(
             targetFacultyId,
             subjectId
           )
-      )
-
-    const errorDetails = result.failures
-      .map(({ error }) =>
-        getApiErrorMessage(
-          error,
-          'Ошибка добавления предмета'
-        )
-      )
-      .slice(0, 3)
-      .join(' | ')
 
     if (
       Number(facultyId.value) !==
@@ -271,64 +395,59 @@ async function addSubjects() {
     }
 
     showNotice(
-      result.failureCount
-        ? result.successCount
-          ? 'warning'
-          : 'error'
-        : 'success',
-      result.failureCount
-        ? `Добавлено: ${result.successCount}. Не удалось добавить: ${result.failureCount}.` +
-            (errorDetails
-              ? ` ${errorDetails}`
-              : '')
-        : `Добавлено предметов: ${result.successCount}.`
+      'success',
+      `Предмет «${subject.name}» добавлен факультету.`
     )
 
     await loadAssignedSubjects()
+  } catch (error) {
+    if (
+      Number(facultyId.value) !==
+      targetFacultyId
+    ) {
+      return
+    }
+
+    showNotice(
+      'error',
+      relationErrorMessage(
+        error,
+        'Не удалось добавить предмет факультету.'
+      )
+    )
   } finally {
-    saving.value = false
+    if (mutatingSubjectId.value === subjectId) {
+      mutatingSubjectId.value = null
+    }
   }
 }
 
-async function removeSubjects() {
-  const ids = uniqueNumbers(
-    removeSelection.value
-  )
+async function removeSubject() {
   const targetFacultyId =
     Number(facultyId.value)
 
+  const target = removeTarget.value
+  const subjectId = Number(target?.id)
+
   if (
-    !Number.isInteger(
-      targetFacultyId
-    ) ||
+    saving.value ||
+    !Number.isInteger(targetFacultyId) ||
     targetFacultyId <= 0 ||
-    !ids.length
+    !Number.isInteger(subjectId) ||
+    subjectId <= 0
   ) {
     return
   }
 
-  saving.value = true
+  mutatingSubjectId.value = subjectId
+  removeError.value = ''
+  clearNotice()
 
   try {
-    const result =
-      await runBatchOperation(
-        ids,
-        (subjectId) =>
-          facultiesApi.removeSubject(
+    await facultiesApi.removeSubject(
             targetFacultyId,
             subjectId
           )
-      )
-
-    const errorDetails = result.failures
-      .map(({ error }) =>
-        getApiErrorMessage(
-          error,
-          'Ошибка удаления предмета'
-        )
-      )
-      .slice(0, 3)
-      .join(' | ')
 
     if (
       Number(facultyId.value) !==
@@ -337,23 +456,32 @@ async function removeSubjects() {
       return
     }
 
+    removeConfirmVisible.value = false
+    removeTarget.value = null
+
     showNotice(
-      result.failureCount
-        ? result.successCount
-          ? 'warning'
-          : 'error'
-        : 'success',
-      result.failureCount
-        ? `Удалено: ${result.successCount}. Не удалось удалить: ${result.failureCount}.` +
-            (errorDetails
-              ? ` ${errorDetails}`
-              : '')
-        : `Удалено предметов: ${result.successCount}.`
+      'success',
+      `Предмет «${target.name}» больше не связан с факультетом.`
     )
 
     await loadAssignedSubjects()
+  } catch (error) {
+    if (
+      Number(facultyId.value) !==
+      targetFacultyId
+    ) {
+      return
+    }
+
+    removeError.value =
+      relationErrorMessage(
+        error,
+        'Не удалось убрать предмет из факультета.'
+      )
   } finally {
-    saving.value = false
+    if (mutatingSubjectId.value === subjectId) {
+      mutatingSubjectId.value = null
+    }
   }
 }
 
@@ -368,7 +496,7 @@ onMounted(loadBaseData)
 <template>
   <AdminPageShell
     title="Предметы факультетов"
-    description="Настройка списка предметов, доступных конкретному факультету."
+    description="Управляйте предметами, которые доступны выбранному факультету."
   >
     <AdminNotice
       :type="notice.type"
@@ -376,154 +504,360 @@ onMounted(loadBaseData)
       @close="clearNotice"
     />
 
-    <UiCard>
-      <label class="admin-field">
+    <UiCard
+      title="Факультет"
+      description="Выберите факультет, для которого нужно настроить список предметов."
+    >
+      <label class="faculty-subjects__faculty-field">
         <span>Факультет</span>
 
         <UiSelect
           v-model="facultyId"
           :disabled="loading || saving"
-        >
-          <option value="">
-            Выберите факультет
-          </option>
-
-          <option
-            v-for="faculty in faculties"
-            :key="faculty.id"
-            :value="String(faculty.id)"
-          >
-            {{ faculty.name }}
-          </option>
-        </UiSelect>
+          :options="facultyOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="Выберите факультет"
+        />
       </label>
 
       <div
         v-if="selectedFaculty"
-        class="admin-chip-list"
-        style="margin-top: 12px;"
+        class="faculty-subjects__context"
       >
-        <span class="admin-chip">
-          {{
-            selectedFaculty.code ??
-            'Без кода'
-          }}
-        </span>
+        <UiTag
+          v-if="selectedFaculty.code"
+          :value="selectedFaculty.code"
+        />
 
-        <span class="admin-chip">
-          Назначено:
-          {{ assignedSubjects.length }}
-        </span>
+        <UiTag
+          variant="info"
+          :value="`Назначено предметов: ${assignedSubjects.length}`"
+        />
       </div>
+
+      <UiEmptyState
+        v-else-if="!loadingBase && !faculties.length"
+        description="Факультеты ещё не созданы. Сначала добавьте факультет."
+        compact
+      />
     </UiCard>
 
-    <section
-      v-if="facultyId"
-      class="admin-grid admin-grid--2"
-    >
-      <UiCard>
-        <div class="admin-card__header">
-          <div>
-            <h2>Доступные предметы</h2>
-            <p>
-              Не назначены выбранному факультету.
-            </p>
-          </div>
-        </div>
-
-        <UiEmptyState
-          v-if="!availableSubjects.length"
-          description="Нет доступных предметов."
-          compact
-        />
-
-        <div
-          v-else
-          class="admin-checkbox-list"
-        >
-          <UiCheckbox
-            mode="multiple"
-            v-for="subject in availableSubjects"
-            :key="subject.id"
-            v-model="addSelection"
-            :value="subject.id"
-            :label="subject.name"
-            :description="
-              subject.description ??
-              `Предмет #${subject.id}`
-            "
+    <template v-if="selectedFaculty">
+      <UiFilterBar
+        v-model="searchQuery"
+        aria-label="Фильтры предметов факультета"
+        search-placeholder="Поиск по названию или описанию"
+        :result-text="filterResultText"
+        :reset-disabled="!hasActiveFilters"
+        @reset="resetFilters"
+      >
+        <template #filters>
+          <UiSelect
+            v-model="sortMode"
+            :options="sortOptions"
+            option-label="label"
+            option-value="value"
+            aria-label="Сортировка предметов"
           />
-        </div>
+        </template>
+      </UiFilterBar>
 
-        <div
-          class="admin-actions admin-actions--mobile-stack"
-          style="margin-top: 14px;"
+      <div class="faculty-subjects__columns">
+        <UiCard
+          title="Назначенные предметы"
+          description="Предметы, которые уже доступны этому факультету."
         >
-          <UiButton
-            variant="primary"
-            type="button"
-            :disabled="
-              saving ||
-              !addSelection.length
-            "
-            @click="addSubjects"
+          <UiEmptyState
+            v-if="loadingAssigned"
+            description="Загрузка предметов факультета..."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!assignedSubjects.length"
+            description="Факультету пока не назначено ни одного предмета."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!filteredAssignedSubjects.length"
+            description="Среди назначенных предметов ничего не найдено."
+            compact
+          />
+
+          <div
+            v-else
+            class="faculty-subjects__list"
           >
-            Добавить выбранные
-          </UiButton>
-        </div>
-      </UiCard>
+            <article
+              v-for="subject in filteredAssignedSubjects"
+              :key="subject.id"
+              class="faculty-subjects__item"
+            >
+              <div class="faculty-subjects__item-copy">
+                <h3>{{ subject.name }}</h3>
 
-      <UiCard>
-        <div class="admin-card__header">
-          <div>
-            <h2>Назначенные предметы</h2>
-            <p>
-              Уже доступны факультету.
-            </p>
+                <p>
+                  {{
+                    subject.description ||
+                    'Описание не указано.'
+                  }}
+                </p>
+              </div>
+
+              <UiButton
+                variant="danger"
+                size="sm"
+                label="Убрать"
+                icon="pi pi-times"
+                :loading="mutatingSubjectId === Number(subject.id)"
+                loading-text="Удаление..."
+                :disabled="saving"
+                @click="requestRemoveSubject(subject)"
+              />
+            </article>
           </div>
-        </div>
+        </UiCard>
 
-        <UiEmptyState
-          v-if="!assignedSubjects.length"
-          description="Предметы ещё не назначены."
-          compact
+        <UiCard
+          title="Доступные предметы"
+          description="Предметы из справочника, которые ещё не связаны с факультетом."
+        >
+          <UiEmptyState
+            v-if="loadingAssigned"
+            description="Загрузка доступных предметов..."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!subjects.length"
+            description="В справочнике пока нет предметов."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!availableSubjects.length"
+            description="Все предметы уже назначены этому факультету."
+            compact
+          />
+
+          <UiEmptyState
+            v-else-if="!filteredAvailableSubjects.length"
+            description="Среди доступных предметов ничего не найдено."
+            compact
+          />
+
+          <div
+            v-else
+            class="faculty-subjects__list"
+          >
+            <article
+              v-for="subject in filteredAvailableSubjects"
+              :key="subject.id"
+              class="faculty-subjects__item"
+            >
+              <div class="faculty-subjects__item-copy">
+                <h3>{{ subject.name }}</h3>
+
+                <p>
+                  {{
+                    subject.description ||
+                    'Описание не указано.'
+                  }}
+                </p>
+              </div>
+
+              <UiButton
+                variant="primary"
+                size="sm"
+                label="Добавить"
+                icon="pi pi-plus"
+                :loading="mutatingSubjectId === Number(subject.id)"
+                loading-text="Добавление..."
+                :disabled="saving"
+                @click="addSubject(subject)"
+              />
+            </article>
+          </div>
+        </UiCard>
+      </div>
+    </template>
+
+    <UiDialog
+      v-model="removeConfirmVisible"
+      title="Убрать предмет из факультета?"
+      width="30rem"
+      :closable="!saving"
+      :close-on-escape="!saving"
+      @update:model-value="(visible) => {
+        if (!visible) closeRemoveConfirm()
+      }"
+    >
+      <div class="faculty-subjects__confirm">
+        <p>
+          Предмет
+          <strong>«{{ removeTarget?.name }}»</strong>
+          перестанет быть связан с факультетом
+          <strong>«{{ selectedFaculty?.name }}»</strong>.
+        </p>
+
+        <UiAlert
+          variant="warning"
+          message="Если предмет уже используется в учебной нагрузке, удалить эту связь не получится."
         />
 
-        <div
-          v-else
-          class="admin-checkbox-list"
-        >
-          <UiCheckbox
-            mode="multiple"
-            v-for="subject in assignedSubjects"
-            :key="subject.id"
-            v-model="removeSelection"
-            :value="subject.id"
-            :label="subject.name"
-            :description="
-              subject.description ??
-              `Предмет #${subject.id}`
-            "
-          />
-        </div>
+        <UiAlert
+          v-if="removeError"
+          variant="danger"
+          :message="removeError"
+        />
+      </div>
 
-        <div
-          class="admin-actions admin-actions--mobile-stack"
-          style="margin-top: 14px;"
-        >
+      <template #footer>
+        <div class="faculty-subjects__dialog-actions">
+          <UiButton
+            variant="ghost"
+            label="Отмена"
+            :disabled="saving"
+            @click="closeRemoveConfirm"
+          />
+
           <UiButton
             variant="danger"
-            type="button"
-            :disabled="
-              saving ||
-              !removeSelection.length
-            "
-            @click="removeSubjects"
-          >
-            Удалить выбранные
-          </UiButton>
+            label="Убрать предмет"
+            icon="pi pi-times"
+            :loading="saving"
+            loading-text="Удаление..."
+            @click="removeSubject"
+          />
         </div>
-      </UiCard>
-    </section>
+      </template>
+    </UiDialog>
   </AdminPageShell>
 </template>
+
+<style scoped>
+.faculty-subjects__faculty-field {
+  max-width: 520px;
+
+  display: grid;
+  gap: 7px;
+}
+
+.faculty-subjects__faculty-field > span {
+  color: var(--st-text);
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.faculty-subjects__context {
+  margin-top: 12px;
+
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.faculty-subjects__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.faculty-subjects__list {
+  display: grid;
+  gap: 10px;
+}
+
+.faculty-subjects__item {
+  min-width: 0;
+  padding: 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+}
+
+.faculty-subjects__item-copy {
+  min-width: 0;
+}
+
+.faculty-subjects__item h3,
+.faculty-subjects__item p,
+.faculty-subjects__confirm p {
+  margin: 0;
+}
+
+.faculty-subjects__item h3 {
+  color: var(--st-text);
+
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.faculty-subjects__item p {
+  margin-top: 5px;
+
+  color: var(--st-text-secondary);
+
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.faculty-subjects__confirm {
+  display: grid;
+  gap: 14px;
+}
+
+.faculty-subjects__confirm p {
+  color: var(--st-text-secondary);
+
+  line-height: 1.55;
+}
+
+.faculty-subjects__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .faculty-subjects__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .faculty-subjects__faculty-field {
+    max-width: none;
+  }
+
+  .faculty-subjects__item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .faculty-subjects__item :deep(.st-ui-button) {
+    width: 100%;
+  }
+
+  .faculty-subjects__dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .faculty-subjects__dialog-actions :deep(.st-ui-button) {
+    width: 100%;
+  }
+}
+</style>

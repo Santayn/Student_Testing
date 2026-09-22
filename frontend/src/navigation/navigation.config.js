@@ -12,6 +12,7 @@ export const NAV_KEYS = Object.freeze({
   TEACHER_WORKLOAD: 'teacher-workload',
 
   ADMIN_USERS: 'admin-users',
+  ADMIN_ROLES: 'admin-roles',
   ADMIN_FACULTIES: 'admin-faculties',
   ADMIN_GROUPS: 'admin-groups',
   ADMIN_SUBJECTS: 'admin-subjects',
@@ -93,9 +94,16 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
 
   [NAV_KEYS.ADMIN_USERS]: {
     key: NAV_KEYS.ADMIN_USERS,
-    label: 'Роли пользователей',
+    label: 'Пользователи',
     icon: 'pi pi-users',
     routeName: 'admin-users',
+  },
+
+  [NAV_KEYS.ADMIN_ROLES]: {
+    key: NAV_KEYS.ADMIN_ROLES,
+    label: 'Роли и права',
+    icon: 'pi pi-shield',
+    routeName: 'admin-roles',
   },
 
   [NAV_KEYS.ADMIN_FACULTIES]: {
@@ -135,7 +143,7 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
 
   [NAV_KEYS.ADMIN_TEACHING]: {
     key: NAV_KEYS.ADMIN_TEACHING,
-    label: 'Шаблоны нагрузки',
+    label: 'Учебная нагрузка',
     icon: 'pi pi-calendar',
     routeName: 'admin-teaching',
   },
@@ -252,6 +260,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       label: 'Управление доступом',
       items: [
         NAV_KEYS.ADMIN_USERS,
+        NAV_KEYS.ADMIN_ROLES,
       ],
     },
     {
@@ -434,6 +443,10 @@ export const BREADCRUMB_CONFIG = Object.freeze({
 
   'admin-users': [
     { destination: NAV_KEYS.ADMIN_USERS },
+  ],
+
+  'admin-roles': [
+    { destination: NAV_KEYS.ADMIN_ROLES },
   ],
 
   'admin-faculties': [

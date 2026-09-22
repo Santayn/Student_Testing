@@ -11,7 +11,7 @@ import {
   isAssignableTeacherMembership,
 } from '@/utils/teacherMembershipEligibility'
 
-describe('teaching template membership eligibility', () => {
+describe('admin workload membership eligibility', () => {
   it('allows only active non-removed teacher memberships for new workload', () => {
     expect(
       isAssignableTeacherMembership({
@@ -61,10 +61,10 @@ describe('teaching template membership eligibility', () => {
     expect([...ids]).toEqual([1])
   })
 
-  it('rechecks selected memberships immediately before creating workload', () => {
+  it('rechecks the selected membership immediately before creating active workload', () => {
     expect(componentSource).toContain('currentAssignableMembershipIds(')
     expect(componentSource).toContain('revalidateAssignableTeacherMembershipIds')
-    expect(componentSource).toContain('completeRows.map(')
-    expect(componentSource).toContain('Один или несколько преподавателей больше не активны')
+    expect(componentSource).toContain('assignmentForm.subjectMembershipId')
+    expect(componentSource).toContain('Выбранное назначение преподавателя больше не активно')
   })
 })

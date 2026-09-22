@@ -29,6 +29,10 @@ export const teachingApi = {
     return http.post('/teaching/load-types', data)
   },
 
+  updateLoadType(loadTypeId, data) {
+    return http.put(`/teaching/load-types/${loadTypeId}`, data)
+  },
+
   addLoadTypeToSubjectMembership(subjectMembershipId, data) {
     return http.post(
       `/teaching/subject-memberships/${subjectMembershipId}/load-types`,
