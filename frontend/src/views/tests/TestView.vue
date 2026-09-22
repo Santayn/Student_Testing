@@ -19,6 +19,8 @@ import {
 } from '@/api'
 
 import TestsPageShell from '@/components/tests/TestsPageShell.vue'
+import StudentMatchingQuestion from '@/components/tests/StudentMatchingQuestion.vue'
+import ResultMatchingPairs from '@/components/results/ResultMatchingPairs.vue'
 
 import {
   useBreadcrumbContext,
@@ -41,6 +43,10 @@ import {
 } from '@/utils/resultContracts'
 
 import {
+  parseMatchingDisplay,
+} from '@/utils/matchingPairs'
+
+import {
   createLatestRequestGuard,
 } from '@/utils/latestRequest'
 
@@ -52,7 +58,6 @@ import {
   UiEmptyState,
   UiInput,
   UiRadio,
-  UiSelect,
   UiTag,
 } from '@/components/ui'
 
@@ -334,26 +339,6 @@ function matchingOptions(question) {
   )
     ? question.matchingOptions
     : []
-}
-
-function matchingOrdinalOptions(
-  question
-) {
-  return matchingPrompts(
-    question
-  ).map(
-    (prompt) => ({
-      label:
-        String(
-          prompt.ordinal
-        ),
-
-      value:
-        Number(
-          prompt.ordinal
-        ),
-    })
-  )
 }
 
 function initializeAnswers() {
@@ -642,6 +627,12 @@ function buildSubmission() {
     answers,
     selectedOptionIds,
   }
+}
+
+function isMatchingSubmitDetail(detail) {
+  return parseMatchingDisplay(
+    detail?.givenAnswer
+  ).length > 0
 }
 
 async function loadTest() {
@@ -1075,7 +1066,6 @@ onMounted(loadTest)
             v-else-if="
               questionType(question) === 3
             "
-            class="test-matching"
           >
             <UiAlert
               v-if="
@@ -1086,77 +1076,17 @@ onMounted(loadTest)
               message="Для вопроса на сопоставление не заданы обе колонки."
             />
 
-            <template v-else>
-              <section class="test-matching__column">
-                <h3 class="test-matching__title">
-                  Колонка А
-                </h3>
-
-                <ol class="test-matching__list">
-                  <li
-                    v-for="prompt in matchingPrompts(question)"
-                    :key="prompt.ordinal"
-                    class="test-matching__row"
-                  >
-                    <span class="test-matching__number">
-                      {{ prompt.ordinal }}
-                    </span>
-
-                    <span>
-                      {{ prompt.text }}
-                    </span>
-                  </li>
-                </ol>
-              </section>
-
-              <section class="test-matching__column">
-                <h3 class="test-matching__title">
-                  Колонка Б
-                </h3>
-
-                <ul class="test-matching__list">
-                  <li
-                    v-for="(option, optionIndex) in matchingOptions(question)"
-                    :key="
-                      `${question.id}-${optionIndex}`
-                    "
-                    class="test-matching__row"
-                  >
-                    <UiSelect
-                      v-model="
-                        matchingAnswers[
-                          String(question.id)
-                        ][optionIndex]
-                      "
-                      class="test-matching__select"
-                      placeholder="№"
-                      :options="
-                        matchingOrdinalOptions(
-                          question
-                        )
-                      "
-                      option-label="label"
-                      option-value="value"
-                      size="sm"
-                      :disabled="submitted"
-                      :aria-label="
-                        `Номер соответствия для варианта ${optionIndex + 1}`
-                      "
-                    />
-
-                    <span>
-                      {{ option }}
-                    </span>
-                  </li>
-                </ul>
-
-                <p class="test-matching__hint">
-                  Укажите возле каждого варианта
-                  из колонки Б номер подходящего
-                  элемента из колонки А.
-                </p>
-              </section>
-            </template>
+            <StudentMatchingQuestion
+              v-else
+              v-model="
+                matchingAnswers[
+                  String(question.id)
+                ]
+              "
+              :prompts="matchingPrompts(question)"
+              :options="matchingOptions(question)"
+              :disabled="submitted"
+            />
           </div>
 
           <UiInput
@@ -1232,10 +1162,17 @@ onMounted(loadTest)
                 <dt>Ваш ответ</dt>
 
                 <dd>
-                  {{
-                    detail.givenAnswer ||
-                    '—'
-                  }}
+                  <ResultMatchingPairs
+                    v-if="isMatchingSubmitDetail(detail)"
+                    :given-answer="detail.givenAnswer"
+                  />
+
+                  <template v-else>
+                    {{
+                      detail.givenAnswer ||
+                      '—'
+                    }}
+                  </template>
                 </dd>
               </div>
             </dl>
@@ -1277,82 +1214,6 @@ onMounted(loadTest)
 .test-question__options {
   display: grid;
   gap: 8px;
-}
-
-.test-matching {
-  display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-
-.test-matching__column {
-  padding: 14px;
-
-  color: var(--st-text);
-  background: var(--st-surface-muted);
-
-  border: 1px solid var(--st-border);
-  border-radius: 10px;
-}
-
-.test-matching__title {
-  margin: 0 0 10px;
-
-  font-size: 14px;
-}
-
-.test-matching__list {
-  margin: 0;
-  padding: 0;
-
-  display: grid;
-  gap: 9px;
-
-  list-style: none;
-}
-
-.test-matching__row {
-  min-height: 44px;
-
-  display: grid;
-  grid-template-columns:
-    58px
-    minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.test-matching__number {
-  width: 44px;
-  height: 44px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  color: var(--st-text);
-  background: var(--st-surface);
-
-  border: 1px solid var(--st-border);
-  border-radius: 999px;
-
-  font-weight: 800;
-}
-
-.test-matching__select {
-  width: 64px;
-  min-width: 64px;
-}
-
-.test-matching__hint {
-  margin: 10px 0 0;
-
-  color: var(--st-text-secondary);
-
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .test-result {
@@ -1410,12 +1271,6 @@ onMounted(loadTest)
 
   font-size: 13px;
   line-height: 1.45;
-}
-
-@media (max-width: 760px) {
-  .test-matching {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 560px) {

@@ -20,6 +20,7 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
+  UiFilterBar,
   UiInput,
   UiSelect,
 } from '@/components/ui'
@@ -51,6 +52,12 @@ const semester = ref(1)
 const academicYear = ref(
   new Date().getFullYear()
 )
+
+const searchQuery = ref('')
+const subjectFilter = ref('all')
+const groupFilter = ref('all')
+const loadTypeFilter = ref('all')
+const statusFilter = ref('all')
 
 const assignments = ref([])
 const loadTypes = ref([])
@@ -110,6 +117,238 @@ const loadTypeById = computed(() => {
   )
 })
 
+const subjectFilterOptions = computed(() => {
+  const ids = [
+    ...new Set(
+      assignments.value
+        .map((assignment) => {
+          const membership =
+            membershipById.value.get(
+              Number(
+                assignment.subjectMembershipId
+              )
+            )
+
+          return Number(
+            membership?.subjectId
+          )
+        })
+        .filter(Boolean)
+    ),
+  ]
+
+  return [
+    { value: 'all', label: 'Все предметы' },
+    ...ids
+      .map((subjectId) => ({
+        value: String(subjectId),
+        label: subjectName(subjectId),
+      }))
+      .sort((left, right) =>
+        left.label.localeCompare(
+          right.label,
+          'ru'
+        )
+      ),
+  ]
+})
+
+const groupFilterOptions = computed(() => {
+  const groups = new Map()
+
+  assignments.value.forEach(
+    (assignment) => {
+      const id = Number(
+        assignment.groupId
+      )
+
+      if (!id || groups.has(id)) {
+        return
+      }
+
+      groups.set(
+        id,
+        groupName(assignment)
+      )
+    }
+  )
+
+  return [
+    { value: 'all', label: 'Все группы' },
+    ...[...groups.entries()]
+      .map(([id, label]) => ({
+        value: String(id),
+        label,
+      }))
+      .sort((left, right) =>
+        left.label.localeCompare(
+          right.label,
+          'ru'
+        )
+      ),
+  ]
+})
+
+const loadTypeFilterOptions = computed(() => {
+  const ids = [
+    ...new Set(
+      assignments.value
+        .map((assignment) =>
+          Number(
+            assignment.loadTypeId
+          )
+        )
+        .filter(Boolean)
+    ),
+  ]
+
+  return [
+    { value: 'all', label: 'Все типы' },
+    ...ids
+      .map((loadTypeId) => ({
+        value: String(loadTypeId),
+        label: loadTypeName(
+          loadTypeId
+        ),
+      }))
+      .sort((left, right) =>
+        left.label.localeCompare(
+          right.label,
+          'ru'
+        )
+      ),
+  ]
+})
+
+const statusFilterOptions = computed(() => {
+  const statuses = [
+    ...new Set(
+      assignments.value
+        .map((assignment) =>
+          Number(assignment.status)
+        )
+        .filter((value) =>
+          Number.isFinite(value)
+        )
+    ),
+  ]
+
+  return [
+    { value: 'all', label: 'Все статусы' },
+    ...statuses.map((status) => ({
+      value: String(status),
+      label: statusLabel(status),
+    })),
+  ]
+})
+
+const hasActiveWorkspaceFilters = computed(() => {
+  return (
+    Boolean(
+      searchQuery.value.trim()
+    ) ||
+    subjectFilter.value !== 'all' ||
+    groupFilter.value !== 'all' ||
+    loadTypeFilter.value !== 'all' ||
+    statusFilter.value !== 'all'
+  )
+})
+
+const filteredAssignments = computed(() => {
+  const query =
+    searchQuery.value
+      .trim()
+      .toLocaleLowerCase('ru')
+
+  return assignments.value.filter(
+    (assignment) => {
+      const membership =
+        membershipById.value.get(
+          Number(
+            assignment.subjectMembershipId
+          )
+        )
+
+      const subjectId = Number(
+        membership?.subjectId
+      )
+
+      if (
+        subjectFilter.value !== 'all' &&
+        String(subjectId) !==
+          subjectFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        groupFilter.value !== 'all' &&
+        String(
+          assignment.groupId
+        ) !== groupFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        loadTypeFilter.value !== 'all' &&
+        String(
+          assignment.loadTypeId
+        ) !== loadTypeFilter.value
+      ) {
+        return false
+      }
+
+      if (
+        statusFilter.value !== 'all' &&
+        String(
+          assignment.status
+        ) !== statusFilter.value
+      ) {
+        return false
+      }
+
+      if (!query) {
+        return true
+      }
+
+      const searchable = [
+        subjectName(subjectId),
+        groupName(assignment),
+        loadTypeName(
+          assignment.loadTypeId
+        ),
+        statusLabel(
+          assignment.status
+        ),
+        assignment.notes,
+        assignment.courseVersionId
+          ? `версия курса ${assignment.courseVersionId}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('ru')
+
+      return searchable.includes(query)
+    }
+  )
+})
+
+const workloadResultText = computed(() => {
+  if (
+    filteredAssignments.value.length ===
+    assignments.value.length
+  ) {
+    return `Записей нагрузки: ${assignments.value.length}`
+  }
+
+  return (
+    `Показано: ${filteredAssignments.value.length} ` +
+    `из ${assignments.value.length}`
+  )
+})
+
 const periodLabel = computed(() => {
   return (
     `${studyCourse.value} курс, ` +
@@ -120,24 +359,33 @@ const periodLabel = computed(() => {
 
 const subjectCount = computed(() => {
   return new Set(
-    assignments.value
-      .map((item) =>
-        Number(item.subjectMembershipId)
-      )
+    filteredAssignments.value
+      .map((item) => {
+        const membership =
+          membershipById.value.get(
+            Number(
+              item.subjectMembershipId
+            )
+          )
+
+        return Number(
+          membership?.subjectId
+        )
+      })
       .filter(Boolean)
   ).size
 })
 
 const groupCount = computed(() => {
   return new Set(
-    assignments.value
+    filteredAssignments.value
       .map((item) => Number(item.groupId))
       .filter(Boolean)
   ).size
 })
 
 const totalHoursPerWeek = computed(() => {
-  return assignments.value.reduce(
+  return filteredAssignments.value.reduce(
     (sum, item) =>
       sum + Number(item.hoursPerWeek ?? 0),
     0
@@ -147,7 +395,7 @@ const totalHoursPerWeek = computed(() => {
 const groupedAssignments = computed(() => {
   const groups = new Map()
 
-  assignments.value.forEach(
+  filteredAssignments.value.forEach(
     (assignment) => {
       const membershipId = Number(
         assignment.subjectMembershipId
@@ -278,6 +526,14 @@ function formatHours(value) {
   return numeric.toLocaleString('ru-RU', {
     maximumFractionDigits: 2,
   })
+}
+
+function resetWorkspaceFilters() {
+  searchQuery.value = ''
+  subjectFilter.value = 'all'
+  groupFilter.value = 'all'
+  loadTypeFilter.value = 'all'
+  statusFilter.value = 'all'
 }
 
 function subjectRoute(group) {
@@ -585,6 +841,46 @@ onMounted(async () => {
       title="Назначенная нагрузка"
       description="Страница работает только в режиме просмотра. Изменения нагрузки выполняет администратор системы."
     >
+      <div class="teacher-stack">
+        <UiFilterBar
+          v-if="assignments.length"
+          v-model="searchQuery"
+          search-placeholder="Предмет, группа, тип нагрузки или примечание"
+          :result-text="workloadResultText"
+          :reset-disabled="!hasActiveWorkspaceFilters"
+          @reset="resetWorkspaceFilters"
+        >
+          <template #filters>
+            <UiSelect
+              v-model="subjectFilter"
+              label="Предмет"
+              :options="subjectFilterOptions"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="groupFilter"
+              label="Группа"
+              :options="groupFilterOptions"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="loadTypeFilter"
+              label="Тип нагрузки"
+              :options="loadTypeFilterOptions"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="statusFilter"
+              label="Статус"
+              :options="statusFilterOptions"
+              size="sm"
+            />
+          </template>
+        </UiFilterBar>
+
       <UiEmptyState
         v-if="loading"
         description="Загрузка назначенной нагрузки..."
@@ -603,6 +899,21 @@ onMounted(async () => {
         compact
       />
 
+      <UiEmptyState
+        v-else-if="!filteredAssignments.length"
+        description="По текущему поиску и фильтрам записи нагрузки не найдены."
+        compact
+      >
+        <template #actions>
+          <UiButton
+            variant="secondary"
+            size="sm"
+            label="Сбросить фильтры"
+            @click="resetWorkspaceFilters"
+          />
+        </template>
+      </UiEmptyState>
+
       <div
         v-else
         class="teacher-stack"
@@ -615,7 +926,7 @@ onMounted(async () => {
           <div class="teacher-workload-subject__header">
             <div class="teacher-workload-subject__heading">
               <span class="teacher-muted">
-                Назначение #{{ group.subjectMembershipId }}
+                Учебная нагрузка
               </span>
 
               <h2 class="teacher-workload-subject__title">
@@ -714,6 +1025,7 @@ onMounted(async () => {
             </article>
           </div>
         </section>
+      </div>
       </div>
     </UiCard>
   </TeacherPageShell>

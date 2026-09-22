@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
@@ -21,17 +21,6 @@ const foundationSource = readFileSync(
   sourcePath('theme', 'foundation.css'),
   'utf8'
 )
-const teacherDirectory = resolve(process.cwd(), 'src', 'views', 'teacher')
-
-function readTree(directory) {
-  return readdirSync(directory)
-    .flatMap((name) => {
-      const path = resolve(directory, name)
-      if (statSync(path).isDirectory()) return readTree(path)
-      return [readFileSync(path, 'utf8')]
-    })
-    .join('\n')
-}
 
 describe('Teacher CRUD overlay foundation', () => {
   it('tracks create/edit mode and dirty state without knowing entity shape', () => {
@@ -99,10 +88,12 @@ describe('Teacher CRUD overlay foundation', () => {
     expect(foundationSource).toContain('grid-template-columns: 1fr')
   })
 
-  it('does not migrate teacher working pages during the foundation-only step', () => {
-    const source = readTree(teacherDirectory)
-    expect(source).not.toContain('UiFilterBar')
-    expect(source).not.toContain('useOverlayForm')
-    expect(source).not.toContain('UiUnsavedChangesConfirm')
+  it('keeps the overlay foundation entity-agnostic', () => {
+    const source = [filterBarSource, confirmSource].join('\n')
+
+    expect(source).not.toContain('topicsApi')
+    expect(source).not.toContain('questionsApi')
+    expect(source).not.toContain('lecturesApi')
+    expect(source).not.toContain('subjectMembershipId')
   })
 })

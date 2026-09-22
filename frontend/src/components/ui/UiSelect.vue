@@ -11,6 +11,7 @@ const props = defineProps({
   options: { type: Array, default: () => [] },
   optionLabel: { type: [String, Function], default: 'label' },
   optionValue: { type: [String, Function], default: 'value' },
+  optionDisabled: { type: [String, Function], default: 'disabled' },
   id: { type: String, default: '' },
   label: { type: String, default: '' },
   hint: { type: String, default: '' },
@@ -46,6 +47,7 @@ const normalizedOptions = computed(() => props.options.map((option, index) => ({
   __key: `${String(getValue(option, props.optionValue, option))}-${index}`,
   label: getValue(option, props.optionLabel, option),
   value: getValue(option, props.optionValue, option),
+  disabled: Boolean(getValue(option, props.optionDisabled, false)),
   raw: option,
 })))
 </script>
@@ -58,6 +60,7 @@ const normalizedOptions = computed(() => props.options.map((option, index) => ({
       :options="normalizedOptions"
       option-label="label"
       option-value="value"
+      option-disabled="disabled"
       class="st-ui-control"
       :class="[
         `st-ui-control--${size}`,

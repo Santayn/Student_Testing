@@ -19,10 +19,14 @@ import {
   UiAlert,
   UiButton,
   UiCard,
+  UiDialog,
   UiEmptyState,
+  UiFilterBar,
   UiInput,
   UiSelect,
   UiTextarea,
+  UiUnsavedChangesConfirm,
+  useOverlayForm,
 } from '@/components/ui'
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
@@ -54,9 +58,18 @@ const {
 
 const topics = ref([])
 const loading = ref(false)
-const saving = ref(false)
-const deletingId = ref(null)
 const initialized = ref(false)
+
+const searchQuery = ref('')
+const descriptionFilter = ref('all')
+const sortMode = ref('ordinal')
+
+const deleteTarget = ref(null)
+const deleteConfirmVisible = ref(false)
+const deletingId = ref(null)
+const deleteError = ref('')
+const formError = ref('')
+const handledRouteTopicKey = ref('')
 
 const topicsRequest = createLatestRequestGuard()
 
@@ -65,18 +78,51 @@ const notice = ref({
   message: '',
 })
 
-const form = ref({
-  id: null,
-  ordinal: 1,
-  name: '',
-  description: '',
+const {
+  form,
+  model: topicDialogModel,
+  isOpen: topicDialogOpen,
+  isCreate,
+  saving,
+  confirmCloseVisible,
+  openCreate,
+  openEdit,
+  requestClose,
+  closeImmediately,
+  discardAndClose,
+  continueEditing,
+  beginSaving,
+  finishSaving,
+  failSaving,
+} = useOverlayForm({
+  createDefault: () => ({
+    id: null,
+    ordinal: 1,
+    name: '',
+    description: '',
+  }),
+  mapEntity: (topic) => ({
+    id: topic.id,
+    ordinal: Number(topic.ordinal ?? 1),
+    name: topic.name ?? '',
+    description: topic.description ?? '',
+  }),
 })
 
+const descriptionOptions = [
+  { value: 'all', label: 'Все темы' },
+  { value: 'with-description', label: 'С описанием' },
+  { value: 'without-description', label: 'Без описания' },
+]
+
+const sortOptions = [
+  { value: 'ordinal', label: 'По порядку' },
+  { value: 'name-asc', label: 'Название А–Я' },
+  { value: 'name-desc', label: 'Название Я–А' },
+]
 
 const canEdit = computed(() => {
-  return Boolean(
-    selectedMembership.value
-  )
+  return Boolean(selectedMembership.value)
 })
 
 const contextHint = computed(() => {
@@ -92,20 +138,93 @@ const contextHint = computed(() => {
     return `У предмета «${selectedSubject.value.name}» в выбранном назначении пока нет тем.`
   }
 
-  return `У предмета «${selectedSubject.value.name}» в выбранном назначении тем: ${topics.value.length}.`
+  return `Предмет «${selectedSubject.value.name}». Тем в выбранном назначении: ${topics.value.length}.`
+})
+
+const hasActiveFilters = computed(() => {
+  return Boolean(searchQuery.value.trim()) ||
+    descriptionFilter.value !== 'all' ||
+    sortMode.value !== 'ordinal'
+})
+
+const filteredTopics = computed(() => {
+  const query = searchQuery.value
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+
+  const result = topics.value.filter((topic) => {
+    const description = String(topic.description ?? '').trim()
+
+    if (
+      descriptionFilter.value === 'with-description' &&
+      !description
+    ) {
+      return false
+    }
+
+    if (
+      descriptionFilter.value === 'without-description' &&
+      description
+    ) {
+      return false
+    }
+
+    if (!query) {
+      return true
+    }
+
+    const haystack = [
+      topic.ordinal,
+      topic.name,
+      topic.description,
+    ]
+      .filter((value) => value !== null && value !== undefined)
+      .join(' ')
+      .toLocaleLowerCase('ru-RU')
+
+    return haystack.includes(query)
+  })
+
+  return [...result].sort((left, right) => {
+    if (sortMode.value === 'name-asc') {
+      return String(left.name ?? '').localeCompare(
+        String(right.name ?? ''),
+        'ru'
+      )
+    }
+
+    if (sortMode.value === 'name-desc') {
+      return String(right.name ?? '').localeCompare(
+        String(left.name ?? ''),
+        'ru'
+      )
+    }
+
+    return Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0)
+  })
+})
+
+const filterResultText = computed(() => {
+  if (!selectedMembership.value) {
+    return 'Сначала выберите предмет преподавателя.'
+  }
+
+  return `Показано: ${filteredTopics.value.length} из ${topics.value.length}`
+})
+
+const topicDialogTitle = computed(() => {
+  return isCreate.value ? 'Новая тема' : 'Редактирование темы'
 })
 
 function routeQuery(topicId = null) {
   const query = {}
 
   if (selectedSubjectId.value) {
-    query.subjectId =
-      selectedSubjectId.value
+    query.subjectId = selectedSubjectId.value
   }
 
   if (selectedMembership.value) {
-    query.subjectMembershipId =
-      selectedMembership.value.id
+    query.subjectMembershipId = selectedMembership.value.id
   }
 
   if (topicId) {
@@ -118,47 +237,143 @@ function routeQuery(topicId = null) {
 function nextOrdinal() {
   return topics.value.reduce(
     (max, topic) =>
-      Math.max(
-        max,
-        Number(topic.ordinal ?? 0)
-      ),
+      Math.max(max, Number(topic.ordinal ?? 0)),
     0
   ) + 1
 }
 
-function resetForm() {
-  form.value = {
-    id: null,
+function resetFilters() {
+  searchQuery.value = ''
+  descriptionFilter.value = 'all'
+  sortMode.value = 'ordinal'
+}
+
+function openCreateTopic() {
+  if (!canEdit.value) {
+    notice.value = {
+      type: 'danger',
+      message: 'Выберите предмет преподавателя.',
+    }
+    return
+  }
+
+  formError.value = ''
+  openCreate({
     ordinal: nextOrdinal(),
-    name: '',
-    description: '',
-  }
+  })
 }
 
-function editTopic(topic) {
-  form.value = {
-    id: topic.id,
-    ordinal: Number(
-      topic.ordinal ?? 1
-    ),
-    name: topic.name ?? '',
-    description:
-      topic.description ?? '',
-  }
+function openEditTopic(topic) {
+  formError.value = ''
+  openEdit(topic)
 }
 
-async function loadTopics() {
-  const requestId =
-    topicsRequest.begin()
+function requestDeleteTopic(topic) {
+  deleteTarget.value = topic
+  deleteError.value = ''
+  deleteConfirmVisible.value = true
+}
 
-  topics.value = []
-  resetForm()
+function closeDeleteDialog() {
+  if (deletingId.value !== null) {
+    return
+  }
 
+  deleteConfirmVisible.value = false
+  deleteTarget.value = null
+  deleteError.value = ''
+}
+
+function topicFormValidationMessage() {
+  const membership = selectedMembership.value
+  const ordinal = Number(form.ordinal)
+  const name = String(form.name ?? '').trim()
+  const description = String(form.description ?? '').trim()
+
+  if (!membership) {
+    return 'Выберите предмет преподавателя.'
+  }
+
+  if (!Number.isInteger(ordinal) || ordinal <= 0) {
+    return 'Порядковый номер темы должен быть целым числом больше нуля.'
+  }
+
+  if (!name) {
+    return 'Введите название темы.'
+  }
+
+  if (name.length > 200) {
+    return 'Название темы не может быть длиннее 200 символов.'
+  }
+
+  if (description.length > 2000) {
+    return 'Описание темы не может быть длиннее 2000 символов.'
+  }
+
+  const duplicateOrdinal = topics.value.find(
+    (topic) =>
+      Number(topic.ordinal) === ordinal &&
+      String(topic.id) !== String(form.id ?? '')
+  )
+
+  if (duplicateOrdinal) {
+    return 'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.'
+  }
+
+  return ''
+}
+
+async function resolveRouteTopic(membershipId, nextTopics) {
+  const topicId = route.query.topicId
+
+  if (!topicId) {
+    return null
+  }
+
+  const routeTopicKey = `${membershipId}:${topicId}`
+
+  if (handledRouteTopicKey.value === routeTopicKey) {
+    return null
+  }
+
+  handledRouteTopicKey.value = routeTopicKey
+
+  let topic = nextTopics.find(
+    (item) => String(item.id) === String(topicId)
+  )
+
+  if (topic) {
+    return topic
+  }
+
+  try {
+    const topicResponse = await topicsApi.getOne(topicId)
+    const candidate = topicResponse.data
+
+    if (
+      candidate &&
+      String(candidate.subjectMembershipId) === String(membershipId)
+    ) {
+      topic = candidate
+    }
+  } catch {
+    /*
+     * GET /topics/{id} возвращает 400, если темы нет.
+     * Для workspace достаточно показать предупреждение.
+     */
+  }
+
+  return topic
+}
+
+async function loadTopics({ openRouteTopic = false } = {}) {
+  const requestId = topicsRequest.begin()
   const membershipId = Number(
     selectedMembership.value?.id ?? 0
   )
 
   if (!membershipId) {
+    topics.value = []
     loading.value = false
     return
   }
@@ -166,70 +381,33 @@ async function loadTopics() {
   loading.value = true
 
   try {
-    const response =
-      await topicsApi.getAll({
-        subjectMembershipId: membershipId,
-      })
+    const response = await topicsApi.getAll({
+      subjectMembershipId: membershipId,
+    })
 
-    const nextTopics =
-      listFromResponse(response)
-        .sort(
-          (left, right) =>
-            Number(left.ordinal ?? 0) -
-            Number(right.ordinal ?? 0)
-        )
+    const nextTopics = listFromResponse(response).sort(
+      (left, right) =>
+        Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0)
+    )
 
-    let topic = null
-    const topicId = route.query.topicId
+    let routeTopic = null
 
-    if (topicId) {
-      topic = nextTopics.find(
-        (item) =>
-          String(item.id) ===
-          String(topicId)
+    if (openRouteTopic) {
+      routeTopic = await resolveRouteTopic(
+        membershipId,
+        nextTopics
       )
-
-      if (!topic) {
-        try {
-          const topicResponse =
-            await topicsApi.getOne(
-              topicId
-            )
-
-          const candidate =
-            topicResponse.data
-
-          if (
-            candidate &&
-            String(
-              candidate.subjectMembershipId
-            ) === String(membershipId)
-          ) {
-            topic = candidate
-          }
-        } catch {
-          /*
-           * GET /topics/{id} возвращает 400, если темы нет.
-           * Для страницы достаточно оставить форму новой темы.
-           */
-        }
-      }
     }
 
-    if (
-      !topicsRequest.isCurrent(
-        requestId
-      )
-    ) {
+    if (!topicsRequest.isCurrent(requestId)) {
       return
     }
 
     topics.value = nextTopics
-    resetForm()
 
-    if (topicId) {
-      if (topic) {
-        editTopic(topic)
+    if (openRouteTopic && route.query.topicId) {
+      if (routeTopic) {
+        openEditTopic(routeTopic)
       } else {
         notice.value = {
           type: 'warning',
@@ -239,11 +417,7 @@ async function loadTopics() {
       }
     }
   } catch (error) {
-    if (
-      !topicsRequest.isCurrent(
-        requestId
-      )
-    ) {
+    if (!topicsRequest.isCurrent(requestId)) {
       return
     }
 
@@ -255,137 +429,50 @@ async function loadTopics() {
       ),
     }
   } finally {
-    if (
-      topicsRequest.isCurrent(
-        requestId
-      )
-    ) {
+    if (topicsRequest.isCurrent(requestId)) {
       loading.value = false
     }
   }
 }
 
 async function saveTopic() {
-  const membership =
-    selectedMembership.value
+  formError.value = topicFormValidationMessage()
 
-  const ordinal =
-    Number(form.value.ordinal)
-
-  const name =
-    form.value.name.trim()
-
-  const description =
-    form.value.description.trim()
-
-  if (!membership) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Выберите предмет преподавателя.',
-    }
+  if (formError.value) {
     return
   }
 
-  if (
-    !Number.isInteger(ordinal) ||
-    ordinal <= 0
-  ) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Порядковый номер темы должен быть целым числом больше нуля.',
-    }
-    return
-  }
-
-  if (!name) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Введите название темы.',
-    }
-    return
-  }
-
-  if (name.length > 200) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Название темы не может быть длиннее 200 символов.',
-    }
-    return
-  }
-
-  if (description.length > 2000) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Описание темы не может быть длиннее 2000 символов.',
-    }
-    return
-  }
-
-  const duplicateOrdinal =
-    topics.value.find(
-      (topic) =>
-        Number(topic.ordinal) ===
-          ordinal &&
-        String(topic.id) !==
-          String(
-            form.value.id ?? ''
-          )
-    )
-
-  if (duplicateOrdinal) {
-    notice.value = {
-      type: 'danger',
-      message:
-        'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.',
-    }
-    return
-  }
+  const membership = selectedMembership.value
+  const ordinal = Number(form.ordinal)
+  const name = String(form.name ?? '').trim()
+  const description = String(form.description ?? '').trim()
 
   const payload = {
     /*
      * subjectId и subjectMembershipId всегда берутся
      * из одного membership-контекста.
      */
-    subjectId:
-      Number(
-        membership.subjectId
-      ),
-
+    subjectId: Number(membership.subjectId),
     courseLectureId: null,
-
-    subjectMembershipId:
-      Number(membership.id),
-
+    subjectMembershipId: Number(membership.id),
     ordinal,
     name,
-
-    description:
-      description || null,
+    description: description || null,
   }
 
-  saving.value = true
+  beginSaving()
 
   try {
     await ensureSelectedMembershipActive()
 
-    if (form.value.id) {
-      await topicsApi.update(
-        form.value.id,
-        payload
-      )
-
+    if (form.id) {
+      await topicsApi.update(form.id, payload)
       notice.value = {
         type: 'success',
         message: 'Тема обновлена.',
       }
     } else {
       await topicsApi.create(payload)
-
       notice.value = {
         type: 'success',
         message: 'Тема создана.',
@@ -393,33 +480,25 @@ async function saveTopic() {
     }
 
     await loadTopics()
+    finishSaving({ close: true })
   } catch (error) {
-    notice.value = {
-      type: 'danger',
-      message:
-        topicSaveErrorMessage(
-          error
-        ),
-    }
-  } finally {
-    saving.value = false
+    formError.value = topicSaveErrorMessage(error)
+    failSaving()
   }
 }
 
-async function deleteTopic(topic) {
-  if (
-    !window.confirm(
-      `Удалить тему «${topic.name}»?`
-    )
-  ) {
+async function deleteTopic() {
+  const topic = deleteTarget.value
+
+  if (!topic || deletingId.value !== null) {
     return
   }
 
   deletingId.value = topic.id
+  deleteError.value = ''
 
   try {
     await ensureSelectedMembershipActive()
-
     await topicsApi.remove(topic.id)
 
     notice.value = {
@@ -427,43 +506,60 @@ async function deleteTopic(topic) {
       message: 'Тема удалена.',
     }
 
+    deleteConfirmVisible.value = false
+    deleteTarget.value = null
     await loadTopics()
   } catch (error) {
-    notice.value = {
-      type: 'danger',
-      message:
-        topicDeleteErrorMessage(
-          error
-        ),
-    }
+    deleteError.value = topicDeleteErrorMessage(error)
   } finally {
     deletingId.value = null
   }
 }
 
+function topicSaveErrorMessage(error) {
+  return getApiErrorMessage(
+    error,
+    form.id
+      ? 'Не удалось обновить тему.'
+      : 'Не удалось создать тему.'
+  )
+}
+
+function topicDeleteErrorMessage(error) {
+  return getApiErrorMessage(
+    error,
+    'Не удалось удалить тему.'
+  )
+}
+
 watch(
   selectedMembershipId,
   () => {
-    if (initialized.value) {
-      loadTopics()
+    if (!initialized.value) {
+      return
     }
+
+    if (topicDialogOpen.value) {
+      closeImmediately()
+    }
+
+    closeDeleteDialog()
+    resetFilters()
+    loadTopics({ openRouteTopic: true })
   }
 )
 
 onMounted(async () => {
   try {
     await loadTeacherSubjects({
-      preferredSubjectId:
-        route.query.subjectId,
-      preferredMembershipId:
-        route.query
-          .subjectMembershipId,
+      preferredSubjectId: route.query.subjectId,
+      preferredMembershipId: route.query.subjectMembershipId,
     })
 
     initialized.value = true
 
     if (selectedMembershipId.value) {
-      await loadTopics()
+      await loadTopics({ openRouteTopic: true })
     }
 
     if (!membershipOptions.value.length) {
@@ -488,7 +584,7 @@ onMounted(async () => {
 <template>
   <TeacherPageShell
     title="Темы предмета"
-    subtitle="Темы группируют вопросы банка и используются в правилах формирования тестов по разделам предмета."
+    subtitle="Просматривайте и находите темы выбранного предмета. Создание и редактирование открываются поверх workspace и не сбрасывают текущие фильтры."
   >
     <UiAlert
       v-if="notice.message"
@@ -498,111 +594,88 @@ onMounted(async () => {
       @close="notice.message = ''"
     />
 
-    <div class="teacher-layout">
-      <div class="teacher-stack">
-        <UiCard
-          title="Контекст предмета"
-          :description="contextHint"
+    <UiCard
+      title="Контекст предмета"
+      :description="contextHint"
+    >
+      <div class="teacher-topic-context">
+        <UiSelect
+          v-model="selectedMembershipId"
+          label="Предмет преподавателя"
+          :options="membershipOptions"
+          placeholder="Выберите предмет"
+          :disabled="loadingSubjects || !membershipOptions.length"
+        />
+
+        <div
+          v-if="selectedMembership"
+          class="teacher-inline-actions teacher-inline-actions--mobile-stack teacher-topic-context__actions"
         >
-          <div class="teacher-stack">
-            <UiSelect
-              v-model="selectedMembershipId"
-              label="Предмет преподавателя"
-              :options="membershipOptions"
-              placeholder="Выберите предмет"
-              :disabled="loadingSubjects || !membershipOptions.length"
-            />
+          <UiButton
+            :to="{
+              name: 'teacher-questions',
+              query: routeQuery(),
+            }"
+          >
+            Банк вопросов
+          </UiButton>
 
-            <UiAlert
-              variant="info"
-              message="Тема — это раздел предмета для группировки вопросов банка. При создании теста тема может использоваться как правило, из какого раздела и сколько вопросов выбрать."
-            />
-
-            <div
-              v-if="selectedMembership"
-              class="teacher-inline-actions teacher-inline-actions--mobile-stack"
-            >
-              <UiButton
-                :to="{
-                  name: 'teacher-questions',
-                  query: routeQuery(form.id),
-                }"
-              >
-                Вопросы темы
-              </UiButton>
-
-              <UiButton
-                :to="{
-                  name: 'teacher-test-create',
-                  query: routeQuery(form.id),
-                }"
-              >
-                Создать тест
-              </UiButton>
-            </div>
-          </div>
-        </UiCard>
-
-        <UiCard
-          :title="form.id ? 'Редактирование темы' : 'Новая тема'"
-        >
-          <div class="teacher-stack">
-            <div class="teacher-grid">
-              <UiInput
-                v-model="form.ordinal"
-                label="Порядок"
-                type="number"
-                min="1"
-                step="1"
-                :disabled="!canEdit"
-              />
-
-              <UiInput
-                v-model="form.name"
-                label="Название темы"
-                maxlength="200"
-                :disabled="!canEdit"
-                required
-              />
-            </div>
-
-            <UiTextarea
-              v-model="form.description"
-              label="Описание"
-              maxlength="2000"
-              :disabled="!canEdit"
-            />
-
-            <div class="teacher-actions teacher-actions--mobile-stack">
-              <UiButton
-                variant="primary"
-                :loading="saving"
-                loading-text="Сохранение..."
-                :disabled="!canEdit"
-                @click="saveTopic"
-              >
-                Сохранить тему
-              </UiButton>
-
-              <UiButton
-                v-if="form.id"
-                @click="resetForm"
-              >
-                Отмена
-              </UiButton>
-            </div>
-          </div>
-        </UiCard>
+          <UiButton
+            :to="{
+              name: 'teacher-test-create',
+              query: routeQuery(),
+            }"
+          >
+            Создать тест
+          </UiButton>
+        </div>
       </div>
+    </UiCard>
 
-      <UiCard
-        title="Темы предмета"
-        :description="
-          selectedSubject && selectedMembership
-            ? `Предмет: ${selectedSubject.name}. Всего тем: ${topics.length}.`
-            : 'Предмет не выбран.'
-        "
-      >
+    <UiCard
+      title="Темы"
+      :description="
+        selectedSubject && selectedMembership
+          ? `Рабочее пространство предмета «${selectedSubject.name}».`
+          : 'Выберите предмет преподавателя, чтобы открыть список тем.'
+      "
+    >
+      <div class="teacher-stack">
+        <UiFilterBar
+          v-model="searchQuery"
+          search-placeholder="Название, описание или номер темы"
+          :result-text="filterResultText"
+          :reset-disabled="!hasActiveFilters"
+          @reset="resetFilters"
+        >
+          <template #filters>
+            <UiSelect
+              v-model="descriptionFilter"
+              label="Описание"
+              :options="descriptionOptions"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="sortMode"
+              label="Сортировка"
+              :options="sortOptions"
+              size="sm"
+            />
+          </template>
+
+          <template #actions>
+            <UiButton
+              variant="primary"
+              size="sm"
+              icon="pi pi-plus"
+              label="Добавить тему"
+              :disabled="!canEdit"
+              @click="openCreateTopic"
+            />
+          </template>
+        </UiFilterBar>
+
         <UiEmptyState
           v-if="loading"
           description="Загрузка тем..."
@@ -617,16 +690,31 @@ onMounted(async () => {
 
         <UiEmptyState
           v-else-if="!topics.length"
-          description="Для выбранного назначения преподавателя пока нет тем."
+          description="Для выбранного назначения преподавателя пока нет тем. Добавьте первую тему кнопкой выше."
           compact
         />
+
+        <UiEmptyState
+          v-else-if="!filteredTopics.length"
+          description="По текущему поиску и фильтрам темы не найдены."
+          compact
+        >
+          <template #actions>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              label="Сбросить фильтры"
+              @click="resetFilters"
+            />
+          </template>
+        </UiEmptyState>
 
         <div
           v-else
           class="teacher-entity-list"
         >
           <article
-            v-for="topic in topics"
+            v-for="topic in filteredTopics"
             :key="topic.id"
             class="teacher-entity-card"
           >
@@ -668,24 +756,205 @@ onMounted(async () => {
 
               <UiButton
                 size="sm"
-                @click="editTopic(topic)"
-              >
-                Изменить
-              </UiButton>
+                icon="pi pi-pencil"
+                label="Изменить"
+                @click="openEditTopic(topic)"
+              />
 
               <UiButton
                 variant="danger"
                 size="sm"
+                icon="pi pi-trash"
+                label="Удалить"
                 :loading="deletingId === topic.id"
                 loading-text="Удаление..."
-                @click="deleteTopic(topic)"
-              >
-                Удалить
-              </UiButton>
+                @click="requestDeleteTopic(topic)"
+              />
             </div>
           </article>
         </div>
-      </UiCard>
-    </div>
+      </div>
+    </UiCard>
+
+    <UiDialog
+      v-model="topicDialogModel"
+      :title="topicDialogTitle"
+      width="38rem"
+      :dismissable-mask="false"
+    >
+      <form
+        class="teacher-stack"
+        @submit.prevent="saveTopic"
+      >
+        <UiAlert
+          v-if="formError"
+          variant="danger"
+          :message="formError"
+        />
+
+        <UiAlert
+          variant="info"
+          :message="
+            selectedSubject
+              ? `Тема будет сохранена в предмете «${selectedSubject.name}».`
+              : 'Тема будет сохранена в текущем назначении преподавателя.'
+          "
+        />
+
+        <div class="teacher-grid">
+          <UiInput
+            v-model="form.ordinal"
+            label="Порядок"
+            type="number"
+            min="1"
+            step="1"
+            :disabled="!canEdit || saving"
+            required
+          />
+
+          <UiInput
+            v-model="form.name"
+            label="Название темы"
+            maxlength="200"
+            :disabled="!canEdit || saving"
+            required
+          />
+        </div>
+
+        <UiTextarea
+          v-model="form.description"
+          label="Описание"
+          maxlength="2000"
+          :rows="6"
+          auto-resize
+          :disabled="!canEdit || saving"
+        />
+
+        <div class="teacher-actions teacher-actions--mobile-stack teacher-topic-form__actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="saving"
+            @click="requestClose"
+          />
+
+          <UiButton
+            type="submit"
+            variant="primary"
+            :label="isCreate ? 'Создать тему' : 'Сохранить изменения'"
+            :loading="saving"
+            loading-text="Сохранение..."
+            :disabled="!canEdit"
+          />
+        </div>
+      </form>
+    </UiDialog>
+
+    <UiUnsavedChangesConfirm
+      v-model="confirmCloseVisible"
+      :busy="saving"
+      @continue="continueEditing"
+      @discard="discardAndClose"
+    />
+
+    <UiDialog
+      v-model="deleteConfirmVisible"
+      title="Удалить тему?"
+      width="31rem"
+      :closable="deletingId === null"
+      :close-on-escape="deletingId === null"
+      :dismissable-mask="false"
+    >
+      <div class="teacher-stack">
+        <UiAlert
+          v-if="deleteError"
+          variant="danger"
+          :message="deleteError"
+        />
+
+        <p class="teacher-topic-delete-copy">
+          Тема
+          <strong>«{{ deleteTarget?.name }}»</strong>
+          будет удалена. Если backend запрещает удаление темы, которая уже используется вопросами или тестами, сообщение об этом останется в этом окне.
+        </p>
+      </div>
+
+      <template #footer>
+        <div class="teacher-actions teacher-actions--mobile-stack teacher-topic-delete-actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="deletingId !== null"
+            @click="closeDeleteDialog"
+          />
+
+          <UiButton
+            variant="danger"
+            label="Удалить тему"
+            :loading="deletingId !== null"
+            loading-text="Удаление..."
+            @click="deleteTopic"
+          />
+        </div>
+      </template>
+    </UiDialog>
   </TeacherPageShell>
 </template>
+
+<style scoped>
+.teacher-topic-context {
+  min-width: 0;
+
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 0.85fr)
+    minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.teacher-topic-context__actions {
+  justify-content: flex-end;
+}
+
+.teacher-topic-form__actions,
+.teacher-topic-delete-actions {
+  justify-content: flex-end;
+}
+
+.teacher-topic-delete-copy {
+  margin: 0;
+
+  color: var(--st-text-secondary);
+
+  font-size: 14px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.teacher-topic-delete-copy strong {
+  color: var(--st-text);
+}
+
+@media (max-width: 900px) {
+  .teacher-topic-context {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-topic-context__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .teacher-topic-context__actions,
+  .teacher-topic-context__actions > * {
+    width: 100%;
+  }
+
+  .teacher-topic-form__actions,
+  .teacher-topic-delete-actions {
+    width: 100%;
+  }
+}
+</style>

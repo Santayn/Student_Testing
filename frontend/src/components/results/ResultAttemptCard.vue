@@ -5,6 +5,12 @@ import {
   sanitizeStudentAttempt,
 } from '@/utils/resultContracts'
 
+import ResultMatchingPairs from '@/components/results/ResultMatchingPairs.vue'
+
+import {
+  parseMatchingDisplay,
+} from '@/utils/matchingPairs'
+
 import {
   attemptScoreSummary,
   gradingStatusLabel,
@@ -92,6 +98,16 @@ const rows = computed(() => {
     displayIndex: index + 1,
   }))
 })
+
+function isMatchingResult(row) {
+  return (
+    parseMatchingDisplay(row?.givenAnswer).length > 0 ||
+    (
+      props.mode === 'teacher' &&
+      parseMatchingDisplay(row?.correctAnswer).length > 0
+    )
+  )
+}
 
 function formatScoreNumber(value) {
   const number = Number(value)
@@ -188,7 +204,15 @@ function formatDateTime(value) {
             />
           </div>
 
+          <ResultMatchingPairs
+            v-if="isMatchingResult(row)"
+            :given-answer="row.givenAnswer"
+            :correct-answer="mode === 'teacher' ? row.correctAnswer : ''"
+            :teacher="mode === 'teacher'"
+          />
+
           <div
+            v-else
             class="result-answer__data"
             :class="{ 'result-answer__data--teacher': mode === 'teacher' }"
           >
@@ -212,6 +236,18 @@ function formatDateTime(value) {
                 </strong>
               </div>
             </template>
+          </div>
+
+          <div
+            v-if="isMatchingResult(row) && mode === 'teacher'"
+            class="result-answer__score"
+          >
+            <span>Баллы за вопрос</span>
+            <strong>
+              {{ formatScoreNumber(resultItemScore(row).awardedPoints) }}
+              из
+              {{ formatScoreNumber(resultItemScore(row).questionPoints) }}
+            </strong>
           </div>
         </article>
       </div>
@@ -342,6 +378,29 @@ function formatDateTime(value) {
   background: var(--st-surface);
   border: 1px solid var(--st-border);
   border-radius: 8px;
+}
+
+.result-answer__score {
+  min-width: 0;
+  padding: 10px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: 8px;
+}
+
+.result-answer__score span {
+  color: var(--st-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.result-answer__score strong {
+  color: var(--st-text);
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {

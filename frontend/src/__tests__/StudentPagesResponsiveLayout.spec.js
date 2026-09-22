@@ -31,6 +31,23 @@ const resultAttemptCard = source(
   'ResultAttemptCard.vue'
 )
 
+const studentMatchingQuestion = source(
+  'components',
+  'tests',
+  'StudentMatchingQuestion.vue'
+)
+
+const uiSelect = source(
+  'components',
+  'ui',
+  'UiSelect.vue'
+)
+
+const foundationSource = source(
+  'theme',
+  'foundation.css'
+)
+
 describe('student working page responsive layout', () => {
   it('does not preserve wide legacy tables in the student learning flow', () => {
     for (const page of studentWorkingPages) {
@@ -67,11 +84,15 @@ describe('student working page responsive layout', () => {
     expect(resultAttemptCard).toContain('@media (max-width: 720px)')
   })
 
-  it('keeps test matching controls touch-safe', () => {
+  it('keeps test matching controls touch-safe through the shared UI kit', () => {
     const testView = studentWorkingPages[4]
 
-    expect(testView).toContain('min-height: 44px')
-    expect(testView).toContain('width: 44px')
+    expect(testView).toContain('StudentMatchingQuestion')
     expect(testView).toContain('UiTag')
+    expect(studentMatchingQuestion).toContain('UiSelect')
+    expect(uiSelect).toContain('class="st-ui-control"')
+    expect(foundationSource).toContain('.st-ui-control.p-select')
+    expect(foundationSource).toContain('.p-select-option')
+    expect(foundationSource).toContain('min-height: 44px')
   })
 })
