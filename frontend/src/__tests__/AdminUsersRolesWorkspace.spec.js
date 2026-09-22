@@ -43,7 +43,8 @@ describe('admin users workspace', () => {
 
   it('keeps role and profile changes local until explicit save', () => {
     expect(view).toContain('v-model="userForm.roleIds"')
-    expect(view).toContain('v-model="userForm.personId"')
+    expect(view).toContain(':model-value="userForm.personId"')
+    expect(view).toContain('@update:model-value="requestPersonSelectionChange"')
     expect(view).toContain('v-model="userForm.active"')
     expect(view).toContain('@click="saveUser"')
     expect(view).toContain('Сохранить изменения')

@@ -17,6 +17,17 @@ export const usersApi = {
     return http.get(`/users/people/${personId}`)
   },
 
+  createPerson(payload) {
+    return http.post('/users/people', payload)
+  },
+
+  updatePerson(personId, payload) {
+    return http.put(
+      `/users/people/${personId}`,
+      payload
+    )
+  },
+
   updateRoles(userId, roles) {
     return http.put(`/users/${userId}/roles`, roles)
   },
