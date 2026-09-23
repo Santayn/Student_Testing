@@ -33,16 +33,16 @@ import {
 } from '@/composables/useResultsFilters'
 
 import {
+  useResultsData,
+} from '@/composables/useResultsData'
+
+import {
   listFromResponse,
 } from '@/utils/apiData'
 
 import {
   createAbortableRequestGuard,
 } from '@/utils/latestRequest'
-
-import {
-  sanitizeStudentResultData,
-} from '@/utils/resultContracts'
 
 import {
   attemptScoreSummary,
@@ -53,7 +53,6 @@ const authStore =
   useAuthStore()
 
 const loadingInitial = ref(false)
-const loadingResults = ref(false)
 const loadingOptions = ref(false)
 
 const error = ref('')
@@ -86,19 +85,36 @@ const {
   studentParams,
 } = useResultsFilters()
 
-const resultData = ref(null)
-
-// These reads belong to this view only. Shared M4 context requests must not
-// be aborted when one of their consumers leaves a page.
+// These option reads belong to this view only. Shared M4 context requests must
+// not be aborted when one of their consumers leaves a page.
 const initialRequest = createAbortableRequestGuard()
 const optionsRequest = createAbortableRequestGuard()
-const resultsRequest = createAbortableRequestGuard()
 
 const teacherMode = computed(() => {
   return (
     authStore.isTeacherMode ||
     authStore.isAdminMode
   )
+})
+
+const {
+  loadingResults,
+  resultData,
+  invalidateResults,
+  loadStudentContextResults,
+  loadResults,
+  onStudentTestChange,
+  disposeResultsData,
+} = useResultsData({
+  teacherMode,
+  subjectId,
+  testId,
+  teacherParams,
+  studentParams,
+  setStudentTestOptions,
+  selectedStudentTestIsValid,
+  resetInvalidStudentTest,
+  error,
 })
 
 const resultMode = computed(() => {
@@ -353,13 +369,6 @@ function formatScoreNumber(value) {
   ).format(number)
 }
 
-function applyStudentResultData(data) {
-  resultData.value =
-    sanitizeStudentResultData(
-      data
-    )
-}
-
 async function loadTeacherSubjects(signal) {
   const response = authStore.isAdminMode
     ? await subjectsApi.getAll({ signal })
@@ -378,9 +387,7 @@ async function loadStudentSubjects(signal) {
 }
 
 async function onSubjectChange() {
-  resultsRequest.invalidate()
-  loadingResults.value = false
-  resultData.value = null
+  invalidateResults()
   error.value = ''
 
   if (!teacherMode.value) {
@@ -454,9 +461,7 @@ async function onSubjectChange() {
 }
 
 async function onLectureChange() {
-  resultsRequest.invalidate()
-  loadingResults.value = false
-  resultData.value = null
+  invalidateResults()
   const { requestId, signal } =
     optionsRequest.begin()
 
@@ -521,9 +526,7 @@ async function onLectureChange() {
 }
 
 async function onTestChange() {
-  resultsRequest.invalidate()
-  loadingResults.value = false
-  resultData.value = null
+  invalidateResults()
   const { requestId, signal } =
     optionsRequest.begin()
 
@@ -583,9 +586,7 @@ async function onTestChange() {
 }
 
 async function onGroupChange() {
-  resultsRequest.invalidate()
-  loadingResults.value = false
-  resultData.value = null
+  invalidateResults()
   const { requestId, signal } =
     optionsRequest.begin()
 
@@ -644,190 +645,12 @@ async function onGroupChange() {
   }
 }
 
-async function loadStudentContextResults() {
-  const { requestId, signal } =
-    resultsRequest.begin()
-
-  loadingResults.value = true
-  resultData.value = null
-  error.value = ''
-
-  const currentSubjectId =
-    subjectId.value
-
-  try {
-    const params = currentSubjectId
-      ? {
-          subjectId:
-            currentSubjectId,
-        }
-      : {}
-
-    const response =
-      await resultsApi
-        .getStudentData(params, { signal })
-
-    if (
-      !resultsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
-    applyStudentResultData(
-      response.data
-    )
-
-    setStudentTestOptions(
-      resultData.value
-    )
-  } catch (requestError) {
-    if (
-      !resultsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
-    resultData.value = null
-    tests.value = []
-
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось загрузить результаты тестирования.'
-      )
-  } finally {
-    if (
-      resultsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      loadingResults.value = false
-    }
-  }
-}
-
-async function onStudentTestChange() {
-  error.value = ''
-
-  if (!testId.value) {
-    await loadStudentContextResults()
-    return
-  }
-
-  /*
-   * Backend при subjectId + testId фактически отдаёт приоритет testId.
-   * Поэтому обычный UI разрешает запрос только для testId,
-   * который был получен из собственных результатов текущего
-   * student/subject context.
-   */
-  if (!selectedStudentTestIsValid()) {
-    // No replacement read follows this validation failure. Cancel the
-    // previously selected test's outstanding request explicitly.
-    resultsRequest.invalidate()
-    loadingResults.value = false
-    resultData.value = null
-    error.value =
-      'Выбранный тест не относится к текущему списку ваших результатов.'
-
-    resetInvalidStudentTest()
-    return
-  }
-
-  await loadResults()
-}
-
-async function loadResults() {
-  const { requestId, signal } =
-    resultsRequest.begin()
-
-  loadingResults.value = true
-  resultData.value = null
-  error.value = ''
-
-  const useTeacherMode =
-    teacherMode.value
-  const params = useTeacherMode
-    ? teacherParams()
-    : studentParams()
-
-  try {
-    if (
-      !useTeacherMode &&
-      testId.value &&
-      !selectedStudentTestIsValid()
-    ) {
-      throw new Error(
-        'Выбранный testId отсутствует в текущем списке результатов студента.'
-      )
-    }
-
-    const response = useTeacherMode
-      ? await resultsApi
-          .getTeacherData(params, { signal })
-      : await resultsApi
-          .getStudentData(params, { signal })
-
-    if (
-      !resultsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
-    if (useTeacherMode) {
-      resultData.value =
-        response.data ?? {
-          stats: {
-            total: 0,
-            right: 0,
-            percent: 0,
-          },
-          attempts: [],
-        }
-    } else {
-      applyStudentResultData(
-        response.data
-      )
-    }
-  } catch (requestError) {
-    if (
-      !resultsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      return
-    }
-
-    resultData.value = null
-
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось загрузить результаты тестирования.'
-      )
-  } finally {
-    if (
-      resultsRequest.isCurrent(
-        requestId
-      )
-    ) {
-      loadingResults.value = false
-    }
-  }
-}
-
 async function init() {
   const { requestId, signal } = initialRequest.begin()
   // A manual refresh supersedes this view's pending filter/result reads too.
   optionsRequest.invalidate()
-  resultsRequest.invalidate()
+  invalidateResults()
   loadingOptions.value = false
-  loadingResults.value = false
   loadingInitial.value = true
   error.value = ''
 
@@ -864,7 +687,7 @@ onMounted(init)
 onBeforeUnmount(() => {
   initialRequest.invalidate()
   optionsRequest.invalidate()
-  resultsRequest.invalidate()
+  disposeResultsData()
 })
 </script>
 
