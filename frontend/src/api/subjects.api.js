@@ -1,8 +1,8 @@
 import http from './http'
 
 export const subjectsApi = {
-  getAll() {
-    return http.get('/subjects')
+  getAll(config = {}) {
+    return http.get('/subjects', config)
   },
 
   getById(subjectId) {

@@ -5,22 +5,25 @@ import {
 import http from './http'
 
 export const resultsApi = {
-  getStudentSubjects() {
+  getStudentSubjects(config = {}) {
     return http.get(
-      '/results/student/subjects'
+      '/results/student/subjects',
+      config
     )
   },
 
-  getTeacherSubjects() {
+  getTeacherSubjects(config = {}) {
     return http.get(
-      '/results/teacher/subjects'
+      '/results/teacher/subjects',
+      config
     )
   },
 
-  getTeacherLectures(subjectId) {
+  getTeacherLectures(subjectId, config = {}) {
     return http.get(
       '/results/teacher/lectures',
       {
+        ...config,
         params: {
           subjectId,
         },
@@ -28,10 +31,11 @@ export const resultsApi = {
     )
   },
 
-  getTeacherTests(lectureId) {
+  getTeacherTests(lectureId, config = {}) {
     return http.get(
       '/results/teacher/tests',
       {
+        ...config,
         params: {
           lectureId,
         },
@@ -39,10 +43,11 @@ export const resultsApi = {
     )
   },
 
-  getTeacherGroups(testId) {
+  getTeacherGroups(testId, config = {}) {
     return http.get(
       '/results/teacher/groups',
       {
+        ...config,
         params: {
           testId,
         },
@@ -50,10 +55,11 @@ export const resultsApi = {
     )
   },
 
-  getTeacherStudents(groupId) {
+  getTeacherStudents(groupId, config = {}) {
     return http.get(
       '/results/teacher/students',
       {
+        ...config,
         params: {
           groupId,
         },
@@ -61,19 +67,21 @@ export const resultsApi = {
     )
   },
 
-  getTeacherData(params = {}) {
+  getTeacherData(params = {}, config = {}) {
     return http.get(
       '/results/teacher/data',
       {
+        ...config,
         params,
       }
     )
   },
 
-  async getStudentData(params = {}) {
+  async getStudentData(params = {}, config = {}) {
     const response = await http.get(
       '/results/student/data',
       {
+        ...config,
         params,
       }
     )

@@ -2,8 +2,8 @@ import http from './http'
 import { API_TIMEOUTS } from './timeouts'
 
 export const lecturesApi = {
-  getAll(params = {}) {
-    return http.get('/lectures', { params })
+  getAll(params = {}, config = {}) {
+    return http.get('/lectures', { ...config, params })
   },
 
   create(data) {
@@ -18,8 +18,8 @@ export const lecturesApi = {
     return http.delete(`/lectures/${lectureId}`)
   },
 
-  getTests(lectureId) {
-    return http.get(`/lectures/${lectureId}/tests`)
+  getTests(lectureId, config = {}) {
+    return http.get(`/lectures/${lectureId}/tests`, config)
   },
 
   setTests(lectureId, data) {

@@ -13,6 +13,7 @@ import { lecturesApi } from '@/api/lectures.api'
 import { questionsApi } from '@/api/questions.api'
 import { membershipsApi } from '@/api/memberships.api'
 import { resultsApi } from '@/api/results.api'
+import { subjectsApi } from '@/api/subjects.api'
 import { teachingApi } from '@/api/teaching.api'
 import { testsApi } from '@/api/tests.api'
 import { API_TIMEOUTS } from '@/api/timeouts'
@@ -269,5 +270,36 @@ describe('frontend API contracts', () => {
     expect(http.delete).toHaveBeenCalledWith(
       '/tests/101'
     )
+  })
+
+  it('forwards cancellation signals through view-owned results reads without changing query parameters', async () => {
+    const signal = new AbortController().signal
+    http.get.mockResolvedValue({ data: { attempts: [] } })
+
+    await resultsApi.getStudentSubjects({ signal })
+    await resultsApi.getTeacherSubjects({ signal })
+    await resultsApi.getTeacherLectures(11, { signal })
+    await resultsApi.getTeacherTests(12, { signal })
+    await resultsApi.getTeacherGroups(13, { signal })
+    await resultsApi.getTeacherStudents(14, { signal })
+    await resultsApi.getTeacherData({ studentId: 15 }, { signal })
+    await resultsApi.getStudentData({ subjectId: 16 }, { signal })
+    await lecturesApi.getAll({ subjectId: 17 }, { signal })
+    await lecturesApi.getTests(18, { signal })
+    await subjectsApi.getAll({ signal })
+
+    expect(http.get.mock.calls).toEqual([
+      ['/results/student/subjects', { signal }],
+      ['/results/teacher/subjects', { signal }],
+      ['/results/teacher/lectures', { signal, params: { subjectId: 11 } }],
+      ['/results/teacher/tests', { signal, params: { lectureId: 12 } }],
+      ['/results/teacher/groups', { signal, params: { testId: 13 } }],
+      ['/results/teacher/students', { signal, params: { groupId: 14 } }],
+      ['/results/teacher/data', { signal, params: { studentId: 15 } }],
+      ['/results/student/data', { signal, params: { subjectId: 16 } }],
+      ['/lectures', { signal, params: { subjectId: 17 } }],
+      ['/lectures/18/tests', { signal }],
+      ['/subjects', { signal }],
+    ])
   })
 })

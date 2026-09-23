@@ -155,22 +155,34 @@ describe('ResultsView searchable catalogs', () => {
     expect(resultsApi.getTeacherLectures).not.toHaveBeenCalled()
 
     await selectValue(wrapper, 'Предмет', 17)
-    expect(resultsApi.getTeacherLectures).toHaveBeenCalledWith(17)
+    expect(resultsApi.getTeacherLectures).toHaveBeenCalledWith(
+      17,
+      expect.objectContaining({ signal: expect.any(Object) })
+    )
     expect(selectFor(wrapper, 'Лекция').props('options')).toEqual([
       { id: 23, title: 'Лекция' },
     ])
 
     await selectValue(wrapper, 'Лекция', 23)
-    expect(resultsApi.getTeacherTests).toHaveBeenCalledWith(23)
+    expect(resultsApi.getTeacherTests).toHaveBeenCalledWith(
+      23,
+      expect.objectContaining({ signal: expect.any(Object) })
+    )
 
     await selectValue(wrapper, 'Тест', 31)
-    expect(resultsApi.getTeacherGroups).toHaveBeenCalledWith(31)
+    expect(resultsApi.getTeacherGroups).toHaveBeenCalledWith(
+      31,
+      expect.objectContaining({ signal: expect.any(Object) })
+    )
     expect(selectFor(wrapper, 'Группа').props('options')).toEqual([
       { id: 47, name: 'Группа А' },
     ])
 
     await selectValue(wrapper, 'Группа', 47)
-    expect(resultsApi.getTeacherStudents).toHaveBeenCalledWith(47)
+    expect(resultsApi.getTeacherStudents).toHaveBeenCalledWith(
+      47,
+      expect.objectContaining({ signal: expect.any(Object) })
+    )
     expect(selectFor(wrapper, 'Студент').props('options')).toEqual([
       { id: 59, fullName: 'Анна Иванова' },
     ])
@@ -194,9 +206,10 @@ describe('ResultsView searchable catalogs', () => {
     expect(resultsApi.getTeacherSubjects).not.toHaveBeenCalled()
 
     await selectValue(wrapper, 'Предмет', 17)
-    expect(resultsApi.getStudentData).toHaveBeenLastCalledWith({
-      subjectId: 17,
-    })
+    expect(resultsApi.getStudentData).toHaveBeenLastCalledWith(
+      { subjectId: 17 },
+      expect.objectContaining({ signal: expect.any(Object) })
+    )
     expect(resultsApi.getTeacherData).not.toHaveBeenCalled()
 
     wrapper.unmount()

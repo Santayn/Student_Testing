@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   ref,
 } from 'vue'
@@ -28,11 +29,15 @@ import {
 } from '@/stores/auth'
 
 import {
+  useResultsFilters,
+} from '@/composables/useResultsFilters'
+
+import {
   listFromResponse,
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 import {
@@ -53,22 +58,41 @@ const loadingOptions = ref(false)
 
 const error = ref('')
 
-const subjects = ref([])
-const lectures = ref([])
-const tests = ref([])
-const groups = ref([])
-const students = ref([])
-
-const subjectId = ref('')
-const lectureId = ref('')
-const testId = ref('')
-const groupId = ref('')
-const studentId = ref('')
+const {
+  subjects,
+  lectures,
+  tests,
+  groups,
+  students,
+  subjectId,
+  lectureId,
+  testId,
+  groupId,
+  studentId,
+  subjectLabel,
+  lectureLabel,
+  testLabel,
+  groupLabel,
+  studentLabel,
+  resetAfterSubject,
+  resetAfterLecture,
+  resetAfterTest,
+  resetAfterGroup,
+  resetStudentSubject,
+  resetInvalidStudentTest,
+  setStudentTestOptions,
+  selectedStudentTestIsValid,
+  teacherParams,
+  studentParams,
+} = useResultsFilters()
 
 const resultData = ref(null)
 
-const optionsRequest = createLatestRequestGuard()
-const resultsRequest = createLatestRequestGuard()
+// These reads belong to this view only. Shared M4 context requests must not
+// be aborted when one of their consumers leaves a page.
+const initialRequest = createAbortableRequestGuard()
+const optionsRequest = createAbortableRequestGuard()
+const resultsRequest = createAbortableRequestGuard()
 
 const teacherMode = computed(() => {
   return (
@@ -329,119 +353,6 @@ function formatScoreNumber(value) {
   ).format(number)
 }
 
-function subjectLabel(subject) {
-  return (
-    subject.name ||
-    `Предмет #${subject.id}`
-  )
-}
-
-function lectureLabel(lecture) {
-  const ordinal =
-    lecture.ordinal ??
-    '—'
-
-  const title =
-    lecture.title ||
-    `Лекция #${lecture.id}`
-
-  if (
-    !lecture.courseName &&
-    lecture.versionNumber == null
-  ) {
-    return `${ordinal}. ${title}`
-  }
-
-  const course =
-    lecture.courseName ||
-    'курс не указан'
-
-  const version =
-    lecture.versionNumber ??
-    '—'
-
-  return (
-    `${ordinal}. ${title} ` +
-    `(${course}, v${version})`
-  )
-}
-
-function testLabel(test) {
-  return (
-    test.title ||
-    `Тест #${test.id}`
-  )
-}
-
-function groupLabel(group) {
-  return (
-    group.name ||
-    group.code ||
-    `Группа #${group.id}`
-  )
-}
-
-function studentLabel(student) {
-  return (
-    student.fullName ||
-    `Студент #${student.id}`
-  )
-}
-
-function studentTestOptionsFromData(data) {
-  const source =
-    Array.isArray(data?.attempts)
-      ? data.attempts
-      : []
-
-  const unique = new Map()
-
-  source.forEach((attempt) => {
-    const id =
-      Number(attempt.testId)
-
-    if (
-      !Number.isInteger(id) ||
-      id <= 0 ||
-      unique.has(id)
-    ) {
-      return
-    }
-
-    unique.set(id, {
-      id,
-      title:
-        attempt.testName ||
-        `Тест #${id}`,
-    })
-  })
-
-  return Array.from(
-    unique.values()
-  ).sort(
-    (left, right) =>
-      String(left.title).localeCompare(
-        String(right.title),
-        'ru',
-        {
-          sensitivity: 'base',
-        }
-      )
-  )
-}
-
-function selectedStudentTestIsValid() {
-  if (!testId.value) {
-    return true
-  }
-
-  return tests.value.some(
-    (test) =>
-      String(test.id) ===
-      String(testId.value)
-  )
-}
-
 function applyStudentResultData(data) {
   resultData.value =
     sanitizeStudentResultData(
@@ -449,58 +360,21 @@ function applyStudentResultData(data) {
     )
 }
 
-function resetAfterSubject() {
-  lectureId.value = ''
-  testId.value = ''
-  groupId.value = ''
-  studentId.value = ''
-
-  lectures.value = []
-  tests.value = []
-  groups.value = []
-  students.value = []
-}
-
-function resetAfterLecture() {
-  testId.value = ''
-  groupId.value = ''
-  studentId.value = ''
-
-  tests.value = []
-  groups.value = []
-  students.value = []
-}
-
-function resetAfterTest() {
-  groupId.value = ''
-  studentId.value = ''
-
-  groups.value = []
-  students.value = []
-}
-
-function resetAfterGroup() {
-  studentId.value = ''
-  students.value = []
-}
-
-async function loadTeacherSubjects() {
+async function loadTeacherSubjects(signal) {
   const response = authStore.isAdminMode
-    ? await subjectsApi.getAll()
+    ? await subjectsApi.getAll({ signal })
     : await resultsApi
-        .getTeacherSubjects()
+        .getTeacherSubjects({ signal })
 
-  subjects.value =
-    listFromResponse(response)
+  return listFromResponse(response)
 }
 
-async function loadStudentSubjects() {
+async function loadStudentSubjects(signal) {
   const response =
     await resultsApi
-      .getStudentSubjects()
+      .getStudentSubjects({ signal })
 
-  subjects.value =
-    listFromResponse(response)
+  return listFromResponse(response)
 }
 
 async function onSubjectChange() {
@@ -512,14 +386,13 @@ async function onSubjectChange() {
   if (!teacherMode.value) {
     optionsRequest.invalidate()
     loadingOptions.value = false
-    testId.value = ''
-    tests.value = []
+    resetStudentSubject()
 
     await loadStudentContextResults()
     return
   }
 
-  const requestId =
+  const { requestId, signal } =
     optionsRequest.begin()
 
   resetAfterSubject()
@@ -538,10 +411,11 @@ async function onSubjectChange() {
     const response = authStore.isAdminMode
       ? await lecturesApi.getAll({
           subjectId: currentSubjectId,
-        })
+        }, { signal })
       : await resultsApi
           .getTeacherLectures(
-            currentSubjectId
+            currentSubjectId,
+            { signal }
           )
 
     if (
@@ -583,7 +457,7 @@ async function onLectureChange() {
   resultsRequest.invalidate()
   loadingResults.value = false
   resultData.value = null
-  const requestId =
+  const { requestId, signal } =
     optionsRequest.begin()
 
   resetAfterLecture()
@@ -602,11 +476,13 @@ async function onLectureChange() {
   try {
     const response = authStore.isAdminMode
       ? await lecturesApi.getTests(
-          currentLectureId
+          currentLectureId,
+          { signal }
         )
       : await resultsApi
           .getTeacherTests(
-            currentLectureId
+            currentLectureId,
+            { signal }
           )
 
     if (
@@ -648,7 +524,7 @@ async function onTestChange() {
   resultsRequest.invalidate()
   loadingResults.value = false
   resultData.value = null
-  const requestId =
+  const { requestId, signal } =
     optionsRequest.begin()
 
   resetAfterTest()
@@ -667,7 +543,8 @@ async function onTestChange() {
     const response =
       await resultsApi
         .getTeacherGroups(
-          currentTestId
+          currentTestId,
+          { signal }
         )
 
     if (
@@ -709,7 +586,7 @@ async function onGroupChange() {
   resultsRequest.invalidate()
   loadingResults.value = false
   resultData.value = null
-  const requestId =
+  const { requestId, signal } =
     optionsRequest.begin()
 
   resetAfterGroup()
@@ -728,7 +605,8 @@ async function onGroupChange() {
     const response =
       await resultsApi
         .getTeacherStudents(
-          currentGroupId
+          currentGroupId,
+          { signal }
         )
 
     if (
@@ -766,55 +644,8 @@ async function onGroupChange() {
   }
 }
 
-function teacherParams() {
-  const params = {}
-
-  if (subjectId.value) {
-    params.subjectId =
-      subjectId.value
-  }
-
-  if (lectureId.value) {
-    params.lectureId =
-      lectureId.value
-  }
-
-  if (testId.value) {
-    params.testId =
-      testId.value
-  }
-
-  if (groupId.value) {
-    params.groupId =
-      groupId.value
-  }
-
-  if (studentId.value) {
-    params.studentId =
-      studentId.value
-  }
-
-  return params
-}
-
-function studentParams() {
-  const params = {}
-
-  if (subjectId.value) {
-    params.subjectId =
-      subjectId.value
-  }
-
-  if (testId.value) {
-    params.testId =
-      testId.value
-  }
-
-  return params
-}
-
 async function loadStudentContextResults() {
-  const requestId =
+  const { requestId, signal } =
     resultsRequest.begin()
 
   loadingResults.value = true
@@ -834,7 +665,7 @@ async function loadStudentContextResults() {
 
     const response =
       await resultsApi
-        .getStudentData(params)
+        .getStudentData(params, { signal })
 
     if (
       !resultsRequest.isCurrent(
@@ -848,10 +679,9 @@ async function loadStudentContextResults() {
       response.data
     )
 
-    tests.value =
-      studentTestOptionsFromData(
-        resultData.value
-      )
+    setStudentTestOptions(
+      resultData.value
+    )
   } catch (requestError) {
     if (
       !resultsRequest.isCurrent(
@@ -895,10 +725,15 @@ async function onStudentTestChange() {
    * student/subject context.
    */
   if (!selectedStudentTestIsValid()) {
+    // No replacement read follows this validation failure. Cancel the
+    // previously selected test's outstanding request explicitly.
+    resultsRequest.invalidate()
+    loadingResults.value = false
+    resultData.value = null
     error.value =
       'Выбранный тест не относится к текущему списку ваших результатов.'
 
-    testId.value = ''
+    resetInvalidStudentTest()
     return
   }
 
@@ -906,7 +741,7 @@ async function onStudentTestChange() {
 }
 
 async function loadResults() {
-  const requestId =
+  const { requestId, signal } =
     resultsRequest.begin()
 
   loadingResults.value = true
@@ -932,9 +767,9 @@ async function loadResults() {
 
     const response = useTeacherMode
       ? await resultsApi
-          .getTeacherData(params)
+          .getTeacherData(params, { signal })
       : await resultsApi
-          .getStudentData(params)
+          .getStudentData(params, { signal })
 
     if (
       !resultsRequest.isCurrent(
@@ -987,28 +822,50 @@ async function loadResults() {
 }
 
 async function init() {
+  const { requestId, signal } = initialRequest.begin()
+  // A manual refresh supersedes this view's pending filter/result reads too.
+  optionsRequest.invalidate()
+  resultsRequest.invalidate()
+  loadingOptions.value = false
+  loadingResults.value = false
   loadingInitial.value = true
   error.value = ''
 
   try {
     if (teacherMode.value) {
-      await loadTeacherSubjects()
+      const freshSubjects = await loadTeacherSubjects(signal)
+      if (initialRequest.isCurrent(requestId)) {
+        subjects.value = freshSubjects
+      }
     } else {
-      await loadStudentSubjects()
-      await loadStudentContextResults()
+      const freshSubjects = await loadStudentSubjects(signal)
+      if (initialRequest.isCurrent(requestId)) {
+        subjects.value = freshSubjects
+        await loadStudentContextResults()
+      }
     }
   } catch (requestError) {
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось инициализировать страницу результатов.'
-      )
+    if (initialRequest.isCurrent(requestId)) {
+      error.value =
+        getApiErrorMessage(
+          requestError,
+          'Не удалось инициализировать страницу результатов.'
+        )
+    }
   } finally {
-    loadingInitial.value = false
+    if (initialRequest.isCurrent(requestId)) {
+      loadingInitial.value = false
+    }
   }
 }
 
 onMounted(init)
+
+onBeforeUnmount(() => {
+  initialRequest.invalidate()
+  optionsRequest.invalidate()
+  resultsRequest.invalidate()
+})
 </script>
 
 <template>
@@ -1063,10 +920,7 @@ onMounted(init)
           option-value="id"
           :filter="true"
           filter-placeholder="Поиск по предметам"
-          :disabled="
-            loadingInitial ||
-            loadingOptions
-          "
+          :disabled="loadingInitial"
           @change="onSubjectChange"
         />
 

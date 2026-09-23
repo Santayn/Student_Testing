@@ -44,7 +44,7 @@ describe('admin frontend context', () => {
     )
 
     expect(resultsView)
-      .toContain('subjectsApi.getAll()')
+      .toContain('subjectsApi.getAll({ signal })')
 
     expect(resultsView)
       .toContain('lecturesApi.getAll({')
