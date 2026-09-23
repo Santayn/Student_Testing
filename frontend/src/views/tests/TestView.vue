@@ -2,6 +2,7 @@
 import {
   computed,
   nextTick,
+  onBeforeUnmount,
   onMounted,
   reactive,
   ref,
@@ -78,7 +79,11 @@ const resultData = ref(null)
 const loadRequest = createLatestRequestGuard()
 const submitRequest = createLatestRequestGuard()
 
+const DRAFT_PERSIST_DELAY_MS = 250
+
 let draftPersistencePaused = false
+let draftPersistenceTimer = null
+let pendingDraftContext = null
 
 const singleAnswers =
   reactive({})
@@ -439,22 +444,63 @@ function restoreCurrentAttemptDraft(
   applyDraftAnswers(draft)
 }
 
-function persistCurrentAttemptDraft() {
-  if (
-    draftPersistencePaused ||
-    submitted.value ||
-    !attemptId.value ||
-    !questions.value.length
-  ) {
-    return
-  }
-
+function currentDraftContext() {
   const context =
     currentRouteContext()
 
+  const currentAttemptId =
+    Number(attemptId.value)
+
   if (
     !context.testId ||
-    !context.assignmentId
+    !context.assignmentId ||
+    !Number.isFinite(currentAttemptId) ||
+    currentAttemptId <= 0
+  ) {
+    return null
+  }
+
+  return {
+    testId: context.testId,
+    assignmentId:
+      context.assignmentId,
+    attemptId: currentAttemptId,
+  }
+}
+
+function sameDraftContext(
+  left,
+  right
+) {
+  return (
+    left?.testId === right?.testId &&
+    left?.assignmentId ===
+      right?.assignmentId &&
+    left?.attemptId ===
+      right?.attemptId
+  )
+}
+
+function clearDraftPersistenceTimer() {
+  if (draftPersistenceTimer === null) {
+    return
+  }
+
+  window.clearTimeout(
+    draftPersistenceTimer
+  )
+
+  draftPersistenceTimer = null
+}
+
+function persistCurrentAttemptDraft(
+  context = currentDraftContext()
+) {
+  if (
+    draftPersistencePaused ||
+    submitted.value ||
+    !context ||
+    !questions.value.length
   ) {
     return
   }
@@ -464,7 +510,7 @@ function persistCurrentAttemptDraft() {
     assignmentId:
       context.assignmentId,
     attemptId:
-      attemptId.value,
+      context.attemptId,
     questions:
       questions.value,
     singleAnswers,
@@ -472,6 +518,66 @@ function persistCurrentAttemptDraft() {
     textAnswers,
     matchingAnswers,
   })
+}
+
+function cancelScheduledDraftPersistence() {
+  clearDraftPersistenceTimer()
+  pendingDraftContext = null
+}
+
+function flushScheduledDraftPersistence() {
+  if (!pendingDraftContext) {
+    return
+  }
+
+  const context =
+    pendingDraftContext
+
+  clearDraftPersistenceTimer()
+  pendingDraftContext = null
+
+  persistCurrentAttemptDraft(
+    context
+  )
+}
+
+function scheduleCurrentAttemptDraftPersistence() {
+  if (
+    draftPersistencePaused ||
+    submitted.value ||
+    !questions.value.length
+  ) {
+    return
+  }
+
+  const context =
+    currentDraftContext()
+
+  if (!context) {
+    return
+  }
+
+  if (
+    pendingDraftContext &&
+    !sameDraftContext(
+      pendingDraftContext,
+      context
+    )
+  ) {
+    flushScheduledDraftPersistence()
+  }
+
+  pendingDraftContext = context
+  clearDraftPersistenceTimer()
+
+  draftPersistenceTimer =
+    window.setTimeout(() => {
+      flushScheduledDraftPersistence()
+    }, DRAFT_PERSIST_DELAY_MS)
+}
+
+function handlePageHide() {
+  flushScheduledDraftPersistence()
 }
 
 function serializeMatchingAnswer(
@@ -777,6 +883,8 @@ async function submitTest() {
     return
   }
 
+  flushScheduledDraftPersistence()
+
   const context = {
     ...currentRouteContext(),
     attemptId: Number(attemptId.value),
@@ -827,6 +935,8 @@ async function submitTest() {
       context.testId,
       context.assignmentId
     )
+
+    cancelScheduledDraftPersistence()
 
     saveCompletedTestSession({
       testId: context.testId,
@@ -889,6 +999,8 @@ async function submitTest() {
 }
 
 onBeforeRouteLeave(() => {
+  flushScheduledDraftPersistence()
+
   loadRequest.invalidate()
   submitRequest.invalidate()
 
@@ -901,26 +1013,13 @@ onBeforeRouteLeave(() => {
 })
 
 watch(
-  singleAnswers,
-  persistCurrentAttemptDraft,
-  { deep: true, flush: 'sync' }
-)
-
-watch(
-  multipleAnswers,
-  persistCurrentAttemptDraft,
-  { deep: true, flush: 'sync' }
-)
-
-watch(
-  textAnswers,
-  persistCurrentAttemptDraft,
-  { deep: true, flush: 'sync' }
-)
-
-watch(
-  matchingAnswers,
-  persistCurrentAttemptDraft,
+  [
+    singleAnswers,
+    multipleAnswers,
+    textAnswers,
+    matchingAnswers,
+  ],
+  scheduleCurrentAttemptDraftPersistence,
   { deep: true, flush: 'sync' }
 )
 
@@ -929,10 +1028,31 @@ watch(
     route.params.testId,
     route.query.assignmentId,
   ],
-  loadTest
+  () => {
+    flushScheduledDraftPersistence()
+    loadTest()
+  }
 )
 
-onMounted(loadTest)
+onMounted(() => {
+  window.addEventListener(
+    'pagehide',
+    handlePageHide
+  )
+
+  loadTest()
+})
+
+onBeforeUnmount(() => {
+  flushScheduledDraftPersistence()
+
+  window.removeEventListener(
+    'pagehide',
+    handlePageHide
+  )
+
+  cancelScheduledDraftPersistence()
+})
 </script>
 
 <template>

@@ -1,9 +1,8 @@
 /*
  * Student Testing design system — Academic Navy.
  *
- * Existing production pages still consume variables from assets/theme.css.
- * These tokens are the target values for the new PrimeVue/Tailwind layer and
- * can be migrated into the application shell gradually after showcase review.
+ * Single source of application color and layout tokens.
+ * Global document rules live in theme/base.css; components use --st-* tokens.
  */
 :root,
 html[data-theme='light'] {

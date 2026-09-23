@@ -225,6 +225,8 @@ describe('TestView draft recovery', () => {
       .forEach((wrapper) => {
         wrapper.unmount()
       })
+
+    vi.useRealTimers()
   })
 
   it('restores the draft after backend resumes the same attempt', async () => {
@@ -250,7 +252,9 @@ describe('TestView draft recovery', () => {
     ).toBe('Сохранённый ответ')
   })
 
-  it('persists a changed answer immediately in sessionStorage', async () => {
+  it('debounces draft persistence instead of writing on every answer change', async () => {
+    vi.useFakeTimers()
+
     const wrapper =
       mountTestView()
 
@@ -260,12 +264,96 @@ describe('TestView draft recovery', () => {
       .get('[data-testid="text-answer"]')
       .setValue('Новый черновик')
 
+    expect(currentDraft()).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(249)
+
+    expect(currentDraft()).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(1)
+
     expect(
       currentDraft()?.textAnswers?.['701']
     ).toBe('Новый черновик')
   })
 
+  it('coalesces rapid answer changes into the latest draft', async () => {
+    vi.useFakeTimers()
+
+    const wrapper =
+      mountTestView()
+
+    await flushPromises()
+
+    const input =
+      wrapper.get('[data-testid="text-answer"]')
+
+    await input.setValue('П')
+    await vi.advanceTimersByTimeAsync(100)
+
+    await input.setValue('По')
+    await vi.advanceTimersByTimeAsync(100)
+
+    await input.setValue('Полный ответ')
+
+    await vi.advanceTimersByTimeAsync(249)
+    expect(currentDraft()).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(
+      currentDraft()?.textAnswers?.['701']
+    ).toBe('Полный ответ')
+  })
+
+  it('flushes a pending draft before route leave', async () => {
+    vi.useFakeTimers()
+
+    const wrapper =
+      mountTestView()
+
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="text-answer"]')
+      .setValue('Черновик перед выходом')
+
+    expect(currentDraft()).toBeNull()
+    expect(routerState.leaveHandler).toBeTypeOf('function')
+
+    routerState.leaveHandler()
+
+    expect(
+      currentDraft()?.textAnswers?.['701']
+    ).toBe('Черновик перед выходом')
+  })
+
+  it('flushes a pending draft on pagehide', async () => {
+    vi.useFakeTimers()
+
+    const wrapper =
+      mountTestView()
+
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="text-answer"]')
+      .setValue('Черновик перед pagehide')
+
+    expect(currentDraft()).toBeNull()
+
+    window.dispatchEvent(
+      new Event('pagehide')
+    )
+
+    expect(
+      currentDraft()?.textAnswers?.['701']
+    ).toBe('Черновик перед pagehide')
+  })
+
   it('clears the draft after a confirmed successful submit', async () => {
+    vi.useFakeTimers()
+
     const wrapper =
       mountTestView()
 
@@ -275,12 +363,16 @@ describe('TestView draft recovery', () => {
       .get('[data-testid="text-answer"]')
       .setValue('Ответ для отправки')
 
-    expect(currentDraft()).not.toBeNull()
+    expect(currentDraft()).toBeNull()
 
     await submitButton(wrapper)
       .trigger('click')
 
     await flushPromises()
+
+    expect(currentDraft()).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(300)
 
     expect(currentDraft()).toBeNull()
   })

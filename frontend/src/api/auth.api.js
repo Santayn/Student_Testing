@@ -62,19 +62,26 @@ export const authApi = {
     )
   },
 
-  revoke(refreshToken) {
-    return http.post(
+  revoke(
+    refreshToken,
+    accessToken,
+    tokenType = 'Bearer'
+  ) {
+    /*
+     * Logout invalidates local state before this best-effort revoke.
+     * Therefore revoke must use the access token captured from the
+     * session being closed instead of the current store/interceptors.
+     */
+    return authHttp.post(
       '/auth/revoke',
       {
         refreshToken,
       },
       {
-        /*
-         * Нельзя делать response-refresh + retry:
-         * refresh rotation заменит refreshToken,
-         * а body исходного revoke содержит старое значение.
-         */
-        skipAuthRefresh: true,
+        headers: {
+          Authorization:
+            `${tokenType} ${accessToken}`,
+        },
       }
     )
   },
@@ -88,6 +95,14 @@ export const authApi = {
       {
         currentPassword,
         newPassword,
+      },
+      {
+        /*
+         * A 401 here means an incorrect current password, not necessarily
+         * an expired access token. Request preflight already calls
+         * ensureAccessToken(), so response refresh/retry must be disabled.
+         */
+        skipAuthRefresh: true,
       }
     )
   },

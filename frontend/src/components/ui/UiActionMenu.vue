@@ -11,6 +11,7 @@ const props = defineProps({
 
 const emit = defineEmits(['open'])
 const menu = ref(null)
+const menuOpen = ref(false)
 
 const menuItems = computed(() => props.items.map((item) => {
   if (item.separator) return { separator: true }
@@ -24,6 +25,14 @@ function toggle(event) {
   emit('open', event)
   menu.value?.toggle(event)
 }
+
+function onShow() {
+  menuOpen.value = true
+}
+
+function onHide() {
+  menuOpen.value = false
+}
 </script>
 
 <template>
@@ -34,8 +43,16 @@ function toggle(event) {
     text
     rounded
     :aria-label="ariaLabel"
-    aria-haspopup="true"
+    aria-haspopup="menu"
+    :aria-expanded="menuOpen ? 'true' : 'false'"
     @click="toggle"
   />
-  <Menu ref="menu" class="st-ui-action-menu" :model="menuItems" popup />
+  <Menu
+    ref="menu"
+    class="st-ui-action-menu"
+    :model="menuItems"
+    popup
+    @show="onShow"
+    @hide="onHide"
+  />
 </template>

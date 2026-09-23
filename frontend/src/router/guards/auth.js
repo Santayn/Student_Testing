@@ -215,8 +215,7 @@ export async function authGuard(to) {
      */
     if (authStore.canRefresh) {
       try {
-        await authStore.refreshSession()
-        await authStore.loadCurrentUser()
+        await authStore.refreshIdentity()
       } catch {
         return {
           name: 'login',

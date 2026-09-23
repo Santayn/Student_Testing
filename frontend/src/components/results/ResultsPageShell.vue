@@ -18,7 +18,7 @@ defineProps({
 </script>
 
 <template>
-  <main
+  <section
     class="results-page"
     :class="{
       'results-page--narrow':
@@ -50,7 +50,7 @@ defineProps({
     <div class="results-page__content">
       <slot />
     </div>
-  </main>
+  </section>
 </template>
 
 <style scoped>

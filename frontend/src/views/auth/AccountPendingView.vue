@@ -60,8 +60,7 @@ async function recheckAccess() {
   message.value = ''
 
   try {
-    await authStore.refreshSession()
-    await authStore.loadCurrentUser()
+    await authStore.refreshIdentity()
 
     if (hasWorkspaceAccess(authStore)) {
       await router.replace({
@@ -82,6 +81,17 @@ async function recheckAccess() {
         'Настройка учётной записи ещё не завершена. Повторите проверку после изменения данных администратором.'
     }
   } catch {
+    if (!authStore.isAuthenticated) {
+      await router.replace({
+        name: 'login',
+        query: {
+          redirect: '/account-pending',
+        },
+      })
+
+      return
+    }
+
     message.value =
       'Не удалось обновить данные учётной записи.'
   } finally {
@@ -139,7 +149,9 @@ async function logout() {
       </UiButton>
 
       <UiButton
-        :disabled="checking"
+        :disabled="checking || authStore.loggingOut"
+        :loading="authStore.loggingOut"
+        loading-text="Выход..."
         @click="logout"
       >
         Выйти
@@ -161,10 +173,10 @@ async function logout() {
 
   text-align: center;
 
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-elevated);
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-dialog);
+  box-shadow: var(--st-shadow-card);
 }
 
 .account-pending__icon {
@@ -174,9 +186,9 @@ async function logout() {
   display: grid;
   place-items: center;
 
-  color: var(--brand);
-  background: var(--brand-soft);
-  border: 1px solid var(--brand);
+  color: var(--st-primary-soft-text);
+  background: var(--st-primary-soft);
+  border: 1px solid var(--st-primary);
   border-radius: 50%;
 
   font-size: 32px;
@@ -189,12 +201,12 @@ async function logout() {
 }
 
 .account-pending h1 {
-  color: var(--text);
+  color: var(--st-text);
   font-size: 27px;
 }
 
 .account-pending p {
-  color: var(--text-secondary);
+  color: var(--st-text-secondary);
   line-height: 1.6;
 }
 

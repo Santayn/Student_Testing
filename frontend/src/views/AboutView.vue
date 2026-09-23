@@ -63,15 +63,15 @@ import {
   gap: 10px;
 
   background:
-    var(--surface);
+    var(--st-surface);
 
   border: 1px solid
-    var(--border);
+    var(--st-border);
 
   border-radius: 16px;
 
   box-shadow:
-    var(--shadow-elevated);
+    var(--st-shadow-elevated);
 }
 
 .about-view__eyebrow,
@@ -83,7 +83,7 @@ import {
 
 .about-view__eyebrow {
   color:
-    var(--text-secondary);
+    var(--st-text-secondary);
 
   font-size: 13px;
   font-weight: 700;
@@ -93,7 +93,7 @@ import {
 
 .about-view__title {
   color:
-    var(--text);
+    var(--st-text);
 
   font-size: clamp(28px, 5vw, 40px);
   line-height: 1.1;
@@ -102,7 +102,7 @@ import {
 .about-view__lead,
 .about-view__text {
   color:
-    var(--text-secondary);
+    var(--st-text-secondary);
 
   font-size: 15px;
   line-height: 1.65;

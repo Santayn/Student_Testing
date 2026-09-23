@@ -24,10 +24,14 @@ describe('admin frontend context', () => {
       '../composables/useTeacherSubjects.js'
     )
 
-    expect(composable)
+    const loader = source(
+      '../utils/teacherSubjectContext.js'
+    )
+
+    expect(loader)
       .toContain('authStore.isAdminMode')
 
-    expect(composable)
+    expect(loader)
       .toContain('activeOnly: true')
 
     expect(composable)
@@ -58,7 +62,7 @@ describe('admin frontend context', () => {
       .toContain('if (authStore.isAdminMode)')
 
     expect(subjectsView)
-      .toContain('subjectsApi.getAll()')
+      .toContain('loadSubjectCatalog(subjectsApi, cache)')
   })
 
   it('keeps the personal teacher profile tab tied to the TEACHER role', () => {

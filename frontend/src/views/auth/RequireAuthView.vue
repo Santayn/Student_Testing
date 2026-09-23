@@ -61,11 +61,18 @@ const loginRoute = computed(() => ({
 
 <style scoped>
 .auth-required {
+  width: min(100%, 560px);
+  margin: clamp(20px, 6vh, 64px) auto;
+  padding: clamp(20px, 4vw, 32px);
   display: grid;
   justify-items: center;
   gap: 16px;
-
   text-align: center;
+  color: var(--st-text);
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-dialog);
+  box-shadow: var(--st-shadow-card);
 }
 
 .auth-required__icon {
@@ -76,13 +83,13 @@ const loginRoute = computed(() => ({
   place-items: center;
 
   color:
-    var(--warning);
+    var(--st-warning-text);
 
   background:
-    var(--warning-soft);
+    var(--st-warning-soft);
 
   border: 1px solid
-    var(--warning-border);
+    var(--st-warning);
 
   border-radius: 50%;
 
@@ -97,7 +104,7 @@ const loginRoute = computed(() => ({
 
 .auth-required h1 {
   color:
-    var(--text);
+    var(--st-text);
 
   font-size: 27px;
 }
@@ -106,7 +113,7 @@ const loginRoute = computed(() => ({
   max-width: 360px;
 
   color:
-    var(--text-secondary);
+    var(--st-text-secondary);
 
   font-size: 14px;
   line-height: 1.6;

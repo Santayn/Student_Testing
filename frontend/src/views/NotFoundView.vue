@@ -72,18 +72,18 @@ const primaryLabel = computed(() => {
   text-align: center;
 
   color:
-    var(--text);
+    var(--st-text);
 
   background:
-    var(--surface);
+    var(--st-surface);
 
   border: 1px solid
-    var(--border);
+    var(--st-border);
 
   border-radius: 16px;
 
   box-shadow:
-    var(--shadow-elevated);
+    var(--st-shadow-elevated);
 }
 
 .error-card :deep(.ui-card__content) {
@@ -100,7 +100,7 @@ const primaryLabel = computed(() => {
   line-height: 0.9;
 
   color:
-    var(--brand);
+    var(--st-primary);
 
   letter-spacing: -0.05em;
 }
@@ -118,7 +118,7 @@ const primaryLabel = computed(() => {
   margin: 0;
 
   color:
-    var(--text-secondary);
+    var(--st-text-secondary);
 
   font-size: 15px;
   line-height: 1.6;

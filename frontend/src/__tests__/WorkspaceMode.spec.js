@@ -13,9 +13,34 @@ import {
   useAuthStore,
 } from '@/stores/auth'
 
+import {
+  getSharedLearningContextCache,
+} from '@/utils/learningContextCache'
+
 describe('workspace mode', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+  })
+
+  it('discards shared learning context on mode switch, identity change and logout', async () => {
+    const auth = useAuthStore()
+    auth.setUser({ id: 1, personId: 17, roles: ['STUDENT', 'TEACHER'] })
+
+    const first = getSharedLearningContextCache(auth)
+    await first.load('student:17', () => ({ owner: 1 }))
+
+    auth.setWorkspaceRole('STUDENT')
+    const student = getSharedLearningContextCache(auth)
+    expect(student).not.toBe(first)
+    expect(first.isActive()).toBe(false)
+
+    auth.setUser({ id: 1, personId: 18, roles: ['STUDENT', 'TEACHER'] })
+    const otherPerson = getSharedLearningContextCache(auth)
+    expect(otherPerson).not.toBe(student)
+
+    auth.clearSession()
+    expect(otherPerson.isActive()).toBe(false)
+    expect(getSharedLearningContextCache(auth)).toBeNull()
   })
 
   it('uses one consistent mode for a multi-role account', () => {

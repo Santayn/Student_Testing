@@ -82,7 +82,7 @@ const currentYear = new Date().getFullYear()
 
 .app-footer__link:focus-visible {
   outline: 2px solid
-    var(--st-focus-ring);
+    var(--st-primary);
   outline-offset: 3px;
   border-radius: 4px;
 }

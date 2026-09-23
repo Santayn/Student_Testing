@@ -32,7 +32,7 @@ const mockState = vi.hoisted(() => ({
     workspaceRole: 'STUDENT',
     workspaceRoles: ['STUDENT', 'TEACHER'],
     hasMultipleWorkspaceRoles: true,
-    loading: false,
+    loggingOut: false,
     setWorkspaceRole: vi.fn(),
     logout: vi.fn(),
   },
@@ -99,7 +99,7 @@ describe('AppHeader navigation responsibility', () => {
     mockState.route.fullPath = '/'
     mockState.authStore.isAuthenticated = true
     mockState.authStore.workspaceRole = 'STUDENT'
-    mockState.authStore.loading = false
+    mockState.authStore.loggingOut = false
     mockState.authStore.setWorkspaceRole.mockReset()
     mockState.authStore.logout.mockReset()
     mockState.themeStore.toggleTheme.mockReset()

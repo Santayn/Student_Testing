@@ -3,6 +3,7 @@ import {
   computed,
   onMounted,
   ref,
+  watch,
 } from 'vue'
 
 import {
@@ -29,17 +30,26 @@ import {
 } from '@/stores/auth'
 
 import {
-  listFromResponse,
-  uniqueNumbers,
-} from '@/utils/apiData'
+  getSharedLearningContextCache,
+  invalidateLearningContextCache,
+} from '@/utils/learningContextCache'
+
+import {
+  createLatestRequestGuard,
+} from '@/utils/latestRequest'
+
+import {
+  loadSubjectCatalog,
+  loadTeacherSubjectContext,
+} from '@/utils/teacherSubjectContext'
 
 import {
   loadStudentLearningContext,
 } from '@/utils/studentLearningContext'
 
-const SUBJECT_ROLE_TEACHER = 1
 const authStore =
   useAuthStore()
+const subjectsRequest = createLatestRequestGuard()
 
 const loading = ref(false)
 const error = ref('')
@@ -139,114 +149,84 @@ function subjectRoute(subject) {
 }
 
 async function loadTeacherSubjects() {
-  const personId =
-    authStore.personId
+  const cache = getSharedLearningContextCache(authStore)
 
   if (authStore.isAdminMode) {
-    const response =
-      await subjectsApi.getAll()
-
-    return listFromResponse(
-      response
-    )
+    return loadSubjectCatalog(subjectsApi, cache)
   }
 
-  if (!personId) {
+  if (!authStore.personId) {
     return []
   }
 
-  const membershipsResponse =
-    await membershipsApi
-      .getSubjectMemberships({
-        personId,
-        activeOnly: true,
-      })
+  const context = await loadTeacherSubjectContext({
+    authStore,
+    membershipsApi,
+    subjectsApi,
+    cache,
+  })
 
-  const memberships =
-    listFromResponse(
-      membershipsResponse
-    )
-
-  const subjectIds =
-    uniqueNumbers(
-      memberships
-        .filter(
-          (item) =>
-            Number(item.role) ===
-            SUBJECT_ROLE_TEACHER
-        )
-        .map(
-          (item) =>
-            item.subjectId
-        )
-    )
-
-  const responses =
-    await Promise.all(
-      subjectIds.map(
-        (subjectId) =>
-          subjectsApi.getById(
-            subjectId
-          )
-      )
-    )
-
-  return responses
-    .map(
-      (response) =>
-        response.data
-    )
-    .filter(Boolean)
+  return context.subjects
 }
 
 async function loadStudentSubjects() {
-  const context =
-    await loadStudentLearningContext({
+  return loadStudentLearningContext({
       personId: authStore.personId,
       membershipsApi,
       groupsApi,
       facultiesApi,
       teachingApi,
       subjectsApi,
+      cache: getSharedLearningContextCache(authStore),
     })
-
-  groups.value = context.groups
-  faculties.value = context.faculties
-
-  return context.subjects
 }
 
 async function loadSubjects() {
+  const requestId = subjectsRequest.begin()
+  const securityScope = JSON.stringify([
+    authStore.sessionEpoch,
+    authStore.userId,
+    authStore.personId,
+    authStore.activeWorkspaceRole,
+  ])
+  const isCurrent = () =>
+    subjectsRequest.isCurrent(requestId) &&
+    securityScope === JSON.stringify([
+      authStore.sessionEpoch,
+      authStore.userId,
+      authStore.personId,
+      authStore.activeWorkspaceRole,
+    ])
+
   loading.value = true
   error.value = ''
 
   try {
+    let nextSubjects = []
+    let nextGroups = []
+    let nextFaculties = []
+
     /*
      * ADMIN — отдельный глобальный контекст.
      * Даже если учётная запись дополнительно имеет STUDENT/TEACHER,
      * административная страница предметов должна показывать весь список.
      */
     if (authStore.isAdminMode) {
-      groups.value = []
-      faculties.value = []
-
-      subjects.value =
-        await loadTeacherSubjects()
+      nextSubjects = await loadTeacherSubjects()
     } else if (authStore.isStudentMode) {
-      subjects.value =
-        await loadStudentSubjects()
+      const context = await loadStudentSubjects()
+      nextSubjects = context.subjects
+      nextGroups = context.groups
+      nextFaculties = context.faculties
     } else if (authStore.isTeacherMode) {
-      groups.value = []
-      faculties.value = []
-
-      subjects.value =
-        await loadTeacherSubjects()
-    } else {
-      subjects.value = []
+      nextSubjects = await loadTeacherSubjects()
     }
 
+    if (!isCurrent()) return
+    groups.value = nextGroups
+    faculties.value = nextFaculties
     subjects.value =
-      [...subjects.value].sort(
+      [...nextSubjects].sort(
         (left, right) =>
           String(
             left.name ?? ''
@@ -261,15 +241,30 @@ async function loadSubjects() {
           )
       )
   } catch (requestError) {
+    if (!isCurrent()) return
     error.value =
       getApiErrorMessage(
         requestError,
         'Не удалось загрузить список предметов.'
       )
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
+
+function refreshSubjects() {
+  invalidateLearningContextCache(authStore)
+  return loadSubjects()
+}
+
+watch(
+  () => [
+    authStore.sessionEpoch,
+    authStore.personId,
+    authStore.activeWorkspaceRole,
+  ],
+  loadSubjects
+)
 
 onMounted(loadSubjects)
 </script>
@@ -283,7 +278,7 @@ onMounted(loadSubjects)
       <UiButton
         :loading="loading"
         loading-text="Обновление..."
-        @click="loadSubjects"
+        @click="refreshSubjects"
       >
         Обновить
       </UiButton>

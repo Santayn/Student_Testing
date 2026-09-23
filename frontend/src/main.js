@@ -8,8 +8,8 @@ import StudentTestingPreset from '@/theme/studentTestingPreset'
 
 import App from './App.vue'
 import '@/assets/tailwind.css'
-import '@/assets/theme.css'
 import '@/theme/tokens.css'
+import '@/theme/base.css'
 import '@/theme/foundation.css'
 import 'primeicons/primeicons.css'
 
@@ -74,6 +74,10 @@ async function bootstrap() {
     getAccessToken:
       () =>
         authStore.accessToken,
+
+    getSessionEpoch:
+      () =>
+        authStore.sessionEpoch,
 
     ensureAccessToken:
       () =>

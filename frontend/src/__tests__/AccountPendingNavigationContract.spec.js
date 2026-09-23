@@ -37,8 +37,7 @@ function authState({
     personId,
     canRefresh,
     init: vi.fn(),
-    refreshSession: vi.fn(),
-    loadCurrentUser: vi.fn(),
+    refreshIdentity: vi.fn(),
     hasAnyRole(...requiredRoles) {
       return requiredRoles.some(
         (role) => roles.includes(role)

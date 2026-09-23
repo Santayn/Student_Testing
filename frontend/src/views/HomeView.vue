@@ -1,11 +1,13 @@
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { UiButton, UiTag } from '@/components/ui'
 import { useAuthStore } from '@/stores/auth'
 import { WORKSPACE_ROLE_LABELS } from '@/utils/workspaceRole'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const displayName = computed(() => {
   if (authStore.fullName) {
@@ -128,9 +130,16 @@ const workspaceSummary = computed(() => {
 
 async function refreshUser() {
   try {
-    await authStore.loadCurrentUser()
+    await authStore.refreshIdentity()
   } catch {
-    // authStore уже содержит состояние ошибки сессии/API.
+    if (!authStore.isAuthenticated) {
+      await router.replace({
+        name: 'login',
+        query: {
+          redirect: '/',
+        },
+      })
+    }
   }
 }
 </script>
@@ -232,7 +241,7 @@ async function refreshUser() {
         <div class="home-panel__actions">
           <UiButton
             type="button"
-            :loading="authStore.loading"
+            :loading="authStore.syncingIdentity"
             loading-text="Обновление..."
             @click="refreshUser"
           >

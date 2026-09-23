@@ -1,5 +1,10 @@
 <script setup>
-import { computed } from 'vue'
+import {
+  computed,
+  nextTick,
+  ref,
+  watch,
+} from 'vue'
 import { useRoute } from 'vue-router'
 
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -10,14 +15,49 @@ import AppFooter from '@/components/layout/AppFooter.vue'
 import {
   provideBreadcrumbContext,
 } from '@/navigation'
+import {
+  getDocumentTitle,
+} from '@/router/pageMetadata'
+import {
+  focusRouteContent,
+} from '@/utils/focusRouteContent'
 
 const route = useRoute()
+const appMain = ref(null)
 
 provideBreadcrumbContext()
 
 const showSidebar = computed(() => {
   return Boolean(route.meta.navKey)
 })
+
+watch(
+  () => route.name,
+  (routeName) => {
+    document.title =
+      getDocumentTitle(routeName)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => route.fullPath,
+  async (currentPath, previousPath) => {
+    if (
+      !previousPath ||
+      currentPath === previousPath
+    ) {
+      return
+    }
+
+    await nextTick()
+
+    focusRouteContent(
+      appMain.value
+    )
+  },
+  { flush: 'post' }
+)
 </script>
 
 <template>
@@ -32,7 +72,11 @@ const showSidebar = computed(() => {
     >
       <AppSidebar v-if="showSidebar" />
 
-      <main class="app-main">
+      <main
+        ref="appMain"
+        class="app-main"
+        tabindex="-1"
+      >
         <AppBreadcrumb />
         <RouterView />
       </main>
@@ -103,6 +147,10 @@ body {
 
   color: var(--st-text);
   background: transparent;
+}
+
+.app-main:focus {
+  outline: none;
 }
 
 @media (max-width: 960px) {

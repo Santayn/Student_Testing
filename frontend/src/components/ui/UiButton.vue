@@ -28,6 +28,7 @@ const props = defineProps({
 
 const emit = defineEmits(['click'])
 const isDisabled = computed(() => props.disabled || props.loading)
+const isLinkMode = computed(() => Boolean(props.to || props.href))
 const severity = computed(() => {
   if (props.variant === 'danger') return 'danger'
   if (props.variant === 'success') return 'success'
@@ -52,8 +53,27 @@ function onClick(event) {
 </script>
 
 <template>
+  <span
+    v-if="isLinkMode && isDisabled"
+    class="st-ui-link-button st-ui-link-button--disabled"
+    :class="[
+      `st-ui-link-button--${variant}`,
+      `st-ui-link-button--${size}`,
+      {
+        'st-ui-link-button--block': block,
+      },
+    ]"
+    role="link"
+    aria-disabled="true"
+    tabindex="-1"
+  >
+    <i v-if="icon" :class="icon" aria-hidden="true" />
+    <span v-if="visibleLabel">{{ visibleLabel }}</span>
+    <slot v-else />
+  </span>
+
   <RouterLink
-    v-if="to"
+    v-else-if="to"
     :to="to"
     class="st-ui-link-button"
     :class="[
@@ -61,10 +81,8 @@ function onClick(event) {
       `st-ui-link-button--${size}`,
       {
         'st-ui-link-button--block': block,
-        'st-ui-link-button--disabled': isDisabled,
       },
     ]"
-    :aria-disabled="isDisabled ? 'true' : undefined"
     @click="onClick"
   >
     <i v-if="icon" :class="icon" aria-hidden="true" />
@@ -81,10 +99,8 @@ function onClick(event) {
       `st-ui-link-button--${size}`,
       {
         'st-ui-link-button--block': block,
-        'st-ui-link-button--disabled': isDisabled,
       },
     ]"
-    :aria-disabled="isDisabled ? 'true' : undefined"
     @click="onClick"
   >
     <i v-if="icon" :class="icon" aria-hidden="true" />

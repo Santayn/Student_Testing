@@ -3,6 +3,11 @@ import {
   uniqueNumbers,
 } from '@/utils/apiData'
 
+import {
+  LEARNING_CONTEXT_TTL_MS,
+  REFERENCE_TTL_MS,
+} from '@/utils/learningContextCache'
+
 export const STUDENT_GROUP_ROLE = 1
 export const ACTIVE_GROUP_MEMBERSHIP_STATUS = 1
 export const ACTIVE_TEACHING_ASSIGNMENT_STATUS = 1
@@ -65,6 +70,7 @@ export async function loadStudentLearningContext({
   facultiesApi,
   teachingApi,
   subjectsApi,
+  cache = null,
 }) {
   const normalizedPersonId = Number(personId)
 
@@ -74,6 +80,33 @@ export async function loadStudentLearningContext({
   ) {
     return emptyStudentLearningContext()
   }
+
+  const load = () => fetchStudentLearningContext({
+    normalizedPersonId,
+    membershipsApi,
+    groupsApi,
+    facultiesApi,
+    teachingApi,
+    subjectsApi,
+    cache,
+  })
+
+  return cache
+    ? cache.load(`student:context:${normalizedPersonId}`, load, {
+        ttlMs: LEARNING_CONTEXT_TTL_MS,
+      })
+    : load()
+}
+
+async function fetchStudentLearningContext({
+  normalizedPersonId,
+  membershipsApi,
+  groupsApi,
+  facultiesApi,
+  teachingApi,
+  subjectsApi,
+  cache,
+}) {
 
   const membershipsResponse =
     await membershipsApi.getGroupMemberships({
@@ -97,8 +130,14 @@ export async function loadStudentLearningContext({
   const groups = uniqueEntitiesById(
     await Promise.all(
       groupIds.map(async (groupId) => {
-        const response = await groupsApi.getById(groupId)
-        return response.data
+        const fetchGroup = async () =>
+          (await groupsApi.getById(groupId)).data
+
+        return cache
+          ? cache.load(`group:${groupId}`, fetchGroup, {
+              ttlMs: REFERENCE_TTL_MS,
+            })
+          : fetchGroup()
       })
     )
   )
@@ -110,8 +149,14 @@ export async function loadStudentLearningContext({
   const faculties = uniqueEntitiesById(
     await Promise.all(
       facultyIds.map(async (facultyId) => {
-        const response = await facultiesApi.getById(facultyId)
-        return response.data
+        const fetchFaculty = async () =>
+          (await facultiesApi.getById(facultyId)).data
+
+        return cache
+          ? cache.load(`faculty:${facultyId}`, fetchFaculty, {
+              ttlMs: REFERENCE_TTL_MS,
+            })
+          : fetchFaculty()
       })
     )
   )
@@ -202,8 +247,14 @@ export async function loadStudentLearningContext({
   const subjects = uniqueEntitiesById(
     await Promise.all(
       subjectIds.map(async (subjectId) => {
-        const response = await subjectsApi.getById(subjectId)
-        return response.data
+        const fetchSubject = async () =>
+          (await subjectsApi.getById(subjectId)).data
+
+        return cache
+          ? cache.load(`subject:${subjectId}`, fetchSubject, {
+              ttlMs: REFERENCE_TTL_MS,
+            })
+          : fetchSubject()
       })
     )
   )

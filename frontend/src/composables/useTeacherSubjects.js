@@ -13,16 +13,19 @@ import {
 } from '@/stores/auth'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
+  getSharedLearningContextCache,
+  invalidateLearningContextCache,
+} from '@/utils/learningContextCache'
+
+import {
+  loadTeacherSubjectContext,
+} from '@/utils/teacherSubjectContext'
 
 import {
   assertAssignableTeacherMembership,
   isAssignableTeacherMembership,
   TeacherMembershipEligibilityError,
 } from '@/utils/teacherMembershipEligibility'
-
-const TEACHER_ROLE = 1
 
 export function useTeacherSubjects() {
   const authStore = useAuthStore()
@@ -251,6 +254,7 @@ export function useTeacherSubjects() {
       )
     } catch (error) {
       selectedMembershipId.value = ''
+      invalidateLearningContextCache(authStore)
       throw error
     }
   }
@@ -262,90 +266,15 @@ export function useTeacherSubjects() {
     loadingSubjects.value = true
 
     try {
-      const personId =
-        authStore.personId
+      const context = await loadTeacherSubjectContext({
+        authStore,
+        membershipsApi,
+        subjectsApi,
+        cache: getSharedLearningContextCache(authStore),
+      })
 
-      if (
-        !authStore.isAdminMode &&
-        !personId
-      ) {
-        throw new Error(
-          'Не удалось определить преподавателя по текущему профилю.'
-        )
-      }
-
-      const membershipParams =
-        authStore.isAdminMode
-          ? {
-              activeOnly: true,
-            }
-          : {
-              personId,
-              activeOnly: true,
-            }
-
-      const membershipsResponse =
-        await membershipsApi
-          .getSubjectMemberships(
-            membershipParams
-          )
-
-      subjectMemberships.value =
-        listFromResponse(
-          membershipsResponse
-        )
-          .filter(
-            (item) =>
-              Number(item.role) ===
-              TEACHER_ROLE
-          )
-          .sort(
-            (left, right) =>
-              Number(left.id) -
-              Number(right.id)
-          )
-
-      const subjectIds = [
-        ...new Set(
-          subjectMemberships.value
-            .map(
-              (item) =>
-                Number(item.subjectId)
-            )
-            .filter(Boolean)
-        ),
-      ]
-
-      const subjectResponses =
-        await Promise.all(
-          subjectIds.map(
-            (subjectId) =>
-              subjectsApi.getById(
-                subjectId
-              )
-          )
-        )
-
-      subjects.value =
-        subjectResponses
-          .map(
-            (response) =>
-              response.data
-          )
-          .filter(Boolean)
-          .sort(
-            (left, right) =>
-              String(left.name ?? '')
-                .localeCompare(
-                  String(
-                    right.name ?? ''
-                  ),
-                  'ru',
-                  {
-                    sensitivity: 'base',
-                  }
-                )
-          )
+      subjectMemberships.value = context.memberships
+      subjects.value = context.subjects
 
       const preferredMembership =
         preferredMembershipId

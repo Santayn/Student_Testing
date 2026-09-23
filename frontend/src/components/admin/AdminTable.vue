@@ -488,7 +488,7 @@ function rowKeyValue(
 
   overflow-x: auto;
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--st-border);
   border-radius: 10px;
 }
 
@@ -498,15 +498,15 @@ function rowKeyValue(
 
   border-collapse: collapse;
 
-  color: var(--text);
-  background: var(--surface);
+  color: var(--st-text);
+  background: var(--st-surface);
 }
 
 .admin-data-table__table th,
 .admin-data-table__table td {
   padding: 11px 12px;
 
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--st-border);
 
   text-align: left;
   vertical-align: middle;
@@ -515,8 +515,8 @@ function rowKeyValue(
 }
 
 .admin-data-table__table th {
-  color: var(--text-secondary);
-  background: var(--surface-secondary);
+  color: var(--st-text-secondary);
+  background: var(--st-surface-muted);
 
   font-size: 12px;
   font-weight: 800;
@@ -528,7 +528,7 @@ function rowKeyValue(
 }
 
 .admin-data-table__table tbody tr:hover td {
-  background: var(--surface-secondary);
+  background: var(--st-surface-muted);
 }
 
 .admin-data-table__sort-button {
@@ -552,11 +552,11 @@ function rowKeyValue(
 }
 
 .admin-data-table__sort-button:hover {
-  color: var(--brand);
+  color: var(--st-primary);
 }
 
 .admin-data-table__sort-button:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--st-primary);
   outline-offset: 4px;
   border-radius: 4px;
 }
@@ -564,7 +564,7 @@ function rowKeyValue(
 .admin-data-table__sort-icon {
   min-width: 12px;
 
-  color: var(--brand);
+  color: var(--st-primary);
 
   font-size: 13px;
   text-align: center;
@@ -591,15 +591,15 @@ function rowKeyValue(
     flex-wrap: wrap;
     gap: 6px;
 
-    background: var(--surface-secondary);
-    border: 1px solid var(--border);
+    background: var(--st-surface-muted);
+    border: 1px solid var(--st-border);
     border-radius: 9px;
   }
 
   .admin-data-table__mobile-sort-label {
     width: 100%;
 
-    color: var(--text-secondary);
+    color: var(--st-text-secondary);
 
     font-size: 11px;
     font-weight: 800;
@@ -614,9 +614,9 @@ function rowKeyValue(
     align-items: center;
     gap: 5px;
 
-    color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border);
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
     border-radius: 7px;
 
     font: inherit;
@@ -627,9 +627,9 @@ function rowKeyValue(
   }
 
   .admin-data-table__mobile-sort-button--active {
-    color: var(--brand);
-    border-color: var(--brand);
-    background: var(--brand-soft);
+    color: var(--st-primary);
+    border-color: var(--st-primary);
+    background: var(--st-primary-soft);
   }
 
   .admin-data-table__wrap {
@@ -660,8 +660,8 @@ function rowKeyValue(
 
     overflow: hidden;
 
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
     border-radius: 10px;
   }
 
@@ -676,13 +676,13 @@ function rowKeyValue(
       1fr;
     gap: 10px;
 
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--st-border);
   }
 
   .admin-data-table__table td::before {
     content: attr(data-label);
 
-    color: var(--text-secondary);
+    color: var(--st-text-secondary);
 
     font-size: 11px;
     font-weight: 800;

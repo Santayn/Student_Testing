@@ -135,6 +135,7 @@ const {
   form,
   isOpen: lectureDrawerOpen,
   isCreate,
+  mode: lectureFormMode,
   dirty: lectureDirty,
   saving,
   confirmCloseVisible,
@@ -264,6 +265,14 @@ const drawerTitle = computed(() => {
 })
 
 const pendingFilesDirty = computed(() => pendingFiles.value.length > 0)
+const partialCreateState = ref(null)
+
+const partialCreatePending = computed(() => {
+  return Boolean(
+    partialCreateState.value &&
+    Number(partialCreateState.value.id) === Number(form.id)
+  )
+})
 
 function routeQuery(lectureId = null) {
   const query = {}
@@ -325,6 +334,7 @@ function resetFilters() {
 }
 
 function clearLectureDrawerState() {
+  partialCreateState.value = null
   materialsRequest.invalidate()
   materials.value = []
   pendingFiles.value = []
@@ -358,7 +368,11 @@ function requestLectureDrawerClose() {
     return false
   }
 
-  if (lectureDirty.value || pendingFilesDirty.value) {
+  if (
+    lectureDirty.value ||
+    pendingFilesDirty.value ||
+    partialCreatePending.value
+  ) {
     confirmCloseVisible.value = true
     return false
   }
@@ -609,6 +623,34 @@ async function uploadPendingFiles(lectureId) {
   fileInputKey.value += 1
 }
 
+function lectureCoreSignature(payload) {
+  return JSON.stringify(payload)
+}
+
+function upsertLecture(lecture) {
+  const lectureId = Number(lecture?.id ?? 0)
+
+  if (!lectureId) {
+    return
+  }
+
+  const next = lectures.value.filter(
+    (item) => Number(item.id) !== lectureId
+  )
+
+  next.push(lecture)
+  next.sort(
+    (left, right) =>
+      Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0) ||
+      String(left.title ?? '').localeCompare(
+        String(right.title ?? ''),
+        'ru'
+      )
+  )
+
+  lectures.value = next
+}
+
 async function saveLecture() {
   formError.value = lectureValidationMessage()
 
@@ -637,36 +679,77 @@ async function saveLecture() {
     publicVisible: Boolean(form.publicVisible),
   }
 
+  const payloadSignature = lectureCoreSignature(payload)
+  const retryingPartialCreate = partialCreatePending.value
+
   beginSaving()
 
   try {
     await ensureSelectedMembershipActive()
 
-    const response = form.id
-      ? await lecturesApi.update(form.id, payload)
-      : await lecturesApi.create(payload)
+    let lecture
 
-    const lecture = response.data
+    if (
+      retryingPartialCreate &&
+      partialCreateState.value.coreSignature === payloadSignature
+    ) {
+      lecture = editingLecture ?? {
+        ...payload,
+        id: partialCreateState.value.id,
+      }
+    } else if (form.id) {
+      const response = await lecturesApi.update(form.id, payload)
+      lecture = response.data
+      upsertLecture(lecture)
+
+      if (retryingPartialCreate) {
+        partialCreateState.value = {
+          ...partialCreateState.value,
+          coreSignature: payloadSignature,
+        }
+      }
+    } else {
+      const response = await lecturesApi.create(payload)
+      lecture = response.data
+
+      // The lecture already exists on the server from this point onward.
+      // Persist its id in the editor immediately so a failure in a
+      // dependent operation can never turn the next Save into another POST.
+      form.id = lecture.id
+      lectureFormMode.value = 'edit'
+      upsertLecture(lecture)
+      partialCreateState.value = {
+        id: Number(lecture.id),
+        coreSignature: payloadSignature,
+      }
+    }
 
     await syncLectureTests(lecture.id, form.testIds)
     await uploadPendingFiles(lecture.id)
 
+    const completedCreateFlow = partialCreatePending.value
+    partialCreateState.value = null
+
     notice.value = {
       type: 'success',
-      message: form.id
-        ? 'Лекция обновлена.'
-        : 'Лекция создана.',
+      message: completedCreateFlow
+        ? 'Лекция создана.'
+        : 'Лекция обновлена.',
     }
 
     finishSaving({ close: true })
     clearLectureDrawerState()
     await loadLectures()
   } catch (error) {
+    const createdLectureNeedsFollowUp = partialCreatePending.value
+
     formError.value = getApiErrorMessage(
       error,
-      form.id
-        ? 'Не удалось обновить лекцию'
-        : 'Не удалось создать лекцию'
+      createdLectureNeedsFollowUp
+        ? 'Лекция уже создана, но не удалось сохранить связанные тесты или материалы. Повторите сохранение — новая лекция создана повторно не будет.'
+        : form.id
+          ? 'Не удалось обновить лекцию'
+          : 'Не удалось создать лекцию'
     )
     failSaving()
   }

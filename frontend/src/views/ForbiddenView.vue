@@ -124,18 +124,18 @@ const currentRoles = computed(() => {
   text-align: center;
 
   color:
-    var(--text);
+    var(--st-text);
 
   background:
-    var(--surface);
+    var(--st-surface);
 
   border: 1px solid
-    var(--border);
+    var(--st-border);
 
   border-radius: 16px;
 
   box-shadow:
-    var(--shadow-elevated);
+    var(--st-shadow-elevated);
 }
 
 .error-card :deep(.ui-card__content) {
@@ -156,7 +156,7 @@ const currentRoles = computed(() => {
 
 .error-code--forbidden {
   color:
-    var(--danger);
+    var(--st-danger);
 }
 
 .error-title {
@@ -172,7 +172,7 @@ const currentRoles = computed(() => {
   margin: 0;
 
   color:
-    var(--text-secondary);
+    var(--st-text-secondary);
 
   font-size: 15px;
   line-height: 1.6;
@@ -189,24 +189,24 @@ const currentRoles = computed(() => {
   text-align: left;
 
   background:
-    var(--surface-secondary);
+    var(--st-surface-muted);
 
   border: 1px solid
-    var(--border);
+    var(--st-border);
 
   border-radius: 9px;
 }
 
 .error-meta__label {
   color:
-    var(--text-secondary);
+    var(--st-text-secondary);
 
   font-size: 12px;
 }
 
 .error-meta__value {
   color:
-    var(--text);
+    var(--st-text);
 
   font-size: 13px;
   font-weight: 600;

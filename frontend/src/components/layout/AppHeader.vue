@@ -252,7 +252,7 @@ onBeforeUnmount(() => {
             <button
               class="app-header__button"
               type="button"
-              :disabled="authStore.loading"
+              :disabled="authStore.loggingOut"
               @click="logout"
             >
               Выйти

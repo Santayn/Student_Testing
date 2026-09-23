@@ -62,12 +62,7 @@ describe('public registration frontend contract', () => {
 
     expect(pendingView)
       .toContain(
-        'authStore.refreshSession()'
-      )
-
-    expect(pendingView)
-      .toContain(
-        'authStore.loadCurrentUser()'
+        'authStore.refreshIdentity()'
       )
 
     expect(pendingView)

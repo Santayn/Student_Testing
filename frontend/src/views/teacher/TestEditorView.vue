@@ -28,6 +28,7 @@ import {
   UiInput,
   UiSelect,
   UiTextarea,
+  UiUnsavedChangesConfirm,
 } from '@/components/ui'
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
@@ -35,6 +36,10 @@ import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 import {
   useTeacherSubjects,
 } from '@/composables/useTeacherSubjects'
+
+import {
+  useUnsavedNavigationGuard,
+} from '@/composables/useUnsavedNavigationGuard'
 
 import {
   listFromResponse,
@@ -93,6 +98,113 @@ const form = ref({
   availableFrom: '',
   availableUntil: '',
 })
+
+const editorBaseline = ref(null)
+
+const editorState = computed(() => {
+  const groupIds = selectedGroupIds.value
+    .map((id) => Number(id))
+    .filter(Number.isFinite)
+    .sort((left, right) => left - right)
+
+  return {
+    context: {
+      membershipId:
+        String(
+          selectedMembershipId.value ?? ''
+        ),
+      topicId:
+        String(
+          selectedTopicId.value ?? ''
+        ),
+      groupIds,
+    },
+    form: {
+      title:
+        String(form.value.title ?? ''),
+      description:
+        String(
+          form.value.description ?? ''
+        ),
+      questionCount:
+        Number(form.value.questionCount),
+      attemptsAllowed:
+        Number(
+          form.value.attemptsAllowed
+        ),
+      textQuestionCount:
+        Number(
+          form.value.textQuestionCount
+        ),
+      singleAnswerQuestionCount:
+        Number(
+          form.value
+            .singleAnswerQuestionCount
+        ),
+      multipleAnswerQuestionCount:
+        Number(
+          form.value
+            .multipleAnswerQuestionCount
+        ),
+      matchingQuestionCount:
+        Number(
+          form.value
+            .matchingQuestionCount
+        ),
+      status: Number(form.value.status),
+      availableFrom:
+        String(
+          form.value.availableFrom ?? ''
+        ),
+      availableUntil:
+        String(
+          form.value.availableUntil ?? ''
+        ),
+    },
+  }
+})
+
+function cloneEditorState() {
+  return JSON.parse(
+    JSON.stringify(editorState.value)
+  )
+}
+
+const editorDirty = computed(() => {
+  return (
+    editorBaseline.value !== null &&
+    JSON.stringify(editorState.value) !==
+      JSON.stringify(editorBaseline.value)
+  )
+})
+
+function markEditorClean() {
+  editorBaseline.value =
+    cloneEditorState()
+}
+
+function markInitialContextClean() {
+  const nextBaseline =
+    cloneEditorState()
+
+  if (editorBaseline.value?.form) {
+    nextBaseline.form =
+      editorBaseline.value.form
+  }
+
+  editorBaseline.value =
+    nextBaseline
+}
+
+const {
+  confirmVisible:
+    navigationConfirmVisible,
+  continueEditing:
+    continueNavigationEditing,
+  discardAndNavigate,
+} = useUnsavedNavigationGuard(
+  editorDirty
+)
 
 const statusOptions = [
   { value: 1, label: 'Черновик' },
@@ -711,6 +823,8 @@ async function createTest() {
       message:
         `Тест #${test.id} создан и назначен выбранным группам.`,
     }
+
+    markEditorClean()
   } catch (error) {
     if (
       error instanceof
@@ -769,6 +883,7 @@ watch(
 
 onMounted(async () => {
   setDefaultDates()
+  markEditorClean()
 
   try {
     await loadTeacherSubjects({
@@ -800,6 +915,8 @@ onMounted(async () => {
         error.message
       ),
     }
+  } finally {
+    markInitialContextClean()
   }
 })
 </script>
@@ -1075,4 +1192,15 @@ onMounted(async () => {
       </UiCard>
     </div>
   </TeacherPageShell>
+
+  <UiUnsavedChangesConfirm
+    v-model="navigationConfirmVisible"
+    title="Есть несохранённый тест"
+    message="Если покинуть страницу сейчас, несохранённые параметры теста будут потеряны."
+    continue-label="Продолжить редактирование"
+    discard-label="Покинуть без сохранения"
+    :busy="saving"
+    @continue="continueNavigationEditing"
+    @discard="discardAndNavigate"
+  />
 </template>

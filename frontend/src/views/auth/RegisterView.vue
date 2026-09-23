@@ -12,6 +12,7 @@ import {
 import {
   UiAlert,
   UiButton,
+  UiCard,
   UiInput,
 } from '@/components/ui'
 
@@ -29,6 +30,8 @@ const router = useRouter()
 const authStore =
   useAuthStore()
 
+authStore.clearError('register')
+
 const form = ref({
   login: '',
   password: '',
@@ -42,7 +45,7 @@ const canSubmit = computed(() => {
     form.value.login.trim() &&
     form.value.password &&
     form.value.confirmPassword &&
-    !authStore.loading
+    !authStore.registering
   )
 })
 
@@ -104,126 +107,145 @@ async function submit() {
       redirect
     )
   } catch {
-    // Ошибка уже находится в authStore.error.
+    // Ошибка относится только к registration-flow и находится в authStore.registerError.
   }
 }
 </script>
 
 <template>
-  <div class="auth-view">
-    <header class="auth-view__header">
-      <h1>Регистрация</h1>
+  <section class="auth-page" aria-labelledby="register-title">
+    <div class="auth-page__brand" aria-hidden="true">
+      Student Testing
+    </div>
 
-      <p>
-        Создайте учётную запись.
-        Привязку профиля выполняет администратор.
+    <UiCard class="auth-card">
+      <header class="auth-card__header">
+        <p class="auth-card__eyebrow">Учётная запись</p>
+
+        <h1 id="register-title">Регистрация</h1>
+
+        <p>
+          Создайте учётную запись. Привязку профиля выполняет администратор.
+        </p>
+      </header>
+
+      <form class="auth-form" @submit.prevent="submit">
+        <UiInput
+          v-model="form.login"
+          label="Логин"
+          autocomplete="username"
+          maxlength="100"
+          :disabled="authStore.registering"
+          required
+        />
+
+        <UiInput
+          v-model="form.password"
+          label="Пароль"
+          type="password"
+          minlength="6"
+          maxlength="200"
+          autocomplete="new-password"
+          :disabled="authStore.registering"
+          required
+        />
+
+        <UiInput
+          v-model="form.confirmPassword"
+          label="Повторите пароль"
+          type="password"
+          minlength="6"
+          maxlength="200"
+          autocomplete="new-password"
+          :disabled="authStore.registering"
+          required
+        />
+
+        <UiAlert
+          v-if="localError || authStore.registerError"
+          variant="danger"
+          :message="localError || authStore.registerError"
+        />
+
+        <UiButton
+          variant="primary"
+          size="lg"
+          type="submit"
+          block
+          :disabled="!canSubmit"
+          :loading="authStore.registering"
+          loading-text="Регистрация..."
+        >
+          Зарегистрироваться
+        </UiButton>
+      </form>
+
+      <p class="auth-switch">
+        Уже есть аккаунт?
+
+        <RouterLink :to="{ name: 'login' }">
+          Войти
+        </RouterLink>
       </p>
-    </header>
-
-    <form
-      class="auth-form"
-      @submit.prevent="submit"
-    >
-      <UiInput
-        v-model="form.login"
-        label="Логин"
-        autocomplete="username"
-        maxlength="100"
-        :disabled="authStore.loading"
-        required
-        size="lg"
-      />
-
-      <UiInput
-        v-model="form.password"
-        label="Пароль"
-        type="password"
-        minlength="6"
-        maxlength="200"
-        autocomplete="new-password"
-        :disabled="authStore.loading"
-        required
-        size="lg"
-      />
-
-      <UiInput
-        v-model="form.confirmPassword"
-        label="Повторите пароль"
-        type="password"
-        minlength="6"
-        maxlength="200"
-        autocomplete="new-password"
-        :disabled="authStore.loading"
-        required
-        size="lg"
-      />
-
-      <UiAlert
-        v-if="
-          localError ||
-          authStore.error
-        "
-        variant="danger"
-        :message="
-          localError ||
-          authStore.error
-        "
-      />
-
-      <UiButton
-        variant="primary"
-        size="lg"
-        type="submit"
-        block
-        :disabled="!canSubmit"
-        :loading="authStore.loading"
-        loading-text="Регистрация..."
-      >
-        Зарегистрироваться
-      </UiButton>
-    </form>
-
-    <p class="auth-switch">
-      Уже есть аккаунт?
-
-      <RouterLink
-        :to="{
-          name: 'login',
-        }"
-      >
-        Войти
-      </RouterLink>
-    </p>
-  </div>
+    </UiCard>
+  </section>
 </template>
 
 <style scoped>
-.auth-view {
+.auth-page {
+  width: min(100%, 480px);
+  margin: clamp(28px, 7vh, 72px) auto;
+  display: grid;
+  gap: 14px;
+}
+
+.auth-page__brand {
+  color: var(--st-text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.auth-card :deep(.p-card-body) {
+  padding: clamp(20px, 4vw, 30px);
+}
+
+.auth-card :deep(.p-card-content) {
   display: grid;
   gap: 22px;
 }
 
-.auth-view__header {
+.auth-card__header {
   display: grid;
   gap: 7px;
 }
 
-.auth-view__header h1,
-.auth-view__header p {
+.auth-card__header h1,
+.auth-card__header p {
   margin: 0;
 }
 
-.auth-view__header h1 {
-  color: var(--text);
-
-  font-size: 28px;
+.auth-card__eyebrow {
+  color: var(--st-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.auth-view__header p,
-.auth-switch {
-  color: var(--text-secondary);
+.auth-card__header h1 {
+  color: var(--st-text);
+  font-size: clamp(28px, 6vw, 34px);
+  line-height: 1.15;
+}
 
+.auth-card__header p:not(.auth-card__eyebrow),
+.auth-switch {
+  color: var(--st-text-secondary);
   font-size: 14px;
+  line-height: 1.55;
 }
 
 .auth-form {
@@ -233,14 +255,27 @@ async function submit() {
 
 .auth-switch {
   margin: 0;
-
   text-align: center;
 }
 
 .auth-switch a {
-  color: var(--brand);
-
-  font-weight: 600;
+  color: var(--st-primary);
+  font-weight: 700;
   text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .auth-page {
+    width: 100%;
+    margin: 12px auto 24px;
+  }
+
+  .auth-card :deep(.p-card-body) {
+    padding: 20px 18px;
+  }
 }
 </style>

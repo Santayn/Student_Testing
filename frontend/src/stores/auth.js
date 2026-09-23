@@ -6,13 +6,23 @@ import {
 } from '@/api'
 
 import {
+  getAuthErrorMessage,
+} from '@/utils/authErrorMessage'
+
+import {
   resolveWorkspaceRole,
   workspaceRolesFromUserRoles,
 } from '@/utils/workspaceRole'
 
-const TOKEN_EXPIRY_MARGIN_MS = 30_000
+import {
+  invalidateLearningContextCache,
+} from '@/utils/learningContextCache'
 
-let refreshPromise = null
+const TOKEN_EXPIRY_MARGIN_MS = 30_000
+const AUTH_SESSION_STALE_CODE =
+  'AUTH_SESSION_STALE'
+
+let refreshOperation = null
 
 function expirationTime(value) {
   if (!value) {
@@ -43,6 +53,34 @@ function isExpired(
   )
 }
 
+function staleSessionError() {
+  const error = new Error(
+    'Операция относится к завершённой сессии'
+  )
+
+  error.code = AUTH_SESSION_STALE_CODE
+  error.authSessionStale = true
+
+  return error
+}
+
+function isStaleSessionError(error) {
+  return (
+    error?.authSessionStale === true ||
+    error?.code === AUTH_SESSION_STALE_CODE
+  )
+}
+
+function sessionExpiredError(
+  message = 'Сессия истекла'
+) {
+  const error = new Error(message)
+
+  error.authSessionInvalid = true
+
+  return error
+}
+
 export const useAuthStore = defineStore(
   'auth',
   {
@@ -60,10 +98,30 @@ export const useAuthStore = defineStore(
       user: null,
       activeWorkspaceRole: null,
 
-      loading: false,
+      /*
+       * Runtime-only generation of the current authentication session.
+       * It is intentionally not persisted.
+       *
+       * Any explicit session replacement/clear increments the epoch.
+       * Async auth work may commit its result only while the epoch that
+       * started it is still current.
+       */
+      sessionEpoch: 0,
+
+      initializing: false,
+      loggingIn: false,
+      registering: false,
       refreshing: false,
+      syncingIdentity: false,
+      loggingOut: false,
+      changingPassword: false,
+
       initialized: false,
-      error: null,
+
+      loginError: null,
+      registerError: null,
+      passwordError: null,
+      sessionRestoreError: null,
     }),
 
     getters: {
@@ -279,9 +337,45 @@ export const useAuthStore = defineStore(
           !this.isRefreshTokenExpired
         )
       },
+
+      /*
+       * Compatibility getter for existing generic UI.
+       * New auth screens should prefer operation-specific flags.
+       */
+      loading() {
+        return (
+          this.initializing ||
+          this.loggingIn ||
+          this.registering ||
+          this.syncingIdentity ||
+          this.loggingOut ||
+          this.changingPassword
+        )
+      },
+
+      /*
+       * Compatibility getter. Auth views use their own operation error,
+       * so an error from registration cannot leak onto Login and vice versa.
+       */
+      error() {
+        return (
+          this.loginError ||
+          this.registerError ||
+          this.passwordError ||
+          this.sessionRestoreError ||
+          null
+        )
+      },
     },
 
     actions: {
+      advanceSessionEpoch() {
+        this.sessionEpoch += 1
+        invalidateLearningContextCache(this)
+
+        return this.sessionEpoch
+      },
+
       setSessionTokens(data) {
         this.tokenType =
           data?.tokenType ||
@@ -318,11 +412,30 @@ export const useAuthStore = defineStore(
       },
 
       setUser(user) {
+        const previousSecurityContext = JSON.stringify([
+          this.userId,
+          this.personId,
+          this.activeWorkspaceRole,
+          this.roles,
+          this.permissions,
+        ])
+
         this.user =
           user || null
 
         this.syncWorkspaceRole()
-        this.error = null
+
+        const nextSecurityContext = JSON.stringify([
+          this.userId,
+          this.personId,
+          this.activeWorkspaceRole,
+          this.roles,
+          this.permissions,
+        ])
+
+        if (previousSecurityContext !== nextSecurityContext) {
+          invalidateLearningContextCache(this)
+        }
       },
 
       syncWorkspaceRole() {
@@ -345,9 +458,50 @@ export const useAuthStore = defineStore(
           )
         }
 
-        this.activeWorkspaceRole = role
+        if (this.activeWorkspaceRole !== role) {
+          invalidateLearningContextCache(this)
+          this.activeWorkspaceRole = role
+        }
 
         return role
+      },
+
+      assertSessionEpoch(
+        expectedEpoch
+      ) {
+        if (
+          this.sessionEpoch !==
+          expectedEpoch
+        ) {
+          throw staleSessionError()
+        }
+      },
+
+      resetSessionData() {
+        this.tokenType = 'Bearer'
+
+        this.accessToken = null
+        this.accessTokenExpiresAtUtc =
+          null
+
+        this.refreshToken = null
+        this.refreshTokenExpiresAtUtc =
+          null
+
+        this.lifetimeKind = null
+        this.user = null
+        this.activeWorkspaceRole = null
+
+        this.refreshing = false
+        this.syncingIdentity = false
+        this.loggingIn = false
+        this.registering = false
+        this.changingPassword = false
+      },
+
+      clearSession() {
+        this.advanceSessionEpoch()
+        this.resetSessionData()
       },
 
       async login(
@@ -355,8 +509,17 @@ export const useAuthStore = defineStore(
         password,
         lifetimeKind = undefined
       ) {
-        this.loading = true
-        this.error = null
+        this.loginError = null
+
+        /*
+         * A new login is a new security context even if another account
+         * was previously authenticated in this tab.
+         */
+        this.clearSession()
+        this.loggingIn = true
+
+        const operationEpoch =
+          this.sessionEpoch
 
         try {
           const response =
@@ -366,11 +529,22 @@ export const useAuthStore = defineStore(
               lifetimeKind,
             })
 
+          this.assertSessionEpoch(
+            operationEpoch
+          )
+
           this.setSessionTokens(
             response.data
           )
 
-          await this.loadCurrentUser()
+          await this.loadCurrentUser({
+            expectedEpoch:
+              operationEpoch,
+          })
+
+          this.assertSessionEpoch(
+            operationEpoch
+          )
 
           return {
             user: this.user,
@@ -378,23 +552,42 @@ export const useAuthStore = defineStore(
               this.accessToken,
           }
         } catch (error) {
-          this.clearSession()
-
-          this.error =
-            getApiErrorMessage(
-              error,
-              'Не удалось войти в систему'
+          if (
+            this.sessionEpoch ===
+              operationEpoch &&
+            !isStaleSessionError(
+              error
             )
+          ) {
+            this.loginError =
+              getAuthErrorMessage(
+                error,
+                'login'
+              )
+
+            this.clearSession()
+            this.loggingIn = false
+          }
 
           throw error
         } finally {
-          this.loading = false
+          if (
+            this.sessionEpoch ===
+            operationEpoch
+          ) {
+            this.loggingIn = false
+          }
         }
       },
 
       async register(data) {
-        this.loading = true
-        this.error = null
+        this.registerError = null
+
+        this.clearSession()
+        this.registering = true
+
+        const operationEpoch =
+          this.sessionEpoch
 
         try {
           const response =
@@ -402,11 +595,22 @@ export const useAuthStore = defineStore(
               data
             )
 
+          this.assertSessionEpoch(
+            operationEpoch
+          )
+
           this.setSessionTokens(
             response.data
           )
 
-          await this.loadCurrentUser()
+          await this.loadCurrentUser({
+            expectedEpoch:
+              operationEpoch,
+          })
+
+          this.assertSessionEpoch(
+            operationEpoch
+          )
 
           return {
             user: this.user,
@@ -414,21 +618,42 @@ export const useAuthStore = defineStore(
               this.accessToken,
           }
         } catch (error) {
-          this.clearSession()
-
-          this.error =
-            getApiErrorMessage(
-              error,
-              'Не удалось зарегистрироваться'
+          if (
+            this.sessionEpoch ===
+              operationEpoch &&
+            !isStaleSessionError(
+              error
             )
+          ) {
+            this.registerError =
+              getAuthErrorMessage(
+                error,
+                'register'
+              )
+
+            this.clearSession()
+            this.registering = false
+          }
 
           throw error
         } finally {
-          this.loading = false
+          if (
+            this.sessionEpoch ===
+            operationEpoch
+          ) {
+            this.registering = false
+          }
         }
       },
 
-      async loadCurrentUser() {
+      async loadCurrentUser({
+        expectedEpoch =
+          this.sessionEpoch,
+      } = {}) {
+        this.assertSessionEpoch(
+          expectedEpoch
+        )
+
         if (!this.accessToken) {
           this.user = null
           return null
@@ -436,6 +661,10 @@ export const useAuthStore = defineStore(
 
         const response =
           await authApi.me()
+
+        this.assertSessionEpoch(
+          expectedEpoch
+        )
 
         this.setUser(
           response.data ?? null
@@ -445,14 +674,18 @@ export const useAuthStore = defineStore(
       },
 
       async refreshSession() {
-        if (refreshPromise) {
-          return refreshPromise
+        const operationEpoch =
+          this.sessionEpoch
+
+        if (
+          refreshOperation?.epoch ===
+          operationEpoch
+        ) {
+          return refreshOperation.promise
         }
 
         if (!this.refreshToken) {
-          this.clearSession()
-
-          throw new Error(
+          throw sessionExpiredError(
             'Refresh token отсутствует'
           )
         }
@@ -460,49 +693,70 @@ export const useAuthStore = defineStore(
         if (
           this.isRefreshTokenExpired
         ) {
-          this.clearSession()
-
-          throw new Error(
-            'Сессия истекла'
-          )
+          throw sessionExpiredError()
         }
 
         /*
-         * Refresh token вращается.
-         * Сохраняем значение, которое было актуально
-         * на момент старта refresh-запроса.
+         * Refresh token rotates. Capture the exact token and epoch that
+         * own this request. A later login/logout creates another epoch,
+         * so this response can no longer mutate the store.
          */
         const currentRefreshToken =
           this.refreshToken
 
         this.refreshing = true
 
-        refreshPromise = (async () => {
-          try {
-            const response =
-              await authApi.refresh(
-                currentRefreshToken
-              )
-
-            /*
-             * Backend возвращает НОВУЮ пару.
-             * Заменяем и access, и refresh token.
-             */
-            this.setSessionTokens(
-              response.data
+        const networkPromise =
+          authApi
+            .refresh(
+              currentRefreshToken
+            )
+            .then(
+              (response) =>
+                response.data
             )
 
-            return this.accessToken
-          } catch (error) {
-            this.clearSession()
-            throw error
-          } finally {
-            this.refreshing = false
-            refreshPromise = null
-          }
-        })()
+        const operation = {
+          epoch: operationEpoch,
+          networkPromise,
+          promise: null,
+        }
 
-        return refreshPromise
+        operation.promise =
+          (async () => {
+            try {
+              const data =
+                await networkPromise
+
+              this.assertSessionEpoch(
+                operationEpoch
+              )
+
+              this.setSessionTokens(
+                data
+              )
+
+              return this.accessToken
+            } finally {
+              if (
+                refreshOperation ===
+                operation
+              ) {
+                refreshOperation = null
+              }
+
+              if (
+                this.sessionEpoch ===
+                operationEpoch
+              ) {
+                this.refreshing = false
+              }
+            }
+          })()
+
+        refreshOperation = operation
+
+        return operation.promise
       },
 
       async ensureAccessToken() {
@@ -517,14 +771,59 @@ export const useAuthStore = defineStore(
         }
 
         if (!this.canRefresh) {
+          const error =
+            sessionExpiredError()
+
           this.clearSession()
 
-          throw new Error(
-            'Сессия истекла'
-          )
+          throw error
         }
 
         return this.refreshSession()
+      },
+
+      async refreshIdentity() {
+        const operationEpoch =
+          this.sessionEpoch
+
+        // A manual identity refresh must also pick up external changes to
+        // teaching/group assignments even when user/roles remain identical.
+        invalidateLearningContextCache(this)
+
+        this.syncingIdentity = true
+        this.sessionRestoreError = null
+
+        try {
+          await this.refreshSession()
+
+          this.assertSessionEpoch(
+            operationEpoch
+          )
+
+          return await this.loadCurrentUser({
+            expectedEpoch:
+              operationEpoch,
+          })
+        } catch (error) {
+          if (
+            this.sessionEpoch ===
+              operationEpoch &&
+            !isStaleSessionError(
+              error
+            )
+          ) {
+            this.clearSession()
+          }
+
+          throw error
+        } finally {
+          if (
+            this.sessionEpoch ===
+            operationEpoch
+          ) {
+            this.syncingIdentity = false
+          }
+        }
       },
 
       async init() {
@@ -533,17 +832,20 @@ export const useAuthStore = defineStore(
         }
 
         this.initialized = true
-        this.error = null
+        this.initializing = true
+        this.sessionRestoreError = null
 
         if (
           !this.accessToken &&
           !this.refreshToken
         ) {
           this.user = null
+          this.initializing = false
           return
         }
 
-        this.loading = true
+        const operationEpoch =
+          this.sessionEpoch
 
         try {
           if (
@@ -553,29 +855,41 @@ export const useAuthStore = defineStore(
             await this.refreshSession()
           }
 
-          await this.loadCurrentUser()
-        } catch (error) {
-          this.clearSession()
+          this.assertSessionEpoch(
+            operationEpoch
+          )
 
-          /*
-           * Истёкшая/отозванная сессия —
-           * нормальная причина показать login,
-           * поэтому не держим её как UI error.
-           *
-           * Сетевую проблему сохраняем.
-           */
+          await this.loadCurrentUser({
+            expectedEpoch:
+              operationEpoch,
+          })
+        } catch (error) {
           if (
-            error.response?.status !== 400 &&
-            error.response?.status !== 401
+            this.sessionEpoch ===
+            operationEpoch
           ) {
-            this.error =
-              getApiErrorMessage(
-                error,
-                'Не удалось восстановить сессию'
-              )
+            this.clearSession()
+
+            /*
+             * Expired/revoked credentials are a normal reason to show
+             * Login. Network/server failures remain visible as restore
+             * errors. We intentionally keep the existing fail-closed
+             * policy and clear persisted credentials on bootstrap failure.
+             */
+            if (
+              error.response?.status !== 400 &&
+              error.response?.status !== 401 &&
+              !error.authSessionInvalid
+            ) {
+              this.sessionRestoreError =
+                getApiErrorMessage(
+                  error,
+                  'Не удалось восстановить сессию'
+                )
+            }
           }
         } finally {
-          this.loading = false
+          this.initializing = false
         }
       },
 
@@ -583,26 +897,58 @@ export const useAuthStore = defineStore(
         currentPassword,
         newPassword
       ) {
-        this.loading = true
-        this.error = null
+        this.changingPassword = true
+        this.passwordError = null
+
+        const operationEpoch =
+          this.sessionEpoch
 
         try {
           await this.ensureAccessToken()
+
+          this.assertSessionEpoch(
+            operationEpoch
+          )
 
           await authApi.changePassword({
             currentPassword,
             newPassword,
           })
+
+          this.assertSessionEpoch(
+            operationEpoch
+          )
+
+          /*
+           * Backend revokes every refresh token after password change.
+           * Do not keep a locally "valid-looking" but server-revoked
+           * refresh token. The caller must send the user to Login.
+           */
+          this.clearSession()
+          this.passwordError = null
+
+          return {
+            requiresReauthentication:
+              true,
+          }
         } catch (error) {
-          this.error =
-            getApiErrorMessage(
-              error,
-              'Не удалось изменить пароль'
+          if (
+            this.sessionEpoch ===
+              operationEpoch &&
+            !isStaleSessionError(
+              error
             )
+          ) {
+            this.passwordError =
+              getAuthErrorMessage(
+                error,
+                'password'
+              )
+          }
 
           throw error
         } finally {
-          this.loading = false
+          this.changingPassword = false
         }
       },
 
@@ -624,67 +970,142 @@ export const useAuthStore = defineStore(
         this.syncWorkspaceRole()
       },
 
-      clearSession() {
-        this.tokenType = 'Bearer'
-
-        this.accessToken = null
-        this.accessTokenExpiresAtUtc =
-          null
-
-        this.refreshToken = null
-        this.refreshTokenExpiresAtUtc =
-          null
-
-        this.lifetimeKind = null
-        this.user = null
-        this.activeWorkspaceRole = null
-      },
-
       async logout() {
-        const hasRefreshToken =
-          Boolean(this.refreshToken)
+        if (this.loggingOut) {
+          return
+        }
+
+        this.loggingOut = true
+
+        const operationEpoch =
+          this.sessionEpoch
+
+        const captured = {
+          tokenType:
+            this.tokenType ||
+            'Bearer',
+          accessToken:
+            this.accessToken,
+          accessTokenExpiresAtUtc:
+            this.accessTokenExpiresAtUtc,
+          refreshToken:
+            this.refreshToken,
+          refreshTokenExpiresAtUtc:
+            this.refreshTokenExpiresAtUtc,
+        }
+
+        const pendingRefresh =
+          refreshOperation?.epoch ===
+          operationEpoch
+            ? refreshOperation.networkPromise
+            : null
+
+        /*
+         * Local logout is immediate. This also invalidates every request
+         * and refresh that belongs to the old session epoch.
+         */
+        this.clearSession()
+        this.clearError()
 
         try {
-          if (hasRefreshToken) {
-            /*
-             * revoke требует действующий Bearer.
-             *
-             * Если access token уже истёк,
-             * сначала refreshSession() получит новую
-             * пару, а revoke отправит уже НОВЫЙ
-             * refresh token.
-             */
+          if (!captured.refreshToken) {
+            return
+          }
+
+          let accessToken =
+            captured.accessToken
+          let refreshToken =
+            captured.refreshToken
+          let tokenType =
+            captured.tokenType
+
+          if (pendingRefresh) {
+            try {
+              const rotated =
+                await pendingRefresh
+
+              accessToken =
+                rotated?.accessToken ??
+                null
+              refreshToken =
+                rotated?.refreshToken ??
+                null
+              tokenType =
+                rotated?.tokenType ||
+                'Bearer'
+            } catch {
+              accessToken = null
+              refreshToken = null
+            }
+          } else if (
+            !accessToken ||
+            isExpired(
+              captured.accessTokenExpiresAtUtc
+            )
+          ) {
             if (
-              !this.accessToken ||
-              this.isAccessTokenExpired
+              !isExpired(
+                captured.refreshTokenExpiresAtUtc
+              )
             ) {
-              if (this.canRefresh) {
-                await this.refreshSession()
+              try {
+                const response =
+                  await authApi.refresh(
+                    captured.refreshToken
+                  )
+
+                accessToken =
+                  response.data?.accessToken ??
+                  null
+                refreshToken =
+                  response.data?.refreshToken ??
+                  null
+                tokenType =
+                  response.data?.tokenType ||
+                  'Bearer'
+              } catch {
+                accessToken = null
+                refreshToken = null
               }
             }
+          }
 
-            if (
-              this.accessToken &&
-              this.refreshToken
-            ) {
-              await authApi.revoke(
-                this.refreshToken
-              )
-            }
+          if (
+            accessToken &&
+            refreshToken
+          ) {
+            await authApi.revoke(
+              refreshToken,
+              accessToken,
+              tokenType
+            )
           }
         } catch {
           /*
-           * Даже если backend/revoke недоступен,
-           * локальный logout всё равно выполняется.
+           * Backend revoke is best-effort. Local session has already been
+           * invalidated and must never be restored because revoke failed.
            */
         } finally {
-          this.clearSession()
-          this.error = null
+          this.loggingOut = false
         }
       },
 
-      clearError() {
-        this.error = null
+      clearError(scope = null) {
+        if (!scope || scope === 'login') {
+          this.loginError = null
+        }
+
+        if (!scope || scope === 'register') {
+          this.registerError = null
+        }
+
+        if (!scope || scope === 'password') {
+          this.passwordError = null
+        }
+
+        if (!scope || scope === 'session') {
+          this.sessionRestoreError = null
+        }
       },
     },
 

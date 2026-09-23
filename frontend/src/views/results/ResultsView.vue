@@ -1061,6 +1061,8 @@ onMounted(init)
           :options="subjects"
           :option-label="subjectLabel"
           option-value="id"
+          :filter="true"
+          filter-placeholder="Поиск по предметам"
           :disabled="
             loadingInitial ||
             loadingOptions
@@ -1121,6 +1123,8 @@ onMounted(init)
             :options="groups"
             :option-label="groupLabel"
             option-value="id"
+            :filter="true"
+            filter-placeholder="Поиск по группам"
             :disabled="
               !testId ||
               loadingOptions
@@ -1135,6 +1139,8 @@ onMounted(init)
             :options="students"
             :option-label="studentLabel"
             option-value="id"
+            :filter="true"
+            filter-placeholder="Поиск по студентам"
             :disabled="
               !groupId ||
               loadingOptions
