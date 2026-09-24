@@ -146,6 +146,14 @@ const UiDrawerStub = defineComponent({
   },
 })
 
+const UiFileInputStub = defineComponent({
+  name: 'UiFileInput',
+  emits: ['files-change'],
+  setup() {
+    return () => h('input', { type: 'file' })
+  },
+})
+
 const UiAlertStub = defineComponent({
   name: 'UiAlert',
   props: {
@@ -174,7 +182,7 @@ function mountView() {
         UiDialog: false,
         UiDrawer: UiDrawerStub,
         UiEmptyState: Passthrough,
-        UiFileInput: Passthrough,
+        UiFileInput: UiFileInputStub,
         UiFilterBar: Passthrough,
         UiInput: UiInputStub,
         UiSelect: Passthrough,
@@ -248,4 +256,39 @@ describe('lecture partial-create retry', () => {
     expect(state.api.setTests).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Лекция создана.')
   })
+
+  it('retries a failed material upload without creating the lecture again', async () => {
+    state.api.setTests.mockReset()
+    state.api.setTests.mockResolvedValue({ data: [] })
+    state.api.uploadMaterials
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+      .mockResolvedValue({ data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await buttonByText(wrapper, 'Добавить лекцию').trigger('click')
+    await wrapper.find('input:not([type="file"])').setValue('Лекция с файлом')
+    wrapper.findComponent(UiFileInputStub).vm.$emit('files-change', [
+      { name: 'notes.pdf' },
+    ])
+    await flushPromises()
+
+    await buttonByText(wrapper, 'Создать лекцию').trigger('click')
+    await flushPromises()
+
+    expect(state.api.create).toHaveBeenCalledTimes(1)
+    expect(state.api.uploadMaterials).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Лекция уже создана')
+    expect(wrapper.text()).toContain('notes.pdf')
+
+    await buttonByText(wrapper, 'Сохранить лекцию').trigger('click')
+    await flushPromises()
+
+    expect(state.api.create).toHaveBeenCalledTimes(1)
+    expect(state.api.update).not.toHaveBeenCalled()
+    expect(state.api.uploadMaterials).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('Лекция создана.')
+  })
+
 })

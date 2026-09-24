@@ -20,6 +20,16 @@ const lectures = readFileSync(
   'utf8'
 )
 
+const editorDrawer = readFileSync(
+  resolve(process.cwd(), 'src', 'components', 'teacher', 'LectureEditorDrawer.vue'),
+  'utf8'
+)
+
+const saveFlow = readFileSync(
+  resolve(process.cwd(), 'src', 'composables', 'useLectureSaveFlow.js'),
+  'utf8'
+)
+
 describe('teacher lectures overlay workspace', () => {
   it('keeps the main page focused on browsing and filtering lectures', () => {
     expect(lectures).toContain('UiFilterBar')
@@ -31,18 +41,23 @@ describe('teacher lectures overlay workspace', () => {
   })
 
   it('moves lecture create and edit work into the shared drawer lifecycle', () => {
-    expect(lectures).toContain('UiDrawer')
+    expect(lectures).toContain('<LectureEditorDrawer')
+    expect(editorDrawer).toContain('<UiDrawer')
     expect(lectures).toContain('useOverlayForm')
     expect(lectures).toContain('UiUnsavedChangesConfirm')
+    expect(editorDrawer).toContain('teacher-lecture-form-section')
     expect(lectures).toContain('openCreateLecture')
     expect(lectures).toContain('openEditLecture')
     expect(lectures).toContain('requestLectureDrawerClose')
     expect(lectures).toContain('pendingFilesDirty')
+    expect(editorDrawer).toContain("emit('save')")
+    expect(editorDrawer).toContain("emit('close')")
   })
 
   it('keeps tests and materials inside the lecture editing context', () => {
-    expect(lectures).toContain('syncLectureTests')
-    expect(lectures).toContain('uploadPendingFiles')
+    expect(lectures).toContain('useLectureSaveFlow')
+    expect(saveFlow).toContain('syncLectureTests')
+    expect(saveFlow).toContain('uploadPendingFiles')
     expect(lectures).toContain('loadMaterials')
     expect(lectures).toContain('downloadMaterial')
     expect(lectures).toContain('requestDeleteMaterial')

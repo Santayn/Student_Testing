@@ -9,33 +9,35 @@ import {
   it,
 } from 'vitest'
 
-const workload = readFileSync(
-  resolve(
-    process.cwd(),
-    'src',
-    'views',
-    'teacher',
-    'TeacherWorkloadView.vue'
-  ),
-  'utf8'
-)
+const source = (relativePath) => readFileSync(resolve(process.cwd(), 'src', relativePath), 'utf8')
+const workload = source('views/teacher/TeacherWorkloadView.vue')
+const presentation = source('composables/useTeacherWorkloadPresentation.js')
+const loader = source('composables/useTeacherWorkloadData.js')
 
 describe('teacher workload read-only workspace', () => {
+  it('connects the read-only loader and presentation state without moving UI into composables', () => {
+    expect(workload).toContain('useTeacherWorkloadData({')
+    expect(workload).toContain('useTeacherWorkloadPresentation({')
+    expect(workload).toContain('onBeforeUnmount(workload.dispose)')
+    expect(workload).not.toContain('teachingApi.getAssignments')
+    expect(loader).not.toMatch(/teachingApi\.(?:create|update|delete|remove)/)
+  })
+
   it('adds client-side workspace filters without changing assignment loading', () => {
     expect(workload).toContain('UiFilterBar')
-    expect(workload).toContain("const searchQuery = ref('')")
-    expect(workload).toContain("const subjectFilter = ref('all')")
-    expect(workload).toContain("const groupFilter = ref('all')")
-    expect(workload).toContain("const loadTypeFilter = ref('all')")
-    expect(workload).toContain("const statusFilter = ref('all')")
-    expect(workload).toContain('const filteredAssignments = computed(')
+    expect(presentation).toContain("const searchQuery = ref('')")
+    expect(presentation).toContain("const subjectFilter = ref('all')")
+    expect(presentation).toContain("const groupFilter = ref('all')")
+    expect(presentation).toContain("const loadTypeFilter = ref('all')")
+    expect(presentation).toContain("const statusFilter = ref('all')")
+    expect(presentation).toContain('const filteredAssignments = computed(')
     expect(workload).toContain('search-placeholder="Предмет, группа, тип нагрузки или примечание"')
-    expect(workload).toContain('teachingApi.getAssignments')
+    expect(loader).toContain('teachingApi.getAssignments')
   })
 
   it('groups only visible assignments while keeping membership context', () => {
-    expect(workload).toContain('filteredAssignments.value.forEach(')
-    expect(workload).toContain('assignment.subjectMembershipId')
+    expect(presentation).toContain('filteredAssignments.value.forEach(')
+    expect(presentation).toContain('assignment.subjectMembershipId')
     expect(workload).toContain(':key="group.subjectMembershipId"')
     expect(workload).toContain('subjectMembershipId:\n        group.subjectMembershipId')
   })

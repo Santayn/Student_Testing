@@ -20,24 +20,24 @@ import {
   UiAlert,
   UiButton,
   UiCard,
-  UiCheckbox,
   UiDialog,
-  UiDrawer,
   UiEmptyState,
-  UiFileInput,
   UiFilterBar,
-  UiInput,
   UiSelect,
-  UiTextarea,
   UiUnsavedChangesConfirm,
   useOverlayForm,
 } from '@/components/ui'
 
+import LectureEditorDrawer from '@/components/teacher/LectureEditorDrawer.vue'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import {
   useTeacherSubjects,
 } from '@/composables/useTeacherSubjects'
+
+import {
+  useLectureSaveFlow,
+} from '@/composables/useLectureSaveFlow'
 
 import {
   listFromResponse,
@@ -150,6 +150,31 @@ const {
 } = useOverlayForm({
   createDefault: () => lectureToForm(),
   mapEntity: lectureToForm,
+})
+
+const {
+  partialCreatePending,
+  resetPartialCreate,
+  saveLecture,
+} = useLectureSaveFlow({
+  form,
+  formError,
+  lectureFormMode,
+  selectedSubject,
+  selectedMembership,
+  ensureSelectedMembershipActive,
+  lectures,
+  lectureTestsById,
+  pendingFiles,
+  fileInputKey,
+  notice,
+  beginSaving,
+  finishSaving,
+  failSaving,
+  loadLectures,
+  clearLectureDrawerState,
+  lecturesApi,
+  getApiErrorMessage,
 })
 
 const canEdit = computed(() => Boolean(selectedMembership.value))
@@ -265,15 +290,6 @@ const drawerTitle = computed(() => {
 })
 
 const pendingFilesDirty = computed(() => pendingFiles.value.length > 0)
-const partialCreateState = ref(null)
-
-const partialCreatePending = computed(() => {
-  return Boolean(
-    partialCreateState.value &&
-    Number(partialCreateState.value.id) === Number(form.id)
-  )
-})
-
 function routeQuery(lectureId = null) {
   const query = {}
 
@@ -290,28 +306,6 @@ function routeQuery(lectureId = null) {
   }
 
   return query
-}
-
-function nextOrdinal() {
-  return lectures.value.reduce(
-    (max, lecture) => Math.max(max, Number(lecture.ordinal ?? 0)),
-    0
-  ) + 1
-}
-
-function slugifyLectureTitle(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-zа-яё0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || 'lecture'
-}
-
-function buildLectureContentKey(title, lectureId = null) {
-  const suffix = lectureId || Date.now()
-
-  return `lecture-${suffix}-${slugifyLectureTitle(title)}`
 }
 
 function lectureTestSummary(lectureId) {
@@ -334,7 +328,7 @@ function resetFilters() {
 }
 
 function clearLectureDrawerState() {
-  partialCreateState.value = null
+  resetPartialCreate()
   materialsRequest.invalidate()
   materials.value = []
   pendingFiles.value = []
@@ -431,29 +425,6 @@ function closeMaterialDeleteDialog() {
   materialDeleteConfirmVisible.value = false
   materialDeleteTarget.value = null
   materialDeleteError.value = ''
-}
-
-function lectureValidationMessage() {
-  if (!selectedMembership.value || !selectedSubject.value) {
-    return 'Выберите предмет преподавателя.'
-  }
-
-  const title = String(form.title ?? '').trim()
-  const description = String(form.description ?? '').trim()
-
-  if (!title) {
-    return 'Введите название лекции.'
-  }
-
-  if (title.length > 200) {
-    return 'Название лекции не может быть длиннее 200 символов.'
-  }
-
-  if (description.length > 2000) {
-    return 'Описание лекции не может быть длиннее 2000 символов.'
-  }
-
-  return ''
 }
 
 async function loadLectures({ openRouteLecture = false } = {}) {
@@ -587,171 +558,6 @@ async function loadMaterials(lectureId) {
     if (materialsRequest.isCurrent(requestId)) {
       loadingMaterials.value = false
     }
-  }
-}
-
-async function syncLectureTests(lectureId, selectedTestIds) {
-  const response = await lecturesApi.setTests(
-    lectureId,
-    {
-      testIds: [
-        ...new Set(
-          selectedTestIds
-            .map(Number)
-            .filter(Boolean)
-        ),
-      ],
-    }
-  )
-
-  const next = new Map(lectureTestsById.value)
-  next.set(Number(lectureId), listFromResponse(response))
-  lectureTestsById.value = next
-}
-
-async function uploadPendingFiles(lectureId) {
-  if (!pendingFiles.value.length) {
-    return
-  }
-
-  await lecturesApi.uploadMaterials(
-    lectureId,
-    pendingFiles.value
-  )
-
-  pendingFiles.value = []
-  fileInputKey.value += 1
-}
-
-function lectureCoreSignature(payload) {
-  return JSON.stringify(payload)
-}
-
-function upsertLecture(lecture) {
-  const lectureId = Number(lecture?.id ?? 0)
-
-  if (!lectureId) {
-    return
-  }
-
-  const next = lectures.value.filter(
-    (item) => Number(item.id) !== lectureId
-  )
-
-  next.push(lecture)
-  next.sort(
-    (left, right) =>
-      Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0) ||
-      String(left.title ?? '').localeCompare(
-        String(right.title ?? ''),
-        'ru'
-      )
-  )
-
-  lectures.value = next
-}
-
-async function saveLecture() {
-  formError.value = lectureValidationMessage()
-
-  if (formError.value) {
-    return
-  }
-
-  const editingLecture = lectures.value.find(
-    (item) => Number(item.id) === Number(form.id)
-  ) ?? null
-
-  const payload = {
-    subjectId: Number(selectedSubject.value.id),
-    subjectMembershipId: Number(selectedMembership.value.id),
-    courseVersionId: null,
-    ordinal: editingLecture?.ordinal || nextOrdinal(),
-    title: String(form.title).trim(),
-    description: String(form.description ?? '').trim() || null,
-    contentFolderKey:
-      editingLecture?.contentFolderKey ||
-      buildLectureContentKey(
-        form.title,
-        editingLecture?.id || null
-      ),
-    linkedTestId: null,
-    publicVisible: Boolean(form.publicVisible),
-  }
-
-  const payloadSignature = lectureCoreSignature(payload)
-  const retryingPartialCreate = partialCreatePending.value
-
-  beginSaving()
-
-  try {
-    await ensureSelectedMembershipActive()
-
-    let lecture
-
-    if (
-      retryingPartialCreate &&
-      partialCreateState.value.coreSignature === payloadSignature
-    ) {
-      lecture = editingLecture ?? {
-        ...payload,
-        id: partialCreateState.value.id,
-      }
-    } else if (form.id) {
-      const response = await lecturesApi.update(form.id, payload)
-      lecture = response.data
-      upsertLecture(lecture)
-
-      if (retryingPartialCreate) {
-        partialCreateState.value = {
-          ...partialCreateState.value,
-          coreSignature: payloadSignature,
-        }
-      }
-    } else {
-      const response = await lecturesApi.create(payload)
-      lecture = response.data
-
-      // The lecture already exists on the server from this point onward.
-      // Persist its id in the editor immediately so a failure in a
-      // dependent operation can never turn the next Save into another POST.
-      form.id = lecture.id
-      lectureFormMode.value = 'edit'
-      upsertLecture(lecture)
-      partialCreateState.value = {
-        id: Number(lecture.id),
-        coreSignature: payloadSignature,
-      }
-    }
-
-    await syncLectureTests(lecture.id, form.testIds)
-    await uploadPendingFiles(lecture.id)
-
-    const completedCreateFlow = partialCreatePending.value
-    partialCreateState.value = null
-
-    notice.value = {
-      type: 'success',
-      message: completedCreateFlow
-        ? 'Лекция создана.'
-        : 'Лекция обновлена.',
-    }
-
-    finishSaving({ close: true })
-    clearLectureDrawerState()
-    await loadLectures()
-  } catch (error) {
-    const createdLectureNeedsFollowUp = partialCreatePending.value
-
-    formError.value = getApiErrorMessage(
-      error,
-      createdLectureNeedsFollowUp
-        ? 'Лекция уже создана, но не удалось сохранить связанные тесты или материалы. Повторите сохранение — новая лекция создана повторно не будет.'
-        : form.id
-          ? 'Не удалось обновить лекцию'
-          : 'Не удалось создать лекцию'
-    )
-    failSaving()
   }
 }
 
@@ -1103,185 +909,28 @@ onMounted(async () => {
       </div>
     </UiCard>
 
-    <UiDrawer
-      :model-value="lectureDrawerOpen"
+    <LectureEditorDrawer
+      :open="lectureDrawerOpen"
       :title="drawerTitle"
-      width="46rem"
-      @update:model-value="handleLectureDrawerVisibility"
-    >
-      <div class="teacher-stack teacher-lecture-drawer">
-        <UiAlert
-          v-if="formError"
-          variant="danger"
-          :message="formError"
-          closable
-          @close="formError = ''"
-        />
-
-        <section class="teacher-lecture-form-section">
-          <div class="teacher-lecture-form-section__heading">
-            <span class="teacher-muted">Основные данные</span>
-            <strong>
-              {{ isCreate ? 'Новая лекция' : `Лекция #${form.id}` }}
-            </strong>
-          </div>
-
-          <UiInput
-            v-model="form.title"
-            label="Название"
-            maxlength="200"
-            required
-          />
-
-          <UiTextarea
-            v-model="form.description"
-            label="Описание"
-            maxlength="2000"
-          />
-
-          <UiCheckbox
-            v-model="form.publicVisible"
-            label="Публиковать лекцию для студентов"
-          />
-        </section>
-
-        <section class="teacher-lecture-form-section">
-          <div class="teacher-lecture-form-section__heading">
-            <span class="teacher-muted">Связанные тесты</span>
-            <strong>{{ form.testIds.length }} выбрано</strong>
-          </div>
-
-          <UiEmptyState
-            v-if="!availableTests.length"
-            description="Для предмета пока нет доступных тестов."
-            compact
-          />
-
-          <div
-            v-else
-            class="teacher-selection-grid"
-          >
-            <UiCheckbox
-              v-for="test in availableTests"
-              :key="test.id"
-              v-model="form.testIds"
-              mode="multiple"
-              :value="test.id"
-              :label="test.title || `Тест #${test.id}`"
-              :description="test.description || ''"
-              :disabled="saving"
-            />
-          </div>
-        </section>
-
-        <section class="teacher-lecture-form-section">
-          <div class="teacher-lecture-form-section__heading">
-            <span class="teacher-muted">Материалы</span>
-            <strong>
-              {{ form.id ? `${materials.length} загружено` : 'Будут загружены после создания' }}
-            </strong>
-          </div>
-
-          <UiFileInput
-            :key="fileInputKey"
-            label="Добавить файлы"
-            hint="Можно выбрать несколько файлов. Они загрузятся вместе с сохранением лекции."
-            multiple
-            :disabled="saving"
-            @files-change="onFiles"
-          />
-
-          <div
-            v-if="pendingFiles.length"
-            class="teacher-file-list"
-          >
-            <div
-              v-for="(file, index) in pendingFiles"
-              :key="`${file.name}-${index}`"
-              class="teacher-file-item"
-            >
-              <span>{{ file.name }}</span>
-
-              <UiButton
-                size="sm"
-                variant="secondary"
-                label="Убрать"
-                :disabled="saving"
-                @click="removePendingFile(index)"
-              />
-            </div>
-          </div>
-
-          <template v-if="form.id">
-            <div class="teacher-divider" />
-
-            <UiEmptyState
-              v-if="loadingMaterials"
-              description="Загрузка материалов..."
-              compact
-            />
-
-            <UiEmptyState
-              v-else-if="!materials.length"
-              description="Загруженных материалов пока нет."
-              compact
-            />
-
-            <div
-              v-else
-              class="teacher-file-list"
-            >
-              <div
-                v-for="material in materials"
-                :key="material.id"
-                class="teacher-file-item"
-              >
-                <span>{{ material.fileName || `Материал #${material.id}` }}</span>
-
-                <div class="teacher-inline-actions">
-                  <UiButton
-                    size="sm"
-                    variant="secondary"
-                    icon="pi pi-download"
-                    label="Скачать"
-                    @click="downloadMaterial(material)"
-                  />
-
-                  <UiButton
-                    size="sm"
-                    variant="danger"
-                    icon="pi pi-trash"
-                    label="Удалить"
-                    :loading="deletingMaterialId === material.id"
-                    loading-text="Удаление..."
-                    @click="requestDeleteMaterial(material)"
-                  />
-                </div>
-              </div>
-            </div>
-          </template>
-        </section>
-      </div>
-
-      <template #footer>
-        <div class="teacher-lecture-drawer__footer">
-          <UiButton
-            variant="secondary"
-            label="Закрыть"
-            :disabled="saving"
-            @click="requestLectureDrawerClose"
-          />
-
-          <UiButton
-            variant="primary"
-            :loading="saving"
-            loading-text="Сохранение..."
-            :label="form.id ? 'Сохранить лекцию' : 'Создать лекцию'"
-            @click="saveLecture"
-          />
-        </div>
-      </template>
-    </UiDrawer>
+      :form="form"
+      :is-create="isCreate"
+      :saving="saving"
+      :form-error="formError"
+      :available-tests="availableTests"
+      :materials="materials"
+      :pending-files="pendingFiles"
+      :file-input-key="fileInputKey"
+      :loading-materials="loadingMaterials"
+      :deleting-material-id="deletingMaterialId"
+      @update:open="handleLectureDrawerVisibility"
+      @dismiss-error="formError = ''"
+      @files-change="onFiles"
+      @remove-pending-file="removePendingFile"
+      @download-material="downloadMaterial"
+      @request-delete-material="requestDeleteMaterial"
+      @close="requestLectureDrawerClose"
+      @save="saveLecture"
+    />
 
     <UiUnsavedChangesConfirm
       v-model="confirmCloseVisible"
@@ -1395,61 +1044,9 @@ onMounted(async () => {
   overflow-wrap: anywhere;
 }
 
-.teacher-lecture-drawer {
-  min-width: 0;
-  padding-bottom: 4px;
-}
-
-.teacher-lecture-form-section {
-  min-width: 0;
-  padding: 14px;
-  display: grid;
-  gap: 14px;
-  background: var(--st-surface-muted);
-  border: 1px solid var(--st-border);
-  border-radius: 12px;
-}
-
-.teacher-lecture-form-section__heading {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.teacher-lecture-form-section__heading strong {
-  min-width: 0;
-  color: var(--st-text);
-  overflow-wrap: anywhere;
-}
-
-.teacher-lecture-drawer__footer {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .teacher-lecture-dialog-copy {
   margin: 0;
   color: var(--st-text-secondary);
   line-height: 1.55;
-}
-
-@media (max-width: 640px) {
-  .teacher-lecture-form-section {
-    padding: 12px;
-  }
-
-  .teacher-lecture-drawer__footer,
-  .teacher-lecture-drawer__footer > * {
-    width: 100%;
-  }
-
-  .teacher-lecture-drawer__footer {
-    flex-direction: column-reverse;
-  }
 }
 </style>

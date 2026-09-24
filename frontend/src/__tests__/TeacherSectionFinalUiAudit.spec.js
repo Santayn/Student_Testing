@@ -19,6 +19,7 @@ function source(...segments) {
 const topics = source('views', 'teacher', 'TopicLibraryView.vue')
 const questions = source('views', 'teacher', 'QuestionsView.vue')
 const lectures = source('views', 'teacher', 'LectureManagementView.vue')
+const lectureDrawer = source('components', 'teacher', 'LectureEditorDrawer.vue')
 const templates = source('views', 'teacher', 'CourseTemplatesView.vue')
 const workload = source('views', 'teacher', 'TeacherWorkloadView.vue')
 const testEditor = source('views', 'teacher', 'TestEditorView.vue')
@@ -38,11 +39,16 @@ describe('teacher section final UI audit', () => {
     expect(topics).toContain('UiDialog')
     expect(topics).toContain('useOverlayForm')
 
-    for (const page of [questions, lectures, templates]) {
+    for (const page of [questions, templates]) {
       expect(page).toContain('UiFilterBar')
       expect(page).toContain('UiDrawer')
       expect(page).toContain('useOverlayForm')
     }
+
+    expect(lectures).toContain('UiFilterBar')
+    expect(lectures).toContain('useOverlayForm')
+    expect(lectures).toContain('<LectureEditorDrawer')
+    expect(lectureDrawer).toContain('<UiDrawer')
   })
 
   it('keeps complex test creation as a dedicated route instead of forcing it into a drawer', () => {

@@ -20,36 +20,26 @@ function source(relativePath) {
 
 describe('teacher workload membership context', () => {
   it('keeps duplicate subject memberships separate in the read-only workload view', () => {
-    const workload = source(
-      '../views/teacher/TeacherWorkloadView.vue'
-    )
+    const workload = source('../views/teacher/TeacherWorkloadView.vue')
+    const loader = source('../composables/useTeacherWorkloadData.js')
+    const presentation = source('../composables/useTeacherWorkloadPresentation.js')
 
-    expect(workload)
-      .toContain('const membershipSnapshot =')
-
-    expect(workload)
-      .toContain('subjectMembershipId:\n              membership.id')
-
-    expect(workload)
-      .toContain('const groupedAssignments = computed(')
-
-    expect(workload)
-      .toContain('assignment.subjectMembershipId')
+    expect(loader).toContain('const membershipSnapshot =')
+    expect(loader).toMatch(/subjectMembershipId:\s*membership\.id/)
+    expect(presentation).toContain('const groupedAssignments = computed(')
+    expect(presentation).toContain('assignment.subjectMembershipId')
 
     expect(workload)
       .toContain(':key="group.subjectMembershipId"')
 
-    expect(workload)
-      .not.toContain('membershipBySubjectId')
+    expect(presentation).not.toContain('membershipBySubjectId')
   })
 
   it('does not expose workload mutation controls to teachers', () => {
-    const workload = source(
-      '../views/teacher/TeacherWorkloadView.vue'
-    )
+    const workload = source('../views/teacher/TeacherWorkloadView.vue')
+    const loader = source('../composables/useTeacherWorkloadData.js')
 
-    expect(workload)
-      .toContain('teachingApi.getAssignments')
+    expect(loader).toContain('teachingApi.getAssignments')
 
     expect(workload)
       .toContain('Изменения нагрузки выполняет администратор системы')
@@ -65,5 +55,6 @@ describe('teacher workload membership context', () => {
 
     expect(workload)
       .not.toContain('UiCheckbox')
+    expect(loader).not.toMatch(/teachingApi\.(?:create|update|delete|remove)/)
   })
 })

@@ -99,26 +99,24 @@ describe('stale context hardening', () => {
   })
 
   it('builds read-only teacher workload off a captured period and commits it atomically', () => {
-    const view = source(
-      '../views/teacher/TeacherWorkloadView.vue'
-    )
+    const loader = source('../composables/useTeacherWorkloadData.js')
 
-    expect(view)
+    expect(loader)
       .toContain('assignmentsRequest.begin()')
 
-    expect(view)
+    expect(loader)
       .toContain('assignmentsRequest.isCurrent(')
 
-    expect(view)
+    expect(loader)
       .toContain('const periodContext = {')
 
-    expect(view)
+    expect(loader)
       .toContain('const membershipSnapshot =')
 
-    expect(view)
+    expect(loader)
       .toContain('const rawAssignments = responses')
 
-    expect(view)
+    expect(loader)
       .toContain('groupsApi.getById(groupId)')
   })
 
