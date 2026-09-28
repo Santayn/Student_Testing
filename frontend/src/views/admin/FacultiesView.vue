@@ -28,20 +28,26 @@ import {
 } from '@/api'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
+  useAdminFacultiesData,
+} from '@/composables/useAdminFacultiesData'
 
-const faculties = ref([])
-const loading = ref(false)
-
-const notice = ref({
-  type: 'info',
-  message: '',
-})
-
-const searchQuery = ref('')
-const descriptionFilter = ref('all')
-const sortMode = ref('name-asc')
+const {
+  descriptionOptions,
+  sortOptions,
+  faculties,
+  loading,
+  notice,
+  searchQuery,
+  descriptionFilter,
+  sortMode,
+  hasActiveFilters,
+  filteredFaculties,
+  filterResultText,
+  showNotice,
+  clearNotice,
+  resetFilters,
+  loadFaculties,
+} = useAdminFacultiesData()
 
 const formError = ref('')
 
@@ -49,18 +55,6 @@ const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
 const deletingId = ref(null)
 const deleteError = ref('')
-
-const descriptionOptions = [
-  { value: 'all', label: 'Все' },
-  { value: 'with-description', label: 'С описанием' },
-  { value: 'without-description', label: 'Без описания' },
-]
-
-const sortOptions = [
-  { value: 'name-asc', label: 'Название А–Я' },
-  { value: 'name-desc', label: 'Название Я–А' },
-  { value: 'code-asc', label: 'Код А–Я' },
-]
 
 const {
   form,
@@ -91,78 +85,6 @@ const {
   }),
 })
 
-const hasActiveFilters = computed(() => {
-  return Boolean(searchQuery.value.trim()) ||
-    descriptionFilter.value !== 'all' ||
-    sortMode.value !== 'name-asc'
-})
-
-const filteredFaculties = computed(() => {
-  const query = searchQuery.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-
-  const result = faculties.value.filter((faculty) => {
-    const description = String(
-      faculty.description ?? ''
-    ).trim()
-
-    if (
-      descriptionFilter.value === 'with-description' &&
-      !description
-    ) {
-      return false
-    }
-
-    if (
-      descriptionFilter.value === 'without-description' &&
-      description
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    const haystack = [
-      faculty.name,
-      faculty.code,
-      faculty.description,
-    ]
-      .filter((value) => value !== null && value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-
-    return haystack.includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (sortMode.value === 'name-desc') {
-      return String(right.name ?? '').localeCompare(
-        String(left.name ?? ''),
-        'ru'
-      )
-    }
-
-    if (sortMode.value === 'code-asc') {
-      return String(left.code ?? '').localeCompare(
-        String(right.code ?? ''),
-        'ru'
-      )
-    }
-
-    return String(left.name ?? '').localeCompare(
-      String(right.name ?? ''),
-      'ru'
-    )
-  })
-})
-
-const filterResultText = computed(() => {
-  return `Показано: ${filteredFaculties.value.length} из ${faculties.value.length}`
-})
-
 const facultyDialogTitle = computed(() => {
   return isCreate.value
     ? 'Новый факультет'
@@ -172,23 +94,6 @@ const facultyDialogTitle = computed(() => {
 const canSubmit = computed(() => {
   return !facultyFormValidationMessage() && !saving.value
 })
-
-function showNotice(type, message) {
-  notice.value = {
-    type,
-    message,
-  }
-}
-
-function clearNotice() {
-  notice.value.message = ''
-}
-
-function resetFilters() {
-  searchQuery.value = ''
-  descriptionFilter.value = 'all'
-  sortMode.value = 'name-asc'
-}
 
 function openCreateFaculty() {
   formError.value = ''
@@ -256,25 +161,6 @@ function facultyFormValidationMessage() {
   }
 
   return ''
-}
-
-async function loadFaculties() {
-  loading.value = true
-
-  try {
-    const response = await facultiesApi.getAll()
-    faculties.value = listFromResponse(response)
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось загрузить факультеты'
-      )
-    )
-  } finally {
-    loading.value = false
-  }
 }
 
 async function saveFaculty() {

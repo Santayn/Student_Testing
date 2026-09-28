@@ -1,11 +1,9 @@
 <script setup>
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   reactive,
-  ref,
   watch,
 } from 'vue'
 
@@ -13,11 +11,6 @@ import {
   onBeforeRouteLeave,
   useRoute,
 } from 'vue-router'
-
-import {
-  getApiErrorMessage,
-  learningApi,
-} from '@/api'
 
 import TestsPageShell from '@/components/tests/TestsPageShell.vue'
 import StudentMatchingQuestion from '@/components/tests/StudentMatchingQuestion.vue'
@@ -28,28 +21,16 @@ import {
 } from '@/navigation'
 
 import {
-  clearCompletedTestSession,
-  readCompletedTestSession,
-  saveCompletedTestSession,
-} from '@/utils/completedTestSession'
-
-import {
-  clearTestAttemptDraft,
-  readTestAttemptDraft,
-  saveTestAttemptDraft,
-} from '@/utils/testAttemptDraft'
-
-import {
-  sanitizeStudentSubmitResult,
-} from '@/utils/resultContracts'
-
-import {
   parseMatchingDisplay,
 } from '@/utils/matchingPairs'
 
 import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
+  useAttemptDraft,
+} from '@/composables/useAttemptDraft'
+
+import {
+  useTestAttemptLifecycle,
+} from '@/composables/useTestAttemptLifecycle'
 
 import {
   UiAlert,
@@ -64,26 +45,7 @@ import {
 
 const route = useRoute()
 
-const loading = ref(false)
-const submitting = ref(false)
-const submitOutcomeUnknown = ref(false)
-
-const error = ref('')
-
-const test = ref(null)
-const questions = ref([])
-
-const attemptId = ref(null)
-const resultData = ref(null)
-
-const loadRequest = createLatestRequestGuard()
-const submitRequest = createLatestRequestGuard()
-
-const DRAFT_PERSIST_DELAY_MS = 250
-
-let draftPersistencePaused = false
-let draftPersistenceTimer = null
-let pendingDraftContext = null
+let attemptDraft = null
 
 const singleAnswers =
   reactive({})
@@ -124,6 +86,59 @@ const assignmentId = computed(() => {
     ? value
     : null
 })
+
+const {
+  loading,
+  submitting,
+  submitOutcomeUnknown,
+  error,
+  test,
+  questions,
+  attemptId,
+  resultData,
+  submitted,
+  loadTest,
+  submitTest,
+  leaveCurrentAttempt,
+  disposeAttemptLifecycle,
+} = useTestAttemptLifecycle({
+  getRouteContext: currentRouteContext,
+  isSameRouteContext,
+  resetAnswers,
+  initializeAttemptAnswers: (context) => (
+    attemptDraft?.initializeAttemptAnswers(
+      context
+    )
+  ),
+  buildSubmission,
+  beforeSubmit: () => (
+    attemptDraft?.flushScheduledDraftPersistence()
+  ),
+  clearAttemptDraft: (context) => (
+    attemptDraft?.clearDraftForContext(
+      context
+    )
+  ),
+  cancelDraftPersistence: () => (
+    attemptDraft?.cancelScheduledDraftPersistence()
+  ),
+})
+
+attemptDraft = useAttemptDraft({
+  getRouteContext: currentRouteContext,
+  getAttemptId: () => attemptId.value,
+  getQuestions: () => questions.value,
+  isSubmitted: () => submitted.value,
+  singleAnswers,
+  multipleAnswers,
+  textAnswers,
+  matchingAnswers,
+  initializeAnswers,
+})
+
+const {
+  flushScheduledDraftPersistence,
+} = attemptDraft
 
 useBreadcrumbContext(() => ({
   testId: testId.value,
@@ -175,10 +190,6 @@ const pageSubtitle = computed(() => {
   )
 })
 
-const submitted = computed(() => {
-  return resultData.value !== null
-})
-
 function clearObject(object) {
   Object.keys(object).forEach(
     (key) => {
@@ -205,69 +216,6 @@ function isSameRouteContext(context) {
   return (
     context?.testId === testId.value &&
     context?.assignmentId === assignmentId.value
-  )
-}
-
-function resetTestState() {
-  submitOutcomeUnknown.value = false
-  test.value = null
-  questions.value = []
-  attemptId.value = null
-  resultData.value = null
-  resetAnswers()
-}
-
-function assertStartAttemptContext(data, context) {
-  const responseAssignmentId =
-    Number(data?.assignmentId)
-
-  const responseTestId =
-    Number(data?.test?.id)
-
-  const nestedAssignmentId =
-    data?.test?.assignmentId == null
-      ? null
-      : Number(data.test.assignmentId)
-
-  const responseAttemptId =
-    Number(data?.attemptId)
-
-  if (
-    !Number.isFinite(responseAttemptId) ||
-    responseAttemptId <= 0 ||
-    responseAssignmentId !== context.assignmentId ||
-    responseTestId !== context.testId ||
-    (
-      nestedAssignmentId !== null &&
-      nestedAssignmentId !== responseAssignmentId
-    )
-  ) {
-    throw new Error(
-      'Backend вернул попытку, которая не соответствует открытому тесту.'
-    )
-  }
-}
-
-
-function hasUnknownRequestOutcome(errorValue) {
-  if (!errorValue) {
-    return false
-  }
-
-  if (
-    errorValue.code === 'ECONNABORTED' ||
-    errorValue.code === 'ERR_NETWORK'
-  ) {
-    return true
-  }
-
-  const looksLikeAxiosError =
-    errorValue.isAxiosError === true ||
-    Boolean(errorValue.config)
-
-  return (
-    looksLikeAxiosError &&
-    !errorValue.response
   )
 }
 
@@ -388,196 +336,6 @@ function initializeAnswers() {
       textAnswers[id] = ''
     }
   )
-}
-
-function applyDraftAnswers(draft) {
-  if (!draft) {
-    return
-  }
-
-  Object.entries(
-    draft.singleAnswers ?? {}
-  ).forEach(([id, value]) => {
-    singleAnswers[id] = value
-  })
-
-  Object.entries(
-    draft.multipleAnswers ?? {}
-  ).forEach(([id, value]) => {
-    multipleAnswers[id] =
-      Array.isArray(value)
-        ? [...value]
-        : []
-  })
-
-  Object.entries(
-    draft.textAnswers ?? {}
-  ).forEach(([id, value]) => {
-    textAnswers[id] =
-      String(value ?? '')
-  })
-
-  Object.entries(
-    draft.matchingAnswers ?? {}
-  ).forEach(([id, value]) => {
-    matchingAnswers[id] =
-      Array.isArray(value)
-        ? [...value]
-        : []
-  })
-}
-
-function restoreCurrentAttemptDraft(
-  context
-) {
-  const draft =
-    readTestAttemptDraft({
-      testId: context.testId,
-      assignmentId:
-        context.assignmentId,
-      attemptId:
-        attemptId.value,
-      questions:
-        questions.value,
-    })
-
-  applyDraftAnswers(draft)
-}
-
-function currentDraftContext() {
-  const context =
-    currentRouteContext()
-
-  const currentAttemptId =
-    Number(attemptId.value)
-
-  if (
-    !context.testId ||
-    !context.assignmentId ||
-    !Number.isFinite(currentAttemptId) ||
-    currentAttemptId <= 0
-  ) {
-    return null
-  }
-
-  return {
-    testId: context.testId,
-    assignmentId:
-      context.assignmentId,
-    attemptId: currentAttemptId,
-  }
-}
-
-function sameDraftContext(
-  left,
-  right
-) {
-  return (
-    left?.testId === right?.testId &&
-    left?.assignmentId ===
-      right?.assignmentId &&
-    left?.attemptId ===
-      right?.attemptId
-  )
-}
-
-function clearDraftPersistenceTimer() {
-  if (draftPersistenceTimer === null) {
-    return
-  }
-
-  window.clearTimeout(
-    draftPersistenceTimer
-  )
-
-  draftPersistenceTimer = null
-}
-
-function persistCurrentAttemptDraft(
-  context = currentDraftContext()
-) {
-  if (
-    draftPersistencePaused ||
-    submitted.value ||
-    !context ||
-    !questions.value.length
-  ) {
-    return
-  }
-
-  saveTestAttemptDraft({
-    testId: context.testId,
-    assignmentId:
-      context.assignmentId,
-    attemptId:
-      context.attemptId,
-    questions:
-      questions.value,
-    singleAnswers,
-    multipleAnswers,
-    textAnswers,
-    matchingAnswers,
-  })
-}
-
-function cancelScheduledDraftPersistence() {
-  clearDraftPersistenceTimer()
-  pendingDraftContext = null
-}
-
-function flushScheduledDraftPersistence() {
-  if (!pendingDraftContext) {
-    return
-  }
-
-  const context =
-    pendingDraftContext
-
-  clearDraftPersistenceTimer()
-  pendingDraftContext = null
-
-  persistCurrentAttemptDraft(
-    context
-  )
-}
-
-function scheduleCurrentAttemptDraftPersistence() {
-  if (
-    draftPersistencePaused ||
-    submitted.value ||
-    !questions.value.length
-  ) {
-    return
-  }
-
-  const context =
-    currentDraftContext()
-
-  if (!context) {
-    return
-  }
-
-  if (
-    pendingDraftContext &&
-    !sameDraftContext(
-      pendingDraftContext,
-      context
-    )
-  ) {
-    flushScheduledDraftPersistence()
-  }
-
-  pendingDraftContext = context
-  clearDraftPersistenceTimer()
-
-  draftPersistenceTimer =
-    window.setTimeout(() => {
-      flushScheduledDraftPersistence()
-    }, DRAFT_PERSIST_DELAY_MS)
-}
-
-function handlePageHide() {
-  flushScheduledDraftPersistence()
 }
 
 function serializeMatchingAnswer(
@@ -741,287 +499,10 @@ function isMatchingSubmitDetail(detail) {
   ).length > 0
 }
 
-async function loadTest() {
-  const context =
-    currentRouteContext()
-
-  const requestId =
-    loadRequest.begin()
-
-  submitRequest.invalidate()
-  submitting.value = false
-
-  if (!context.assignmentId || !context.testId) {
-    resetTestState()
-    loading.value = false
-    error.value =
-      'Не указано назначение теста. Откройте тест со страницы лекции.'
-
-    return
-  }
-
-  loading.value = true
-  error.value = ''
-  resetTestState()
-
-  const completedSession =
-    readCompletedTestSession(
-      context.testId,
-      context.assignmentId
-    )
-
-  if (completedSession) {
-    if (
-      !loadRequest.isCurrent(requestId) ||
-      !isSameRouteContext(context)
-    ) {
-      return
-    }
-
-    clearTestAttemptDraft(
-      context.testId,
-      context.assignmentId
-    )
-
-    attemptId.value =
-      completedSession.attemptId
-
-    test.value =
-      completedSession.test ??
-      null
-
-    questions.value = []
-    resultData.value =
-      sanitizeStudentSubmitResult(
-        completedSession.resultData
-      )
-
-    resetAnswers()
-    loading.value = false
-    return
-  }
-
-  try {
-    const response =
-      await learningApi
-        .startAttempt(
-          context.assignmentId
-        )
-
-    if (
-      !loadRequest.isCurrent(requestId) ||
-      !isSameRouteContext(context)
-    ) {
-      return
-    }
-
-    const data =
-      response.data ?? {}
-
-    assertStartAttemptContext(
-      data,
-      context
-    )
-
-    attemptId.value =
-      Number(data.attemptId)
-
-    test.value =
-      data.test ??
-      null
-
-    questions.value =
-      Array.isArray(
-        data.questions
-      )
-        ? data.questions
-        : []
-
-    draftPersistencePaused = true
-
-    try {
-      initializeAnswers()
-      restoreCurrentAttemptDraft(
-        context
-      )
-    } finally {
-      draftPersistencePaused = false
-    }
-  } catch (requestError) {
-    if (
-      !loadRequest.isCurrent(requestId) ||
-      !isSameRouteContext(context)
-    ) {
-      return
-    }
-
-    resetTestState()
-
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось загрузить тест.'
-      )
-  } finally {
-    if (
-      loadRequest.isCurrent(requestId) &&
-      isSameRouteContext(context)
-    ) {
-      loading.value = false
-    }
-  }
-}
-
-async function submitTest() {
-  if (
-    submitting.value ||
-    submitOutcomeUnknown.value ||
-    submitted.value ||
-    !questions.value.length ||
-    !attemptId.value
-  ) {
-    return
-  }
-
-  flushScheduledDraftPersistence()
-
-  const context = {
-    ...currentRouteContext(),
-    attemptId: Number(attemptId.value),
-  }
-
-  if (
-    !context.testId ||
-    !context.assignmentId ||
-    !Number.isFinite(context.attemptId) ||
-    context.attemptId <= 0
-  ) {
-    error.value =
-      'Контекст попытки устарел. Откройте тест заново со страницы лекции.'
-    return
-  }
-
-  const requestId =
-    submitRequest.begin()
-
-  submitting.value = true
-  error.value = ''
-
-  try {
-    const payload =
-      buildSubmission()
-
-    const response =
-      await learningApi
-        .submitAttempt(
-          context.attemptId,
-          payload
-        )
-
-    if (
-      !submitRequest.isCurrent(requestId) ||
-      !isSameRouteContext(context) ||
-      Number(attemptId.value) !== context.attemptId
-    ) {
-      return
-    }
-
-    resultData.value =
-      sanitizeStudentSubmitResult(
-        response.data
-      )
-
-    clearTestAttemptDraft(
-      context.testId,
-      context.assignmentId
-    )
-
-    cancelScheduledDraftPersistence()
-
-    saveCompletedTestSession({
-      testId: context.testId,
-      assignmentId: context.assignmentId,
-      attemptId: context.attemptId,
-      test: test.value,
-      resultData: resultData.value,
-    })
-
-    await nextTick()
-
-    if (
-      !submitRequest.isCurrent(requestId) ||
-      !isSameRouteContext(context) ||
-      Number(attemptId.value) !== context.attemptId
-    ) {
-      return
-    }
-
-    document
-      .getElementById(
-        'test-result'
-      )
-      ?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
-  } catch (requestError) {
-    if (
-      !submitRequest.isCurrent(requestId) ||
-      !isSameRouteContext(context) ||
-      Number(attemptId.value) !== context.attemptId
-    ) {
-      return
-    }
-
-    if (hasUnknownRequestOutcome(requestError)) {
-      submitOutcomeUnknown.value = true
-      error.value =
-        'Связь с сервером прервалась во время отправки. ' +
-        'Результат попытки неизвестен, поэтому повторная отправка заблокирована. ' +
-        'Откройте результаты или вернитесь к тесту позже, чтобы не отправить попытку повторно.'
-      return
-    }
-
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось отправить ответы на тест.'
-      )
-  } finally {
-    if (
-      submitRequest.isCurrent(requestId) &&
-      isSameRouteContext(context) &&
-      Number(attemptId.value) === context.attemptId
-    ) {
-      submitting.value = false
-    }
-  }
-}
-
 onBeforeRouteLeave(() => {
   flushScheduledDraftPersistence()
-
-  loadRequest.invalidate()
-  submitRequest.invalidate()
-
-  if (testId.value && assignmentId.value) {
-    clearCompletedTestSession(
-      testId.value,
-      assignmentId.value
-    )
-  }
+  leaveCurrentAttempt()
 })
-
-watch(
-  [
-    singleAnswers,
-    multipleAnswers,
-    textAnswers,
-    matchingAnswers,
-  ],
-  scheduleCurrentAttemptDraftPersistence,
-  { deep: true, flush: 'sync' }
-)
 
 watch(
   () => [
@@ -1035,23 +516,11 @@ watch(
 )
 
 onMounted(() => {
-  window.addEventListener(
-    'pagehide',
-    handlePageHide
-  )
-
   loadTest()
 })
 
 onBeforeUnmount(() => {
-  flushScheduledDraftPersistence()
-
-  window.removeEventListener(
-    'pagehide',
-    handlePageHide
-  )
-
-  cancelScheduledDraftPersistence()
+  disposeAttemptLifecycle()
 })
 </script>
 

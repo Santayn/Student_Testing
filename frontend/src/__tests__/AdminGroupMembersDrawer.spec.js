@@ -9,61 +9,69 @@ import {
   it,
 } from 'vitest'
 
-const groupsView = readFileSync(
-  resolve(
-    process.cwd(),
-    'src',
-    'views',
-    'admin',
-    'GroupsView.vue'
-  ),
-  'utf8'
-)
+function source(relativePath) {
+  return readFileSync(
+    resolve(
+      process.cwd(),
+      'src',
+      ...relativePath.split('/')
+    ),
+    'utf8'
+  )
+}
+
+const groupsView = source('views/admin/GroupsView.vue')
+const groupMembers = source('composables/useAdminGroupMembers.js')
+const membersDrawer = source('components/admin/AdminGroupMembersDrawer.vue')
 
 describe('admin group members drawer', () => {
-  it('opens membership management from the group workspace without creating a new route', () => {
+  it('keeps GroupsView as the composition boundary and delegates the member workspace', () => {
+    expect(groupsView).toContain('AdminGroupMembersDrawer')
+    expect(groupsView).toContain('useAdminGroupMembers()')
     expect(groupsView).toContain('label="Состав группы"')
     expect(groupsView).toContain('openGroupMembers(group)')
-    expect(groupsView).toContain('<UiDrawer')
-    expect(groupsView).toContain('membersDrawerVisible')
-    expect(groupsView).toContain('Текущие участники')
-    expect(groupsView).toContain('Доступные студенты')
+    expect(groupsView).not.toContain('membershipsApi.')
+    expect(groupsView).not.toContain('usersApi.getPeople')
+  })
+
+  it('keeps the drawer UI outside the page-level view', () => {
+    expect(membersDrawer).toContain('<UiDrawer')
+    expect(membersDrawer).toContain('Текущие участники')
+    expect(membersDrawer).toContain('Доступные студенты')
+    expect(membersDrawer).toContain('title="Убрать студента из группы?"')
+    expect(membersDrawer).toContain('Историческая запись назначения сохранится в системе.')
+    expect(membersDrawer).not.toContain("from '@/api'")
   })
 
   it('loads only student candidates while keeping all people for current-member labels', () => {
-    expect(groupsView).toContain('usersApi.getPeople()')
-    expect(groupsView).toContain("role: STUDENT_APP_ROLE")
-    expect(groupsView).toContain("const STUDENT_APP_ROLE = 'STUDENT'")
-    expect(groupsView).toContain('personName(personById(membership.personId))')
+    expect(groupMembers).toContain('usersApi.getPeople()')
+    expect(groupMembers).toContain("role: STUDENT_APP_ROLE")
+    expect(groupMembers).toContain("const STUDENT_APP_ROLE = 'STUDENT'")
+    expect(membersDrawer).toContain('personName(personById(membership.personId))')
   })
 
   it('uses existing membership endpoints and keeps the backend contract unchanged', () => {
-    expect(groupsView).toContain('membershipsApi.getGroupMemberships({')
-    expect(groupsView).toContain('membershipsApi.addPersonToGroup(')
-    expect(groupsView).toContain('membershipsApi.updateGroupMembershipStatus(')
-    expect(groupsView).toContain('role: STUDENT_GROUP_ROLE')
-    expect(groupsView).toContain('{ status: REMOVED_MEMBERSHIP_STATUS }')
+    expect(groupMembers).toContain('membershipsApi.getGroupMemberships({')
+    expect(groupMembers).toContain('membershipsApi.addPersonToGroup(')
+    expect(groupMembers).toContain('membershipsApi.updateGroupMembershipStatus(')
+    expect(groupMembers).toContain('role: STUDENT_GROUP_ROLE')
+    expect(groupMembers).toContain('{ status: REMOVED_MEMBERSHIP_STATUS }')
   })
 
   it('reactivates paused membership instead of creating a conflicting duplicate', () => {
-    expect(groupsView).toContain('pausedStudentMembership(personId)')
-    expect(groupsView).toContain('PAUSED_MEMBERSHIP_STATUS')
-    expect(groupsView).toContain('{ status: ACTIVE_MEMBERSHIP_STATUS }')
-    expect(groupsView).toContain('Вернуть в группу')
+    expect(groupMembers).toContain('pausedStudentMembership(personId)')
+    expect(groupMembers).toContain('PAUSED_MEMBERSHIP_STATUS')
+    expect(groupMembers).toContain('{ status: ACTIVE_MEMBERSHIP_STATUS }')
+    expect(groupMembers).toContain("? 'Вернуть в группу'")
   })
 
-  it('requires confirmation before removing a student and preserves historical membership', () => {
-    expect(groupsView).toContain('memberRemoveConfirmVisible')
-    expect(groupsView).toContain('title="Убрать студента из группы?"')
-    expect(groupsView).toContain('Историческая запись назначения сохранится в системе.')
-    expect(groupsView).not.toContain('deleteGroupMembership')
-  })
-
-  it('keeps search inside the drawer and gives every atomic mutation its own loading state', () => {
-    expect(groupsView).toContain('memberSearch')
-    expect(groupsView).toContain('filteredCurrentStudentMemberships')
-    expect(groupsView).toContain('filteredAvailableStudents')
-    expect(groupsView).toContain('addingPersonId')
-    expect(groupsView).toContain('removingMembershipId')
+  it('keeps search and atomic mutation loading state inside the member boundary', () => {
+    expect(groupMembers).toContain('memberSearch')
+    expect(groupMembers).toContain('filteredCurrentStudentMemberships')
+    expect(groupMembers).toContain('filteredAvailableStudents')
+    expect(groupMembers).toContain('addingPersonId')
+    expect(groupMembers).toContain('removingMembershipId')
+    expect(membersDrawer).toContain(':loading="addingPersonId === person.id"')
+    expect(membersDrawer).toContain(':loading="removingMembershipId === membership.id"')
   })
 })

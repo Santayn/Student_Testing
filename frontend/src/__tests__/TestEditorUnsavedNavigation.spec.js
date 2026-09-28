@@ -37,6 +37,22 @@ const guardSource = readFileSync(
   'utf8'
 )
 
+const editorStateSource = readFileSync(
+  sourcePath(
+    'composables',
+    'useTestEditorState.js'
+  ),
+  'utf8'
+)
+
+const saveFlowSource = readFileSync(
+  sourcePath(
+    'composables',
+    'useTestEditorSaveFlow.js'
+  ),
+  'utf8'
+)
+
 describe('TestEditor unsaved navigation integration', () => {
   it('uses the shared route-level unsaved changes guard', () => {
     expect(testEditor).toContain(
@@ -53,20 +69,23 @@ describe('TestEditor unsaved navigation integration', () => {
     )
   })
 
-  it('tracks the complete editable test state instead of one field', () => {
+  it('tracks the complete editable test state through the shared editor-state composable', () => {
     expect(testEditor).toContain(
+      'useTestEditorState'
+    )
+    expect(editorStateSource).toContain(
       'const editorState = computed'
     )
-    expect(testEditor).toContain(
+    expect(editorStateSource).toContain(
       'membershipId:'
     )
-    expect(testEditor).toContain(
+    expect(editorStateSource).toContain(
       'groupIds,'
     )
-    expect(testEditor).toContain(
+    expect(editorStateSource).toContain(
       'questionCount:'
     )
-    expect(testEditor).toContain(
+    expect(editorStateSource).toContain(
       'availableUntil:'
     )
   })
@@ -75,26 +94,30 @@ describe('TestEditor unsaved navigation integration', () => {
     expect(testEditor).toContain(
       'markInitialContextClean'
     )
-    expect(testEditor).toContain(
+    expect(editorStateSource).toContain(
       'nextBaseline.form ='
     )
-    expect(testEditor).toContain(
+    expect(editorStateSource).toContain(
       'editorBaseline.value.form'
     )
   })
 
   it('marks the editor clean only after a fully successful create flow', () => {
+    expect(testEditor).toContain(
+      'useTestEditorSaveFlow'
+    )
+
     const successMessageIndex =
-      testEditor.indexOf(
+      saveFlowSource.indexOf(
         'создан и назначен выбранным группам.'
       )
     const cleanIndex =
-      testEditor.indexOf(
+      saveFlowSource.indexOf(
         'markEditorClean()',
         successMessageIndex
       )
     const catchIndex =
-      testEditor.indexOf(
+      saveFlowSource.indexOf(
         '} catch (error)',
         successMessageIndex
       )

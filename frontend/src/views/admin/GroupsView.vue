@@ -5,6 +5,7 @@ import {
   ref,
 } from 'vue'
 
+import AdminGroupMembersDrawer from '@/components/admin/AdminGroupMembersDrawer.vue'
 import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
@@ -13,7 +14,6 @@ import {
   UiButton,
   UiCard,
   UiDialog,
-  UiDrawer,
   UiEmptyState,
   UiFilterBar,
   UiInput,
@@ -23,35 +23,73 @@ import {
 } from '@/components/ui'
 
 import {
-  facultiesApi,
   getApiErrorMessage,
   groupsApi,
-  membershipsApi,
-  usersApi,
 } from '@/api'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
+  useAdminGroupsData,
+} from '@/composables/useAdminGroupsData'
 
-const STUDENT_GROUP_ROLE = 1
-const ACTIVE_MEMBERSHIP_STATUS = 1
-const PAUSED_MEMBERSHIP_STATUS = 2
-const REMOVED_MEMBERSHIP_STATUS = 3
-const STUDENT_APP_ROLE = 'STUDENT'
+import {
+  useAdminGroupMembers,
+} from '@/composables/useAdminGroupMembers'
 
-const faculties = ref([])
-const groups = ref([])
-const loading = ref(false)
 
-const notice = ref({
-  type: 'info',
-  message: '',
-})
 
-const searchQuery = ref('')
-const facultyFilter = ref('all')
-const sortMode = ref('name-asc')
+const {
+  sortOptions,
+  faculties,
+  groups,
+  loading,
+  notice,
+  searchQuery,
+  facultyFilter,
+  sortMode,
+  facultyOptions,
+  facultyFilterOptions,
+  hasActiveFilters,
+  filteredGroups,
+  filterResultText,
+  showNotice,
+  clearNotice,
+  facultyName,
+  resetFilters,
+  loadData,
+} = useAdminGroupsData()
+
+const {
+  membersDrawerVisible,
+  membersGroup,
+  membersLoading,
+  memberSearch,
+  addingPersonId,
+  memberNotice,
+  memberRemoveTarget,
+  memberRemoveConfirmVisible,
+  removingMembershipId,
+  memberRemoveError,
+  currentStudentMemberships,
+  availableStudents,
+  filteredCurrentStudentMemberships,
+  filteredAvailableStudents,
+  membersDrawerTitle,
+  membersBusy,
+  memberResultText,
+  personById,
+  personName,
+  personContact,
+  pausedStudentMembership,
+  availableStudentActionLabel,
+  clearMemberNotice,
+  resetMemberSearch,
+  openGroupMembers,
+  resetMembersDrawer,
+  addStudentToGroup,
+  requestRemoveMember,
+  closeMemberRemoveDialog,
+  removeStudentFromGroup,
+} = useAdminGroupMembers()
 
 const formError = ref('')
 
@@ -60,33 +98,6 @@ const deleteConfirmVisible = ref(false)
 const deletingId = ref(null)
 const deleteError = ref('')
 
-const membersDrawerVisible = ref(false)
-const membersGroup = ref(null)
-const groupMemberships = ref([])
-const people = ref([])
-const students = ref([])
-const membersLoading = ref(false)
-const memberSearch = ref('')
-const addingPersonId = ref(null)
-
-const memberNotice = ref({
-  type: 'info',
-  message: '',
-})
-
-const memberRemoveTarget = ref(null)
-const memberRemoveConfirmVisible = ref(false)
-const removingMembershipId = ref(null)
-const memberRemoveError = ref('')
-
-let membersLoadSequence = 0
-
-const sortOptions = [
-  { value: 'name-asc', label: 'Название А–Я' },
-  { value: 'name-desc', label: 'Название Я–А' },
-  { value: 'code-asc', label: 'Код А–Я' },
-  { value: 'faculty-asc', label: 'Факультет А–Я' },
-]
 
 const {
   form,
@@ -119,177 +130,6 @@ const {
   }),
 })
 
-const facultyOptions = computed(() => {
-  return faculties.value
-    .map((faculty) => ({
-      value: String(faculty.id),
-      label: faculty.name,
-    }))
-    .sort((left, right) =>
-      left.label.localeCompare(right.label, 'ru')
-    )
-})
-
-const facultyFilterOptions = computed(() => [
-  { value: 'all', label: 'Все факультеты' },
-  ...facultyOptions.value,
-])
-
-const hasActiveFilters = computed(() => {
-  return Boolean(searchQuery.value.trim()) ||
-    facultyFilter.value !== 'all' ||
-    sortMode.value !== 'name-asc'
-})
-
-const filteredGroups = computed(() => {
-  const query = searchQuery.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-
-  const result = groups.value.filter((group) => {
-    if (
-      facultyFilter.value !== 'all' &&
-      String(group.facultyId) !== facultyFilter.value
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    const haystack = [
-      group.name,
-      group.code,
-      facultyName(group.facultyId),
-    ]
-      .filter((value) => value !== null && value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-
-    return haystack.includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (sortMode.value === 'name-desc') {
-      return String(right.name ?? '').localeCompare(
-        String(left.name ?? ''),
-        'ru'
-      )
-    }
-
-    if (sortMode.value === 'code-asc') {
-      return String(left.code ?? '').localeCompare(
-        String(right.code ?? ''),
-        'ru'
-      )
-    }
-
-    if (sortMode.value === 'faculty-asc') {
-      return facultyName(left.facultyId).localeCompare(
-        facultyName(right.facultyId),
-        'ru'
-      ) || String(left.name ?? '').localeCompare(
-        String(right.name ?? ''),
-        'ru'
-      )
-    }
-
-    return String(left.name ?? '').localeCompare(
-      String(right.name ?? ''),
-      'ru'
-    )
-  })
-})
-
-const filterResultText = computed(() => {
-  return `Показано: ${filteredGroups.value.length} из ${groups.value.length}`
-})
-
-const currentStudentMemberships = computed(() => {
-  return groupMemberships.value
-    .filter((membership) => (
-      Number(membership.role) === STUDENT_GROUP_ROLE &&
-      Number(membership.status) === ACTIVE_MEMBERSHIP_STATUS &&
-      !membership.removedAtUtc
-    ))
-    .sort((left, right) =>
-      personName(personById(left.personId)).localeCompare(
-        personName(personById(right.personId)),
-        'ru'
-      )
-    )
-})
-
-const currentStudentPersonIds = computed(() => {
-  return new Set(
-    currentStudentMemberships.value.map(
-      (membership) => Number(membership.personId)
-    )
-  )
-})
-
-const availableStudents = computed(() => {
-  return students.value
-    .filter((person) =>
-      !currentStudentPersonIds.value.has(Number(person.id))
-    )
-    .sort((left, right) =>
-      personName(left).localeCompare(personName(right), 'ru')
-    )
-})
-
-const normalizedMemberSearch = computed(() => {
-  return memberSearch.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-})
-
-const filteredCurrentStudentMemberships = computed(() => {
-  const query = normalizedMemberSearch.value
-
-  if (!query) {
-    return currentStudentMemberships.value
-  }
-
-  return currentStudentMemberships.value.filter((membership) =>
-    personMatchesSearch(personById(membership.personId), query)
-  )
-})
-
-const filteredAvailableStudents = computed(() => {
-  const query = normalizedMemberSearch.value
-
-  if (!query) {
-    return availableStudents.value
-  }
-
-  return availableStudents.value.filter((person) =>
-    personMatchesSearch(person, query)
-  )
-})
-
-const membersDrawerTitle = computed(() => {
-  if (!membersGroup.value) {
-    return 'Состав группы'
-  }
-
-  return `Состав группы ${membersGroup.value.code || membersGroup.value.name}`
-})
-
-const membersBusy = computed(() => (
-  membersLoading.value ||
-  addingPersonId.value !== null ||
-  removingMembershipId.value !== null
-))
-
-const memberResultText = computed(() => {
-  return (
-    `В группе: ${filteredCurrentStudentMemberships.value.length} из ${currentStudentMemberships.value.length}; ` +
-    `доступно: ${filteredAvailableStudents.value.length} из ${availableStudents.value.length}`
-  )
-})
-
 const groupDialogTitle = computed(() => {
   return isCreate.value
     ? 'Новая группа'
@@ -299,95 +139,6 @@ const groupDialogTitle = computed(() => {
 const canSubmit = computed(() => {
   return !groupFormValidationMessage() && !saving.value
 })
-
-function showNotice(type, message) {
-  notice.value = {
-    type,
-    message,
-  }
-}
-
-function clearNotice() {
-  notice.value.message = ''
-}
-
-function facultyName(facultyId) {
-  const faculty = faculties.value.find(
-    (item) => Number(item.id) === Number(facultyId)
-  )
-
-  return faculty?.name ?? 'Факультет не найден'
-}
-
-function personById(personId) {
-  return people.value.find(
-    (person) => Number(person.id) === Number(personId)
-  ) ?? null
-}
-
-function personName(person) {
-  if (!person) {
-    return 'Профиль участника недоступен'
-  }
-
-  const name = [
-    person.lastName,
-    person.firstName,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .trim()
-
-  return name || person.email || 'Профиль участника недоступен'
-}
-
-function personContact(person) {
-  if (!person) {
-    return ''
-  }
-
-  return [person.email, person.phone]
-    .filter(Boolean)
-    .join(' · ')
-}
-
-function personMatchesSearch(person, query) {
-  if (!query) {
-    return true
-  }
-
-  const haystack = [
-    personName(person),
-    person?.email,
-    person?.phone,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLocaleLowerCase('ru-RU')
-
-  return haystack.includes(query)
-}
-
-function pausedStudentMembership(personId) {
-  return groupMemberships.value.find((membership) => (
-    Number(membership.personId) === Number(personId) &&
-    Number(membership.role) === STUDENT_GROUP_ROLE &&
-    Number(membership.status) === PAUSED_MEMBERSHIP_STATUS &&
-    !membership.removedAtUtc
-  )) ?? null
-}
-
-function availableStudentActionLabel(person) {
-  return pausedStudentMembership(person?.id)
-    ? 'Вернуть в группу'
-    : 'Добавить'
-}
-
-function resetFilters() {
-  searchQuery.value = ''
-  facultyFilter.value = 'all'
-  sortMode.value = 'name-asc'
-}
 
 function openCreateGroup() {
   formError.value = ''
@@ -461,248 +212,6 @@ function groupFormValidationMessage() {
   }
 
   return ''
-}
-
-function clearMemberNotice() {
-  memberNotice.value.message = ''
-}
-
-function showMemberNotice(type, message) {
-  memberNotice.value = {
-    type,
-    message,
-  }
-}
-
-function resetMemberSearch() {
-  memberSearch.value = ''
-}
-
-async function loadGroupMembers(groupId, { quiet = false } = {}) {
-  const normalizedGroupId = Number(groupId)
-
-  if (!Number.isFinite(normalizedGroupId) || normalizedGroupId <= 0) {
-    return
-  }
-
-  const requestId = ++membersLoadSequence
-
-  if (!quiet) {
-    membersLoading.value = true
-    clearMemberNotice()
-  }
-
-  try {
-    const [
-      membershipsResponse,
-      peopleResponse,
-      studentsResponse,
-    ] = await Promise.all([
-      membershipsApi.getGroupMemberships({
-        groupId: normalizedGroupId,
-        activeOnly: false,
-      }),
-      usersApi.getPeople(),
-      usersApi.getPeople({
-        role: STUDENT_APP_ROLE,
-      }),
-    ])
-
-    if (
-      requestId !== membersLoadSequence ||
-      Number(membersGroup.value?.id) !== normalizedGroupId
-    ) {
-      return
-    }
-
-    groupMemberships.value = listFromResponse(membershipsResponse)
-    people.value = listFromResponse(peopleResponse)
-    students.value = listFromResponse(studentsResponse)
-  } catch (error) {
-    if (requestId !== membersLoadSequence) {
-      return
-    }
-
-    showMemberNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось загрузить состав группы'
-      )
-    )
-  } finally {
-    if (requestId === membersLoadSequence) {
-      membersLoading.value = false
-    }
-  }
-}
-
-async function openGroupMembers(group) {
-  membersGroup.value = group
-  memberSearch.value = ''
-  groupMemberships.value = []
-  people.value = []
-  students.value = []
-  clearMemberNotice()
-  membersDrawerVisible.value = true
-
-  await loadGroupMembers(group.id)
-}
-
-function resetMembersDrawer() {
-  if (membersBusy.value) {
-    return
-  }
-
-  membersLoadSequence += 1
-  membersGroup.value = null
-  groupMemberships.value = []
-  people.value = []
-  students.value = []
-  memberSearch.value = ''
-  clearMemberNotice()
-}
-
-async function addStudentToGroup(person) {
-  const groupId = Number(membersGroup.value?.id)
-  const personId = Number(person?.id)
-
-  if (
-    !Number.isFinite(groupId) || groupId <= 0 ||
-    !Number.isFinite(personId) || personId <= 0 ||
-    addingPersonId.value !== null
-  ) {
-    return
-  }
-
-  addingPersonId.value = personId
-  clearMemberNotice()
-
-  try {
-    const pausedMembership = pausedStudentMembership(personId)
-
-    if (pausedMembership) {
-      await membershipsApi.updateGroupMembershipStatus(
-        pausedMembership.id,
-        { status: ACTIVE_MEMBERSHIP_STATUS }
-      )
-    } else {
-      await membershipsApi.addPersonToGroup(
-        groupId,
-        {
-          personId,
-          role: STUDENT_GROUP_ROLE,
-          notes: null,
-        }
-      )
-    }
-
-    await loadGroupMembers(groupId, { quiet: true })
-
-    showMemberNotice(
-      'success',
-      pausedMembership
-        ? `${personName(person)} снова в составе группы.`
-        : `${personName(person)} добавлен в группу.`
-    )
-  } catch (error) {
-    showMemberNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось добавить студента в группу'
-      )
-    )
-  } finally {
-    addingPersonId.value = null
-  }
-}
-
-function requestRemoveMember(membership) {
-  memberRemoveTarget.value = {
-    membership,
-    person: personById(membership.personId),
-  }
-  memberRemoveError.value = ''
-  memberRemoveConfirmVisible.value = true
-}
-
-function closeMemberRemoveDialog() {
-  if (removingMembershipId.value !== null) {
-    return
-  }
-
-  memberRemoveConfirmVisible.value = false
-  memberRemoveTarget.value = null
-  memberRemoveError.value = ''
-}
-
-async function removeStudentFromGroup() {
-  const target = memberRemoveTarget.value
-  const membership = target?.membership
-  const groupId = Number(membersGroup.value?.id)
-
-  if (
-    !membership ||
-    !Number.isFinite(groupId) || groupId <= 0 ||
-    removingMembershipId.value !== null
-  ) {
-    return
-  }
-
-  removingMembershipId.value = membership.id
-  memberRemoveError.value = ''
-
-  try {
-    await membershipsApi.updateGroupMembershipStatus(
-      membership.id,
-      { status: REMOVED_MEMBERSHIP_STATUS }
-    )
-
-    await loadGroupMembers(groupId, { quiet: true })
-
-    memberRemoveConfirmVisible.value = false
-    memberRemoveTarget.value = null
-
-    showMemberNotice(
-      'success',
-      `${personName(target.person)} убран из группы.`
-    )
-  } catch (error) {
-    memberRemoveError.value = getApiErrorMessage(
-      error,
-      'Не удалось убрать студента из группы'
-    )
-  } finally {
-    removingMembershipId.value = null
-  }
-}
-
-async function loadData() {
-  loading.value = true
-
-  try {
-    const [
-      facultiesResponse,
-      groupsResponse,
-    ] = await Promise.all([
-      facultiesApi.getAll(),
-      groupsApi.getAll(),
-    ])
-
-    faculties.value = listFromResponse(facultiesResponse)
-    groups.value = listFromResponse(groupsResponse)
-  } catch (error) {
-    showNotice(
-      'error',
-      getApiErrorMessage(
-        error,
-        'Не удалось загрузить группы'
-      )
-    )
-  } finally {
-    loading.value = false
-  }
 }
 
 async function saveGroup() {
@@ -938,220 +447,38 @@ onMounted(loadData)
       </div>
     </UiCard>
 
-    <UiDrawer
+    <AdminGroupMembersDrawer
       v-model="membersDrawerVisible"
       :title="membersDrawerTitle"
-      width="48rem"
-      :closable="!membersBusy"
-      :close-on-escape="!membersBusy"
-      :dismissable="false"
+      :busy="membersBusy"
+      :loading="membersLoading"
+      :notice="memberNotice"
+      :search="memberSearch"
+      :result-text="memberResultText"
+      :current-memberships="currentStudentMemberships"
+      :filtered-current-memberships="filteredCurrentStudentMemberships"
+      :available-students="availableStudents"
+      :filtered-available-students="filteredAvailableStudents"
+      :adding-person-id="addingPersonId"
+      :removing-membership-id="removingMembershipId"
+      :remove-confirm-visible="memberRemoveConfirmVisible"
+      :remove-error="memberRemoveError"
+      :remove-target="memberRemoveTarget"
+      :group="membersGroup"
+      :person-by-id="personById"
+      :person-name="personName"
+      :person-contact="personContact"
+      :paused-student-membership="pausedStudentMembership"
+      :available-student-action-label="availableStudentActionLabel"
       @after-hide="resetMembersDrawer"
-    >
-      <div class="admin-group-members">
-        <p class="admin-group-members__intro">
-          Управляйте студентами этой группы. Добавление выполняется сразу, а удаление из состава требует подтверждения.
-        </p>
-
-        <UiAlert
-          v-if="memberNotice.message"
-          :variant="memberNotice.type"
-          :message="memberNotice.message"
-          closable
-          @close="clearMemberNotice"
-        />
-
-        <UiFilterBar
-          v-model="memberSearch"
-          search-placeholder="ФИО, email или телефон"
-          :result-text="memberResultText"
-          :reset-disabled="!memberSearch.trim()"
-          @reset="resetMemberSearch"
-        />
-
-        <UiEmptyState
-          v-if="membersLoading"
-          description="Загрузка состава группы..."
-          compact
-        />
-
-        <template v-else>
-          <section class="admin-group-members__section">
-            <div class="admin-group-members__section-heading">
-              <div>
-                <h3>Текущие участники</h3>
-                <p>Студенты, которые сейчас входят в группу.</p>
-              </div>
-
-              <span class="admin-group-members__count">
-                {{ currentStudentMemberships.length }}
-              </span>
-            </div>
-
-            <UiEmptyState
-              v-if="!currentStudentMemberships.length"
-              description="В группе пока нет студентов."
-              compact
-            />
-
-            <UiEmptyState
-              v-else-if="!filteredCurrentStudentMemberships.length"
-              description="Среди участников ничего не найдено."
-              compact
-            />
-
-            <div
-              v-else
-              class="admin-group-members__list"
-            >
-              <article
-                v-for="membership in filteredCurrentStudentMemberships"
-                :key="membership.id"
-                class="admin-group-member-card"
-              >
-                <div class="admin-group-member-card__body">
-                  <strong>
-                    {{ personName(personById(membership.personId)) }}
-                  </strong>
-
-                  <span
-                    v-if="personContact(personById(membership.personId))"
-                    class="admin-group-member-card__meta"
-                  >
-                    {{ personContact(personById(membership.personId)) }}
-                  </span>
-
-                  <span
-                    v-if="membership.notes"
-                    class="admin-group-member-card__notes"
-                  >
-                    {{ membership.notes }}
-                  </span>
-                </div>
-
-                <UiButton
-                  variant="danger"
-                  size="sm"
-                  icon="pi pi-user-minus"
-                  label="Убрать"
-                  :disabled="addingPersonId !== null"
-                  :loading="removingMembershipId === membership.id"
-                  loading-text="Удаление..."
-                  @click="requestRemoveMember(membership)"
-                />
-              </article>
-            </div>
-          </section>
-
-          <section class="admin-group-members__section">
-            <div class="admin-group-members__section-heading">
-              <div>
-                <h3>Доступные студенты</h3>
-                <p>Активные пользователи с ролью «Студент», которых сейчас нет в этой группе.</p>
-              </div>
-
-              <span class="admin-group-members__count">
-                {{ availableStudents.length }}
-              </span>
-            </div>
-
-            <UiEmptyState
-              v-if="!availableStudents.length"
-              description="Нет доступных студентов для добавления."
-              compact
-            />
-
-            <UiEmptyState
-              v-else-if="!filteredAvailableStudents.length"
-              description="Среди доступных студентов ничего не найдено."
-              compact
-            />
-
-            <div
-              v-else
-              class="admin-group-members__list"
-            >
-              <article
-                v-for="person in filteredAvailableStudents"
-                :key="person.id"
-                class="admin-group-member-card"
-              >
-                <div class="admin-group-member-card__body">
-                  <strong>{{ personName(person) }}</strong>
-
-                  <span
-                    v-if="personContact(person)"
-                    class="admin-group-member-card__meta"
-                  >
-                    {{ personContact(person) }}
-                  </span>
-
-                  <span
-                    v-if="pausedStudentMembership(person.id)"
-                    class="admin-group-member-card__hint"
-                  >
-                    Ранее состоял в группе — назначение будет восстановлено.
-                  </span>
-                </div>
-
-                <UiButton
-                  variant="primary"
-                  size="sm"
-                  icon="pi pi-user-plus"
-                  :label="availableStudentActionLabel(person)"
-                  :disabled="removingMembershipId !== null"
-                  :loading="addingPersonId === person.id"
-                  loading-text="Добавление..."
-                  @click="addStudentToGroup(person)"
-                />
-              </article>
-            </div>
-          </section>
-        </template>
-      </div>
-    </UiDrawer>
-
-    <UiDialog
-      v-model="memberRemoveConfirmVisible"
-      title="Убрать студента из группы?"
-      width="31rem"
-      :closable="removingMembershipId === null"
-      :close-on-escape="removingMembershipId === null"
-      :dismissable-mask="false"
-    >
-      <div class="admin-group-delete">
-        <UiAlert
-          v-if="memberRemoveError"
-          variant="danger"
-          :message="memberRemoveError"
-        />
-
-        <p>
-          <strong>{{ personName(memberRemoveTarget?.person) }}</strong>
-          перестанет входить в группу
-          <strong>«{{ membersGroup?.name }}»</strong>.
-          Историческая запись назначения сохранится в системе.
-        </p>
-      </div>
-
-      <template #footer>
-        <div class="admin-group-delete__actions">
-          <UiButton
-            variant="secondary"
-            label="Отмена"
-            :disabled="removingMembershipId !== null"
-            @click="closeMemberRemoveDialog"
-          />
-
-          <UiButton
-            variant="danger"
-            label="Убрать из группы"
-            :loading="removingMembershipId !== null"
-            loading-text="Удаление..."
-            @click="removeStudentFromGroup"
-          />
-        </div>
-      </template>
-    </UiDialog>
+      @clear-notice="clearMemberNotice"
+      @update:search="memberSearch = $event"
+      @reset-search="resetMemberSearch"
+      @add-student="addStudentToGroup"
+      @request-remove="requestRemoveMember"
+      @close-remove="closeMemberRemoveDialog"
+      @confirm-remove="removeStudentFromGroup"
+    />
 
     <UiDialog
       v-model="groupDialogModel"
@@ -1377,130 +704,6 @@ onMounted(loadData)
   color: var(--st-text);
 }
 
-.admin-group-members {
-  min-width: 0;
-
-  display: grid;
-  gap: 18px;
-}
-
-.admin-group-members__intro {
-  margin: 0;
-
-  color: var(--st-text-secondary);
-
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.admin-group-members__section {
-  min-width: 0;
-  padding-top: 2px;
-
-  display: grid;
-  gap: 10px;
-}
-
-.admin-group-members__section + .admin-group-members__section {
-  padding-top: 18px;
-  border-top: 1px solid var(--st-border);
-}
-
-.admin-group-members__section-heading {
-  min-width: 0;
-
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.admin-group-members__section-heading h3,
-.admin-group-members__section-heading p {
-  margin: 0;
-}
-
-.admin-group-members__section-heading h3 {
-  color: var(--st-text);
-
-  font-size: 16px;
-  line-height: 1.35;
-}
-
-.admin-group-members__section-heading p {
-  margin-top: 4px;
-
-  color: var(--st-text-secondary);
-
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.admin-group-members__count {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 5px 9px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  color: var(--st-primary);
-  background: var(--st-primary-soft);
-  border-radius: 999px;
-
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.admin-group-members__list {
-  min-width: 0;
-
-  display: grid;
-  gap: 8px;
-}
-
-.admin-group-member-card {
-  min-width: 0;
-  padding: 12px;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-
-  background: var(--st-surface-muted);
-  border: 1px solid var(--st-border);
-  border-radius: 10px;
-}
-
-.admin-group-member-card__body {
-  min-width: 0;
-
-  display: grid;
-  gap: 4px;
-}
-
-.admin-group-member-card__body strong,
-.admin-group-member-card__meta,
-.admin-group-member-card__notes,
-.admin-group-member-card__hint {
-  overflow-wrap: anywhere;
-}
-
-.admin-group-member-card__meta,
-.admin-group-member-card__notes,
-.admin-group-member-card__hint {
-  color: var(--st-text-secondary);
-
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.admin-group-member-card__hint {
-  color: var(--st-primary);
-}
-
 @media (max-width: 640px) {
   .admin-group-card__actions,
   .admin-group-form__actions,
@@ -1515,13 +718,5 @@ onMounted(loadData)
     width: 100%;
   }
 
-  .admin-group-member-card {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .admin-group-member-card > :last-child {
-    width: 100%;
-  }
 }
 </style>

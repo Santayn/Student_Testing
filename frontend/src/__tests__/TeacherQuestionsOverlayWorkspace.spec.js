@@ -20,6 +20,26 @@ const questions = readFileSync(
   'utf8'
 )
 
+const questionEditorState = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useQuestionEditorState.js'
+  ),
+  'utf8'
+)
+
+const questionOptions = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useQuestionOptions.js'
+  ),
+  'utf8'
+)
+
 describe('teacher questions overlay workspace', () => {
   it('keeps the page focused on search, filters and existing questions', () => {
     expect(questions).toContain('UiFilterBar')
@@ -33,7 +53,8 @@ describe('teacher questions overlay workspace', () => {
 
   it('creates and edits a question in the shared drawer lifecycle', () => {
     expect(questions).toContain('UiDrawer')
-    expect(questions).toContain('useOverlayForm')
+    expect(questions).toContain('useQuestionEditorState')
+    expect(questionEditorState).toContain('useOverlayForm')
     expect(questions).toContain('openCreateQuestion')
     expect(questions).toContain('async function editQuestion(question)')
     expect(questions).toContain('UiUnsavedChangesConfirm')
@@ -43,15 +64,16 @@ describe('teacher questions overlay workspace', () => {
   it('keeps answer option editing inside the question drawer', () => {
     expect(questions).toContain('teacher-choice-list')
     expect(questions).toContain('saveOption')
-    expect(questions).toContain('questionsApi.createOption')
-    expect(questions).toContain('questionsApi.updateOption')
-    expect(questions).toContain('optionDraftDirty')
+    expect(questions).toContain('useQuestionOptions')
+    expect(questionOptions).toContain('api.createOption')
+    expect(questionOptions).toContain('api.updateOption')
+    expect(questionOptions).toContain('optionDraftDirty')
   })
 
   it('uses a visual pair editor for matching questions', () => {
     expect(questions).toContain('MatchingPairsEditor')
     expect(questions).toContain('form.matchingPairs')
-    expect(questions).toContain('matchingPairsValidationMessage')
+    expect(questionEditorState).toContain('matchingPairsValidationMessage')
     expect(questions).not.toContain('matchingPairsText')
   })
 
@@ -62,11 +84,15 @@ describe('teacher questions overlay workspace', () => {
   })
 
   it('revalidates the current teacher membership before mutations', () => {
-    const guards = questions.match(
+    const viewGuards = questions.match(
+      /ensureSelectedMembershipActive\(\)/g
+    ) ?? []
+    const optionGuards = questionOptions.match(
       /ensureSelectedMembershipActive\(\)/g
     ) ?? []
 
-    expect(guards.length).toBeGreaterThanOrEqual(4)
+    expect(viewGuards.length + optionGuards.length)
+      .toBeGreaterThanOrEqual(4)
     expect(questions).toContain('questionsApi.create({')
     expect(questions).toContain('questionsApi.update(')
     expect(questions).toContain('questionsApi.updateActive(')

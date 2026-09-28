@@ -20,6 +20,38 @@ const courseTemplates = readFileSync(
   'utf8'
 )
 
+const courseTemplateEditors = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useCourseTemplateEditors.js'
+  ),
+  'utf8'
+)
+
+const courseTemplateDrawer = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'components',
+    'teacher',
+    'CourseTemplateEditorDrawer.vue'
+  ),
+  'utf8'
+)
+
+const courseVersionDrawer = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'components',
+    'teacher',
+    'CourseVersionEditorDrawer.vue'
+  ),
+  'utf8'
+)
+
 describe('teacher course templates overlay workspace', () => {
   it('keeps templates and versions as searchable workspace lists', () => {
     expect(courseTemplates).toContain('UiFilterBar')
@@ -32,26 +64,30 @@ describe('teacher course templates overlay workspace', () => {
     expect(courseTemplates).not.toContain('UiTable')
   })
 
-  it('moves template and version editing into shared drawers', () => {
-    expect(courseTemplates).toContain('UiDrawer')
-    expect(courseTemplates).toContain('useOverlayForm')
-    expect(courseTemplates).toContain('templateOverlay')
-    expect(courseTemplates).toContain('versionOverlay')
-    expect(courseTemplates).toContain('openCreateTemplate')
-    expect(courseTemplates).toContain('openEditTemplate')
-    expect(courseTemplates).toContain('openCreateVersion')
-    expect(courseTemplates).toContain('openEditVersion')
+  it('moves template and version editing into dedicated drawer components and shared editor state', () => {
+    expect(courseTemplates).toContain('useCourseTemplateEditors')
+    expect(courseTemplates).toContain('<CourseTemplateEditorDrawer')
+    expect(courseTemplates).toContain('<CourseVersionEditorDrawer')
+    expect(courseTemplateEditors).toContain('useOverlayForm')
+    expect(courseTemplateEditors).toContain('templateOverlay')
+    expect(courseTemplateEditors).toContain('versionOverlay')
+    expect(courseTemplateEditors).toContain('openCreateTemplate')
+    expect(courseTemplateEditors).toContain('openEditTemplate')
+    expect(courseTemplateEditors).toContain('openCreateVersion')
+    expect(courseTemplateEditors).toContain('openEditVersion')
+    expect(courseTemplateDrawer).toContain('<UiDrawer')
+    expect(courseVersionDrawer).toContain('<UiDrawer')
     expect(courseTemplates).toContain('UiUnsavedChangesConfirm')
   })
 
   it('prevents nested working drawers by closing the other editor before opening one', () => {
-    const createVersionStart = courseTemplates.indexOf('function openCreateVersion()')
-    const createVersionEnd = courseTemplates.indexOf('function openEditVersion')
-    const createVersionSource = courseTemplates.slice(createVersionStart, createVersionEnd)
+    const createVersionStart = courseTemplateEditors.indexOf('function openCreateVersion()')
+    const createVersionEnd = courseTemplateEditors.indexOf('function openEditVersion')
+    const createVersionSource = courseTemplateEditors.slice(createVersionStart, createVersionEnd)
 
-    const editTemplateStart = courseTemplates.indexOf('function openEditTemplate(template)')
-    const editTemplateEnd = courseTemplates.indexOf('function requestTemplateDrawerClose')
-    const editTemplateSource = courseTemplates.slice(editTemplateStart, editTemplateEnd)
+    const editTemplateStart = courseTemplateEditors.indexOf('function openEditTemplate(template)')
+    const editTemplateEnd = courseTemplateEditors.indexOf('function requestTemplateDrawerClose')
+    const editTemplateSource = courseTemplateEditors.slice(editTemplateStart, editTemplateEnd)
 
     expect(createVersionSource).toContain('closeTemplateDrawerImmediately()')
     expect(editTemplateSource).toContain('closeVersionDrawerImmediately()')

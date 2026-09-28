@@ -40,6 +40,10 @@ import {
 } from '@/composables/useLectureSaveFlow'
 
 import {
+  useLectureMaterials,
+} from '@/composables/useLectureMaterials'
+
+import {
   listFromResponse,
 } from '@/utils/apiData'
 
@@ -63,12 +67,7 @@ const {
 const lectures = ref([])
 const availableTests = ref([])
 const lectureTestsById = ref(new Map())
-const materials = ref([])
-const pendingFiles = ref([])
-const fileInputKey = ref(0)
-
 const loading = ref(false)
-const loadingMaterials = ref(false)
 const initialized = ref(false)
 
 const searchQuery = ref('')
@@ -81,16 +80,10 @@ const deleteConfirmVisible = ref(false)
 const deletingId = ref(null)
 const deleteError = ref('')
 
-const materialDeleteTarget = ref(null)
-const materialDeleteConfirmVisible = ref(false)
-const deletingMaterialId = ref(null)
-const materialDeleteError = ref('')
-
 const formError = ref('')
 const handledRouteLectureKey = ref('')
 
 const lecturesRequest = createLatestRequestGuard()
-const materialsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -150,6 +143,34 @@ const {
 } = useOverlayForm({
   createDefault: () => lectureToForm(),
   mapEntity: lectureToForm,
+})
+
+const lectureId = computed(() => form.id)
+
+const {
+  materials,
+  pendingFiles,
+  fileInputKey,
+  loadingMaterials,
+  pendingFilesDirty,
+  materialDeleteTarget,
+  materialDeleteConfirmVisible,
+  deletingMaterialId,
+  materialDeleteError,
+  setPendingFiles,
+  removePendingFile,
+  requestDeleteMaterial,
+  closeMaterialDeleteDialog,
+  resetMaterials,
+  loadMaterials,
+  deleteMaterial,
+  downloadMaterial,
+} = useLectureMaterials({
+  lectureId,
+  lecturesApi,
+  ensureSelectedMembershipActive,
+  formError,
+  getApiErrorMessage,
 })
 
 const {
@@ -289,7 +310,6 @@ const drawerTitle = computed(() => {
   return isCreate.value ? 'Новая лекция' : 'Редактирование лекции'
 })
 
-const pendingFilesDirty = computed(() => pendingFiles.value.length > 0)
 function routeQuery(lectureId = null) {
   const query = {}
 
@@ -329,13 +349,8 @@ function resetFilters() {
 
 function clearLectureDrawerState() {
   resetPartialCreate()
-  materialsRequest.invalidate()
-  materials.value = []
-  pendingFiles.value = []
-  loadingMaterials.value = false
-  fileInputKey.value += 1
+  resetMaterials()
   formError.value = ''
-  closeMaterialDeleteDialog()
 }
 
 function openCreateLecture() {
@@ -385,7 +400,6 @@ function handleLectureDrawerVisibility(nextValue) {
 }
 
 function discardLectureDrawer() {
-  pendingFiles.value = []
   discardAndClose()
   clearLectureDrawerState()
 }
@@ -409,22 +423,6 @@ function closeDeleteDialog() {
   deleteConfirmVisible.value = false
   deleteTarget.value = null
   deleteError.value = ''
-}
-
-function requestDeleteMaterial(material) {
-  materialDeleteTarget.value = material
-  materialDeleteError.value = ''
-  materialDeleteConfirmVisible.value = true
-}
-
-function closeMaterialDeleteDialog() {
-  if (deletingMaterialId.value !== null) {
-    return
-  }
-
-  materialDeleteConfirmVisible.value = false
-  materialDeleteTarget.value = null
-  materialDeleteError.value = ''
 }
 
 async function loadLectures({ openRouteLecture = false } = {}) {
@@ -525,42 +523,6 @@ async function loadLectures({ openRouteLecture = false } = {}) {
   }
 }
 
-async function loadMaterials(lectureId) {
-  const requestId = materialsRequest.begin()
-
-  materials.value = []
-
-  if (!lectureId) {
-    loadingMaterials.value = false
-    return
-  }
-
-  loadingMaterials.value = true
-
-  try {
-    const response = await lecturesApi.getMaterials(lectureId)
-
-    if (!materialsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    materials.value = listFromResponse(response)
-  } catch (error) {
-    if (!materialsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    formError.value = getApiErrorMessage(
-      error,
-      'Не удалось загрузить материалы лекции'
-    )
-  } finally {
-    if (materialsRequest.isCurrent(requestId)) {
-      loadingMaterials.value = false
-    }
-  }
-}
-
 async function deleteLecture() {
   const lecture = deleteTarget.value
 
@@ -594,72 +556,6 @@ async function deleteLecture() {
     )
   } finally {
     deletingId.value = null
-  }
-}
-
-function onFiles(files) {
-  pendingFiles.value = files
-}
-
-function removePendingFile(index) {
-  pendingFiles.value = pendingFiles.value.filter(
-    (_, itemIndex) => itemIndex !== index
-  )
-}
-
-async function deleteMaterial() {
-  const material = materialDeleteTarget.value
-
-  if (!form.id || !material || deletingMaterialId.value !== null) {
-    return
-  }
-
-  deletingMaterialId.value = material.id
-  materialDeleteError.value = ''
-
-  try {
-    await ensureSelectedMembershipActive()
-    await lecturesApi.removeMaterial(form.id, material.id)
-
-    materials.value = materials.value.filter(
-      (item) => Number(item.id) !== Number(material.id)
-    )
-
-    materialDeleteConfirmVisible.value = false
-    materialDeleteTarget.value = null
-  } catch (error) {
-    materialDeleteError.value = getApiErrorMessage(
-      error,
-      'Не удалось удалить материал'
-    )
-  } finally {
-    deletingMaterialId.value = null
-  }
-}
-
-async function downloadMaterial(material) {
-  if (!form.id) {
-    return
-  }
-
-  try {
-    const response = await lecturesApi.downloadMaterial(
-      form.id,
-      material.id
-    )
-
-    const url = URL.createObjectURL(response.data)
-    const anchor = document.createElement('a')
-
-    anchor.href = url
-    anchor.download = material.fileName || `material-${material.id}`
-    anchor.click()
-    URL.revokeObjectURL(url)
-  } catch (error) {
-    formError.value = getApiErrorMessage(
-      error,
-      'Не удалось скачать материал'
-    )
   }
 }
 
@@ -924,7 +820,7 @@ onMounted(async () => {
       :deleting-material-id="deletingMaterialId"
       @update:open="handleLectureDrawerVisibility"
       @dismiss-error="formError = ''"
-      @files-change="onFiles"
+      @files-change="setPendingFiles"
       @remove-pending-file="removePendingFile"
       @download-material="downloadMaterial"
       @request-delete-material="requestDeleteMaterial"

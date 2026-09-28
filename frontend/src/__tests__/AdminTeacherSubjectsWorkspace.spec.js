@@ -21,6 +21,9 @@ function source(relativePath) {
 const view = source(
   '../views/admin/TeacherSubjectsView.vue'
 )
+const dataSource = source(
+  '../composables/useAdminTeacherSubjectsData.js'
+)
 
 describe('admin teacher subjects workspace', () => {
   it('uses relation workspace controls instead of checkbox batches', () => {
@@ -29,6 +32,9 @@ describe('admin teacher subjects workspace', () => {
     expect(view).toContain('Доступные предметы')
     expect(view).toContain('searchQuery')
     expect(view).toContain('sortMode')
+    expect(view).toContain('useAdminTeacherSubjectsData')
+    expect(dataSource).toContain('filteredAssignedSubjects')
+    expect(dataSource).toContain('filteredAvailableSubjects')
 
     expect(view).not.toContain('UiCheckbox')
     expect(view).not.toContain('runBatchOperation')
@@ -45,6 +51,7 @@ describe('admin teacher subjects workspace', () => {
     expect(view).toContain("'Восстановить'")
     expect(view).toContain("result.action === 'reactivated'")
     expect(view).toContain('updateSubjectMembershipStatus(')
+    expect(dataSource).toContain('isReactivatableTeacherMembership')
   })
 
   it('requires confirmation before removing a teacher subject relation', () => {
@@ -58,14 +65,15 @@ describe('admin teacher subjects workspace', () => {
   it('provides searchable teacher selection for large teacher lists', () => {
     expect(view).toContain(':filter="true"')
     expect(view).toContain('filter-placeholder="Поиск по ФИО или email"')
-    expect(view).toContain('teacher?.email')
-    expect(view).toContain('`${personName(teacher)} · ${email}`')
+    expect(dataSource).toContain('teacher?.email')
+    expect(dataSource).toContain('`${personName(teacher)} · ${email}`')
   })
 
-  it('protects teacher context around mutations and remains responsive', () => {
+  it('protects teacher context around mutations and stale read refreshes', () => {
     expect(view.match(/const targetTeacherId/g)).toHaveLength(2)
     expect(view).toContain('Number(teacherId.value) !==')
     expect(view).toContain(':disabled="loading || saving"')
+    expect(dataSource.match(/createLatestRequestGuard\(\)/g)).toHaveLength(2)
     expect(view).toContain('@media (max-width: 960px)')
     expect(view).toContain('@media (max-width: 640px)')
   })

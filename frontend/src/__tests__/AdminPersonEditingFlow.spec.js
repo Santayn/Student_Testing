@@ -21,54 +21,65 @@ function source(relativePath) {
 const usersView = source(
   '../views/admin/UsersView.vue'
 )
+const userDrawer = source(
+  '../components/admin/AdminUserDrawer.vue'
+)
+const personEditor = source(
+  '../components/admin/AdminPersonEditor.vue'
+)
+const personState = source(
+  '../composables/useAdminPersonEditor.js'
+)
 const usersApi = source(
   '../api/users.api.js'
 )
 
 describe('admin person editing flow', () => {
   it('edits the selected Person inside the existing user drawer', () => {
-    expect(usersView).toContain('Изменить профиль')
-    expect(usersView).toContain('Редактирование профиля')
-    expect(usersView).toContain('admin-user-person-editor')
-    expect(usersView).toContain('@click="openPersonEditor"')
-    expect(usersView).toContain('@click="updatePersonFromDrawer"')
+    expect(personEditor).toContain('Изменить профиль')
+    expect(personEditor).toContain('Редактирование профиля')
+    expect(personEditor).toContain('admin-user-person-editor')
+    expect(personEditor).toContain("emit('open-person-editor')")
+    expect(personEditor).toContain("emit('update-person')")
+    expect(usersView).toContain('@open-person-editor="openPersonEditor"')
+    expect(usersView).toContain('@update-person="updatePersonFromDrawer"')
   })
 
   it('uses the existing backend update Person endpoint', () => {
     expect(usersApi).toContain('updatePerson(personId, payload)')
     expect(usersApi).toContain('`/users/people/${personId}`')
-    expect(usersView).toContain('usersApi.updatePerson(')
+    expect(personState).toContain('usersApi.updatePerson(')
   })
 
   it('validates the edit draft without treating the current email as a duplicate', () => {
-    expect(usersView).toContain('{ excludePersonId: personId }')
-    expect(usersView).toContain('Number(person.id) !== Number(excludePersonId)')
-    expect(usersView).toContain('personEditDraft.firstName')
-    expect(usersView).toContain('personEditDraft.lastName')
-    expect(usersView).toContain('personEditDraft.dateOfBirth')
-    expect(usersView).toContain('personEditDraft.email')
-    expect(usersView).toContain('personEditDraft.phone')
+    expect(personState).toContain('{ excludePersonId: personId }')
+    expect(personState).toContain('Number(person.id) !== Number(excludePersonId)')
+    expect(personEditor).toContain('personEditDraft.firstName')
+    expect(personEditor).toContain('personEditDraft.lastName')
+    expect(personEditor).toContain('personEditDraft.dateOfBirth')
+    expect(personEditor).toContain('personEditDraft.email')
+    expect(personEditor).toContain('personEditDraft.phone')
   })
 
   it('updates the local Person collection immediately after a successful PUT', () => {
-    expect(usersView).toContain('people.value.splice(')
-    expect(usersView).toContain('updatedPerson')
-    expect(usersView).toContain('Профиль обновлён. Изменения уже отображаются во всех разделах')
+    expect(personState).toContain('people.value.splice(')
+    expect(personState).toContain('updatedPerson')
+    expect(personState).toContain('Профиль обновлён. Изменения уже отображаются во всех разделах')
   })
 
   it('protects a dirty Person editor before selection changes or drawer close', () => {
     expect(usersView).toContain('personEditorDirty')
     expect(usersView).toContain('requestPersonSelectionChange')
     expect(usersView).toContain('requestCloseUserDrawerSafely')
-    expect(usersView).toContain('personEditGuardVisible')
-    expect(usersView).toContain('discardPersonEditAndContinue')
+    expect(personState).toContain('personEditGuardVisible')
+    expect(personState).toContain('discardPersonEditAndContinue')
     expect(usersView).toContain('Есть несохранённые изменения профиля')
   })
 
   it('keeps Person persistence separate from account persistence', () => {
-    expect(usersView).toContain('Сохранить профиль')
-    expect(usersView).toContain('Сохранить изменения')
+    expect(personEditor).toContain('Сохранить профиль')
+    expect(userDrawer).toContain('Сохранить изменения')
     expect(usersView).toContain('usersApi.updatePersonBinding(')
-    expect(usersView).toContain('Изменения Person сохраняются отдельно')
+    expect(personEditor).toContain('Изменения Person сохраняются отдельно')
   })
 })

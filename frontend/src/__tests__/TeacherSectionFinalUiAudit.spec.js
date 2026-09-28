@@ -18,9 +18,13 @@ function source(...segments) {
 
 const topics = source('views', 'teacher', 'TopicLibraryView.vue')
 const questions = source('views', 'teacher', 'QuestionsView.vue')
+const questionEditorState = source('composables', 'useQuestionEditorState.js')
 const lectures = source('views', 'teacher', 'LectureManagementView.vue')
 const lectureDrawer = source('components', 'teacher', 'LectureEditorDrawer.vue')
 const templates = source('views', 'teacher', 'CourseTemplatesView.vue')
+const courseTemplateEditors = source('composables', 'useCourseTemplateEditors.js')
+const courseTemplateDrawer = source('components', 'teacher', 'CourseTemplateEditorDrawer.vue')
+const courseVersionDrawer = source('components', 'teacher', 'CourseVersionEditorDrawer.vue')
 const workload = source('views', 'teacher', 'TeacherWorkloadView.vue')
 const testEditor = source('views', 'teacher', 'TestEditorView.vue')
 
@@ -39,11 +43,18 @@ describe('teacher section final UI audit', () => {
     expect(topics).toContain('UiDialog')
     expect(topics).toContain('useOverlayForm')
 
-    for (const page of [questions, templates]) {
-      expect(page).toContain('UiFilterBar')
-      expect(page).toContain('UiDrawer')
-      expect(page).toContain('useOverlayForm')
-    }
+    expect(questions).toContain('UiFilterBar')
+    expect(questions).toContain('UiDrawer')
+    expect(questions).toContain('useQuestionEditorState')
+    expect(questionEditorState).toContain('useOverlayForm')
+
+    expect(templates).toContain('UiFilterBar')
+    expect(templates).toContain('useCourseTemplateEditors')
+    expect(templates).toContain('<CourseTemplateEditorDrawer')
+    expect(templates).toContain('<CourseVersionEditorDrawer')
+    expect(courseTemplateEditors).toContain('useOverlayForm')
+    expect(courseTemplateDrawer).toContain('<UiDrawer')
+    expect(courseVersionDrawer).toContain('<UiDrawer')
 
     expect(lectures).toContain('UiFilterBar')
     expect(lectures).toContain('useOverlayForm')

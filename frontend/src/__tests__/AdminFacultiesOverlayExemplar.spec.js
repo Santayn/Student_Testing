@@ -20,6 +20,16 @@ const facultiesView = readFileSync(
   'utf8'
 )
 
+const facultiesData = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useAdminFacultiesData.js'
+  ),
+  'utf8'
+)
+
 describe('admin faculties overlay exemplar', () => {
   it('uses a searchable workspace instead of an inline editor and legacy table', () => {
     expect(facultiesView).toContain('UiFilterBar')
@@ -47,7 +57,8 @@ describe('admin faculties overlay exemplar', () => {
   })
 
   it('preserves the existing faculty API contract', () => {
-    expect(facultiesView).toContain('facultiesApi.getAll()')
+    expect(facultiesData).toContain('facultiesApi.getAll()')
+    expect(facultiesData).toContain('createLatestRequestGuard')
     expect(facultiesView).toContain('facultiesApi.create(payload)')
     expect(facultiesView).toContain('facultiesApi.update(')
     expect(facultiesView).toContain('facultiesApi.remove(faculty.id)')

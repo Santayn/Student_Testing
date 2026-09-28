@@ -21,6 +21,9 @@ function source(relativePath) {
 const view = source(
   '../views/admin/UsersView.vue'
 )
+const drawer = source(
+  '../components/admin/AdminUserDrawer.vue'
+)
 const usersApi = source(
   '../api/users.api.js'
 )
@@ -32,7 +35,8 @@ describe('admin users workspace', () => {
   it('replaces the inline mutation table with cards and a user drawer', () => {
     expect(view).toContain('title="Пользователи"')
     expect(view).toContain('UiFilterBar')
-    expect(view).toContain('UiDrawer')
+    expect(view).toContain('AdminUserDrawer')
+    expect(drawer).toContain('<UiDrawer')
     expect(view).toContain('useOverlayForm')
     expect(view).toContain('admin-user-grid')
 
@@ -42,12 +46,12 @@ describe('admin users workspace', () => {
   })
 
   it('keeps role and profile changes local until explicit save', () => {
-    expect(view).toContain('v-model="userForm.roleIds"')
-    expect(view).toContain(':model-value="userForm.personId"')
-    expect(view).toContain('@update:model-value="requestPersonSelectionChange"')
-    expect(view).toContain('v-model="userForm.active"')
-    expect(view).toContain('@click="saveUser"')
-    expect(view).toContain('Сохранить изменения')
+    expect(drawer).toContain('v-model="userForm.roleIds"')
+    expect(drawer).toContain(':model-value="userForm.personId"')
+    expect(drawer).toContain("emit('request-person-selection-change', $event)")
+    expect(drawer).toContain('v-model="userForm.active"')
+    expect(view).toContain('@save="saveUser"')
+    expect(drawer).toContain('Сохранить изменения')
 
     expect(view).not.toContain('@change="applyRoles')
     expect(view).not.toContain('@change="applyPersonBinding')
@@ -61,7 +65,7 @@ describe('admin users workspace', () => {
     expect(usersApi).toContain('`/users/${userId}/active`')
 
     expect(view).not.toContain('updatePermissions(')
-    expect(view).toContain('индивидуальные права пользователя этим экраном не изменяются')
+    expect(drawer).toContain('индивидуальные права пользователя этим экраном не изменяются')
   })
 
   it('supports scalable filtering and searchable person binding', () => {
@@ -70,7 +74,7 @@ describe('admin users workspace', () => {
     expect(view).toContain('profileFilter')
     expect(view).toContain('roleFilter')
     expect(view).toContain('sortMode')
-    expect(view).toContain('filter-placeholder="Поиск по ФИО или email"')
+    expect(drawer).toContain('filter-placeholder="Поиск по ФИО или email"')
   })
 
   it('keeps users and role permissions as separate admin destinations', () => {

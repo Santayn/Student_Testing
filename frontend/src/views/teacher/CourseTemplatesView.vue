@@ -19,19 +19,16 @@ import {
   UiAlert,
   UiButton,
   UiCard,
-  UiCheckbox,
   UiDialog,
-  UiDrawer,
   UiEmptyState,
   UiFilterBar,
-  UiInput,
   UiSelect,
-  UiTextarea,
   UiUnsavedChangesConfirm,
-  useOverlayForm,
 } from '@/components/ui'
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
+import CourseTemplateEditorDrawer from '@/components/teacher/CourseTemplateEditorDrawer.vue'
+import CourseVersionEditorDrawer from '@/components/teacher/CourseVersionEditorDrawer.vue'
 
 import {
   useTeacherSubjects,
@@ -42,17 +39,16 @@ import {
 } from '@/stores/auth'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
-
-import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
-
-import {
-  buildCourseTemplateListParams,
   canCreateCourseTemplate,
 } from '@/utils/courseTemplateContext'
+
+import {
+  useCourseTemplatesData,
+} from '@/composables/useCourseTemplatesData'
+
+import {
+  useCourseTemplateEditors,
+} from '@/composables/useCourseTemplateEditors'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -68,43 +64,66 @@ const {
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
-const templates = ref([])
-const versions = ref([])
-const selectedTemplateId = ref(null)
-
-const loading = ref(false)
-const loadingVersions = ref(false)
 const initialized = ref(false)
 const publishingVersionId = ref(null)
-
-const templateSearchQuery = ref('')
-const templateVisibilityFilter = ref('all')
-const templateSortMode = ref('name-asc')
-const versionSearchQuery = ref('')
-const versionPublicationFilter = ref('all')
-const versionSortMode = ref('version-desc')
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
 const deletingTemplateId = ref(null)
 const deleteError = ref('')
-const templateFormError = ref('')
-const versionFormError = ref('')
-const handledRouteVersionKey = ref('')
-
-const templatesRequest = createLatestRequestGuard()
-const versionsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
   message: '',
 })
 
-const selectedTemplate = computed(() => {
-  return templates.value.find(
-    (item) =>
-      Number(item.id) === Number(selectedTemplateId.value)
-  ) ?? null
+let courseTemplateEditors = null
+
+function closeVersionDrawerForData() {
+  courseTemplateEditors?.closeVersionDrawerImmediately()
+}
+
+function openRouteVersionForData(version) {
+  courseTemplateEditors?.openEditVersion(version)
+}
+
+const {
+  templates,
+  versions,
+  selectedTemplateId,
+  selectedTemplate,
+  loading,
+  loadingVersions,
+  handledRouteVersionKey,
+  templateSearchQuery,
+  templateVisibilityFilter,
+  templateSortMode,
+  versionSearchQuery,
+  versionPublicationFilter,
+  versionSortMode,
+  templateVisibilityOptions,
+  templateSortOptions,
+  versionPublicationOptions,
+  versionSortOptions,
+  hasActiveTemplateFilters,
+  filteredTemplates,
+  hasActiveVersionFilters,
+  filteredVersions,
+  templateFilterResultText,
+  versionFilterResultText,
+  resetTemplateFilters,
+  resetVersionFilters,
+  loadTemplates,
+  selectTemplate,
+  loadVersions,
+} = useCourseTemplatesData({
+  selectedSubjectId,
+  selectedMembership,
+  authStore,
+  route,
+  notice,
+  beforeTemplateSelection: closeVersionDrawerForData,
+  onOpenRouteVersion: openRouteVersionForData,
 })
 
 const templateCreationAllowed = computed(() => {
@@ -113,72 +132,41 @@ const templateCreationAllowed = computed(() => {
   })
 })
 
-function templateToForm(template = null) {
-  return {
-    id: template?.id ?? null,
-    name: template?.name ?? '',
-    publicVisible: template ? Boolean(template.publicVisible) : true,
-  }
-}
-
-function nextVersionNumber() {
-  return versions.value.reduce(
-    (max, version) =>
-      Math.max(max, Number(version.versionNumber ?? 0)),
-    0
-  ) + 1
-}
-
-function versionToForm(version = null) {
-  return {
-    id: version?.id ?? null,
-    versionNumber: version
-      ? Number(version.versionNumber ?? 1)
-      : nextVersionNumber(),
-    title: version?.title ?? selectedTemplate.value?.name ?? '',
-    description: version?.description ?? '',
-    changeNotes: version?.changeNotes ?? '',
-    published: version ? Boolean(version.published) : false,
-  }
-}
-
-const templateOverlay = useOverlayForm({
-  createDefault: () => templateToForm(),
-  mapEntity: templateToForm,
-})
-
-const versionOverlay = useOverlayForm({
-  createDefault: () => versionToForm(),
-  mapEntity: versionToForm,
-})
-
-const templateVisibilityOptions = [
-  { value: 'all', label: 'Все шаблоны' },
-  { value: 'visible', label: 'Опубликованные' },
-  { value: 'hidden', label: 'Черновики' },
-]
-
-const templateSortOptions = [
-  { value: 'name-asc', label: 'Название А–Я' },
-  { value: 'name-desc', label: 'Название Я–А' },
-  { value: 'id-desc', label: 'Сначала новые' },
-]
-
-const versionPublicationOptions = [
-  { value: 'all', label: 'Все версии' },
-  { value: 'published', label: 'Опубликованные' },
-  { value: 'draft', label: 'Черновики' },
-]
-
-const versionSortOptions = [
-  { value: 'version-desc', label: 'Сначала новые версии' },
-  { value: 'version-asc', label: 'Сначала старые версии' },
-  { value: 'title-asc', label: 'Название А–Я' },
-]
-
 const canWorkWithTemplates = computed(() => {
   return Boolean(selectedMembership.value && selectedSubjectId.value)
 })
+
+courseTemplateEditors = useCourseTemplateEditors({
+  versions,
+  selectedTemplate,
+  selectedSubjectId,
+  canWorkWithTemplates,
+  templateCreationAllowed,
+  notice,
+})
+
+const {
+  templateOverlay,
+  versionOverlay,
+  templateFormError,
+  versionFormError,
+  templateDrawerTitle,
+  versionDrawerTitle,
+  closeTemplateDrawerImmediately,
+  closeVersionDrawerImmediately,
+  openCreateTemplate,
+  openEditTemplate,
+  requestTemplateDrawerClose,
+  handleTemplateDrawerVisibility,
+  discardTemplateDrawer,
+  openCreateVersion,
+  openEditVersion,
+  requestVersionDrawerClose,
+  handleVersionDrawerVisibility,
+  discardVersionDrawer,
+  templateValidationMessage,
+  versionValidationMessage,
+} = courseTemplateEditors
 
 const contextHint = computed(() => {
   if (!selectedMembership.value) {
@@ -190,148 +178,6 @@ const contextHint = computed(() => {
   }
 
   return `Предмет «${selectedSubject.value.name}». Шаблонов курса: ${templates.value.length}.`
-})
-
-const hasActiveTemplateFilters = computed(() => {
-  return Boolean(templateSearchQuery.value.trim()) ||
-    templateVisibilityFilter.value !== 'all' ||
-    templateSortMode.value !== 'name-asc'
-})
-
-const filteredTemplates = computed(() => {
-  const query = templateSearchQuery.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-
-  const result = templates.value.filter((template) => {
-    if (
-      templateVisibilityFilter.value === 'visible' &&
-      !template.publicVisible
-    ) {
-      return false
-    }
-
-    if (
-      templateVisibilityFilter.value === 'hidden' &&
-      template.publicVisible
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    return [template.id, template.name]
-      .filter((value) => value !== null && value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-      .includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (templateSortMode.value === 'name-desc') {
-      return String(right.name ?? '').localeCompare(
-        String(left.name ?? ''),
-        'ru'
-      )
-    }
-
-    if (templateSortMode.value === 'id-desc') {
-      return Number(right.id ?? 0) - Number(left.id ?? 0)
-    }
-
-    return String(left.name ?? '').localeCompare(
-      String(right.name ?? ''),
-      'ru'
-    )
-  })
-})
-
-const hasActiveVersionFilters = computed(() => {
-  return Boolean(versionSearchQuery.value.trim()) ||
-    versionPublicationFilter.value !== 'all' ||
-    versionSortMode.value !== 'version-desc'
-})
-
-const filteredVersions = computed(() => {
-  const query = versionSearchQuery.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-
-  const result = versions.value.filter((version) => {
-    if (
-      versionPublicationFilter.value === 'published' &&
-      !version.published
-    ) {
-      return false
-    }
-
-    if (
-      versionPublicationFilter.value === 'draft' &&
-      version.published
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    return [
-      version.versionNumber,
-      version.title,
-      version.description,
-      version.changeNotes,
-    ]
-      .filter((value) => value !== null && value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-      .includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (versionSortMode.value === 'version-asc') {
-      return Number(left.versionNumber ?? 0) - Number(right.versionNumber ?? 0)
-    }
-
-    if (versionSortMode.value === 'title-asc') {
-      return String(left.title ?? '').localeCompare(
-        String(right.title ?? ''),
-        'ru'
-      )
-    }
-
-    return Number(right.versionNumber ?? 0) - Number(left.versionNumber ?? 0)
-  })
-})
-
-const templateFilterResultText = computed(() => {
-  if (!canWorkWithTemplates.value) {
-    return 'Сначала выберите предмет преподавателя.'
-  }
-
-  return `Показано: ${filteredTemplates.value.length} из ${templates.value.length}`
-})
-
-const versionFilterResultText = computed(() => {
-  if (!selectedTemplate.value) {
-    return 'Сначала выберите шаблон курса.'
-  }
-
-  return `Показано: ${filteredVersions.value.length} из ${versions.value.length}`
-})
-
-const templateDrawerTitle = computed(() => {
-  return templateOverlay.isCreate.value
-    ? 'Новый шаблон курса'
-    : 'Редактирование шаблона'
-})
-
-const versionDrawerTitle = computed(() => {
-  return versionOverlay.isCreate.value
-    ? 'Новая версия курса'
-    : 'Редактирование версии'
 })
 
 function routeQuery(versionId = null) {
@@ -354,342 +200,6 @@ function routeQuery(versionId = null) {
   }
 
   return query
-}
-
-function resetTemplateFilters() {
-  templateSearchQuery.value = ''
-  templateVisibilityFilter.value = 'all'
-  templateSortMode.value = 'name-asc'
-}
-
-function resetVersionFilters() {
-  versionSearchQuery.value = ''
-  versionPublicationFilter.value = 'all'
-  versionSortMode.value = 'version-desc'
-}
-
-function closeTemplateDrawerImmediately() {
-  templateFormError.value = ''
-  templateOverlay.closeImmediately()
-}
-
-function closeVersionDrawerImmediately() {
-  versionFormError.value = ''
-  versionOverlay.closeImmediately()
-}
-
-function openCreateTemplate() {
-  if (!canWorkWithTemplates.value) {
-    notice.value = {
-      type: 'danger',
-      message: 'Выберите предмет преподавателя.',
-    }
-    return
-  }
-
-  if (!templateCreationAllowed.value) {
-    notice.value = {
-      type: 'info',
-      message: 'Новый шаблон должен создать сам преподаватель.',
-    }
-    return
-  }
-
-  closeVersionDrawerImmediately()
-  templateFormError.value = ''
-  templateOverlay.openCreate()
-}
-
-function openEditTemplate(template) {
-  closeVersionDrawerImmediately()
-  templateFormError.value = ''
-  templateOverlay.openEdit(template)
-}
-
-function requestTemplateDrawerClose() {
-  return templateOverlay.requestClose()
-}
-
-function handleTemplateDrawerVisibility(nextValue) {
-  if (!nextValue) {
-    requestTemplateDrawerClose()
-  }
-}
-
-function discardTemplateDrawer() {
-  templateOverlay.discardAndClose()
-  templateFormError.value = ''
-}
-
-function openCreateVersion() {
-  if (!selectedTemplate.value) {
-    notice.value = {
-      type: 'danger',
-      message: 'Выберите шаблон курса.',
-    }
-    return
-  }
-
-  closeTemplateDrawerImmediately()
-  versionFormError.value = ''
-  versionOverlay.openCreate({
-    versionNumber: nextVersionNumber(),
-    title: selectedTemplate.value.name ?? '',
-  })
-}
-
-function openEditVersion(version) {
-  closeTemplateDrawerImmediately()
-  versionFormError.value = ''
-  versionOverlay.openEdit(version)
-}
-
-function requestVersionDrawerClose() {
-  return versionOverlay.requestClose()
-}
-
-function handleVersionDrawerVisibility(nextValue) {
-  if (!nextValue) {
-    requestVersionDrawerClose()
-  }
-}
-
-function discardVersionDrawer() {
-  versionOverlay.discardAndClose()
-  versionFormError.value = ''
-}
-
-function requestDeleteTemplate(template) {
-  deleteTarget.value = template
-  deleteError.value = ''
-  deleteConfirmVisible.value = true
-}
-
-function closeDeleteDialog() {
-  if (deletingTemplateId.value !== null) {
-    return
-  }
-
-  deleteConfirmVisible.value = false
-  deleteTarget.value = null
-  deleteError.value = ''
-}
-
-function templateValidationMessage() {
-  if (!canWorkWithTemplates.value) {
-    return 'Выберите предмет преподавателя.'
-  }
-
-  const name = String(templateOverlay.form.name ?? '').trim()
-
-  if (!name) {
-    return 'Введите название шаблона.'
-  }
-
-  if (name.length > 200) {
-    return 'Название шаблона не может быть длиннее 200 символов.'
-  }
-
-  return ''
-}
-
-function versionValidationMessage() {
-  if (!selectedTemplate.value) {
-    return 'Выберите шаблон курса.'
-  }
-
-  const versionNumber = Number(versionOverlay.form.versionNumber)
-  const title = String(versionOverlay.form.title ?? '').trim()
-  const description = String(versionOverlay.form.description ?? '').trim()
-  const changeNotes = String(versionOverlay.form.changeNotes ?? '').trim()
-
-  if (!Number.isInteger(versionNumber) || versionNumber <= 0) {
-    return 'Номер версии должен быть целым числом больше нуля.'
-  }
-
-  if (!title) {
-    return 'Введите название версии.'
-  }
-
-  if (title.length > 200) {
-    return 'Название версии не может быть длиннее 200 символов.'
-  }
-
-  if (description.length > 2000) {
-    return 'Описание версии не может быть длиннее 2000 символов.'
-  }
-
-  if (changeNotes.length > 2000) {
-    return 'Примечания к изменениям не могут быть длиннее 2000 символов.'
-  }
-
-  const duplicate = versions.value.find(
-    (version) =>
-      Number(version.versionNumber) === versionNumber &&
-      String(version.id) !== String(versionOverlay.form.id ?? '')
-  )
-
-  if (duplicate) {
-    return 'Версия с таким номером уже существует в выбранном шаблоне.'
-  }
-
-  return ''
-}
-
-async function loadTemplates({
-  preferredTemplateId = null,
-  openRouteVersion = false,
-} = {}) {
-  const requestId = templatesRequest.begin()
-
-  versionsRequest.invalidate()
-  loadingVersions.value = false
-
-  const previousTemplateId = preferredTemplateId ?? selectedTemplateId.value
-
-  templates.value = []
-  versions.value = []
-  selectedTemplateId.value = null
-
-  const subjectId = Number(selectedSubjectId.value || 0)
-
-  if (!subjectId) {
-    loading.value = false
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const params = buildCourseTemplateListParams({
-      subjectId,
-      isAdmin: authStore.isAdminMode,
-      currentPersonId: authStore.personId,
-      selectedMembership: selectedMembership.value,
-    })
-
-    if (!params) {
-      if (templatesRequest.isCurrent(requestId)) {
-        notice.value = {
-          type: 'info',
-          message: 'Не удалось определить преподавателя для выбранного предмета.',
-        }
-      }
-      return
-    }
-
-    const response = await coursesApi.getTemplates(params)
-
-    if (!templatesRequest.isCurrent(requestId)) {
-      return
-    }
-
-    templates.value = listFromResponse(response)
-
-    const routeTemplateId = route.query.templateId
-    const desiredTemplateId =
-      preferredTemplateId ?? routeTemplateId ?? previousTemplateId
-
-    if (
-      desiredTemplateId &&
-      templates.value.some(
-        (item) => String(item.id) === String(desiredTemplateId)
-      )
-    ) {
-      await selectTemplate(Number(desiredTemplateId), {
-        openRouteVersion,
-      })
-    } else if (templates.value.length === 1) {
-      await selectTemplate(templates.value[0].id, {
-        openRouteVersion,
-      })
-    }
-  } catch (error) {
-    if (!templatesRequest.isCurrent(requestId)) {
-      return
-    }
-
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось загрузить шаблоны курса'
-      ),
-    }
-  } finally {
-    if (templatesRequest.isCurrent(requestId)) {
-      loading.value = false
-    }
-  }
-}
-
-async function selectTemplate(templateId, { openRouteVersion = false } = {}) {
-  selectedTemplateId.value = Number(templateId)
-  closeVersionDrawerImmediately()
-  resetVersionFilters()
-  await loadVersions({ openRouteVersion })
-}
-
-async function loadVersions({ openRouteVersion = false } = {}) {
-  const requestId = versionsRequest.begin()
-
-  versions.value = []
-
-  const templateId = Number(selectedTemplateId.value || 0)
-
-  if (!templateId) {
-    loadingVersions.value = false
-    return
-  }
-
-  loadingVersions.value = true
-
-  try {
-    const response = await coursesApi.getVersions(templateId)
-
-    if (!versionsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    versions.value = listFromResponse(response)
-      .sort(
-        (left, right) =>
-          Number(right.versionNumber ?? 0) -
-          Number(left.versionNumber ?? 0)
-      )
-
-    if (openRouteVersion && route.query.versionId) {
-      const routeVersionKey = `${templateId}:${route.query.versionId}`
-
-      if (handledRouteVersionKey.value !== routeVersionKey) {
-        handledRouteVersionKey.value = routeVersionKey
-
-        const version = versions.value.find(
-          (item) => String(item.id) === String(route.query.versionId)
-        )
-
-        if (version) {
-          openEditVersion(version)
-        }
-      }
-    }
-  } catch (error) {
-    if (!versionsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось загрузить версии курса'
-      ),
-    }
-  } finally {
-    if (versionsRequest.isCurrent(requestId)) {
-      loadingVersions.value = false
-    }
-  }
 }
 
 async function saveTemplate() {
@@ -1259,148 +769,30 @@ onMounted(async () => {
       </div>
     </UiCard>
 
-    <UiDrawer
-      :model-value="templateOverlay.isOpen.value"
+    <CourseTemplateEditorDrawer
+      :open="templateOverlay.isOpen.value"
       :title="templateDrawerTitle"
-      width="34rem"
-      @update:model-value="handleTemplateDrawerVisibility"
-    >
-      <div class="teacher-stack">
-        <div class="teacher-overlay-context">
-          <span class="teacher-muted">Предмет</span>
-          <strong>{{ selectedSubject?.name || `Предмет #${selectedSubjectId}` }}</strong>
-        </div>
+      :form="templateOverlay.form"
+      :saving="templateOverlay.saving.value"
+      :form-error="templateFormError"
+      :subject-label="selectedSubject?.name || `Предмет #${selectedSubjectId}`"
+      @update:open="handleTemplateDrawerVisibility"
+      @close="requestTemplateDrawerClose"
+      @save="saveTemplate"
+    />
 
-        <UiAlert
-          v-if="templateFormError"
-          variant="danger"
-          :message="templateFormError"
-        />
-
-        <UiInput
-          v-model="templateOverlay.form.name"
-          label="Название шаблона"
-          placeholder="Например: Базовый поток"
-          maxlength="200"
-          required
-        />
-
-        <UiCheckbox
-          v-model="templateOverlay.form.publicVisible"
-          label="Публиковать шаблон"
-        />
-
-        <p class="teacher-muted">
-          Шаблон остаётся привязан к выбранному предмету. Версии создаются отдельно после сохранения шаблона.
-        </p>
-      </div>
-
-      <template #footer>
-        <div class="teacher-drawer-footer">
-          <UiButton
-            variant="secondary"
-            :disabled="templateOverlay.saving.value"
-            @click="requestTemplateDrawerClose"
-          >
-            Отмена
-          </UiButton>
-
-          <UiButton
-            variant="primary"
-            :loading="templateOverlay.saving.value"
-            loading-text="Сохранение..."
-            @click="saveTemplate"
-          >
-            Сохранить
-          </UiButton>
-        </div>
-      </template>
-    </UiDrawer>
-
-    <UiDrawer
-      :model-value="versionOverlay.isOpen.value"
+    <CourseVersionEditorDrawer
+      :open="versionOverlay.isOpen.value"
       :title="versionDrawerTitle"
-      width="42rem"
-      @update:model-value="handleVersionDrawerVisibility"
-    >
-      <div class="teacher-stack">
-        <div class="teacher-overlay-context">
-          <span class="teacher-muted">Шаблон</span>
-          <strong>{{ selectedTemplate?.name || 'Не выбран' }}</strong>
-        </div>
-
-        <UiAlert
-          v-if="versionFormError"
-          variant="danger"
-          :message="versionFormError"
-        />
-
-        <div class="teacher-grid">
-          <UiInput
-            v-model="versionOverlay.form.versionNumber"
-            label="Номер версии"
-            type="number"
-            min="1"
-            step="1"
-            required
-          />
-
-          <UiInput
-            v-model="versionOverlay.form.title"
-            label="Название версии"
-            maxlength="200"
-            required
-          />
-        </div>
-
-        <UiTextarea
-          v-model="versionOverlay.form.description"
-          label="Описание"
-          maxlength="2000"
-          placeholder="Что входит в эту версию курса"
-        />
-
-        <UiTextarea
-          v-model="versionOverlay.form.changeNotes"
-          label="Что изменилось"
-          maxlength="2000"
-          placeholder="Кратко опишите изменения относительно предыдущей версии"
-        />
-
-        <UiCheckbox
-          v-if="versionOverlay.isCreate.value"
-          v-model="versionOverlay.form.published"
-          label="Опубликовать сразу после создания"
-        />
-
-        <UiAlert
-          v-else
-          variant="info"
-          message="Статус публикации существующей версии изменяется отдельной кнопкой в карточке версии."
-        />
-      </div>
-
-      <template #footer>
-        <div class="teacher-drawer-footer">
-          <UiButton
-            variant="secondary"
-            :disabled="versionOverlay.saving.value"
-            @click="requestVersionDrawerClose"
-          >
-            Отмена
-          </UiButton>
-
-          <UiButton
-            variant="primary"
-            :loading="versionOverlay.saving.value"
-            loading-text="Сохранение..."
-            @click="saveVersion"
-          >
-            Сохранить версию
-          </UiButton>
-        </div>
-      </template>
-    </UiDrawer>
+      :form="versionOverlay.form"
+      :is-create="versionOverlay.isCreate.value"
+      :saving="versionOverlay.saving.value"
+      :form-error="versionFormError"
+      :template-label="selectedTemplate?.name || 'Не выбран'"
+      @update:open="handleVersionDrawerVisibility"
+      @close="requestVersionDrawerClose"
+      @save="saveVersion"
+    />
 
     <UiUnsavedChangesConfirm
       v-model="templateOverlay.confirmCloseVisible.value"
@@ -1496,21 +888,6 @@ onMounted(async () => {
   margin: 0;
   color: var(--st-text-secondary);
   line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-
-.teacher-overlay-context {
-  padding: 10px 12px;
-
-  display: grid;
-  gap: 4px;
-
-  background: var(--st-surface-muted);
-  border: 1px solid var(--st-border);
-  border-radius: 9px;
-}
-
-.teacher-overlay-context strong {
   overflow-wrap: anywhere;
 }
 

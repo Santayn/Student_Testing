@@ -10,6 +10,7 @@ import {
 } from '@/utils/courseTemplateContext'
 
 import componentSource from '@/views/teacher/CourseTemplatesView.vue?raw'
+import dataSource from '@/composables/useCourseTemplatesData.js?raw'
 
 describe('course template admin context', () => {
   it('filters admin templates by the teacher from the selected membership', () => {
@@ -61,17 +62,22 @@ describe('course template admin context', () => {
       })
     ).toBe(true)
   })
-  it('does not send client-controlled actor fields that backend ignores', () => {
+  it('keeps actor scoping inside the shared data loader without client-controlled actor fields', () => {
+    const productionSource = `${componentSource}\n${dataSource}`
+
     expect(componentSource)
+      .toContain('useCourseTemplatesData')
+
+    expect(dataSource)
       .toContain('buildCourseTemplateListParams')
 
-    expect(componentSource)
+    expect(productionSource)
       .not.toContain('createdByPersonId')
 
-    expect(componentSource)
+    expect(productionSource)
       .not.toContain('publishedByPersonId')
 
-    expect(componentSource)
+    expect(productionSource)
       .not.toContain('authorPersonId:')
   })
 

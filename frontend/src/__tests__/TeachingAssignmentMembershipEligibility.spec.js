@@ -4,7 +4,7 @@ import {
   it,
 } from 'vitest'
 
-import componentSource from '@/views/admin/TeachingTemplatesView.vue?raw'
+import componentSource from '@/views/admin/TeachingAssignmentsView.vue?raw'
 
 import {
   assignableTeacherMembershipIds,

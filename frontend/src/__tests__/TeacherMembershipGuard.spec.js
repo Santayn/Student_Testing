@@ -119,7 +119,6 @@ describe('teacher membership mutation guard', () => {
       '../views/teacher/LectureManagementView.vue',
       '../views/teacher/TopicLibraryView.vue',
       '../views/teacher/QuestionsView.vue',
-      '../views/teacher/TestEditorView.vue',
       '../views/teacher/CourseTemplatesView.vue',
     ]
 
@@ -127,6 +126,23 @@ describe('teacher membership mutation guard', () => {
       expect(source(view))
         .toContain('ensureSelectedMembershipActive()')
     }
+
+    const testEditor = source(
+      '../views/teacher/TestEditorView.vue'
+    )
+    const testEditorSaveFlow = source(
+      '../composables/useTestEditorSaveFlow.js'
+    )
+
+    expect(testEditor).toContain(
+      'ensureSelectedMembershipActive,'
+    )
+    expect(testEditor).toContain(
+      'useTestEditorSaveFlow'
+    )
+    expect(testEditorSaveFlow).toContain(
+      'await ensureSelectedMembershipActive()'
+    )
 
     const workload = source(
       '../views/teacher/TeacherWorkloadView.vue'
@@ -142,7 +158,7 @@ describe('teacher membership mutation guard', () => {
       .not.toContain('updateLectureAssignmentStatus(')
 
     expect(
-      source('../views/admin/TeachingTemplatesView.vue')
+      source('../views/admin/TeachingAssignmentsView.vue')
     ).toContain(
       'revalidateAssignableTeacherMembershipIds'
     )

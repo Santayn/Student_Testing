@@ -20,6 +20,16 @@ const groupsView = readFileSync(
   'utf8'
 )
 
+const groupsData = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useAdminGroupsData.js'
+  ),
+  'utf8'
+)
+
 describe('admin groups overlay workspace', () => {
   it('uses a searchable workspace instead of an inline editor and legacy table', () => {
     expect(groupsView).toContain('UiFilterBar')
@@ -47,9 +57,10 @@ describe('admin groups overlay workspace', () => {
     expect(groupsView).not.toContain('window.confirm')
   })
 
-  it('preserves the existing group and faculty API contracts', () => {
-    expect(groupsView).toContain('facultiesApi.getAll()')
-    expect(groupsView).toContain('groupsApi.getAll()')
+  it('preserves the existing group and faculty API contracts across the new data boundary', () => {
+    expect(groupsView).toContain('useAdminGroupsData()')
+    expect(groupsData).toContain('facultiesApi.getAll()')
+    expect(groupsData).toContain('groupsApi.getAll()')
     expect(groupsView).toContain('groupsApi.create(payload)')
     expect(groupsView).toContain('groupsApi.update(')
     expect(groupsView).toContain('groupsApi.remove(group.id)')

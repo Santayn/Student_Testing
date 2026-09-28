@@ -135,7 +135,7 @@ export const adminRoutes = [
 
     component: () =>
       import(
-        '@/views/admin/TeachingTemplatesView.vue'
+        '@/views/admin/TeachingAssignmentsView.vue'
       ),
 
     meta: navigationMeta(

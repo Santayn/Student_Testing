@@ -22,6 +22,10 @@ const view = source(
   '../views/admin/FacultySubjectsView.vue'
 )
 
+const dataSource = source(
+  '../composables/useAdminFacultySubjectsData.js'
+)
+
 describe('admin faculty subjects workspace', () => {
   it('uses the shared workspace controls instead of checkbox batches', () => {
     expect(view).toContain('UiFilterBar')
@@ -44,17 +48,19 @@ describe('admin faculty subjects workspace', () => {
     expect(view).toContain('Убрать предмет из факультета?')
   })
 
-  it('keeps stale faculty context guards around loading and mutations', () => {
-    expect(view).toContain('assignedSubjectsRequest.begin()')
-    expect(view).toContain('assignedSubjectsRequest.isCurrent(')
+  it('keeps stale faculty context guards in the read layer and mutation context guards in the view', () => {
+    expect(view).toContain('useAdminFacultySubjectsData')
+    expect(dataSource).toContain('assignedSubjectsRequest.begin()')
+    expect(dataSource).toContain('assignedSubjectsRequest.isCurrent(')
+    expect(dataSource).toContain('baseRequest.begin()')
     expect(view.match(/const targetFacultyId/g)).toHaveLength(2)
     expect(view).toContain(':disabled="loading || saving"')
   })
 
-  it('provides search, sorting and mobile stacking', () => {
-    expect(view).toContain('searchQuery')
-    expect(view).toContain('sortMode')
-    expect(view).toContain('filterResultText')
+  it('provides search and sorting through the data layer and keeps mobile stacking in the view', () => {
+    expect(dataSource).toContain('searchQuery')
+    expect(dataSource).toContain('sortMode')
+    expect(dataSource).toContain('filterResultText')
     expect(view).toContain('@media (max-width: 960px)')
     expect(view).toContain('@media (max-width: 640px)')
   })

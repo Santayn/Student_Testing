@@ -30,6 +30,16 @@ const saveFlow = readFileSync(
   'utf8'
 )
 
+const materialFlow = readFileSync(
+  resolve(process.cwd(), 'src', 'composables', 'useLectureMaterials.js'),
+  'utf8'
+)
+
+const materialManager = readFileSync(
+  resolve(process.cwd(), 'src', 'components', 'teacher', 'LectureMaterialsManager.vue'),
+  'utf8'
+)
+
 describe('teacher lectures overlay workspace', () => {
   it('keeps the main page focused on browsing and filtering lectures', () => {
     expect(lectures).toContain('UiFilterBar')
@@ -58,9 +68,13 @@ describe('teacher lectures overlay workspace', () => {
     expect(lectures).toContain('useLectureSaveFlow')
     expect(saveFlow).toContain('syncLectureTests')
     expect(saveFlow).toContain('uploadPendingFiles')
-    expect(lectures).toContain('loadMaterials')
-    expect(lectures).toContain('downloadMaterial')
-    expect(lectures).toContain('requestDeleteMaterial')
+
+    expect(lectures).toContain('useLectureMaterials')
+    expect(editorDrawer).toContain('<LectureMaterialsManager')
+    expect(materialManager).toContain('<UiFileInput')
+    expect(materialFlow).toContain('loadMaterials')
+    expect(materialFlow).toContain('downloadMaterial')
+    expect(materialFlow).toContain('requestDeleteMaterial')
   })
 
   it('uses dialogs instead of browser confirmation for destructive actions', () => {

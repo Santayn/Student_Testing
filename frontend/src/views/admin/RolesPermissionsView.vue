@@ -1,20 +1,18 @@
 <script setup>
 import {
-  computed,
   onMounted,
   ref,
 } from 'vue'
 
 import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
+import AdminRolePermissionsDrawer from '@/components/admin/AdminRolePermissionsDrawer.vue'
 
 import {
   UiAlert,
   UiButton,
   UiCard,
-  UiCheckbox,
   UiDialog,
-  UiDrawer,
   UiEmptyState,
   UiFilterBar,
   UiInput,
@@ -31,55 +29,45 @@ import {
 } from '@/api'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
+  useAdminRolesPermissionsData,
+} from '@/composables/useAdminRolesPermissionsData'
 
-const roles = ref([])
-const permissions = ref([])
-const loading = ref(false)
-
-const notice = ref({
-  type: 'info',
-  message: '',
-})
-
-const roleSearch = ref('')
-const rolePermissionFilter = ref('all')
-const roleSortMode = ref('name-asc')
-
-const permissionSearch = ref('')
-const permissionUsageFilter = ref('all')
-const permissionSortMode = ref('name-asc')
+import {
+  useAdminRolePermissionsEditor,
+} from '@/composables/useAdminRolePermissionsEditor'
 
 const roleFormError = ref('')
 const permissionFormError = ref('')
-const rolePermissionsError = ref('')
-const selectedRoleId = ref(null)
-const permissionDrawerSearch = ref('')
 
-const ROLE_PERMISSION_FILTER_OPTIONS = [
-  { value: 'all', label: 'Все роли' },
-  { value: 'with', label: 'С правами' },
-  { value: 'without', label: 'Без прав' },
-]
-
-const ROLE_SORT_OPTIONS = [
-  { value: 'name-asc', label: 'Название А–Я' },
-  { value: 'name-desc', label: 'Название Я–А' },
-  { value: 'permissions-desc', label: 'Сначала больше прав' },
-]
-
-const PERMISSION_USAGE_OPTIONS = [
-  { value: 'all', label: 'Все permissions' },
-  { value: 'used', label: 'Назначены ролям' },
-  { value: 'unused', label: 'Не используются' },
-]
-
-const PERMISSION_SORT_OPTIONS = [
-  { value: 'name-asc', label: 'Название А–Я' },
-  { value: 'name-desc', label: 'Название Я–А' },
-  { value: 'usage-desc', label: 'Сначала чаще используемые' },
-]
+const {
+  ROLE_PERMISSION_FILTER_OPTIONS,
+  ROLE_SORT_OPTIONS,
+  PERMISSION_USAGE_OPTIONS,
+  PERMISSION_SORT_OPTIONS,
+  roles,
+  permissions,
+  loading,
+  notice,
+  roleSearch,
+  rolePermissionFilter,
+  roleSortMode,
+  permissionSearch,
+  permissionUsageFilter,
+  permissionSortMode,
+  filteredRoles,
+  filteredPermissions,
+  roleFiltersActive,
+  permissionFiltersActive,
+  showNotice,
+  clearNotice,
+  normalize,
+  rolePermissions,
+  rolePermissionIds,
+  permissionUsageCount,
+  resetRoleFilters,
+  resetPermissionFilters,
+  loadData: loadRolesPermissionsData,
+} = useAdminRolesPermissionsData()
 
 const roleCreateOverlay = useOverlayForm({
   createDefault: () => ({
@@ -95,280 +83,31 @@ const permissionCreateOverlay = useOverlayForm({
   }),
 })
 
-const rolePermissionsOverlay = useOverlayForm({
-  createDefault: () => ({
-    permissionIds: [],
-  }),
-  mapEntity: (role) => ({
-    permissionIds: rolePermissionIds(role),
-  }),
+const {
+  rolePermissionsError,
+  permissionDrawerSearch,
+  selectedRoleId,
+  rolePermissionsOverlay,
+  drawerRole,
+  drawerPermissions,
+  openRolePermissions,
+  onSelectedRoleRefreshed,
+  onSelectedRoleMissing,
+  requestRolePermissionsClose,
+  discardRolePermissionsAndClose,
+} = useAdminRolePermissionsEditor({
+  roles,
+  permissions,
+  rolePermissionIds,
 })
 
-function showNotice(type, message) {
-  notice.value = {
-    type,
-    message,
-  }
-}
-
-function clearNotice() {
-  notice.value.message = ''
-}
-
-function normalize(value) {
-  return String(value ?? '')
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-}
-
-function rolePermissions(role) {
-  return Array.isArray(role?.permissions)
-    ? role.permissions
-    : []
-}
-
-function rolePermissionIds(role) {
-  return rolePermissions(role)
-    .map((permission) => Number(permission?.id))
-    .filter(Number.isFinite)
-}
-
-function selectedRole() {
-  return roles.value.find(
-    (role) =>
-      Number(role.id) === Number(selectedRoleId.value)
-  ) ?? null
-}
-
-function permissionUsageCount(permissionId) {
-  const id = Number(permissionId)
-
-  return roles.value.filter((role) =>
-    rolePermissionIds(role).includes(id)
-  ).length
-}
-
-const filteredRoles = computed(() => {
-  const query = normalize(roleSearch.value)
-
-  const result = roles.value.filter((role) => {
-    const permissionCount = rolePermissionIds(role).length
-
-    if (
-      rolePermissionFilter.value === 'with' &&
-      permissionCount === 0
-    ) {
-      return false
-    }
-
-    if (
-      rolePermissionFilter.value === 'without' &&
-      permissionCount > 0
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    const haystack = [
-      role.name,
-      role.description,
-      ...rolePermissions(role).map(
-        (permission) => permission?.name
-      ),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-
-    return haystack.includes(query)
+function loadData(options = {}) {
+  return loadRolesPermissionsData({
+    ...options,
+    selectedRoleId: selectedRoleId.value,
+    onSelectedRoleRefreshed,
+    onSelectedRoleMissing,
   })
-
-  return [...result].sort((left, right) => {
-    if (roleSortMode.value === 'permissions-desc') {
-      const difference =
-        rolePermissionIds(right).length -
-        rolePermissionIds(left).length
-
-      if (difference !== 0) {
-        return difference
-      }
-    }
-
-    const direction =
-      roleSortMode.value === 'name-desc'
-        ? -1
-        : 1
-
-    return direction * String(left.name ?? '')
-      .localeCompare(
-        String(right.name ?? ''),
-        'ru'
-      )
-  })
-})
-
-const filteredPermissions = computed(() => {
-  const query = normalize(permissionSearch.value)
-
-  const result = permissions.value.filter((permission) => {
-    const usageCount = permissionUsageCount(permission.id)
-
-    if (
-      permissionUsageFilter.value === 'used' &&
-      usageCount === 0
-    ) {
-      return false
-    }
-
-    if (
-      permissionUsageFilter.value === 'unused' &&
-      usageCount > 0
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    return [
-      permission.name,
-      permission.description,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-      .includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (permissionSortMode.value === 'usage-desc') {
-      const difference =
-        permissionUsageCount(right.id) -
-        permissionUsageCount(left.id)
-
-      if (difference !== 0) {
-        return difference
-      }
-    }
-
-    const direction =
-      permissionSortMode.value === 'name-desc'
-        ? -1
-        : 1
-
-    return direction * String(left.name ?? '')
-      .localeCompare(
-        String(right.name ?? ''),
-        'ru'
-      )
-  })
-})
-
-const drawerPermissions = computed(() => {
-  const query = normalize(permissionDrawerSearch.value)
-
-  return [...permissions.value]
-    .filter((permission) => {
-      if (!query) {
-        return true
-      }
-
-      return [
-        permission.name,
-        permission.description,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase('ru-RU')
-        .includes(query)
-    })
-    .sort((left, right) =>
-      String(left.name ?? '').localeCompare(
-        String(right.name ?? ''),
-        'ru'
-      )
-    )
-})
-
-const roleFiltersActive = computed(() => {
-  return Boolean(roleSearch.value.trim()) ||
-    rolePermissionFilter.value !== 'all' ||
-    roleSortMode.value !== 'name-asc'
-})
-
-const permissionFiltersActive = computed(() => {
-  return Boolean(permissionSearch.value.trim()) ||
-    permissionUsageFilter.value !== 'all' ||
-    permissionSortMode.value !== 'name-asc'
-})
-
-const drawerRole = computed(selectedRole)
-
-function resetRoleFilters() {
-  roleSearch.value = ''
-  rolePermissionFilter.value = 'all'
-  roleSortMode.value = 'name-asc'
-}
-
-function resetPermissionFilters() {
-  permissionSearch.value = ''
-  permissionUsageFilter.value = 'all'
-  permissionSortMode.value = 'name-asc'
-}
-
-async function loadData({ preserveDrawer = true } = {}) {
-  loading.value = true
-  clearNotice()
-
-  const drawerRoleId = preserveDrawer
-    ? selectedRoleId.value
-    : null
-
-  try {
-    const [
-      rolesResponse,
-      permissionsResponse,
-    ] = await Promise.all([
-      rolesApi.getAll(),
-      rolesApi.getPermissions(),
-    ])
-
-    roles.value = listFromResponse(rolesResponse)
-    permissions.value = listFromResponse(
-      permissionsResponse
-    )
-
-    if (drawerRoleId != null) {
-      const refreshedRole = roles.value.find(
-        (role) =>
-          Number(role.id) === Number(drawerRoleId)
-      )
-
-      if (refreshedRole) {
-        rolePermissionsOverlay.markClean({
-          permissionIds:
-            rolePermissionIds(refreshedRole),
-        })
-      } else {
-        selectedRoleId.value = null
-        rolePermissionsOverlay.closeImmediately()
-      }
-    }
-  } catch (error) {
-    showNotice(
-      'danger',
-      getApiErrorMessage(
-        error,
-        'Не удалось загрузить роли и права.'
-      )
-    )
-  } finally {
-    loading.value = false
-  }
 }
 
 function openCreateRole() {
@@ -381,12 +120,6 @@ function openCreatePermission() {
   permissionCreateOverlay.openCreate()
 }
 
-function openRolePermissions(role) {
-  rolePermissionsError.value = ''
-  permissionDrawerSearch.value = ''
-  selectedRoleId.value = Number(role.id)
-  rolePermissionsOverlay.openEdit(role)
-}
 
 function validateRoleForm() {
   const name = String(
@@ -616,22 +349,6 @@ async function saveRolePermissions() {
   }
 }
 
-function requestRolePermissionsClose() {
-  const closed = rolePermissionsOverlay.requestClose()
-
-  if (closed) {
-    selectedRoleId.value = null
-    rolePermissionsError.value = ''
-    permissionDrawerSearch.value = ''
-  }
-}
-
-function discardRolePermissionsAndClose() {
-  rolePermissionsOverlay.discardAndClose()
-  selectedRoleId.value = null
-  rolePermissionsError.value = ''
-  permissionDrawerSearch.value = ''
-}
 
 onMounted(loadData)
 </script>
@@ -952,84 +669,25 @@ onMounted(loadData)
       @continue="permissionCreateOverlay.continueEditing"
     />
 
-    <UiDrawer
+    <AdminRolePermissionsDrawer
       :model-value="rolePermissionsOverlay.isOpen.value"
-      :title="drawerRole ? `Права роли «${drawerRole.name}»` : 'Права роли'"
-      width="46rem"
+      :role="drawerRole"
+      :permissions="permissions"
+      :filtered-permissions="drawerPermissions"
+      :search="permissionDrawerSearch"
+      :permission-ids="rolePermissionsOverlay.form.permissionIds"
+      :saving="rolePermissionsOverlay.saving.value"
+      :dirty="rolePermissionsOverlay.dirty.value"
+      :error="rolePermissionsError"
+      :confirm-close-visible="rolePermissionsOverlay.confirmCloseVisible.value"
       @update:model-value="(value) => {
         if (!value) requestRolePermissionsClose()
       }"
-    >
-      <div class="admin-access-drawer">
-        <UiAlert
-          v-if="rolePermissionsError"
-          variant="danger"
-          :message="rolePermissionsError"
-        />
-
-        <UiAlert
-          variant="info"
-          message="Сохранение полностью заменяет набор permissions этой роли. Пользователи с ролью получат обновлённый набор прав."
-        />
-
-        <UiFilterBar
-          v-model="permissionDrawerSearch"
-          search-placeholder="Найти permission"
-          :result-count="drawerPermissions.length"
-          :show-reset="false"
-        />
-
-        <UiEmptyState
-          v-if="!permissions.length"
-          description="В системе пока нет permissions."
-        />
-
-        <UiEmptyState
-          v-else-if="!drawerPermissions.length"
-          description="Permissions по поиску не найдены."
-        />
-
-        <div
-          v-else
-          class="admin-access-permission-list"
-        >
-          <UiCheckbox
-            v-for="permission in drawerPermissions"
-            :key="permission.id"
-            v-model="rolePermissionsOverlay.form.permissionIds"
-            mode="multiple"
-            :value="Number(permission.id)"
-            :label="permission.name"
-            :description="permission.description || 'Описание не задано'"
-            :disabled="rolePermissionsOverlay.saving.value"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="admin-access-dialog-actions">
-          <UiButton
-            variant="ghost"
-            label="Закрыть"
-            :disabled="rolePermissionsOverlay.saving.value"
-            @click="requestRolePermissionsClose"
-          />
-
-          <UiButton
-            variant="primary"
-            label="Сохранить права"
-            :loading="rolePermissionsOverlay.saving.value"
-            loading-text="Сохранение..."
-            :disabled="!rolePermissionsOverlay.dirty.value"
-            @click="saveRolePermissions"
-          />
-        </div>
-      </template>
-    </UiDrawer>
-
-    <UiUnsavedChangesConfirm
-      v-model="rolePermissionsOverlay.confirmCloseVisible.value"
-      :busy="rolePermissionsOverlay.saving.value"
+      @update:search="permissionDrawerSearch = $event"
+      @update:permission-ids="rolePermissionsOverlay.form.permissionIds = $event"
+      @update:confirm-close-visible="rolePermissionsOverlay.confirmCloseVisible.value = $event"
+      @request-close="requestRolePermissionsClose"
+      @save="saveRolePermissions"
       @discard="discardRolePermissionsAndClose"
       @continue="rolePermissionsOverlay.continueEditing"
     />
@@ -1038,8 +696,7 @@ onMounted(loadData)
 
 <style scoped>
 .admin-access-workspace,
-.admin-access-form,
-.admin-access-drawer {
+.admin-access-form {
   display: grid;
   gap: 16px;
 }
@@ -1118,10 +775,6 @@ onMounted(loadData)
   overflow-wrap: anywhere;
 }
 
-.admin-access-permission-list {
-  display: grid;
-  gap: 8px;
-}
 
 @media (max-width: 860px) {
   .admin-access-role-grid,

@@ -78,12 +78,18 @@ describe('stale context hardening', () => {
     const view = source(
       '../views/admin/FacultySubjectsView.vue'
     )
+    const dataSource = source(
+      '../composables/useAdminFacultySubjectsData.js'
+    )
 
-    expect(view)
+    expect(dataSource)
       .toContain('assignedSubjectsRequest.begin()')
 
-    expect(view)
+    expect(dataSource)
       .toContain('assignedSubjectsRequest.isCurrent(')
+
+    expect(dataSource)
+      .toContain('requestedFacultyId')
 
     expect(view.match(/const targetFacultyId/g))
       .toHaveLength(2)

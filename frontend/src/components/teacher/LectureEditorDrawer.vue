@@ -5,10 +5,11 @@ import {
   UiCheckbox,
   UiDrawer,
   UiEmptyState,
-  UiFileInput,
   UiInput,
   UiTextarea,
 } from '@/components/ui'
+
+import LectureMaterialsManager from '@/components/teacher/LectureMaterialsManager.vue'
 
 // The parent owns the reactive form, dirty-state, save flow and API requests.
 // This component edits its existing form object and emits user intent only.
@@ -111,93 +112,19 @@ const emit = defineEmits([
           </div>
         </section>
 
-        <section class="teacher-lecture-form-section">
-          <div class="teacher-lecture-form-section__heading">
-            <span class="teacher-muted">Материалы</span>
-            <strong>
-              {{ form.id ? `${materials.length} загружено` : 'Будут загружены после создания' }}
-            </strong>
-          </div>
-
-          <UiFileInput
-            :key="fileInputKey"
-            label="Добавить файлы"
-            hint="Можно выбрать несколько файлов. Они загрузятся вместе с сохранением лекции."
-            multiple
-            :disabled="saving"
-            @files-change="emit('files-change', $event)"
-          />
-
-          <div
-            v-if="pendingFiles.length"
-            class="teacher-file-list"
-          >
-            <div
-              v-for="(file, index) in pendingFiles"
-              :key="`${file.name}-${index}`"
-              class="teacher-file-item"
-            >
-              <span>{{ file.name }}</span>
-
-              <UiButton
-                size="sm"
-                variant="secondary"
-                label="Убрать"
-                :disabled="saving"
-                @click="emit('remove-pending-file', index)"
-              />
-            </div>
-          </div>
-
-          <template v-if="form.id">
-            <div class="teacher-divider" />
-
-            <UiEmptyState
-              v-if="loadingMaterials"
-              description="Загрузка материалов..."
-              compact
-            />
-
-            <UiEmptyState
-              v-else-if="!materials.length"
-              description="Загруженных материалов пока нет."
-              compact
-            />
-
-            <div
-              v-else
-              class="teacher-file-list"
-            >
-              <div
-                v-for="material in materials"
-                :key="material.id"
-                class="teacher-file-item"
-              >
-                <span>{{ material.fileName || `Материал #${material.id}` }}</span>
-
-                <div class="teacher-inline-actions">
-                  <UiButton
-                    size="sm"
-                    variant="secondary"
-                    icon="pi pi-download"
-                    label="Скачать"
-                    @click="emit('download-material', material)"
-                  />
-
-                  <UiButton
-                    size="sm"
-                    variant="danger"
-                    icon="pi pi-trash"
-                    label="Удалить"
-                    :loading="deletingMaterialId === material.id"
-                    loading-text="Удаление..."
-                    @click="emit('request-delete-material', material)"
-                  />
-                </div>
-              </div>
-            </div>
-          </template>
-        </section>
+        <LectureMaterialsManager
+          :lecture-id="form.id"
+          :materials="materials"
+          :pending-files="pendingFiles"
+          :file-input-key="fileInputKey"
+          :loading-materials="loadingMaterials"
+          :deleting-material-id="deletingMaterialId"
+          :saving="saving"
+          @files-change="emit('files-change', $event)"
+          @remove-pending-file="emit('remove-pending-file', $event)"
+          @download-material="emit('download-material', $event)"
+          @request-delete-material="emit('request-delete-material', $event)"
+        />
       </div>
 
       <template #footer>

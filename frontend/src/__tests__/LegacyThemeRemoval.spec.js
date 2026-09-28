@@ -82,17 +82,9 @@ describe('legacy stylesheet removal', () => {
     }
   })
 
-  it('retains AdminTable with declared Student Testing theme tokens', () => {
-    const table = source('components/admin/AdminTable.vue')
-    const tokens = source('theme/tokens.css')
-    const declared = new Set(
-      [...tokens.matchAll(/(--st-[\w-]+)\s*:/g)].map(([, name]) => name),
-    )
-    const references = [...table.matchAll(/var\((--st-[\w-]+)/g)]
-      .map(([, name]) => name)
-    expect(references.length).toBeGreaterThan(0)
-    for (const token of references) {
-      expect(declared.has(token), `${token} is not declared`).toBe(true)
-    }
+  it('does not keep the dead AdminTable component', () => {
+    expect(
+      existsSync(resolve(srcDir, 'components/admin/AdminTable.vue')),
+    ).toBe(false)
   })
 })

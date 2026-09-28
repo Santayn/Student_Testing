@@ -24,6 +24,15 @@ const view = source(
 const rolesApi = source(
   '../api/roles.api.js'
 )
+const dataSource = source(
+  '../composables/useAdminRolesPermissionsData.js'
+)
+const editorSource = source(
+  '../composables/useAdminRolePermissionsEditor.js'
+)
+const drawerSource = source(
+  '../components/admin/AdminRolePermissionsDrawer.vue'
+)
 const adminRoutes = source(
   '../router/routes/admin.js'
 )
@@ -44,11 +53,17 @@ describe('admin roles and permissions workspace', () => {
 
   it('uses explicit role-permission editing instead of user permission guessing', () => {
     expect(view).toContain('title="Роли и права"')
-    expect(view).toContain('UiDrawer')
-    expect(view).toContain('v-model="rolePermissionsOverlay.form.permissionIds"')
-    expect(view).toContain('@click="saveRolePermissions"')
-    expect(view).toContain('Сохранить права')
+    expect(view).toContain('AdminRolePermissionsDrawer')
+    expect(view).toContain('@save="saveRolePermissions"')
     expect(view).toContain('useOverlayForm')
+    expect(view).toContain('useAdminRolesPermissionsData')
+    expect(view).toContain('useAdminRolePermissionsEditor')
+    expect(editorSource).toContain('useOverlayForm')
+    expect(editorSource).toContain('selectedRoleId')
+    expect(editorSource).toContain('permissionDrawerSearch')
+    expect(drawerSource).toContain('UiDrawer')
+    expect(drawerSource).toContain('UiCheckbox')
+    expect(drawerSource).toContain('Сохранить права')
 
     expect(view).not.toContain('usersApi.updatePermissions')
     expect(view).not.toContain('AdminTable')
@@ -73,6 +88,11 @@ describe('admin roles and permissions workspace', () => {
     expect(view).toContain('search-placeholder="Название или описание permission"')
     expect(view).toContain('permissionUsageFilter')
     expect(view).toContain('permissionSortMode')
-    expect(view).toContain('search-placeholder="Найти permission"')
+    expect(drawerSource).toContain('search-placeholder="Найти permission"')
+    expect(dataSource).toContain('createLatestRequestGuard')
+    expect(dataSource).toContain('rolesApi.getAll()')
+    expect(dataSource).toContain('rolesApi.getPermissions()')
+    expect(dataSource).toContain('filteredRoles')
+    expect(dataSource).toContain('filteredPermissions')
   })
 })

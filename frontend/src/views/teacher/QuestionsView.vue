@@ -30,11 +30,27 @@ import {
   UiSelect,
   UiTextarea,
   UiUnsavedChangesConfirm,
-  useOverlayForm,
 } from '@/components/ui'
 
 import MatchingPairsEditor from '@/components/questions/MatchingPairsEditor.vue'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
+
+import {
+  useQuestionEditorState,
+  questionToForm,
+} from '@/composables/useQuestionEditorState'
+
+import {
+  useQuestionFilters,
+} from '@/composables/useQuestionFilters'
+
+import {
+  useQuestionOptions,
+} from '@/composables/useQuestionOptions'
+
+import {
+  useQuestionsList,
+} from '@/composables/useQuestionsList'
 
 import {
   useTeacherSubjects,
@@ -50,7 +66,6 @@ import {
 
 import {
   ensureMatchingPairRows,
-  matchingPairsValidationMessage,
   normalizeMatchingPairs,
 } from '@/utils/matchingPairs'
 
@@ -68,23 +83,14 @@ const {
 } = useTeacherSubjects()
 
 const topics = ref([])
-const questions = ref([])
-const options = ref([])
 
 const selectedTopicId = ref('')
 const selectedImportTopicId = ref('')
 
-const loading = ref(false)
-const loadingOptions = ref(false)
-const savingOption = ref(false)
 const togglingQuestionId = ref(null)
 const importing = ref(false)
 const initialized = ref(false)
 
-const searchQuery = ref('')
-const typeFilter = ref('all')
-const statusFilter = ref('all')
-const sortMode = ref('ordinal')
 
 const importDialogVisible = ref(false)
 const importError = ref('')
@@ -93,12 +99,20 @@ const fileInputKey = ref(0)
 const formError = ref('')
 
 const topicsRequest = createLatestRequestGuard()
-const questionsRequest = createLatestRequestGuard()
-const optionsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
   message: '',
+})
+
+const {
+  questions,
+  loading,
+  loadQuestions,
+  resetQuestions,
+} = useQuestionsList({
+  selectedTopicId,
+  notice,
 })
 
 const questionTypeOptions = [
@@ -138,22 +152,6 @@ const sortOptions = [
   { value: 'text', label: 'По тексту А–Я' },
 ]
 
-function questionToForm(question) {
-  return {
-    id: question?.id ?? null,
-    question: question?.question ?? '',
-    type: Number(question?.type ?? 1),
-    points: Number(question?.points ?? 1),
-    ordinal: Number(question?.ordinal ?? 1),
-    correctAnswer: question?.correctAnswer ?? '',
-    matchingPairs: ensureMatchingPairRows(
-      question?.matchingPairs,
-      Number(question?.type ?? 1) === 3 ? 2 : 0
-    ),
-    active: question?.active !== false,
-  }
-}
-
 const {
   form,
   isOpen: questionDrawerOpen,
@@ -169,30 +167,33 @@ const {
   beginSaving,
   finishSaving,
   failSaving,
-} = useOverlayForm({
-  createDefault: () => questionToForm(),
-  mapEntity: questionToForm,
+  isSelectableType,
+  isMatchingType,
+  isTextType,
+  drawerTitle,
+  validationMessage: questionValidationMessage,
+} = useQuestionEditorState({
+  selectedMembership,
+  selectedTopicId,
 })
 
-const optionForm = ref({
-  id: null,
-  text: '',
-  ordinal: 1,
-  correct: false,
-})
-const optionBaseline = ref('')
-
-function normalizedOptionDraft(value) {
-  return JSON.stringify({
-    id: value?.id ?? null,
-    text: String(value?.text ?? ''),
-    ordinal: Number(value?.ordinal ?? 1),
-    correct: Boolean(value?.correct),
-  })
-}
-
-const optionDraftDirty = computed(() => {
-  return normalizedOptionDraft(optionForm.value) !== optionBaseline.value
+const {
+  options,
+  loadingOptions,
+  savingOption,
+  optionForm,
+  optionDraftDirty,
+  resetOptionForm,
+  editOption,
+  clearOptions,
+  loadOptions,
+  saveOption,
+} = useQuestionOptions({
+  form,
+  isSelectableType,
+  ensureSelectedMembershipActive,
+  notice,
+  formError,
 })
 
 const topicOptions = computed(() => {
@@ -212,140 +213,11 @@ const currentTopic = computed(() => {
   ) ?? null
 })
 
-const currentQuestionType = computed(() => {
-  return Number(form.type ?? 1)
-})
-
-const isSelectableType = computed(() => {
-  return (
-    currentQuestionType.value === 1 ||
-    currentQuestionType.value === 2
-  )
-})
-
-const isMatchingType = computed(() => {
-  return currentQuestionType.value === 3
-})
-
-const isTextType = computed(() => {
-  return currentQuestionType.value === 4
-})
-
 const canCreateQuestion = computed(() => {
   return Boolean(
     selectedMembership.value &&
     selectedTopicId.value
   )
-})
-
-const activeQuestions = computed(() => {
-  return questions.value.filter(
-    (question) => question.active
-  )
-})
-
-const questionStats = computed(() => {
-  if (!selectedTopicId.value) {
-    return 'Выберите тему, чтобы открыть банк вопросов.'
-  }
-
-  const active = activeQuestions.value
-
-  return (
-    `Всего ${questions.value.length}. ` +
-    `Активных ${active.length}. ` +
-    `Скрытых ${questions.value.length - active.length}.`
-  )
-})
-
-const hasActiveFilters = computed(() => {
-  return Boolean(searchQuery.value.trim()) ||
-    typeFilter.value !== 'all' ||
-    statusFilter.value !== 'all' ||
-    sortMode.value !== 'ordinal'
-})
-
-const filteredQuestions = computed(() => {
-  const query = searchQuery.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-
-  const result = questions.value.filter((question) => {
-    if (
-      typeFilter.value !== 'all' &&
-      Number(question.type) !== Number(typeFilter.value)
-    ) {
-      return false
-    }
-
-    if (
-      statusFilter.value === 'active' &&
-      !question.active
-    ) {
-      return false
-    }
-
-    if (
-      statusFilter.value === 'hidden' &&
-      question.active
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    const haystack = [
-      question.id,
-      question.ordinal,
-      question.question,
-      question.correctAnswer,
-      questionDisplayAnswer(question),
-      questionTypeLabel(question.type),
-    ]
-      .filter((value) => value !== null && value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-
-    return haystack.includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (sortMode.value === 'points-desc') {
-      return (
-        Number(right.points ?? 0) - Number(left.points ?? 0) ||
-        Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0)
-      )
-    }
-
-    if (sortMode.value === 'type') {
-      return (
-        questionTypeLabel(left.type).localeCompare(
-          questionTypeLabel(right.type),
-          'ru'
-        ) ||
-        Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0)
-      )
-    }
-
-    if (sortMode.value === 'text') {
-      return String(left.question ?? '').localeCompare(
-        String(right.question ?? ''),
-        'ru'
-      )
-    }
-
-    return Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0)
-  })
-})
-
-const filterResultText = computed(() => {
-  if (!selectedTopicId.value) {
-    return 'Сначала выберите тему.'
-  }
-
-  return `Показано: ${filteredQuestions.value.length} из ${questions.value.length}`
 })
 
 const contextHint = computed(() => {
@@ -362,12 +234,6 @@ const contextHint = computed(() => {
   return currentTopic.value
     ? `Предмет «${selectedSubject.value?.name ?? ''}», тема «${currentTopic.value.name}».`
     : 'Открыта выбранная тема предмета.'
-})
-
-const drawerTitle = computed(() => {
-  return isCreate.value
-    ? 'Новый вопрос'
-    : 'Редактирование вопроса'
 })
 
 function questionTypeLabel(type) {
@@ -399,6 +265,23 @@ function questionDisplayAnswer(question) {
   return question.correctAnswer || ''
 }
 
+const {
+  searchQuery,
+  typeFilter,
+  statusFilter,
+  sortMode,
+  questionStats,
+  hasActiveFilters,
+  filteredQuestions,
+  filterResultText,
+  resetFilters,
+} = useQuestionFilters({
+  questions,
+  selectedTopicId,
+  questionTypeLabel,
+  questionDisplayAnswer,
+})
+
 function routeQuery(topicId = null) {
   const query = {}
 
@@ -425,44 +308,9 @@ function nextQuestionOrdinal() {
   ) + 1
 }
 
-function resetFilters() {
-  searchQuery.value = ''
-  typeFilter.value = 'all'
-  statusFilter.value = 'all'
-  sortMode.value = 'ordinal'
-}
-
-function resetOptionForm() {
-  const maxOrdinal = options.value.reduce(
-    (max, option) =>
-      Math.max(max, Number(option.ordinal ?? 0)),
-    0
-  )
-
-  optionForm.value = {
-    id: null,
-    text: '',
-    ordinal: maxOrdinal + 1,
-    correct: false,
-  }
-  optionBaseline.value = normalizedOptionDraft(optionForm.value)
-}
-
-function editOption(option) {
-  optionForm.value = {
-    id: option.id,
-    text: option.text || '',
-    ordinal: Number(option.ordinal ?? 1),
-    correct: Boolean(option.correct),
-  }
-  optionBaseline.value = normalizedOptionDraft(optionForm.value)
-}
-
 function clearQuestionDrawerState() {
   formError.value = ''
-  options.value = []
-  loadingOptions.value = false
-  resetOptionForm()
+  clearOptions()
 }
 
 function openCreateQuestion() {
@@ -535,18 +383,14 @@ function handleQuestionTypeChange(value) {
   }
 
   if (!form.id) {
-    options.value = []
-    resetOptionForm()
+    clearOptions()
     return
   }
 
   if (Number(value) === 1 || Number(value) === 2) {
     loadOptions(form.id)
   } else {
-    optionsRequest.invalidate()
-    options.value = []
-    loadingOptions.value = false
-    resetOptionForm()
+    clearOptions()
   }
 }
 
@@ -578,57 +422,14 @@ function closeImportDialog() {
   wordFiles.value = []
 }
 
-function questionValidationMessage() {
-  if (!selectedMembership.value || !selectedTopicId.value) {
-    return 'Выберите предмет и тему.'
-  }
-
-  const question = String(form.question ?? '').trim()
-  const points = Number(form.points)
-  const ordinal = Number(form.ordinal)
-
-  if (!question) {
-    return 'Введите текст вопроса.'
-  }
-
-  if (question.length > 2000) {
-    return 'Текст вопроса не может быть длиннее 2000 символов.'
-  }
-
-  if (!Number.isFinite(points) || points < 0) {
-    return 'Количество баллов должно быть числом не меньше нуля.'
-  }
-
-  if (!Number.isInteger(ordinal) || ordinal <= 0) {
-    return 'Порядковый номер должен быть целым числом больше нуля.'
-  }
-
-  if (isMatchingType.value) {
-    const matchingError =
-      matchingPairsValidationMessage(
-        form.matchingPairs
-      )
-
-    if (matchingError) {
-      return matchingError
-    }
-  }
-
-  return ''
-}
-
 async function loadTopics() {
   const requestId = topicsRequest.begin()
 
-  questionsRequest.invalidate()
-  optionsRequest.invalidate()
-  loading.value = false
-  loadingOptions.value = false
+  resetQuestions()
+  clearOptions()
 
   topics.value = []
   selectedTopicId.value = ''
-  questions.value = []
-  options.value = []
   closeQuestionDrawerImmediately()
 
   const membershipId = Number(
@@ -681,95 +482,6 @@ async function loadTopics() {
         error,
         'Не удалось загрузить темы'
       ),
-    }
-  }
-}
-
-async function loadQuestions() {
-  const requestId = questionsRequest.begin()
-  const topicId = Number(selectedTopicId.value || 0)
-
-  questions.value = []
-
-  if (!topicId) {
-    loading.value = false
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const response = await questionsApi.getAll({
-      topicId,
-    })
-
-    if (!questionsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    questions.value = listFromResponse(response).sort(
-      (left, right) =>
-        Number(left.ordinal ?? 0) -
-        Number(right.ordinal ?? 0)
-    )
-  } catch (error) {
-    if (!questionsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось загрузить вопросы'
-      ),
-    }
-  } finally {
-    if (questionsRequest.isCurrent(requestId)) {
-      loading.value = false
-    }
-  }
-}
-
-async function loadOptions(questionId) {
-  const requestId = optionsRequest.begin()
-
-  options.value = []
-  resetOptionForm()
-
-  if (!questionId || !isSelectableType.value) {
-    loadingOptions.value = false
-    return
-  }
-
-  loadingOptions.value = true
-
-  try {
-    const response = await questionsApi.getOptions(questionId)
-
-    if (!optionsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    options.value = listFromResponse(response).sort(
-      (left, right) =>
-        Number(left.ordinal ?? 0) -
-        Number(right.ordinal ?? 0)
-    )
-
-    resetOptionForm()
-  } catch (error) {
-    if (!optionsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    formError.value = getApiErrorMessage(
-      error,
-      'Не удалось загрузить варианты ответа'
-    )
-  } finally {
-    if (optionsRequest.isCurrent(requestId)) {
-      loadingOptions.value = false
     }
   }
 }
@@ -861,8 +573,7 @@ async function saveQuestion() {
       ) {
         await loadOptions(saved.id)
       } else {
-        options.value = []
-        resetOptionForm()
+        clearOptions()
       }
     } else {
       finishSaving({ close: true })
@@ -915,68 +626,6 @@ async function toggleQuestionActive(question) {
     }
   } finally {
     togglingQuestionId.value = null
-  }
-}
-
-async function saveOption() {
-  const text = String(optionForm.value.text ?? '').trim()
-
-  if (!form.id || !isSelectableType.value || !text) {
-    formError.value =
-      'Сохраните вопрос и заполните текст варианта ответа.'
-    return
-  }
-
-  const ordinal = Number(optionForm.value.ordinal)
-
-  if (!Number.isInteger(ordinal) || ordinal <= 0) {
-    formError.value =
-      'Порядок варианта должен быть целым числом больше нуля.'
-    return
-  }
-
-  const payload = {
-    text,
-    ordinal,
-    correct: Boolean(optionForm.value.correct),
-  }
-
-  savingOption.value = true
-  formError.value = ''
-
-  try {
-    await ensureSelectedMembershipActive()
-
-    if (optionForm.value.id) {
-      await questionsApi.updateOption(
-        optionForm.value.id,
-        payload
-      )
-
-      notice.value = {
-        type: 'success',
-        message: 'Вариант ответа обновлён.',
-      }
-    } else {
-      await questionsApi.createOption(
-        form.id,
-        payload
-      )
-
-      notice.value = {
-        type: 'success',
-        message: 'Вариант ответа создан.',
-      }
-    }
-
-    await loadOptions(form.id)
-  } catch (error) {
-    formError.value = getApiErrorMessage(
-      error,
-      'Не удалось сохранить вариант ответа'
-    )
-  } finally {
-    savingOption.value = false
   }
 }
 
