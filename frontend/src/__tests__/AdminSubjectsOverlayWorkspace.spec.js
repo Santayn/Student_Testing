@@ -20,6 +20,16 @@ const subjectsView = readFileSync(
   'utf8'
 )
 
+const subjectsDataSource = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useAdminSubjectsData.js'
+  ),
+  'utf8'
+)
+
 describe('admin subjects overlay workspace', () => {
   it('uses a searchable workspace instead of an inline editor and legacy table', () => {
     expect(subjectsView).toContain('UiFilterBar')
@@ -46,8 +56,10 @@ describe('admin subjects overlay workspace', () => {
     expect(subjectsView).not.toContain('window.confirm')
   })
 
-  it('preserves the existing subject API contract', () => {
-    expect(subjectsView).toContain('subjectsApi.getAll()')
+  it('preserves the existing subject API contract across read and mutation layers', () => {
+    expect(subjectsView).toContain('useAdminSubjectsData')
+    expect(subjectsDataSource).toContain('subjectsApi.getAll()')
+    expect(subjectsDataSource).toContain('createLatestRequestGuard')
     expect(subjectsView).toContain('subjectsApi.create(payload)')
     expect(subjectsView).toContain('subjectsApi.update(')
     expect(subjectsView).toContain('subjectsApi.remove(subject.id)')

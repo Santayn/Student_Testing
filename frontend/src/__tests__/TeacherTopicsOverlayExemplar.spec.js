@@ -20,6 +20,16 @@ const topicLibrary = readFileSync(
   'utf8'
 )
 
+const topicData = readFileSync(
+  resolve(
+    process.cwd(),
+    'src',
+    'composables',
+    'useTeacherTopicsData.js'
+  ),
+  'utf8'
+)
+
 describe('teacher topics overlay exemplar', () => {
   it('keeps the page as a searchable workspace instead of an inline editor', () => {
     expect(topicLibrary).toContain('UiFilterBar')
@@ -58,8 +68,11 @@ describe('teacher topics overlay exemplar', () => {
   })
 
   it('preserves deep links and contextual transitions', () => {
-    expect(topicLibrary).toContain('resolveRouteTopic')
-    expect(topicLibrary).toContain('route.query.topicId')
+    expect(topicLibrary).toContain('useTeacherTopicsData')
+    expect(topicData).toContain('resolveRouteTopic')
+    expect(topicData).toContain('route.query.topicId')
+    expect(topicData).toContain('topicsRequest.begin()')
+    expect(topicData).toContain('topicsRequest.isCurrent(requestId)')
     expect(topicLibrary).toContain("name: 'teacher-questions'")
     expect(topicLibrary).toContain("name: 'teacher-test-create'")
   })
