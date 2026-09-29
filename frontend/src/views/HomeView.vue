@@ -158,6 +158,20 @@ const studentActions = computed(() => {
   ]
 })
 
+const teacherActions = computed(() => {
+  if (!authStore.isTeacherMode) {
+    return []
+  }
+
+  return [
+    { title: 'Темы и вопросы', description: 'Откройте учебный контент предмета и банк вопросов.', icon: 'pi pi-list-check', route: { name: 'teacher-topics' }, action: 'Открыть контент' },
+    { title: 'Создать тест', description: 'Соберите тест из вопросов выбранной темы и назначьте его группам.', icon: 'pi pi-file-edit', route: { name: 'teacher-test-create' }, action: 'Создать тест' },
+    { title: 'Лекции', description: 'Управляйте лекциями, материалами и привязанными тестами.', icon: 'pi pi-book', route: { name: 'teacher-lectures' }, action: 'Открыть лекции' },
+    { title: 'Моя нагрузка', description: 'Посмотрите назначенные предметы, группы и часы.', icon: 'pi pi-calendar', route: { name: 'teacher-workload' }, action: 'Открыть нагрузку' },
+    { title: 'Результаты', description: 'Посмотрите попытки студентов по тестам и группам.', icon: 'pi pi-chart-bar', route: { name: 'results' }, action: 'Открыть результаты' },
+  ]
+})
+
 async function refreshUser() {
   try {
     await authStore.refreshIdentity()
@@ -189,6 +203,9 @@ async function refreshUser() {
         <p class="welcome-panel__description">
           <template v-if="authStore.isStudentMode">
             Продолжайте обучение, открывайте свои предметы и просматривайте результаты тестов.
+          </template>
+          <template v-else-if="authStore.isTeacherMode">
+            Управляйте учебным контентом, создавайте тесты и проверяйте результаты студентов.
           </template>
           <template v-else>
             Это обзор текущего рабочего пространства и доступных направлений работы.
@@ -244,6 +261,33 @@ async function refreshUser() {
             <UiButton
               :to="action.route"
               variant="primary"
+            >
+              {{ action.action }}
+            </UiButton>
+          </article>
+        </div>
+
+        <div
+          v-else-if="authStore.isTeacherMode"
+          class="student-quick-actions teacher-quick-actions"
+        >
+          <article
+            v-for="action in teacherActions"
+            :key="action.title"
+            class="student-quick-action"
+          >
+            <div class="student-quick-action__icon" aria-hidden="true">
+              <i :class="action.icon" />
+            </div>
+
+            <div class="student-quick-action__copy">
+              <h3>{{ action.title }}</h3>
+              <p>{{ action.description }}</p>
+            </div>
+
+            <UiButton
+              :to="action.route"
+              :variant="action.title === 'Создать тест' ? 'primary' : 'secondary'"
             >
               {{ action.action }}
             </UiButton>

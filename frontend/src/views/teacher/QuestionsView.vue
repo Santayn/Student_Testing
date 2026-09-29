@@ -428,7 +428,7 @@ onMounted(async () => {
 <template>
   <TeacherPageShell
     title="Вопросы предмета"
-    subtitle="Работайте с банком вопросов выбранной темы: ищите и фильтруйте существующие вопросы, а создание и редактирование выполняйте в боковой панели."
+    subtitle="Создавайте, импортируйте и редактируйте вопросы выбранной темы."
   >
     <UiAlert
       v-if="notice.message"
@@ -491,7 +491,7 @@ onMounted(async () => {
       <div class="teacher-stack">
         <UiFilterBar
           v-model="searchQuery"
-          search-placeholder="Текст, ответ, ID или номер вопроса"
+          search-placeholder="Текст, ответ или номер вопроса"
           :result-text="filterResultText"
           :reset-disabled="!hasActiveFilters"
           @reset="resetFilters"
@@ -633,7 +633,6 @@ onMounted(async () => {
 
             <div class="teacher-entity-card__meta">
               <span>Баллы: {{ question.points }}</span>
-              <span>ID: {{ question.id }}</span>
             </div>
 
             <div class="teacher-entity-card__actions">

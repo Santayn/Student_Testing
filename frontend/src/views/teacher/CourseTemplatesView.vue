@@ -474,10 +474,11 @@ onMounted(async () => {
     </UiCard>
 
     <UiCard
+      v-if="selectedTemplate"
       title="Версии шаблона"
       :description="
         selectedTemplate
-          ? `Шаблон «${selectedTemplate.name}». Версии редактируются в той же боковой панели без вложенных окон.`
+          ? `Шаблон «${selectedTemplate.name}». Управляйте его версиями и публикацией.`
           : 'Выберите шаблон курса выше.'
       "
     >
@@ -520,12 +521,6 @@ onMounted(async () => {
         v-if="loadingVersions"
         compact
         label="Загрузка версий..."
-      />
-
-      <UiEmptyState
-        v-else-if="!selectedTemplateId"
-        description="Выберите шаблон курса выше."
-        compact
       />
 
       <UiEmptyState

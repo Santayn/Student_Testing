@@ -3,7 +3,6 @@ import {
 } from 'node:fs'
 import { resolve } from 'node:path'
 
-
 import {
   describe,
   expect,
@@ -41,7 +40,9 @@ describe('teacher workload membership context', () => {
     expect(loader).toContain('teachingApi.getAssignments')
 
     expect(workload)
-      .toContain('Изменения нагрузки выполняет администратор системы')
+      .toContain('Нагрузка назначается администратором')
+    expect(workload)
+      .toContain('Здесь доступен просмотр и фильтрация')
 
     expect(workload)
       .not.toContain('createLectureAssignment')

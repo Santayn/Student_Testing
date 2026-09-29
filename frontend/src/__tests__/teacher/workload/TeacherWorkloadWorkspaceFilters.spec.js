@@ -43,7 +43,8 @@ describe('teacher workload read-only workspace', () => {
   })
 
   it('keeps workload mutation unavailable in the teacher UI', () => {
-    expect(workload).toContain('Страница работает только в режиме просмотра')
+    expect(workload).toContain('Нагрузка назначается администратором')
+    expect(workload).toContain('Здесь доступен просмотр и фильтрация')
     expect(workload).not.toContain('createAssignment')
     expect(workload).not.toContain('updateAssignment')
     expect(workload).not.toContain('createLectureAssignment')

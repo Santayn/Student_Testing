@@ -15,6 +15,7 @@ import {
 } from '@/api'
 
 import {
+  UiActionMenu,
   UiAlert,
   UiButton,
   UiCard,
@@ -121,6 +122,13 @@ const {
   onOpenRouteTopic: openEditTopic,
 })
 
+function topicActionItems(topic) {
+  return [
+    { label: 'Изменить', icon: 'pi pi-pencil', command: () => openEditTopic(topic) },
+    { label: 'Удалить', icon: 'pi pi-trash', danger: true, command: () => requestDeleteTopic(topic) },
+  ]
+}
+
 function openCreateTopic() {
   if (!canEdit.value) {
     notice.value = {
@@ -213,7 +221,7 @@ onMounted(async () => {
 <template>
   <TeacherPageShell
     title="Темы предмета"
-    subtitle="Просматривайте и находите темы выбранного предмета. Создание и редактирование открываются поверх workspace и не сбрасывают текущие фильтры."
+    subtitle="Создавайте, редактируйте и находите темы выбранного предмета."
   >
     <UiAlert
       v-if="notice.message"
@@ -358,8 +366,11 @@ onMounted(async () => {
               </div>
             </div>
 
-            <p class="teacher-entity-card__description">
-              {{ topic.description || 'Описание пока не добавлено.' }}
+            <p
+              v-if="topic.description"
+              class="teacher-entity-card__description"
+            >
+              {{ topic.description }}
             </p>
 
             <div class="teacher-entity-card__actions">
@@ -383,21 +394,9 @@ onMounted(async () => {
                 Создать тест
               </UiButton>
 
-              <UiButton
-                size="sm"
-                icon="pi pi-pencil"
-                label="Изменить"
-                @click="openEditTopic(topic)"
-              />
-
-              <UiButton
-                variant="danger"
-                size="sm"
-                icon="pi pi-trash"
-                label="Удалить"
-                :loading="deletingId === topic.id"
-                loading-text="Удаление..."
-                @click="requestDeleteTopic(topic)"
+              <UiActionMenu
+                :items="topicActionItems(topic)"
+                :aria-label="`Действия темы «${topic.name}»`"
               />
             </div>
           </article>

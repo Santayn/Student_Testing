@@ -129,7 +129,7 @@ onBeforeUnmount(workload.dispose)
 <template>
   <TeacherPageShell
     title="Моя нагрузка"
-    subtitle="Просматривайте учебную нагрузку, назначенную администратором. Изменение предметов, групп, типов нагрузки и часов выполняется только в административном разделе."
+    subtitle="Просматривайте назначенную учебную нагрузку по предметам, группам и периодам."
   >
     <template #actions>
       <UiButton
@@ -162,7 +162,7 @@ onBeforeUnmount(workload.dispose)
 
     <UiCard
       title="Период"
-      description="Фильтр влияет только на просмотр вашей назначенной нагрузки."
+      description="Выберите учебный период для просмотра нагрузки."
     >
       <div class="teacher-grid teacher-grid--3">
         <UiSelect
@@ -190,7 +190,7 @@ onBeforeUnmount(workload.dispose)
 
     <UiCard
       title="Назначенная нагрузка"
-      description="Страница работает только в режиме просмотра. Изменения нагрузки выполняет администратор системы."
+      description="Нагрузка назначается администратором. Здесь доступен просмотр и фильтрация."
     >
       <div class="teacher-stack">
         <UiFilterBar
@@ -337,11 +337,6 @@ onBeforeUnmount(workload.dispose)
                 <div class="teacher-workload-meta__item">
                   <span class="teacher-muted">Часов в неделю</span>
                   <strong>{{ formatHours(assignment.hoursPerWeek) }}</strong>
-                </div>
-
-                <div class="teacher-workload-meta__item">
-                  <span class="teacher-muted">Группа</span>
-                  <strong>{{ groupName(assignment) }}</strong>
                 </div>
 
                 <div class="teacher-workload-meta__item">

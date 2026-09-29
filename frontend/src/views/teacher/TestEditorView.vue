@@ -77,6 +77,7 @@ const questions = ref([])
 const loadingContext = ref(false)
 const loadingQuestions = ref(false)
 const initialized = ref(false)
+const questionPreviewOpen = ref(false)
 
 const contextRequest = createLatestRequestGuard()
 const questionsRequest = createLatestRequestGuard()
@@ -465,7 +466,7 @@ onMounted(async () => {
     <div class="teacher-layout">
       <div class="teacher-stack">
         <UiCard
-          title="Контекст теста"
+          title="Шаг 1 · Контекст"
           description="Выберите предмет, группы и тему."
         >
           <div class="teacher-stack">
@@ -549,7 +550,7 @@ onMounted(async () => {
           </div>
         </UiCard>
 
-        <UiCard title="Параметры теста">
+        <UiCard title="Шаг 2 · Параметры теста">
           <div class="teacher-stack">
             <UiInput
               v-model="form.title"
@@ -567,7 +568,7 @@ onMounted(async () => {
         </UiCard>
 
         <UiCard
-          title="Правила отбора вопросов"
+          title="Шаг 3 · Правила отбора вопросов"
           :description="ruleSummary"
         >
           <div class="teacher-grid--3 teacher-grid">
@@ -623,7 +624,7 @@ onMounted(async () => {
           </div>
         </UiCard>
 
-        <UiCard title="Публикация и доступ">
+        <UiCard title="Шаг 4 · Публикация и доступ">
           <div class="teacher-stack">
             <div class="teacher-grid--3 teacher-grid">
               <UiSelect
@@ -646,6 +647,11 @@ onMounted(async () => {
                 required
               />
             </div>
+
+            <UiAlert
+              :variant="validationError ? 'info' : 'success'"
+              :message="validationError || 'Все обязательные параметры заполнены. Тест готов к созданию.'"
+            />
 
             <UiButton
               variant="primary"
@@ -682,12 +688,20 @@ onMounted(async () => {
           compact
         />
 
-        <div
-          v-else
-          class="teacher-entity-list"
-        >
-          <article
-            v-for="question in questions"
+        <template v-else>
+          <UiButton
+            variant="secondary"
+            size="sm"
+            :label="questionPreviewOpen ? 'Скрыть вопросы' : 'Показать вопросы'"
+            @click="questionPreviewOpen = !questionPreviewOpen"
+          />
+
+          <div
+            v-show="questionPreviewOpen"
+            class="teacher-entity-list"
+          >
+            <article
+              v-for="question in questions"
             :key="question.id"
             class="teacher-entity-card"
           >
@@ -713,10 +727,10 @@ onMounted(async () => {
 
             <div class="teacher-entity-card__meta">
               <span>Баллы: {{ question.points }}</span>
-              <span>ID: {{ question.id }}</span>
             </div>
-          </article>
-        </div>
+            </article>
+          </div>
+        </template>
       </UiCard>
     </div>
   </TeacherPageShell>

@@ -460,64 +460,20 @@ onMounted(init)
         />
 
         <template v-if="teacherMode">
-          <UiSelect
-            v-model="lectureId"
-            label="Лекция"
-            placeholder="-- выберите лекцию --"
-            :options="lectures"
-            :option-label="lectureLabel"
-            option-value="id"
-            :disabled="
-              !subjectId ||
-              loadingOptions
-            "
-            @change="onLectureChange"
-          />
-
-          <UiSelect
-            v-model="testId"
-            label="Тест"
-            placeholder="-- выберите тест --"
-            :options="tests"
-            :option-label="testLabel"
-            option-value="id"
-            :disabled="
-              !lectureId ||
-              loadingOptions
-            "
-            @change="onTestChange"
-          />
-
-          <UiSelect
-            v-model="groupId"
-            label="Группа"
-            placeholder="-- выберите группу --"
-            :options="groups"
-            :option-label="groupLabel"
-            option-value="id"
-            :filter="true"
-            filter-placeholder="Поиск по группам"
-            :disabled="
-              !testId ||
-              loadingOptions
-            "
-            @change="onGroupChange"
-          />
-
-          <UiSelect
-            v-model="studentId"
-            label="Студент"
-            placeholder="-- выберите студента --"
-            :options="students"
-            :option-label="studentLabel"
-            option-value="id"
-            :filter="true"
-            filter-placeholder="Поиск по студентам"
-            :disabled="
-              !groupId ||
-              loadingOptions
-            "
-          />
+          <div class="results-filter-group">
+            <h3 class="results-filter-group__title">1. Контекст теста</h3>
+            <div class="results-filter-group__controls">
+              <UiSelect v-model="lectureId" label="Лекция" placeholder="-- выберите лекцию --" :options="lectures" :option-label="lectureLabel" option-value="id" :disabled="!subjectId || loadingOptions" @change="onLectureChange" />
+              <UiSelect v-model="testId" label="Тест" placeholder="-- выберите тест --" :options="tests" :option-label="testLabel" option-value="id" :disabled="!lectureId || loadingOptions" @change="onTestChange" />
+            </div>
+          </div>
+          <div class="results-filter-group">
+            <h3 class="results-filter-group__title">2. Аудитория</h3>
+            <div class="results-filter-group__controls">
+              <UiSelect v-model="groupId" label="Группа" placeholder="-- выберите группу --" :options="groups" :option-label="groupLabel" option-value="id" :filter="true" filter-placeholder="Поиск по группам" :disabled="!testId || loadingOptions" @change="onGroupChange" />
+              <UiSelect v-model="studentId" label="Студент" placeholder="-- выберите студента --" :options="students" :option-label="studentLabel" option-value="id" :filter="true" filter-placeholder="Поиск по студентам" :disabled="!groupId || loadingOptions" />
+            </div>
+          </div>
         </template>
 
         <UiButton
@@ -542,6 +498,7 @@ onMounted(init)
     </UiCard>
 
     <UiCard
+      v-if="!teacherMode || resultData"
       title="Сводка"
     >
       <div
@@ -741,4 +698,10 @@ onMounted(init)
     grid-template-columns: 1fr;
   }
 }
+
+.results-filter-group { min-width: 0; padding: 12px; display: grid; gap: 10px; background: var(--st-surface-muted); border: 1px solid var(--st-border); border-radius: var(--st-radius-md); }
+.results-filter-group__title { margin: 0; color: var(--st-text-secondary); font-size: var(--st-font-sm); line-height: var(--st-line-normal); }
+.results-filter-group__controls { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) { .results-filter-group__controls { grid-template-columns: 1fr; } }
+
 </style>
