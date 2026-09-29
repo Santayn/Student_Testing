@@ -71,7 +71,7 @@ const pageTitle = computed(() => {
     subject.value?.name ||
     (
       subjectId.value
-        ? `Предмет #${subjectId.value}`
+        ? 'Предмет без названия'
         : 'Карточка предмета'
     )
   )

@@ -36,13 +36,9 @@ vi.mock('vue-router', () => ({
   useRoute: () => state.route,
 }))
 
-vi.mock('@/composables/teacher/useTeacherSubjects', async () => {
-  const vue = await import('vue')
-
-  return {
-    useTeacherSubjects: () => state.teacher,
-  }
-})
+vi.mock('@/composables/teacher/useTeacherSubjects', () => ({
+  useTeacherSubjects: () => state.teacher,
+}))
 
 vi.mock('@/api', () => ({
   getApiErrorMessage: (_error, fallback) => fallback,
@@ -245,7 +241,7 @@ describe('lecture partial-create retry', () => {
     expect(state.api.create).toHaveBeenCalledTimes(1)
     expect(state.api.update).not.toHaveBeenCalled()
     expect(state.api.setTests).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('Лекция #100')
+    expect(wrapper.text()).toContain('Лекция 1')
     expect(wrapper.text()).toContain('Лекция уже создана')
 
     await buttonByText(wrapper, 'Сохранить лекцию').trigger('click')

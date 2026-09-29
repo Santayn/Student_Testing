@@ -60,7 +60,7 @@ export function useTeacherTopicsData({
     }
 
     if (!selectedSubject.value) {
-      return `Выбрано назначение #${selectedMembership.value.id}.`
+      return 'Выбрано назначение преподавателя.'
     }
 
     if (!topics.value.length) {

@@ -91,8 +91,6 @@ const {
   statusOptions,
   topicOptions,
   activeQuestions,
-  questionCounts,
-  fixedQuestionCount,
   ruleSummary,
   questionTypeLabel,
   setDefaultDates,
@@ -180,7 +178,7 @@ async function buildGroupTargets(assignments) {
         groupId,
         groupName:
           group?.name ??
-          `Группа #${groupId}`,
+          'Группа без названия',
         assignmentIds: [
           ...new Set(
             related.map(

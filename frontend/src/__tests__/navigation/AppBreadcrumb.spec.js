@@ -93,9 +93,9 @@ describe('AppBreadcrumb', () => {
     ).toBe(true)
 
     expect(wrapper.text()).toContain('Предметы')
-    expect(wrapper.text()).toContain('Предмет #42')
+    expect(wrapper.text()).toContain('Предмет')
     expect(wrapper.text()).toContain('Лекции')
-    expect(wrapper.text()).toContain('Лекция #9')
+    expect(wrapper.text()).toContain('Лекция')
 
     const links = wrapper.findAllComponents({
       name: 'RouterLink',
@@ -113,7 +113,7 @@ describe('AppBreadcrumb', () => {
       wrapper
         .find('[aria-current="page"]')
         .text()
-    ).toBe('Лекция #9')
+    ).toBe('Лекция')
   })
 
   it('builds the full test hierarchy when navigation carries subject and lecture ids', () => {
@@ -140,10 +140,10 @@ describe('AppBreadcrumb', () => {
         .map((item) => item.text())
     ).toEqual([
       'Предметы',
-      'Предмет #42',
+      'Предмет',
       'Лекции',
-      'Лекция #9',
-      'Тест #17',
+      'Лекция',
+      'Тест',
     ])
   })
 

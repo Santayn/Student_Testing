@@ -56,7 +56,7 @@ const score = computed(() => (
 
 const testName = computed(() => (
   displayAttempt.value.testName ||
-  `Тест #${displayAttempt.value.testId ?? '?'}`
+  'Тест без названия'
 ))
 
 const metaText = computed(() => {
@@ -65,7 +65,7 @@ const metaText = computed(() => {
   if (props.mode === 'teacher') {
     parts.push(
       displayAttempt.value.studentName ||
-      `Студент #${displayAttempt.value.studentId ?? '?'}`
+      'Студент без имени'
     )
   } else {
     parts.push('Ваша попытка')

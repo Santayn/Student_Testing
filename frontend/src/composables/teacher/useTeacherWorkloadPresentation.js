@@ -401,7 +401,7 @@ export function useTeacherWorkloadPresentation({
       subjectById.value.get(
         Number(subjectId)
       )?.name ??
-      `Предмет #${subjectId}`
+      'Предмет без названия'
     )
   }
 
@@ -409,7 +409,7 @@ export function useTeacherWorkloadPresentation({
     return (
       assignment.groupName ||
       assignment.groupCode ||
-      `Группа #${assignment.groupId}`
+      'Группа без названия'
     )
   }
 
@@ -418,7 +418,7 @@ export function useTeacherWorkloadPresentation({
       loadTypeById.value.get(
         Number(loadTypeId)
       )?.name ??
-      `Тип нагрузки #${loadTypeId}`
+      'Неизвестный тип нагрузки'
     )
   }
 
@@ -433,7 +433,7 @@ export function useTeacherWorkloadPresentation({
       case 4:
         return 'Приостановлено'
       default:
-        return `Статус #${status}`
+        return 'Неизвестный статус'
     }
   }
 

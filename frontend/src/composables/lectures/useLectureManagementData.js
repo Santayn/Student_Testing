@@ -161,7 +161,7 @@ export function useLectureManagementData({
     }
 
     return tests
-      .map((test) => test.title || `Тест #${test.id}`)
+      .map((test) => test.title || 'Тест без названия')
       .join(', ')
   }
 

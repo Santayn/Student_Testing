@@ -1,10 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import UiField from './UiField.vue'
 
 defineOptions({ inheritAttrs: false })
-let fileSequence = 0
-
 const props = defineProps({
   id: { type: String, default: '' },
   label: { type: String, default: '' },
@@ -17,7 +15,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['change', 'files-change'])
-const generatedId = `ui-file-input-${++fileSequence}`
+const generatedId = `ui-file-input-${useId()}`
 const controlId = computed(() => props.id || generatedId)
 const describedBy = computed(() => {
   if (props.error) return `${controlId.value}-error`

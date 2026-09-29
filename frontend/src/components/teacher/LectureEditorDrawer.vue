@@ -60,7 +60,7 @@ const emit = defineEmits([
           <div class="teacher-lecture-form-section__heading">
             <span class="teacher-muted">Основные данные</span>
             <strong>
-              {{ isCreate ? 'Новая лекция' : `Лекция #${form.id}` }}
+              {{ isCreate ? 'Новая лекция' : (form.title || 'Лекция без названия') }}
             </strong>
           </div>
 
@@ -105,7 +105,7 @@ const emit = defineEmits([
               v-model="form.testIds"
               mode="multiple"
               :value="test.id"
-              :label="test.title || `Тест #${test.id}`"
+              :label="test.title || 'Тест без названия'"
               :description="test.description || ''"
               :disabled="saving"
             />

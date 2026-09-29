@@ -127,8 +127,12 @@ async function fetchStudentLearningContext({
     memberships.map((membership) => membership.groupId)
   )
 
-  const groups = uniqueEntitiesById(
-    await Promise.all(
+  const [
+    groupResponses,
+    groupAssignmentResponses,
+    enrollmentResponses,
+  ] = await Promise.all([
+    Promise.all(
       groupIds.map(async (groupId) => {
         const fetchGroup = async () =>
           (await groupsApi.getById(groupId)).data
@@ -139,32 +143,7 @@ async function fetchStudentLearningContext({
             })
           : fetchGroup()
       })
-    )
-  )
-
-  const facultyIds = uniqueNumbers(
-    groups.map((group) => group.facultyId)
-  )
-
-  const faculties = uniqueEntitiesById(
-    await Promise.all(
-      facultyIds.map(async (facultyId) => {
-        const fetchFaculty = async () =>
-          (await facultiesApi.getById(facultyId)).data
-
-        return cache
-          ? cache.load(`faculty:${facultyId}`, fetchFaculty, {
-              ttlMs: REFERENCE_TTL_MS,
-            })
-          : fetchFaculty()
-      })
-    )
-  )
-
-  const [
-    groupAssignmentResponses,
-    enrollmentResponses,
-  ] = await Promise.all([
+    ),
     Promise.all(
       groupIds.map((groupId) =>
         teachingApi.getAssignments({
@@ -181,6 +160,8 @@ async function fetchStudentLearningContext({
       )
     ),
   ])
+
+  const groups = uniqueEntitiesById(groupResponses)
 
   const groupAssignments = uniqueEntitiesById(
     groupAssignmentResponses
@@ -200,18 +181,56 @@ async function fetchStudentLearningContext({
     )
   )
 
-  const enrolledAssignments = uniqueEntitiesById(
-    (
-      await Promise.all(
-        enrolledAssignmentIds.map(async (assignmentId) => {
+  const knownAssignmentIds = new Set(
+    uniqueNumbers(
+      groupAssignments.map((assignment) => assignment.id)
+    )
+  )
+
+  const missingEnrolledAssignmentIds =
+    enrolledAssignmentIds.filter(
+      (assignmentId) => !knownAssignmentIds.has(assignmentId)
+    )
+
+  const facultyIds = uniqueNumbers(
+    groups.map((group) => group.facultyId)
+  )
+
+  const [
+    facultyResponses,
+    enrolledAssignmentResponses,
+  ] = await Promise.all([
+    Promise.all(
+      facultyIds.map(async (facultyId) => {
+        const fetchFaculty = async () =>
+          (await facultiesApi.getById(facultyId)).data
+
+        return cache
+          ? cache.load(`faculty:${facultyId}`, fetchFaculty, {
+              ttlMs: REFERENCE_TTL_MS,
+            })
+          : fetchFaculty()
+      })
+    ),
+    Promise.all(
+      missingEnrolledAssignmentIds.map(
+        async (assignmentId) => {
           const response = await teachingApi.getAssignment(
             assignmentId
           )
 
           return response.data
-        })
+        }
       )
-    ).filter(isActiveTeachingAssignment)
+    ),
+  ])
+
+  const faculties = uniqueEntitiesById(facultyResponses)
+
+  const enrolledAssignments = uniqueEntitiesById(
+    enrolledAssignmentResponses.filter(
+      isActiveTeachingAssignment
+    )
   )
 
   const assignments = uniqueEntitiesById([

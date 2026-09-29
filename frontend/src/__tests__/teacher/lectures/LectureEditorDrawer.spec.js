@@ -204,7 +204,7 @@ describe('LectureEditorDrawer', () => {
       materials: [material],
       pendingFiles: [pending],
     })
-    expect(wrapper.text()).toContain('Лекция #100')
+    expect(wrapper.text()).toContain('Лекция без названия')
     expect(button(wrapper, 'Сохранить лекцию').exists()).toBe(true)
 
     wrapper.findComponent(UiFileInputStub).vm.$emit('files-change', [pending])

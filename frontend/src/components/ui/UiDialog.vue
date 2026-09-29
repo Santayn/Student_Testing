@@ -1,7 +1,7 @@
 <script setup>
 import Dialog from 'primevue/dialog'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: '' },
   modal: { type: Boolean, default: true },

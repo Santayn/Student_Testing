@@ -21,7 +21,7 @@ import {
   ADMIN_TEACHING_MAX_HOURS_PER_WEEK,
 } from '@/composables/admin/teaching-assignments/useAdminTeachingAssignmentEditor'
 
-const props = defineProps({
+defineProps({
   modelValue: {
     type: Boolean,
     default: false,

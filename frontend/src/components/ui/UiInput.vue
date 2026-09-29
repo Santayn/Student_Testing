@@ -1,11 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import InputText from 'primevue/inputtext'
 import UiField from './UiField.vue'
 
 defineOptions({ inheritAttrs: false })
-let inputSequence = 0
-
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   id: { type: String, default: '' },
@@ -24,7 +22,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'change', 'blur', 'focus'])
-const generatedId = `ui-input-${++inputSequence}`
+const generatedId = `ui-input-${useId()}`
 const controlId = computed(() => props.id || generatedId)
 const describedBy = computed(() => {
   if (props.error) return `${controlId.value}-error`

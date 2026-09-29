@@ -373,7 +373,7 @@ onBeforeUnmount(workload.dispose)
                 v-if="assignment.courseVersionId"
                 class="teacher-muted"
               >
-                Версия курса: #{{ assignment.courseVersionId }}
+                Версия курса привязана
               </div>
 
               <p

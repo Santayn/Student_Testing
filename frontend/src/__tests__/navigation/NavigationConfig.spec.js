@@ -274,7 +274,7 @@ describe('breadcrumb config', () => {
       crumbs.map((crumb) => crumb.label)
     ).toEqual([
       'Предметы',
-      'Предмет #42',
+      'Предмет',
     ])
 
     expect(crumbs[0].to).toEqual({
@@ -358,7 +358,7 @@ describe('breadcrumb config', () => {
       crumbs.map((crumb) => crumb.label)
     ).toEqual([
       'Предметы',
-      'Тест #17',
+      'Тест',
     ])
   })
 

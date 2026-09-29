@@ -86,7 +86,7 @@ const emit = defineEmits([
           :key="material.id"
           class="teacher-file-item"
         >
-          <span>{{ material.fileName || `Материал #${material.id}` }}</span>
+          <span>{{ material.fileName || 'Материал без названия' }}</span>
 
           <div class="teacher-inline-actions">
             <UiButton

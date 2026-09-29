@@ -270,4 +270,136 @@ describe('student learning context', () => {
       apis.membershipsApi.getGroupMemberships
     ).not.toHaveBeenCalled()
   })
+
+  it('does not refetch an enrolled assignment already loaded for the student group', async () => {
+    const apis = apiFixture()
+
+    apis.teachingApi.getEnrollments.mockImplementation(
+      ({ groupMembershipId }) => {
+        if (groupMembershipId === 1) {
+          return response([
+            {
+              id: 101,
+              teachingAssignmentId: 1000,
+              groupMembershipId: 1,
+              status: 1,
+              removedAtUtc: null,
+            },
+          ])
+        }
+
+        return response([])
+      }
+    )
+
+    await loadStudentLearningContext({
+      personId: 77,
+      ...apis,
+    })
+
+    expect(
+      apis.teachingApi.getAssignment
+    ).not.toHaveBeenCalledWith(1000)
+  })
+
+  it('starts group, assignment-list and enrollment branches before group details resolve', async () => {
+    let resolveGroup
+
+    const waitingGroup = new Promise((resolve) => {
+      resolveGroup = resolve
+    })
+
+    const membershipsApi = {
+      getGroupMemberships: vi.fn(() =>
+        response([
+          {
+            id: 1,
+            groupId: 10,
+            role: 1,
+            status: 1,
+            removedAtUtc: null,
+          },
+        ])
+      ),
+      getSubjectMembership: vi.fn(() =>
+        response({
+          id: 500,
+          subjectId: 50,
+        })
+      ),
+    }
+
+    const groupsApi = {
+      getById: vi.fn(() => waitingGroup),
+    }
+
+    const facultiesApi = {
+      getById: vi.fn((id) =>
+        response({
+          id,
+          name: `Факультет ${id}`,
+        })
+      ),
+    }
+
+    const teachingApi = {
+      getAssignments: vi.fn(() =>
+        response([
+          {
+            id: 1000,
+            groupId: 10,
+            subjectMembershipId: 500,
+            status: 1,
+          },
+        ])
+      ),
+      getEnrollments: vi.fn(() => response([])),
+      getAssignment: vi.fn(),
+    }
+
+    const subjectsApi = {
+      getById: vi.fn((id) =>
+        response({
+          id,
+          name: `Предмет ${id}`,
+        })
+      ),
+    }
+
+    const pending = loadStudentLearningContext({
+      personId: 77,
+      membershipsApi,
+      groupsApi,
+      facultiesApi,
+      teachingApi,
+      subjectsApi,
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(groupsApi.getById).toHaveBeenCalledWith(10)
+    expect(teachingApi.getAssignments).toHaveBeenCalledWith({
+      groupId: 10,
+      status: 1,
+    })
+    expect(teachingApi.getEnrollments).toHaveBeenCalledWith({
+      groupMembershipId: 1,
+    })
+
+    resolveGroup({
+      data: {
+        id: 10,
+        facultyId: 100,
+        name: 'Группа 10',
+      },
+    })
+
+    await expect(pending).resolves.toMatchObject({
+      groups: [{ id: 10 }],
+      assignments: [{ id: 1000 }],
+      subjects: [{ id: 50 }],
+    })
+  })
+
 })

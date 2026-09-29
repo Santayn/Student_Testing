@@ -42,10 +42,8 @@ import {
 
 
 const {
-  faculties,
   facultySubjects,
   groups,
-  people,
   teacherMemberships,
   assignments,
   loadTypes,
@@ -80,10 +78,7 @@ const {
   showNotice,
   clearNotice,
   resetFilters,
-  personById,
-  personLabel,
   teacherMembershipLabel,
-  subjectName,
   groupName,
   membershipById,
   loadTypeName,

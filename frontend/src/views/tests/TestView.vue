@@ -160,7 +160,7 @@ const pageTitle = computed(() => {
     test.value?.title ||
     (
       testId.value
-        ? `Тест #${testId.value}`
+        ? 'Тест без названия'
         : 'Прохождение теста'
     )
   )
@@ -229,7 +229,7 @@ function questionText(question) {
   return (
     question.text ||
     question.question ||
-    `Вопрос #${question.id}`
+    'Вопрос без текста'
   )
 }
 
@@ -256,7 +256,7 @@ function optionText(option) {
   return (
     option.text ||
     option.label ||
-    `Вариант #${option.id}`
+    'Вариант ответа'
   )
 }
 

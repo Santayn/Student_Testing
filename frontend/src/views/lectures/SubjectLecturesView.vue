@@ -82,7 +82,7 @@ const pageSubtitle = computed(() => {
 
   const subjectName =
     subject.value.name ||
-    `Предмет #${subject.value.id}`
+    'Предмет без названия'
 
   return (
     `${subjectName}. ` +
@@ -231,7 +231,7 @@ onMounted(loadLectures)
         <div class="lecture-tile__top">
           <div class="lecture-tile__ordinal">{{ lecture.ordinal ?? '—' }}</div>
           <div class="lecture-tile__copy">
-            <h2>{{ lecture.title || `Лекция #${lecture.id}` }}</h2>
+            <h2>{{ lecture.title || 'Лекция без названия' }}</h2>
             <div class="lecture-tile__meta">
               <UiTag v-if="lecture.courseName" :value="lecture.courseName" />
               <UiTag

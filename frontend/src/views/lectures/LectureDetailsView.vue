@@ -116,7 +116,7 @@ const pageTitle = computed(() => {
     lecture.value?.title ||
     (
       lectureId.value
-        ? `Лекция #${lectureId.value}`
+        ? 'Лекция без названия'
         : 'Лекция'
     )
   )
@@ -671,7 +671,7 @@ onMounted(loadLecture)
           <article v-for="material in materials" :key="material.id" class="lecture-material">
             <div class="lecture-material__icon" aria-hidden="true"><i class="pi pi-file" /></div>
             <div class="lecture-material__copy">
-              <strong>{{ material.fileName || `Материал #${material.id}` }}</strong>
+              <strong>{{ material.fileName || 'Материал без названия' }}</strong>
               <UiTag :value="material.contentType || 'Файл'" />
             </div>
             <UiButton
@@ -700,7 +700,7 @@ onMounted(loadLecture)
           <article v-for="testItem in tests" :key="testItem.id" class="lecture-test-card">
             <div class="lecture-test-card__header">
               <div class="lecture-test-card__copy">
-                <h3>{{ testItem.title || `Тест #${testItem.id}` }}</h3>
+                <h3>{{ testItem.title || 'Тест без названия' }}</h3>
                 <p v-if="testItem.description">{{ testItem.description }}</p>
               </div>
               <UiTag

@@ -1,11 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import Select from 'primevue/select'
 import UiField from './UiField.vue'
 
 defineOptions({ inheritAttrs: false })
-let selectSequence = 0
-
 const props = defineProps({
   modelValue: { type: [String, Number, Boolean, Object], default: null },
   options: { type: Array, default: () => [] },
@@ -29,7 +27,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'change', 'blur', 'focus'])
-const generatedId = `ui-select-${++selectSequence}`
+const generatedId = `ui-select-${useId()}`
 const controlId = computed(() => props.id || generatedId)
 const describedBy = computed(() => {
   if (props.error) return `${controlId.value}-error`

@@ -18,7 +18,6 @@ function source(relativePath) {
 }
 
 const usersView = source('views/admin/UsersView.vue')
-const userDrawer = source('components/admin/AdminUserDrawer.vue')
 const personEditor = source('components/admin/AdminPersonEditor.vue')
 const personState = source('composables/admin/users/useAdminPersonEditor.js')
 const usersApi = source('api/users.api.js')

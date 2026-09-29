@@ -142,9 +142,7 @@ function resolveEntityCrumb(
 
   const label =
     contextLabel ||
-    (id !== null && id !== ''
-      ? `${definition.fallbackLabel} #${id}`
-      : definition.fallbackLabel)
+    definition.fallbackLabel
 
   const params = {}
 

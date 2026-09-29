@@ -145,7 +145,7 @@ export function useTeacherSubjects() {
         value: subject.id,
         label:
           subject.name ??
-          `Предмет #${subject.id}`,
+          'Предмет без названия',
       }))
   })
 
@@ -168,6 +168,8 @@ export function useTeacherSubjects() {
         new Map()
       )
 
+    const membershipIndexBySubject = new Map()
+
     return activeSubjectMemberships.value.map(
       (membership) => {
         const subject =
@@ -181,7 +183,7 @@ export function useTeacherSubjects() {
 
         const baseLabel =
           subject?.name ??
-          `Предмет #${membership.subjectId}`
+          'Предмет без названия'
 
         const duplicates =
           membershipCountBySubject.get(
@@ -195,6 +197,19 @@ export function useTeacherSubjects() {
             ? ` — преподаватель #${membership.personId ?? '?'} · назначение #${membership.id}`
             : ''
 
+        const duplicateKey = String(
+          membership.subjectId
+        )
+        const duplicateIndex =
+          (membershipIndexBySubject.get(
+            duplicateKey
+          ) ?? 0) + 1
+
+        membershipIndexBySubject.set(
+          duplicateKey,
+          duplicateIndex
+        )
+
         return {
           value: membership.id,
           subjectId:
@@ -202,7 +217,7 @@ export function useTeacherSubjects() {
           label: authStore.isAdminMode
             ? `${baseLabel}${adminSuffix}`
             : duplicates > 1
-              ? `${baseLabel} — назначение #${membership.id}`
+              ? `${baseLabel} — назначение ${duplicateIndex}`
               : baseLabel,
         }
       }

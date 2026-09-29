@@ -205,7 +205,7 @@ const contextHint = computed(() => {
   }
 
   if (!selectedSubject.value) {
-    return `Выбрано назначение #${selectedMembership.value.id}.`
+    return 'Выбрано назначение преподавателя.'
   }
 
   return `Предмет «${selectedSubject.value.name}». Лекций в выбранном назначении: ${lectures.value.length}.`
@@ -610,7 +610,7 @@ onMounted(async () => {
     >
       <div class="teacher-stack">
         <p class="teacher-lecture-dialog-copy">
-          Файл «{{ materialDeleteTarget?.fileName || `Материал #${materialDeleteTarget?.id ?? ''}` }}» будет удалён из лекции.
+          Файл «{{ materialDeleteTarget?.fileName || 'Материал без названия' }}» будет удалён из лекции.
         </p>
 
         <UiAlert

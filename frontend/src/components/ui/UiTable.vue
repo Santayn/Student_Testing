@@ -80,10 +80,6 @@ function sortIcon(column) {
   return sortDirection.value === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'
 }
 
-function rowKeyValue(row, index) {
-  if (typeof props.rowKey === 'function') return props.rowKey(row, index)
-  return getByPath(row, props.rowKey) ?? index
-}
 </script>
 
 <template>

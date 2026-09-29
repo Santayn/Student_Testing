@@ -272,7 +272,7 @@ const breadcrumbs = computed(() => {
       parts.push(
         `Предмет: ${
           subject.name ||
-          `#${subject.id}`
+          'без названия'
         }`
       )
     }

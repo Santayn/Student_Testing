@@ -171,7 +171,7 @@ const contextHint = computed(() => {
   }
 
   if (!selectedSubject.value) {
-    return `Выбрано назначение #${selectedMembership.value.id}.`
+    return 'Выбрано назначение преподавателя.'
   }
 
   return `Предмет «${selectedSubject.value.name}». Шаблонов курса: ${templates.value.length}.`
@@ -412,7 +412,7 @@ onMounted(async () => {
           <div class="teacher-entity-card__header">
             <div class="teacher-entity-card__heading">
               <span class="teacher-entity-card__eyebrow">
-                Шаблон #{{ courseTemplate.id }}
+                Шаблон курса
               </span>
 
               <h3 class="teacher-entity-card__title">
@@ -620,7 +620,7 @@ onMounted(async () => {
       :form="templateOverlay.form"
       :saving="templateOverlay.saving.value"
       :form-error="templateFormError"
-      :subject-label="selectedSubject?.name || `Предмет #${selectedSubjectId}`"
+      :subject-label="selectedSubject?.name || 'Предмет без названия'"
       @update:open="handleTemplateDrawerVisibility"
       @close="requestTemplateDrawerClose"
       @save="saveTemplate"

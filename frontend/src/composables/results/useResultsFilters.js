@@ -21,7 +21,7 @@ export function useResultsFilters() {
   function subjectLabel(subject) {
     return (
       subject.name ||
-      `Предмет #${subject.id}`
+      'Предмет без названия'
     )
   }
 
@@ -32,7 +32,7 @@ export function useResultsFilters() {
 
     const title =
       lecture.title ||
-      `Лекция #${lecture.id}`
+      'Лекция без названия'
 
     if (
       !lecture.courseName &&
@@ -58,7 +58,7 @@ export function useResultsFilters() {
   function testLabel(test) {
     return (
       test.title ||
-      `Тест #${test.id}`
+      'Тест без названия'
     )
   }
 
@@ -66,14 +66,14 @@ export function useResultsFilters() {
     return (
       group.name ||
       group.code ||
-      `Группа #${group.id}`
+      'Группа без названия'
     )
   }
 
   function studentLabel(student) {
     return (
       student.fullName ||
-      `Студент #${student.id}`
+      'Студент без имени'
     )
   }
 
@@ -101,7 +101,7 @@ export function useResultsFilters() {
         id,
         title:
           attempt.testName ||
-          `Тест #${id}`,
+          'Тест без названия',
       })
     })
 

@@ -10,7 +10,6 @@ import {
 export function useCourseTemplateEditors({
   versions,
   selectedTemplate,
-  selectedSubjectId,
   canWorkWithTemplates,
   templateCreationAllowed,
   notice,
