@@ -14,6 +14,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiInput,
 } from '@/components/ui'
 
@@ -303,10 +304,10 @@ onMounted(() => loadProfile())
         :message="studentError"
       />
 
-      <UiEmptyState
+      <UiLoadingState
         v-if="studentLoading"
-        description="Загрузка данных студента..."
         compact
+        label="Загрузка данных студента..."
       />
 
       <template v-else>
@@ -376,10 +377,10 @@ onMounted(() => loadProfile())
         :message="teacherError"
       />
 
-      <UiEmptyState
+      <UiLoadingState
         v-if="teacherLoading"
-        description="Загрузка данных преподавателя..."
         compact
+        label="Загрузка данных преподавателя..."
       />
 
       <div v-else class="teacher-grid">

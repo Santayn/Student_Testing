@@ -357,8 +357,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-sidebar {
-  width: 250px;
-  min-width: 250px;
+  width: var(--st-sidebar-width);
+  min-width: var(--st-sidebar-width);
 
   align-self: flex-start;
 

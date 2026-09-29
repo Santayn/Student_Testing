@@ -14,6 +14,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiInput,
   UiSelect,
@@ -318,10 +319,10 @@ onMounted(loadFaculties)
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка факультетов..."
           compact
+          label="Загрузка факультетов..."
         />
 
         <UiEmptyState

@@ -1,10 +1,11 @@
 <script setup>
+import WorkspacePageShell from '@/components/layout/WorkspacePageShell.vue'
+
 defineProps({
   title: {
     type: String,
     required: true,
   },
-
   subtitle: {
     type: String,
     default: '',
@@ -13,41 +14,25 @@ defineProps({
 </script>
 
 <template>
-  <section class="teacher-page">
-    <header class="teacher-page__header">
-      <div class="teacher-page__heading">
-        <h1 class="teacher-page__title">
-          {{ title }}
-        </h1>
-
-        <p
-          v-if="subtitle"
-          class="teacher-page__subtitle"
-        >
-          {{ subtitle }}
-        </p>
-      </div>
-
-      <div
-        v-if="$slots.actions"
-        class="teacher-page__header-actions"
-      >
-        <slot name="actions" />
-      </div>
-    </header>
+  <WorkspacePageShell
+    class="teacher-page"
+    :title="title"
+    :subtitle="subtitle"
+  >
+    <template
+      v-if="$slots.actions"
+      #actions
+    >
+      <slot name="actions" />
+    </template>
 
     <slot />
-  </section>
+  </WorkspacePageShell>
 </template>
 
 <style>
 .teacher-page {
-  color: var(--st-text);
-  width: 100%;
   min-width: 0;
-
-  display: grid;
-  gap: 18px;
 }
 
 .teacher-page__header {

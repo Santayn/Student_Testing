@@ -15,6 +15,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiSelect,
   UiTag,
@@ -322,10 +323,10 @@ onMounted(loadBaseData)
           title="Назначенные предметы"
           description="Предметы, которые уже доступны этому факультету."
         >
-          <UiEmptyState
+          <UiLoadingState
             v-if="loadingAssigned"
-            description="Загрузка предметов факультета..."
             compact
+            label="Загрузка предметов факультета..."
           />
 
           <UiEmptyState
@@ -378,10 +379,10 @@ onMounted(loadBaseData)
           title="Доступные предметы"
           description="Предметы из справочника, которые ещё не связаны с факультетом."
         >
-          <UiEmptyState
+          <UiLoadingState
             v-if="loadingAssigned"
-            description="Загрузка доступных предметов..."
             compact
+            label="Загрузка доступных предметов..."
           />
 
           <UiEmptyState

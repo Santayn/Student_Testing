@@ -27,6 +27,7 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
+  UiLoadingState,
   UiTag,
 } from '@/components/ui'
 
@@ -621,17 +622,16 @@ onMounted(loadLecture)
 <template>
   <LecturesPageShell :title="pageTitle" :subtitle="lectureMeta" narrow>
     <template #actions>
-      <UiButton :loading="loading" loading-text="Обновление..." @click="loadLecture">
+      <UiButton variant="secondary" :loading="loading" loading-text="Обновление..." @click="loadLecture">
         Обновить
       </UiButton>
     </template>
 
     <UiAlert v-if="error" variant="danger" :message="error" />
 
-    <UiEmptyState
+    <UiLoadingState
       v-if="loading && !lecture"
-      title="Загружаем лекцию"
-      description="Получаем описание, материалы и доступные тесты."
+      label="Загружаем лекцию"
     />
 
     <template v-else-if="lecture">
@@ -645,7 +645,7 @@ onMounted(loadLecture)
           <div class="lecture-overview__meta">
             <UiTag v-if="lecture.courseName" :value="lecture.courseName" />
             <UiTag
-              v-if="lecture.versionNumber != null"
+              v-if="!authStore.isStudentMode && lecture.versionNumber != null"
               variant="info"
               :value="`Версия ${lecture.versionNumber}`"
             />
@@ -724,9 +724,6 @@ onMounted(loadLecture)
               {{ testItem.canResume ? 'Продолжить тест' : 'Пройти тест' }}
             </UiButton>
 
-            <UiButton v-else disabled>
-              {{ testStatusTitle(testItem) }}
-            </UiButton>
           </article>
         </div>
       </UiCard>

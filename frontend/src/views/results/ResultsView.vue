@@ -13,7 +13,10 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
+  UiLoadingState,
   UiSelect,
+  UiStatGrid,
+  UiStat,
 } from '@/components/ui'
 
 import {
@@ -144,8 +147,7 @@ const pageSubtitle = computed(() => {
   }
 
   return (
-    'Здесь отображаются только ваши собственные результаты тестирования. ' +
-    'Можно выбрать предмет и конкретный тест; итог теста считается по лучшей попытке.'
+    'Ваши завершённые попытки и лучший результат по выбранному тесту.'
   )
 })
 
@@ -408,12 +410,13 @@ onMounted(init)
     />
 
     <UiCard
-      title="Фильтры"
+      :title="teacherMode ? 'Фильтры' : 'Фильтр результатов'"
       :description="
         teacherMode
           ? 'Фильтры преподавателя применяются последовательно.'
-          : 'Можно выбрать предмет и тест. Сводка выбранного теста строится по лучшей попытке.'
+          : 'Необязательно: сузьте список до предмета или конкретного теста.'
       "
+      :class="{ 'results-filter-card--student': !teacherMode }"
     >
       <div
         class="results-filters"
@@ -553,71 +556,60 @@ onMounted(init)
         :message="statsMessage"
       />
 
-      <div
+      <UiStatGrid
         v-if="
           resultData &&
           (teacherMode || studentBestAttempt)
         "
-        class="results-stat-grid"
       >
-        <div class="results-stat">
-          <span>
+        <UiStat>
+          <template #label>
             {{
               teacherMode
                 ? 'Попыток'
                 : 'Попыток по тесту'
             }}
-          </span>
+          </template>
 
-          <strong>
-            {{ displayedAttemptCount }}
-          </strong>
-        </div>
+          {{ displayedAttemptCount }}
+        </UiStat>
 
-        <div class="results-stat">
-          <span>Правильных</span>
+        <UiStat>
+          <template #label>Правильных</template>
 
-          <strong>
-            <template v-if="teacherMode">
-              {{ stats.right ?? 0 }}
-            </template>
-            <template v-else>
-              {{ stats.right ?? 0 }}
-              из
-              {{ stats.total ?? 0 }}
-            </template>
-          </strong>
-        </div>
+          <template v-if="teacherMode">
+            {{ stats.right ?? 0 }}
+          </template>
+          <template v-else>
+            {{ stats.right ?? 0 }}
+            из
+            {{ stats.total ?? 0 }}
+          </template>
+        </UiStat>
 
-        <div class="results-stat">
-          <span>
+        <UiStat>
+          <template #label>
             {{
               teacherMode
                 ? 'Всего ответов'
                 : 'Баллы'
             }}
-          </span>
+          </template>
 
-          <strong>
-            <template v-if="teacherMode">
-              {{ stats.total ?? 0 }}
-            </template>
-            <template v-else>
-              {{ formatScoreNumber(studentBestScore.score) }}
-              из
-              {{ formatScoreNumber(studentBestScore.maxScore) }}
-            </template>
-          </strong>
-        </div>
+          <template v-if="teacherMode">
+            {{ stats.total ?? 0 }}
+          </template>
+          <template v-else>
+            {{ formatScoreNumber(studentBestScore.score) }}
+            из
+            {{ formatScoreNumber(studentBestScore.maxScore) }}
+          </template>
+        </UiStat>
 
-        <div class="results-stat">
-          <span>Процент</span>
-
-          <strong>
-            {{ formatScoreNumber(displayedPercent) }}%
-          </strong>
-        </div>
-      </div>
+        <UiStat label="Процент">
+          {{ formatScoreNumber(displayedPercent) }}%
+        </UiStat>
+      </UiStatGrid>
     </UiCard>
 
     <UiCard
@@ -628,17 +620,17 @@ onMounted(init)
           : 'Показаны все ваши завершённые попытки; лучшая попытка выбранного теста отмечена отдельно.'
       "
     >
-      <UiEmptyState
+      <UiLoadingState
         v-if="loadingInitial"
-        description="Загрузка страницы результатов..."
+        label="Загрузка страницы результатов..."
       />
 
-      <UiEmptyState
+      <UiLoadingState
         v-else-if="
           loadingResults &&
           !resultData
         "
-        description="Загрузка результатов..."
+        label="Загрузка результатов..."
       />
 
       <UiEmptyState
@@ -716,39 +708,6 @@ onMounted(init)
 
   font-size: 13px;
   line-height: 1.5;
-}
-
-.results-stat-grid {
-  margin-top: 14px;
-
-  display: grid;
-  grid-template-columns:
-    repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.results-stat {
-  padding: 12px;
-
-  display: grid;
-  gap: 5px;
-
-  color: var(--st-text);
-  background: var(--st-surface-muted);
-
-  border: 1px solid var(--st-border);
-  border-radius: 9px;
-}
-
-.results-stat span {
-  color: var(--st-text-secondary);
-
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.results-stat strong {
-  font-size: 20px;
 }
 
 .results-attempts {

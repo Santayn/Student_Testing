@@ -67,8 +67,6 @@ const metaText = computed(() => {
       displayAttempt.value.studentName ||
       'Студент без имени'
     )
-  } else {
-    parts.push('Ваша попытка')
   }
 
   if (displayAttempt.value.attemptOrdinal) {

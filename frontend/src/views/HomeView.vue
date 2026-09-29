@@ -128,6 +128,36 @@ const workspaceSummary = computed(() => {
   }
 })
 
+const studentActions = computed(() => {
+  if (!authStore.isStudentMode) {
+    return []
+  }
+
+  return [
+    {
+      title: 'Мои предметы',
+      description: 'Откройте доступные предметы, лекции и учебные материалы.',
+      icon: 'pi pi-book',
+      route: { name: 'subjects' },
+      action: 'Перейти к предметам',
+    },
+    {
+      title: 'Мои результаты',
+      description: 'Посмотрите завершённые тесты и результаты своих попыток.',
+      icon: 'pi pi-chart-bar',
+      route: { name: 'results' },
+      action: 'Открыть результаты',
+    },
+    {
+      title: 'Профиль',
+      description: 'Проверьте данные учётной записи и текущий рабочий режим.',
+      icon: 'pi pi-user',
+      route: { name: 'profile' },
+      action: 'Открыть профиль',
+    },
+  ]
+})
+
 async function refreshUser() {
   try {
     await authStore.refreshIdentity()
@@ -157,9 +187,12 @@ async function refreshUser() {
         </h1>
 
         <p class="welcome-panel__description">
-          Это обзор текущего рабочего пространства.
-          Основная навигация теперь находится в боковом меню,
-          поэтому главная страница не дублирует его пункты.
+          <template v-if="authStore.isStudentMode">
+            Продолжайте обучение, открывайте свои предметы и просматривайте результаты тестов.
+          </template>
+          <template v-else>
+            Это обзор текущего рабочего пространства и доступных направлений работы.
+          </template>
         </p>
       </div>
 
@@ -191,23 +224,47 @@ async function refreshUser() {
         </p>
 
         <div
-          v-if="workspaceSummary.areas.length"
-          class="workspace-areas"
-          aria-label="Доступные направления работы"
+          v-if="authStore.isStudentMode"
+          class="student-quick-actions"
         >
-          <UiTag
-            v-for="area in workspaceSummary.areas"
-            :key="area"
-            variant="secondary"
+          <article
+            v-for="action in studentActions"
+            :key="action.title"
+            class="student-quick-action"
           >
-            {{ area }}
-          </UiTag>
+            <div class="student-quick-action__icon" aria-hidden="true">
+              <i :class="action.icon" />
+            </div>
+
+            <div class="student-quick-action__copy">
+              <h3>{{ action.title }}</h3>
+              <p>{{ action.description }}</p>
+            </div>
+
+            <UiButton
+              :to="action.route"
+              variant="primary"
+            >
+              {{ action.action }}
+            </UiButton>
+          </article>
         </div>
 
-        <p class="home-panel__hint">
-          Для перехода между разделами используйте Sidebar слева.
-          На узких экранах он открывается отдельной кнопкой меню.
-        </p>
+        <template v-else>
+          <div
+            v-if="workspaceSummary.areas.length"
+            class="workspace-areas"
+            aria-label="Доступные направления работы"
+          >
+            <UiTag
+              v-for="area in workspaceSummary.areas"
+              :key="area"
+              variant="secondary"
+            >
+              {{ area }}
+            </UiTag>
+          </div>
+        </template>
       </article>
 
       <article class="home-panel">
@@ -388,6 +445,65 @@ async function refreshUser() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.student-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.student-quick-action {
+  min-width: 0;
+  padding: 16px;
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-md);
+}
+
+.student-quick-action__icon {
+  width: 42px;
+  height: 42px;
+
+  display: grid;
+  place-items: center;
+
+  color: var(--st-primary-soft-text);
+  background: var(--st-primary-soft);
+  border-radius: var(--st-radius-control);
+}
+
+.student-quick-action__copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.student-quick-action h3,
+.student-quick-action p {
+  margin: 0;
+}
+
+.student-quick-action h3 {
+  font-size: var(--st-font-lg);
+  line-height: var(--st-line-tight);
+}
+
+.student-quick-action p {
+  color: var(--st-text-secondary);
+  font-size: var(--st-font-sm);
+  line-height: var(--st-line-normal);
+}
+
+.student-quick-action :deep(.st-ui-link-button) {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .account-summary {

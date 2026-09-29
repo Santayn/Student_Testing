@@ -15,6 +15,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiInput,
   UiSelect,
@@ -375,10 +376,10 @@ onMounted(loadData)
           message="Сначала создайте хотя бы один факультет — без факультета учебную группу создать нельзя."
         />
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка групп..."
           compact
+          label="Загрузка групп..."
         />
 
         <UiEmptyState

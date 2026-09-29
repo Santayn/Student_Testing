@@ -10,6 +10,17 @@ html[data-theme='light'] {
     Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
 
+  /* Typography */
+  --st-font-xs: 0.75rem;
+  --st-font-sm: 0.8125rem;
+  --st-font-md: 0.875rem;
+  --st-font-lg: 1rem;
+  --st-font-xl: 1.25rem;
+  --st-font-page-title: clamp(1.5rem, 3vw, 2rem);
+  --st-line-tight: 1.2;
+  --st-line-normal: 1.45;
+  --st-line-relaxed: 1.6;
+
   /* Brand */
   --st-primary: #2563eb;
   --st-primary-hover: #1d4ed8;
@@ -33,7 +44,8 @@ html[data-theme='light'] {
   --st-border: #e2e8f0;
   --st-text: #0f172a;
   --st-text-secondary: #64748b;
-  --st-text-muted: #94a3b8;
+  --st-text-muted: #64748b;
+  --st-text-subtle: #94a3b8;
   --st-overlay-backdrop: rgb(15 23 42 / 46%);
 
   /* Semantic */
@@ -107,7 +119,8 @@ html[data-theme='dark'] {
   --st-border: #2a3038;
   --st-text: #d7dbe0;
   --st-text-secondary: #aab1bb;
-  --st-text-muted: #78818d;
+  --st-text-muted: #8e97a3;
+  --st-text-subtle: #78818d;
   --st-overlay-backdrop: rgb(0 0 0 / 68%);
 
   --st-success: #4fa56f;

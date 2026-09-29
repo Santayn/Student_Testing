@@ -1,15 +1,15 @@
 <script setup>
+import WorkspacePageShell from '@/components/layout/WorkspacePageShell.vue'
+
 defineProps({
   title: {
     type: String,
     required: true,
   },
-
   subtitle: {
     type: String,
     default: '',
   },
-
   narrow: {
     type: Boolean,
     default: false,
@@ -18,149 +18,19 @@ defineProps({
 </script>
 
 <template>
-  <section
-    class="tests-page"
-    :class="{
-      'tests-page--narrow':
-        narrow,
-    }"
+  <WorkspacePageShell
+    :title="title"
+    :subtitle="subtitle"
+    :narrow="narrow"
+    narrow-width="920px"
   >
-    <header class="tests-page__header">
-      <div class="tests-page__header-copy">
-        <h1 class="tests-page__title">
-          {{ title }}
-        </h1>
+    <template
+      v-if="$slots.actions"
+      #actions
+    >
+      <slot name="actions" />
+    </template>
 
-        <p
-          v-if="subtitle"
-          class="tests-page__subtitle"
-        >
-          {{ subtitle }}
-        </p>
-      </div>
-
-      <div
-        v-if="$slots.actions"
-        class="tests-page__actions"
-      >
-        <slot name="actions" />
-      </div>
-    </header>
-
-    <div class="tests-page__content">
-      <slot />
-    </div>
-  </section>
+    <slot />
+  </WorkspacePageShell>
 </template>
-
-<style scoped>
-.tests-page {
-  color: var(--st-text);
-  width: 100%;
-
-  margin: 0 auto;
-  padding: 0 0 24px;
-
-  display: grid;
-  gap: 18px;
-}
-
-.tests-page--narrow {
-  width: min(920px, 100%);
-}
-
-.tests-page__header {
-  padding: 20px;
-
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-
-  color: var(--st-text);
-  background: var(--st-surface);
-
-  border: 1px solid var(--st-border);
-  border-radius: 14px;
-}
-
-.tests-page__header-copy {
-  min-width: 0;
-
-  display: grid;
-  gap: 7px;
-}
-
-.tests-page__title,
-.tests-page__subtitle {
-  margin: 0;
-}
-
-.tests-page__title {
-  font-size: clamp(
-    24px,
-    4vw,
-    32px
-  );
-  line-height: 1.15;
-}
-
-.tests-page__subtitle {
-  max-width: 780px;
-
-  color: var(--st-text-secondary);
-
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.tests-page__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.tests-page__content {
-  min-width: 0;
-
-  display: grid;
-  gap: 16px;
-}
-
-@media (max-width: 720px) {
-  .tests-page {
-    padding: 0 0 18px;
-  }
-
-  .tests-page__header {
-    padding: 16px;
-
-    flex-direction: column;
-  }
-
-  .tests-page__actions {
-    width: 100%;
-
-    justify-content: stretch;
-  }
-
-  .tests-page__actions :deep(.st-ui-button),
-  .tests-page__actions :deep(.st-ui-link-button) {
-    flex: 1 1 auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .tests-page__actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .tests-page__actions :deep(.st-ui-button),
-  .tests-page__actions :deep(.st-ui-link-button) {
-    width: 100%;
-  }
-}
-</style>

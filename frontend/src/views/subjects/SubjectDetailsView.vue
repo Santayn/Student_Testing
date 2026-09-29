@@ -27,8 +27,7 @@ import {
   UiAlert,
   UiButton,
   UiCard,
-  UiEmptyState,
-  UiTag,
+  UiLoadingState,
 } from '@/components/ui'
 
 import {
@@ -90,8 +89,7 @@ const pageSubtitle = computed(() => {
 
   if (authStore.isStudentMode) {
     return (
-      'Маршрут студента: ' +
-      'предмет, лекции, тесты.'
+      'Материалы, лекции и тесты по предмету.'
     )
   }
 
@@ -229,10 +227,9 @@ onMounted(loadSubject)
   <SubjectsPageShell :title="pageTitle" :subtitle="pageSubtitle" narrow>
     <UiAlert v-if="error" variant="danger" :message="error" />
 
-    <UiEmptyState
+    <UiLoadingState
       v-if="loading && !subject"
-      title="Загружаем предмет"
-      description="Получаем описание и доступные разделы."
+      label="Загружаем предмет"
     />
 
     <template v-else-if="subject">
@@ -240,9 +237,6 @@ onMounted(loadSubject)
         <div class="subject-hero">
           <div class="subject-hero__icon" aria-hidden="true"><i class="pi pi-book" /></div>
           <div class="subject-hero__copy">
-            <div class="subject-hero__meta">
-              <UiTag :value="`ID ${subject.id ?? '—'}`" />
-            </div>
             <p>{{ subject.description || 'Описание предмета пока не заполнено.' }}</p>
           </div>
         </div>
@@ -251,9 +245,9 @@ onMounted(loadSubject)
       <section class="subject-destinations">
         <article class="subject-destination">
           <div>
-            <span class="subject-destination__eyebrow">Учебный раздел</span>
+            <span class="subject-destination__eyebrow">Продолжить обучение</span>
             <h2>Лекции</h2>
-            <p>Материалы, опубликованные лекции и доступные тесты по предмету.</p>
+            <p>Откройте лекции, материалы и доступные тесты по этому предмету.</p>
           </div>
           <UiButton
             variant="primary"

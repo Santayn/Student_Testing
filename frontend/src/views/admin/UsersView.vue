@@ -12,6 +12,7 @@ import AdminUserDrawer from '@/components/admin/AdminUserDrawer.vue'
 import {
   UiButton,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiSelect,
   UiTag,
@@ -420,9 +421,9 @@ onMounted(loadData)
         </template>
       </UiFilterBar>
 
-      <UiEmptyState
+      <UiLoadingState
         v-if="loading"
-        description="Загрузка пользователей..."
+        label="Загрузка пользователей..."
       />
 
       <UiEmptyState

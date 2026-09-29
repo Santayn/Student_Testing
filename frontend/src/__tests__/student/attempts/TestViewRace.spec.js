@@ -127,6 +127,34 @@ const UiAlertStub = defineComponent({
   `,
 })
 
+
+const UiCardStub = defineComponent({
+  name: 'UiCard',
+  template: `
+    <section data-testid="ui-card">
+      <slot />
+    </section>
+  `,
+})
+
+const UiInputStub = defineComponent({
+  name: 'UiInput',
+  props: {
+    modelValue: {
+      type: [String, Number],
+      default: '',
+    },
+  },
+  emits: ['update:modelValue'],
+  template: `
+    <input
+      data-testid="text-answer"
+      :value="modelValue"
+      @input="$emit('update:modelValue', $event.target.value)"
+    />
+  `,
+})
+
 const mountedWrappers = []
 
 function mountTestView() {
@@ -136,6 +164,8 @@ function mountTestView() {
         TestsPageShell: TestsPageShellStub,
         UiButton: UiButtonStub,
         UiAlert: UiAlertStub,
+        UiCard: UiCardStub,
+        UiInput: UiInputStub,
       },
     },
   })
@@ -202,6 +232,20 @@ function setRoute(
     String(testId)
   routerState.route.query.assignmentId =
     String(assignmentId)
+}
+
+async function settleView() {
+  await flushPromises()
+  await nextTick()
+  await flushPromises()
+}
+
+async function answerCurrentQuestion(wrapper) {
+  const input = wrapper.find('[data-testid="text-answer"]')
+
+  if (input.exists()) {
+    await input.setValue('Ответ для отправки')
+  }
 }
 
 function submitButton(wrapper) {
@@ -296,6 +340,7 @@ describe('TestView request context integrity', () => {
         .text()
     ).toBe('Новый тест')
 
+    await answerCurrentQuestion(wrapper)
     await submitButton(wrapper)
       .trigger('click')
 
@@ -340,6 +385,7 @@ describe('TestView request context integrity', () => {
 
     await flushPromises()
 
+    await answerCurrentQuestion(wrapper)
     await submitButton(wrapper)
       .trigger('click')
 
@@ -415,7 +461,7 @@ describe('TestView request context integrity', () => {
     const wrapper =
       mountTestView()
 
-    await flushPromises()
+    await settleView()
 
     const alert =
       wrapper.get('[data-testid="alert"]')
@@ -446,7 +492,7 @@ describe('TestView request context integrity', () => {
     const wrapper =
       mountTestView()
 
-    await flushPromises()
+    await settleView()
 
     const alert =
       wrapper.get('[data-testid="alert"]')
@@ -487,6 +533,7 @@ describe('TestView request context integrity', () => {
 
     await flushPromises()
 
+    await answerCurrentQuestion(wrapper)
     await submitButton(wrapper)
       .trigger('click')
 
@@ -507,6 +554,7 @@ describe('TestView request context integrity', () => {
       submitButton(wrapper).attributes('disabled')
     ).toBeDefined()
 
+    await answerCurrentQuestion(wrapper)
     await submitButton(wrapper)
       .trigger('click')
 

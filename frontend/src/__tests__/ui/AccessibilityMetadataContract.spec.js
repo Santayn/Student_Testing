@@ -41,6 +41,13 @@ describe('accessibility and metadata contracts', () => {
     expect(app).toContain('<main')
     expect(app).toContain('tabindex="-1"')
 
+    const workspaceShell = sourceFromSrc(
+      'components/layout/WorkspacePageShell.vue'
+    )
+
+    expect(workspaceShell).not.toContain('<main')
+    expect(workspaceShell).toContain('<section')
+
     for (const shell of [
       'components/subjects/SubjectsPageShell.vue',
       'components/lectures/LecturesPageShell.vue',
@@ -50,7 +57,7 @@ describe('accessibility and metadata contracts', () => {
       const source = sourceFromSrc(shell)
 
       expect(source).not.toContain('<main')
-      expect(source).toContain('<section')
+      expect(source).toContain('WorkspacePageShell')
     }
   })
 

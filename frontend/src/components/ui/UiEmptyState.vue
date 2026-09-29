@@ -25,7 +25,7 @@ defineProps({
   background: color-mix(in srgb, var(--st-surface-muted) 72%, var(--st-surface));
   border: 1px dashed color-mix(in srgb, var(--st-border) 86%, var(--st-text-muted));
   border-radius: var(--st-radius-card);
-  font-size: 13px;
+  font-size: var(--st-font-sm);
   text-align: center;
 }
 
@@ -35,14 +35,14 @@ defineProps({
 
 .st-ui-empty__title {
   color: var(--st-text);
-  font-size: 14px;
+  font-size: var(--st-font-md);
   font-weight: 700;
 }
 
 .st-ui-empty__description {
   margin: 0;
   color: var(--st-text-secondary);
-  line-height: 1.5;
+  line-height: var(--st-line-normal);
 }
 
 .st-ui-empty__content {

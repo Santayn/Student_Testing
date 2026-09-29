@@ -4,6 +4,7 @@ import {
   onBeforeUnmount,
   onMounted,
   reactive,
+  ref,
   watch,
 } from 'vue'
 
@@ -25,6 +26,11 @@ import {
 } from '@/utils/matchingPairs'
 
 import {
+  isQuestionAnswered,
+  testAnswerProgress,
+} from '@/utils/testAnswerProgress'
+
+import {
   useAttemptDraft,
 } from '@/composables/tests/useAttemptDraft'
 
@@ -37,9 +43,13 @@ import {
   UiButton,
   UiCard,
   UiCheckbox,
+  UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiInput,
   UiRadio,
+  UiStat,
+  UiStatGrid,
   UiTag,
 } from '@/components/ui'
 
@@ -58,6 +68,8 @@ const textAnswers =
 
 const matchingAnswers =
   reactive({})
+
+const showIncompleteSubmitDialog = ref(false)
 
 const testId = computed(() => {
   const value =
@@ -183,7 +195,7 @@ const pageSubtitle = computed(() => {
 
   return (
     `Вопросов: ${questionCount}, ` +
-    `попыток: ${
+    `разрешено попыток: ${
       test.value.attemptsAllowed ??
       '—'
     }`
@@ -277,6 +289,71 @@ function hasChoiceOptions(question) {
     choiceOptions(question).length > 0
   )
 }
+
+const answerState = computed(() => ({
+  single: singleAnswers,
+  multiple: multipleAnswers,
+  text: textAnswers,
+  matching: matchingAnswers,
+}))
+
+const progress = computed(() => (
+  testAnswerProgress(
+    questions.value,
+    answerState.value
+  )
+))
+
+function questionAnswered(question) {
+  return isQuestionAnswered(
+    question,
+    answerState.value
+  )
+}
+
+async function requestSubmit() {
+  if (
+    submitting.value ||
+    submitted.value ||
+    submitOutcomeUnknown.value ||
+    !questions.value.length
+  ) {
+    return
+  }
+
+  if (progress.value.unanswered > 0) {
+    showIncompleteSubmitDialog.value = true
+    return
+  }
+
+  await submitTest()
+}
+
+async function confirmIncompleteSubmit() {
+  showIncompleteSubmitDialog.value = false
+  await submitTest()
+}
+
+const lectureRoute = computed(() => {
+  const lectureId = Number(route.query.lectureId)
+
+  if (!Number.isFinite(lectureId) || lectureId <= 0) {
+    return null
+  }
+
+  return {
+    name: 'lecture-details',
+    params: { lectureId },
+    query: {
+      ...(route.query.subjectId
+        ? { subjectId: route.query.subjectId }
+        : {}),
+      ...(route.query.facultyId
+        ? { facultyId: route.query.facultyId }
+        : {}),
+    },
+  }
+})
 
 function matchingPrompts(question) {
   return Array.isArray(
@@ -541,7 +618,7 @@ onBeforeUnmount(() => {
           submitOutcomeUnknown ||
           !questions.length
         "
-        @click="submitTest"
+        @click="requestSubmit"
       >
         Завершить тест
       </UiButton>
@@ -553,9 +630,9 @@ onBeforeUnmount(() => {
       :message="error"
     />
 
-    <UiEmptyState
+    <UiLoadingState
       v-if="loading"
-      description="Загрузка теста..."
+      label="Загрузка теста..."
     />
 
     <UiEmptyState
@@ -566,13 +643,37 @@ onBeforeUnmount(() => {
       description="В этом тесте пока нет вопросов."
     />
 
-    <div
-      v-else-if="questions.length"
-      class="test-questions"
-    >
+    <template v-else-if="questions.length">
+      <section
+        v-if="!submitted"
+        class="test-progress"
+        aria-label="Прогресс теста"
+      >
+        <div class="test-progress__copy">
+          <span>Прогресс</span>
+          <strong>{{ progress.answered }} из {{ progress.total }} отвечено</strong>
+        </div>
+
+        <div
+          class="test-progress__track"
+          role="progressbar"
+          :aria-valuenow="progress.answered"
+          aria-valuemin="0"
+          :aria-valuemax="progress.total"
+          :aria-label="`${progress.answered} из ${progress.total} вопросов отвечено`"
+        >
+          <span :style="{ width: `${progress.percent}%` }" />
+        </div>
+      </section>
+
+      <div class="test-questions">
       <UiCard
         v-for="(question, index) in questions"
         :key="question.id"
+        class="test-question-card"
+        :class="{
+          'test-question-card--answered': questionAnswered(question),
+        }"
         compact
       >
         <div class="test-question">
@@ -584,6 +685,11 @@ onBeforeUnmount(() => {
             />
             <UiTag
               :value="questionTypeLabel(question)"
+            />
+            <UiTag
+              v-if="!submitted"
+              :variant="questionAnswered(question) ? 'success' : 'secondary'"
+              :value="questionAnswered(question) ? 'Ответ дан' : 'Нет ответа'"
             />
           </div>
 
@@ -692,18 +798,32 @@ onBeforeUnmount(() => {
         </div>
       </UiCard>
 
-      <UiButton
-        variant="primary"
-        size="lg"
-        block
-        :loading="submitting"
-        loading-text="Отправка ответов..."
-        :disabled="submitted || submitOutcomeUnknown"
-        @click="submitTest"
+      </div>
+
+      <div
+        v-if="!submitted"
+        class="test-submit-bar"
       >
-        Завершить тест
-      </UiButton>
-    </div>
+        <div class="test-submit-bar__copy">
+          <strong>{{ progress.answered }} из {{ progress.total }} отвечено</strong>
+          <span v-if="progress.unanswered">
+            Без ответа: {{ progress.unanswered }}
+          </span>
+          <span v-else>Все вопросы заполнены</span>
+        </div>
+
+        <UiButton
+          variant="primary"
+          size="lg"
+          :loading="submitting"
+          loading-text="Отправка ответов..."
+          :disabled="submitOutcomeUnknown"
+          @click="requestSubmit"
+        >
+          Завершить тест
+        </UiButton>
+      </div>
+    </template>
 
     <section
       v-if="resultData"
@@ -713,12 +833,32 @@ onBeforeUnmount(() => {
       <UiCard title="Результат">
         <UiAlert
           variant="success"
-          :message="
-            `Правильных ответов: ${resultData.correctCount ?? 0} ` +
-            `из ${resultData.totalCount ?? 0}, ` +
-            `итоговый балл: ${resultData.score ?? 0}.`
-          "
+          message="Тест завершён. Результат сохранён."
         />
+
+        <UiStatGrid class="test-result__summary">
+          <UiStat
+            label="Правильных ответов"
+            :value="`${resultData.correctCount ?? 0} из ${resultData.totalCount ?? 0}`"
+          />
+          <UiStat
+            label="Итоговый балл"
+            :value="resultData.score ?? 0"
+          />
+        </UiStatGrid>
+
+        <div class="test-result__actions">
+          <UiButton :to="{ name: 'results' }" variant="primary">
+            К моим результатам
+          </UiButton>
+          <UiButton
+            v-if="lectureRoute"
+            :to="lectureRoute"
+            variant="secondary"
+          >
+            Вернуться к лекции
+          </UiButton>
+        </div>
 
         <div
           v-if="
@@ -769,6 +909,36 @@ onBeforeUnmount(() => {
         </div>
       </UiCard>
     </section>
+
+    <UiDialog
+      v-model="showIncompleteSubmitDialog"
+      title="Есть вопросы без ответа"
+      width="30rem"
+    >
+      <p class="test-submit-dialog__text">
+        Без ответа осталось: <strong>{{ progress.unanswered }}</strong>.
+        Можно вернуться к вопросам или завершить тест сейчас.
+      </p>
+
+      <template #footer>
+        <div class="test-submit-dialog__actions">
+          <UiButton
+            variant="secondary"
+            @click="showIncompleteSubmitDialog = false"
+          >
+            Вернуться к вопросам
+          </UiButton>
+          <UiButton
+            variant="primary"
+            :loading="submitting"
+            loading-text="Отправка..."
+            @click="confirmIncompleteSubmit"
+          >
+            Всё равно завершить
+          </UiButton>
+        </div>
+      </template>
+    </UiDialog>
   </TestsPageShell>
 </template>
 
@@ -776,6 +946,109 @@ onBeforeUnmount(() => {
 .test-questions {
   display: grid;
   gap: 14px;
+}
+
+
+.test-progress {
+  padding: 14px 16px;
+
+  display: grid;
+  gap: 10px;
+
+  background: var(--st-surface);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+}
+
+.test-progress__copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.test-progress__copy span {
+  color: var(--st-text-secondary);
+  font-size: var(--st-font-sm);
+}
+
+.test-progress__track {
+  height: 8px;
+  overflow: hidden;
+
+  background: var(--st-surface-muted);
+  border-radius: 999px;
+}
+
+.test-progress__track span {
+  display: block;
+  height: 100%;
+
+  background: var(--st-primary);
+  border-radius: inherit;
+  transition: width 160ms ease;
+}
+
+.test-question-card {
+  scroll-margin-top: 96px;
+}
+
+.test-question-card--answered {
+  border-color: color-mix(in srgb, var(--st-success) 32%, var(--st-border));
+}
+
+.test-submit-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+
+  padding: 12px 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  background: color-mix(in srgb, var(--st-surface) 94%, transparent);
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-card);
+  box-shadow: var(--st-shadow-elevated);
+  backdrop-filter: blur(12px);
+}
+
+.test-submit-bar__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.test-submit-bar__copy span {
+  color: var(--st-text-secondary);
+  font-size: var(--st-font-sm);
+}
+
+.test-result__summary {
+  margin-top: 14px;
+}
+
+.test-result__actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.test-submit-dialog__text {
+  margin: 0;
+  color: var(--st-text-secondary);
+  line-height: var(--st-line-relaxed);
+}
+
+.test-submit-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .test-question {
@@ -796,8 +1069,8 @@ onBeforeUnmount(() => {
 
   color: var(--st-text);
 
-  font-size: 17px;
-  line-height: 1.45;
+  font-size: var(--st-font-lg);
+  line-height: var(--st-line-normal);
 }
 
 .test-question__options {
@@ -849,7 +1122,7 @@ onBeforeUnmount(() => {
 .test-result-detail__data dt {
   color: var(--st-text-secondary);
 
-  font-size: 11px;
+  font-size: var(--st-font-xs);
   font-weight: 700;
 }
 
@@ -858,11 +1131,28 @@ onBeforeUnmount(() => {
 
   overflow-wrap: anywhere;
 
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--st-font-sm);
+  line-height: var(--st-line-normal);
 }
 
 @media (max-width: 560px) {
+  .test-progress__copy,
+  .test-submit-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .test-submit-bar {
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .test-submit-bar :deep(.st-ui-button),
+  .test-result__actions :deep(.st-ui-button),
+  .test-result__actions :deep(.st-ui-link-button),
+  .test-submit-dialog__actions :deep(.st-ui-button) {
+    width: 100%;
+  }
+
   .test-result-detail__header {
     flex-direction: column;
   }

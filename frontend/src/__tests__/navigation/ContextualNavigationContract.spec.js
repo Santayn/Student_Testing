@@ -100,7 +100,7 @@ describe('contextual navigation responsibility', () => {
     expect(subjectLectures).toContain('@click="loadLectures"')
     expect(lectureDetails).toContain('@click="loadLecture"')
     expect(lectureDetails).toContain(':to="testRoute(testItem)"')
-    expect(testView).toContain('@click="submitTest"')
+    expect(testView).toContain('@click="requestSubmit"')
     expect(teacherWorkload).toContain('workloadLectureRoute')
     expect(teacherWorkload).toContain('subjectRoute(group)')
   })

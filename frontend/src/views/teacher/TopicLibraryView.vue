@@ -20,6 +20,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiInput,
   UiSelect,
@@ -304,10 +305,10 @@ onMounted(async () => {
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка тем..."
           compact
+          label="Загрузка тем..."
         />
 
         <UiEmptyState

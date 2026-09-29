@@ -13,6 +13,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiInput,
   UiSelect,
@@ -186,9 +187,9 @@ onMounted(loadData)
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка ролей..."
+          label="Загрузка ролей..."
         />
 
         <UiEmptyState
@@ -285,9 +286,9 @@ onMounted(loadData)
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка permissions..."
+          label="Загрузка permissions..."
         />
 
         <UiEmptyState

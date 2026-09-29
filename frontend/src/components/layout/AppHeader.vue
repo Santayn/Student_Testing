@@ -536,8 +536,8 @@ onBeforeUnmount(() => {
 .mobile-menu-button {
   display: none;
 
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
 
   padding: 0;
 
@@ -643,7 +643,7 @@ onBeforeUnmount(() => {
 
   .theme-toggle {
     width: 100%;
-    height: 40px;
+    min-height: 44px;
 
     display: flex;
     align-items: center;
@@ -671,7 +671,7 @@ onBeforeUnmount(() => {
   .app-header__login-link,
   .app-header__button {
     width: 100%;
-    min-height: 40px;
+    min-height: 44px;
   }
 
   .app-header__login-link {

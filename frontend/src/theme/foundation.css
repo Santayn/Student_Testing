@@ -10,7 +10,7 @@
 
   .st-ui-field__label {
     color: var(--st-text);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
     font-weight: 650;
     line-height: 1.35;
   }
@@ -22,7 +22,7 @@
   .st-ui-field__message {
     margin: 0;
     color: var(--st-text-secondary);
-    font-size: 12px;
+    font-size: var(--st-font-xs);
     line-height: 1.4;
   }
 
@@ -51,7 +51,7 @@
   .st-ui-control--sm.p-textarea,
   .st-ui-control--sm.p-select {
     min-height: var(--st-control-height-sm);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
   }
 
   .st-ui-control--lg,
@@ -59,7 +59,7 @@
   .st-ui-control--lg.p-textarea,
   .st-ui-control--lg.p-select {
     min-height: var(--st-control-height-lg);
-    font-size: 15px;
+    font-size: var(--st-font-md);
   }
 
   .st-ui-control:focus,
@@ -153,7 +153,7 @@
     color: var(--st-text);
     background: var(--st-surface);
     border: 1px solid var(--st-border);
-    border-radius: 10px;
+    border-radius: var(--st-radius-md);
     box-shadow: var(--st-shadow-elevated);
   }
 
@@ -316,7 +316,7 @@
     min-height: var(--st-control-height);
     padding: 0 14px;
     border-radius: var(--st-radius-control);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
     font-weight: 650;
     line-height: 1;
   }
@@ -325,7 +325,7 @@
   .st-ui-link-button--sm {
     min-height: var(--st-control-height-sm);
     padding-inline: 11px;
-    font-size: 12px;
+    font-size: var(--st-font-xs);
   }
 
   .st-ui-button--lg.p-button,
@@ -594,14 +594,14 @@
   }
 
   .st-ui-choice__label {
-    font-size: 13px;
+    font-size: var(--st-font-sm);
     font-weight: 650;
     line-height: 1.35;
   }
 
   .st-ui-choice__description {
     color: var(--st-text-secondary);
-    font-size: 12px;
+    font-size: var(--st-font-xs);
     line-height: 1.4;
   }
 
@@ -630,7 +630,7 @@
   .st-ui-card.p-card .p-card-subtitle {
     margin-top: 5px;
     color: var(--st-text-secondary);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
     line-height: 1.5;
   }
 
@@ -659,7 +659,7 @@
   .st-ui-card__heading-description {
     margin-top: 5px;
     color: var(--st-text-secondary);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
     line-height: 1.5;
   }
 
@@ -828,7 +828,7 @@
   .st-ui-filter-bar__meta {
     min-width: 0;
     color: var(--st-text-secondary);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
     line-height: 1.5;
   }
 
@@ -872,7 +872,7 @@
     color: var(--st-text-secondary);
     background: var(--st-surface-muted);
     border-color: var(--st-border);
-    font-size: 12px;
+    font-size: var(--st-font-xs);
     font-weight: 700;
   }
 
@@ -889,7 +889,7 @@
     min-height: var(--st-table-row-height);
     padding: 9px 12px;
     border-color: var(--st-border);
-    font-size: 13px;
+    font-size: var(--st-font-sm);
   }
 
   .st-ui-table__sort-button {
@@ -1065,7 +1065,7 @@
     color: var(--st-text);
     background: var(--st-surface);
     border: 1px solid var(--st-border);
-    border-radius: 10px;
+    border-radius: var(--st-radius-md);
     box-shadow: var(--st-shadow-elevated);
   }
 

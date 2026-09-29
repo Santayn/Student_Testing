@@ -6,9 +6,12 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiInput,
   UiSelect,
+  UiStatGrid,
+  UiStat,
 } from '@/components/ui'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 import { useTeacherSubjects } from '@/composables/teacher/useTeacherSubjects'
@@ -147,27 +150,15 @@ onBeforeUnmount(workload.dispose)
       @close="notice.message = ''"
     />
 
-    <section class="teacher-stat-grid">
-      <div class="teacher-stat">
-        <span class="teacher-stat__label">Период</span>
-        <span class="teacher-stat__value">{{ periodLabel }}</span>
-      </div>
-
-      <div class="teacher-stat">
-        <span class="teacher-stat__label">Предметов</span>
-        <span class="teacher-stat__value">{{ subjectCount }}</span>
-      </div>
-
-      <div class="teacher-stat">
-        <span class="teacher-stat__label">Групп</span>
-        <span class="teacher-stat__value">{{ groupCount }}</span>
-      </div>
-
-      <div class="teacher-stat">
-        <span class="teacher-stat__label">Часов в неделю</span>
-        <span class="teacher-stat__value">{{ formatHours(totalHoursPerWeek) }}</span>
-      </div>
-    </section>
+    <UiStatGrid>
+      <UiStat label="Период" :value="periodLabel" />
+      <UiStat label="Предметов" :value="subjectCount" />
+      <UiStat label="Групп" :value="groupCount" />
+      <UiStat
+        label="Часов в неделю"
+        :value="formatHours(totalHoursPerWeek)"
+      />
+    </UiStatGrid>
 
     <UiCard
       title="Период"
@@ -241,10 +232,10 @@ onBeforeUnmount(workload.dispose)
           </template>
         </UiFilterBar>
 
-      <UiEmptyState
+      <UiLoadingState
         v-if="loading"
-        description="Загрузка назначенной нагрузки..."
         compact
+        label="Загрузка назначенной нагрузки..."
       />
 
       <UiEmptyState

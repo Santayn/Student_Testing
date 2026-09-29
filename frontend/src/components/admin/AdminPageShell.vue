@@ -1,4 +1,6 @@
 <script setup>
+import WorkspacePageShell from '@/components/layout/WorkspacePageShell.vue'
+
 defineProps({
   title: {
     type: String,
@@ -16,41 +18,26 @@ defineProps({
 </script>
 
 <template>
-  <div class="admin-page">
-    <header class="admin-page-header">
-      <div class="admin-page-header__copy">
-        <p class="admin-page-header__eyebrow">
-          {{ eyebrow }}
-        </p>
-
-        <h1>{{ title }}</h1>
-
-        <p
-          v-if="description"
-          class="admin-page-header__description"
-        >
-          {{ description }}
-        </p>
-      </div>
-
-      <div
-        v-if="$slots.actions"
-        class="admin-page-header__actions"
-      >
-        <slot name="actions" />
-      </div>
-    </header>
+  <WorkspacePageShell
+    class="admin-page"
+    :title="title"
+    :subtitle="description"
+    :eyebrow="eyebrow"
+  >
+    <template
+      v-if="$slots.actions"
+      #actions
+    >
+      <slot name="actions" />
+    </template>
 
     <slot />
-  </div>
+  </WorkspacePageShell>
 </template>
 
 <style>
 .admin-page {
-  color: var(--st-text);
-
-  display: grid;
-  gap: 18px;
+  min-width: 0;
 }
 
 .admin-page-header {

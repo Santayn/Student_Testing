@@ -13,9 +13,12 @@ import {
   UiButton,
   UiCard,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiInput,
   UiSelect,
+  UiStatGrid,
+  UiStat,
   UiTag,
   UiUnsavedChangesConfirm,
 } from '@/components/ui'
@@ -298,43 +301,15 @@ onMounted(async () => {
       </div>
     </UiCard>
 
-    <section class="admin-summary workload-summary">
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Назначений
-        </span>
-        <strong class="admin-stat__value">
-          {{ summary.assignments }}
-        </strong>
-      </div>
-
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Активных
-        </span>
-        <strong class="admin-stat__value">
-          {{ summary.active }}
-        </strong>
-      </div>
-
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Активных часов / нед.
-        </span>
-        <strong class="admin-stat__value">
-          {{ formatHours(summary.hours) }}
-        </strong>
-      </div>
-
-      <div class="admin-stat">
-        <span class="admin-stat__label">
-          Преподавателей
-        </span>
-        <strong class="admin-stat__value">
-          {{ summary.teachers }}
-        </strong>
-      </div>
-    </section>
+    <UiStatGrid class="workload-summary">
+      <UiStat label="Назначений" :value="summary.assignments" />
+      <UiStat label="Активных" :value="summary.active" />
+      <UiStat
+        label="Активных часов / нед."
+        :value="formatHours(summary.hours)"
+      />
+      <UiStat label="Преподавателей" :value="summary.teachers" />
+    </UiStatGrid>
 
     <UiCard
       title="Назначения"
@@ -398,10 +373,10 @@ onMounted(async () => {
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loadingAssignments || loadingContext"
-          description="Загрузка учебной нагрузки..."
           compact
+          label="Загрузка учебной нагрузки..."
         />
 
         <UiEmptyState

@@ -23,6 +23,7 @@ import {
   UiCard,
   UiCheckbox,
   UiEmptyState,
+  UiLoadingState,
   UiInput,
   UiSelect,
   UiTextarea,
@@ -487,10 +488,10 @@ onMounted(async () => {
                 compact
               />
 
-              <UiEmptyState
+              <UiLoadingState
                 v-else-if="loadingContext"
-                description="Загрузка групп..."
                 compact
+                label="Загрузка групп..."
               />
 
               <UiEmptyState
@@ -663,10 +664,10 @@ onMounted(async () => {
         title="Вопросы выбранной темы"
         :description="`Всего: ${questions.length}. Активных: ${activeQuestions.length}.`"
       >
-        <UiEmptyState
+        <UiLoadingState
           v-if="loadingQuestions"
-          description="Загрузка вопросов..."
           compact
+          label="Загрузка вопросов..."
         />
 
         <UiEmptyState

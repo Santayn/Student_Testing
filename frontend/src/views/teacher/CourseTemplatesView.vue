@@ -20,6 +20,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiSelect,
   UiUnsavedChangesConfirm,
@@ -372,10 +373,10 @@ onMounted(async () => {
         </template>
       </UiFilterBar>
 
-      <UiEmptyState
+      <UiLoadingState
         v-if="loading"
-        description="Загрузка шаблонов..."
         compact
+        label="Загрузка шаблонов..."
       />
 
       <UiEmptyState
@@ -515,10 +516,10 @@ onMounted(async () => {
         </template>
       </UiFilterBar>
 
-      <UiEmptyState
+      <UiLoadingState
         v-if="loadingVersions"
-        description="Загрузка версий..."
         compact
+        label="Загрузка версий..."
       />
 
       <UiEmptyState

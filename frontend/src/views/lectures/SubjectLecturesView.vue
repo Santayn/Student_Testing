@@ -25,6 +25,7 @@ import {
   UiAlert,
   UiButton,
   UiEmptyState,
+  UiLoadingState,
   UiTag,
 } from '@/components/ui'
 
@@ -214,10 +215,9 @@ onMounted(loadLectures)
 
     <UiAlert v-if="error" variant="danger" :message="error" />
 
-    <UiEmptyState
+    <UiLoadingState
       v-if="loading && !lectures.length"
-      title="Загружаем лекции"
-      description="Получаем доступные материалы предмета."
+      label="Загружаем лекции"
     />
 
     <UiEmptyState

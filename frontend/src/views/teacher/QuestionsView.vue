@@ -22,6 +22,7 @@ import {
   UiDialog,
   UiDrawer,
   UiEmptyState,
+  UiLoadingState,
   UiFileInput,
   UiFilterBar,
   UiInput,
@@ -538,10 +539,10 @@ onMounted(async () => {
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка вопросов..."
           compact
+          label="Загрузка вопросов..."
         />
 
         <UiEmptyState
@@ -751,10 +752,10 @@ onMounted(async () => {
           />
 
           <template v-else>
-            <UiEmptyState
+            <UiLoadingState
               v-if="loadingOptions"
-              description="Загрузка вариантов..."
               compact
+              label="Загрузка вариантов..."
             />
 
             <UiEmptyState

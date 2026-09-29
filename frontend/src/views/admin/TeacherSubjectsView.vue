@@ -15,6 +15,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiSelect,
   UiTag,
@@ -370,10 +371,10 @@ onMounted(async () => {
           title="Назначенные предметы"
           description="Активные предметы выбранного преподавателя."
         >
-          <UiEmptyState
+          <UiLoadingState
             v-if="loadingMemberships"
-            description="Загрузка назначений..."
             compact
+            label="Загрузка назначений..."
           />
 
           <UiEmptyState
@@ -450,10 +451,10 @@ onMounted(async () => {
             />
           </label>
 
-          <UiEmptyState
+          <UiLoadingState
             v-if="loadingMemberships"
-            description="Загрузка доступных предметов..."
             compact
+            label="Загрузка доступных предметов..."
           />
 
           <UiEmptyState

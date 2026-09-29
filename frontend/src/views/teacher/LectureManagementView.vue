@@ -22,6 +22,7 @@ import {
   UiCard,
   UiDialog,
   UiEmptyState,
+  UiLoadingState,
   UiFilterBar,
   UiSelect,
   UiUnsavedChangesConfirm,
@@ -433,10 +434,10 @@ onMounted(async () => {
           </template>
         </UiFilterBar>
 
-        <UiEmptyState
+        <UiLoadingState
           v-if="loading"
-          description="Загрузка лекций..."
           compact
+          label="Загрузка лекций..."
         />
 
         <UiEmptyState

@@ -21,6 +21,7 @@ import {
   UiAlert,
   UiButton,
   UiEmptyState,
+  UiLoadingState,
   UiSearchInput,
 } from '@/components/ui'
 
@@ -92,30 +93,9 @@ const metaText = computed(() => {
       )
     }
 
-    const groupNames = groups.value
-      .map(
-        (item) =>
-          item.name ||
-          item.code ||
-          'Группа без названия'
-      )
-      .join(', ')
-
-    const facultyNames = faculties.value.length
-      ? faculties.value
-          .map(
-            (item) =>
-              item.name ||
-              item.code ||
-              'Факультет без названия'
-          )
-          .join(', ')
-      : '-'
-
-    return (
-      `Активные группы: ${groupNames}. ` +
-      `Факультеты: ${facultyNames}.`
-    )
+    return subjects.value.length === 1
+      ? 'Доступен 1 предмет.'
+      : `Доступно предметов: ${subjects.value.length}.`
   }
 
   if (authStore.isTeacherMode) {
@@ -292,7 +272,9 @@ onMounted(loadSubjects)
     <section class="subjects-overview">
       <div class="subjects-overview__copy">
         <strong>{{ metaText }}</strong>
-        <span>Доступно предметов: {{ subjects.length }}</span>
+        <span v-if="!authStore.isStudentMode">
+          Доступно предметов: {{ subjects.length }}
+        </span>
       </div>
 
       <UiSearchInput
@@ -303,10 +285,9 @@ onMounted(loadSubjects)
       />
     </section>
 
-    <UiEmptyState
+    <UiLoadingState
       v-if="loading && !subjects.length"
-      title="Загружаем предметы"
-      description="Список появится после получения учебного контекста."
+      label="Загружаем предметы"
     />
 
     <UiEmptyState
@@ -336,9 +317,6 @@ onMounted(loadSubjects)
             </h2>
           </div>
 
-          <p>
-            Перейдите в предмет, чтобы открыть доступные лекции и продолжить обучение.
-          </p>
         </div>
 
         <UiButton
