@@ -8,6 +8,8 @@ import {
 
 import http from '@/api/http'
 import { coursesApi } from '@/api/courses.api'
+import { facultiesApi } from '@/api/faculties.api'
+import { groupsApi } from '@/api/groups.api'
 import { learningApi } from '@/api/learning.api'
 import { lecturesApi } from '@/api/lectures.api'
 import { questionsApi } from '@/api/questions.api'
@@ -16,6 +18,8 @@ import { resultsApi } from '@/api/results.api'
 import { subjectsApi } from '@/api/subjects.api'
 import { teachingApi } from '@/api/teaching.api'
 import { testsApi } from '@/api/tests.api'
+import { topicsApi } from '@/api/topics.api'
+import { usersApi } from '@/api/users.api'
 import { API_TIMEOUTS } from '@/api/timeouts'
 
 vi.mock('@/api/http', () => ({
@@ -262,6 +266,82 @@ describe('frontend API contracts', () => {
     )
   })
 
+
+
+  it('unpublishes a course version without a request body', async () => {
+    http.put.mockResolvedValue({ data: {} })
+
+    await coursesApi.unpublishVersion(74)
+
+    expect(http.put).toHaveBeenCalledWith(
+      '/courses/versions/74/unpublish'
+    )
+  })
+
+  it('links a subject to a faculty without an unsupported request body', async () => {
+    http.post.mockResolvedValue({})
+
+    await facultiesApi.addSubject(8, 21)
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/faculties/8/subjects/21'
+    )
+  })
+
+  it('starts a public test attempt without an unsupported request body', async () => {
+    http.post.mockResolvedValue({ data: {} })
+
+    await learningApi.startAttempt(31)
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/public/learning/test-assignments/31/attempts/start'
+    )
+  })
+
+  it('sends role ids in the backend user roles request shape', async () => {
+    http.put.mockResolvedValue({ data: {} })
+
+    await usersApi.updateRoles(12, {
+      roleIds: [2, 4],
+    })
+
+    expect(http.put).toHaveBeenCalledWith(
+      '/users/12/roles',
+      {
+        roleIds: [2, 4],
+      }
+    )
+  })
+
+  it('sends membership status in the backend status request shape', async () => {
+    http.put.mockResolvedValue({ data: {} })
+
+    await membershipsApi.updateSubjectMembershipStatus(
+      44,
+      { status: 2 }
+    )
+
+    expect(http.put).toHaveBeenCalledWith(
+      '/memberships/subjects/memberships/44/status',
+      { status: 2 }
+    )
+  })
+
+  it('replaces lecture tests using the backend testIds request shape', async () => {
+    http.put.mockResolvedValue({ data: [] })
+
+    await lecturesApi.setTests(19, {
+      testIds: [3, 5],
+    })
+
+    expect(http.put).toHaveBeenCalledWith(
+      '/lectures/19/tests',
+      {
+        testIds: [3, 5],
+      }
+    )
+  })
+
   it('deletes a test through the supported endpoint', async () => {
     http.delete.mockResolvedValue({})
 
@@ -302,4 +382,47 @@ describe('frontend API contracts', () => {
       ['/subjects', { signal }],
     ])
   })
+
+  it('forwards abort signals through context-dependent read wrappers', async () => {
+    http.get.mockResolvedValue({ data: [] })
+    const controller = new AbortController()
+    const config = { signal: controller.signal }
+
+    await topicsApi.getAll({ subjectMembershipId: 10 }, config)
+    await topicsApi.getOne(7, config)
+    await testsApi.getAll({ subjectId: 20 }, config)
+    await teachingApi.getAssignments({ semester: 2 }, config)
+    await groupsApi.getById(30, config)
+
+    expect(http.get).toHaveBeenCalledWith(
+      '/topics',
+      {
+        signal: controller.signal,
+        params: { subjectMembershipId: 10 },
+      }
+    )
+    expect(http.get).toHaveBeenCalledWith(
+      '/topics/7',
+      config
+    )
+    expect(http.get).toHaveBeenCalledWith(
+      '/tests',
+      {
+        signal: controller.signal,
+        params: { subjectId: 20 },
+      }
+    )
+    expect(http.get).toHaveBeenCalledWith(
+      '/teaching/assignments',
+      {
+        signal: controller.signal,
+        params: { semester: 2 },
+      }
+    )
+    expect(http.get).toHaveBeenCalledWith(
+      '/groups/30',
+      config
+    )
+  })
+
 })

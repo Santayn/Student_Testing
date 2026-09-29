@@ -33,7 +33,7 @@ export const coursesApi = {
     return http.put(`/courses/versions/${versionId}/publish`, {})
   },
 
-  unpublishVersion(versionId, data = undefined) {
-    return http.put(`/courses/versions/${versionId}/unpublish`, data)
+  unpublishVersion(versionId) {
+    return http.put(`/courses/versions/${versionId}/unpublish`)
   },
 }

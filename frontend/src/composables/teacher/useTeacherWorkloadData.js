@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import { getApiErrorMessage, groupsApi, teachingApi } from '@/api'
 import { listFromResponse } from '@/utils/apiData'
-import { createLatestRequestGuard } from '@/utils/latestRequest'
+import { createAbortableRequestGuard } from '@/utils/latestRequest'
 
 /** Loads only the teacher's existing assignments for the selected period. */
 export function useTeacherWorkloadData({
@@ -16,7 +16,7 @@ export function useTeacherWorkloadData({
   const loading = ref(false)
   const initialized = ref(false)
   const notice = ref({ type: 'info', message: '' })
-  const assignmentsRequest = createLatestRequestGuard()
+  const assignmentsRequest = createAbortableRequestGuard()
   let disposed = false
 
   async function loadLoadTypes() {
@@ -33,7 +33,7 @@ export function useTeacherWorkloadData({
       return
     }
 
-    const requestId =
+    const { requestId, signal } =
       assignmentsRequest.begin()
 
     const periodContext = {
@@ -74,11 +74,14 @@ export function useTeacherWorkloadData({
       const responses = await Promise.all(
         membershipSnapshot.map(
           (membership) =>
-            teachingApi.getAssignments({
-              subjectMembershipId:
-                membership.id,
-              ...periodContext,
-            })
+            teachingApi.getAssignments(
+              {
+                subjectMembershipId:
+                  membership.id,
+                ...periodContext,
+              },
+              { signal }
+            )
         )
       )
 
@@ -115,7 +118,7 @@ export function useTeacherWorkloadData({
         await Promise.all(
           groupIds.map(
             (groupId) =>
-              groupsApi.getById(groupId)
+              groupsApi.getById(groupId, { signal })
           )
         )
 

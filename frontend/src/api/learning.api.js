@@ -36,13 +36,9 @@ export const learningApi = {
     )
   },
 
-  startAttempt(
-    assignmentId,
-    data = undefined
-  ) {
+  startAttempt(assignmentId) {
     return http.post(
-      `/public/learning/test-assignments/${assignmentId}/attempts/start`,
-      data
+      `/public/learning/test-assignments/${assignmentId}/attempts/start`
     )
   },
 

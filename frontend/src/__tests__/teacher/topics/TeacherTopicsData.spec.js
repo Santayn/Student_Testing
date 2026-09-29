@@ -108,9 +108,10 @@ describe('useTeacherTopicsData', () => {
 
     await state.loadTopics()
 
-    expect(getAll).toHaveBeenCalledWith({
-      subjectMembershipId: 10,
-    })
+    expect(getAll).toHaveBeenCalledWith(
+      { subjectMembershipId: 10 },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
     expect(state.topics.value.map((topic) => topic.id))
       .toEqual([1, 2])
     expect(state.contextHint.value)
@@ -148,7 +149,10 @@ describe('useTeacherTopicsData', () => {
       openRouteTopic: true,
     })
 
-    expect(getOne).toHaveBeenCalledWith('7')
+    expect(getOne).toHaveBeenCalledWith(
+      '7',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
     expect(state.onOpenRouteTopic).toHaveBeenCalledTimes(1)
     expect(state.onOpenRouteTopic).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -206,6 +210,60 @@ describe('useTeacherTopicsData', () => {
         name: 'Новый контекст',
       }),
     ])
+  })
+
+
+  it('does not let a stale route-topic lookup consume the current deep link', async () => {
+    const firstTopic = deferred()
+    const firstSignals = []
+
+    getAll.mockImplementation((_params, config) => {
+      firstSignals.push(config.signal)
+      return Promise.resolve({ data: [] })
+    })
+    getOne
+      .mockReturnValueOnce(firstTopic.promise)
+      .mockResolvedValueOnce({
+        data: {
+          id: 7,
+          ordinal: 3,
+          name: 'Деревья',
+          subjectMembershipId: 10,
+        },
+      })
+
+    const state = createState({
+      routeQuery: { topicId: '7' },
+    })
+
+    const firstLoad = state.loadTopics({ openRouteTopic: true })
+
+    await vi.waitFor(() => {
+      expect(getOne).toHaveBeenCalledTimes(1)
+    })
+
+    const secondLoad = state.loadTopics({ openRouteTopic: true })
+
+    await secondLoad
+
+    firstTopic.resolve({
+      data: {
+        id: 7,
+        ordinal: 3,
+        name: 'Старый ответ',
+        subjectMembershipId: 10,
+      },
+    })
+    await firstLoad
+
+    expect(firstSignals[0].aborted).toBe(true)
+    expect(state.onOpenRouteTopic).toHaveBeenCalledTimes(1)
+    expect(state.onOpenRouteTopic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 7,
+        name: 'Деревья',
+      })
+    )
   })
 
   it('clears topics when there is no selected membership', async () => {

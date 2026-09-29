@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   ref,
   watch,
@@ -100,6 +101,7 @@ const {
   resetFilters,
   loadLectures,
   resetRouteLectureHandling,
+  dispose: disposeLectureData,
 } = useLectureManagementData({
   selectedMembership,
   selectedSubjectId,
@@ -186,6 +188,7 @@ const {
   fileInputKey,
   notice,
   beginSaving,
+  saving,
   finishSaving,
   failSaving,
   loadLectures,
@@ -295,6 +298,8 @@ watch(
     loadLectures({ openRouteLecture: true })
   }
 )
+
+onBeforeUnmount(disposeLectureData)
 
 onMounted(async () => {
   try {

@@ -583,39 +583,39 @@ export function useAdminTeachingAssignmentEditor({
     }
   }
 
-  function assignmentPayload(groupId) {
+  function assignmentPayload(groupId, form = assignmentForm) {
     return {
       subjectMembershipId: Number(
-        assignmentForm.subjectMembershipId
+        form.subjectMembershipId
       ),
       groupId: Number(groupId),
       loadTypeId: Number(
-        assignmentForm.loadTypeId
+        form.loadTypeId
       ),
       courseVersionId:
-        assignmentForm.courseVersionId
+        form.courseVersionId
           ? Number(
-              assignmentForm.courseVersionId
+              form.courseVersionId
             )
           : null,
       semester: Number(
-        assignmentForm.semester
+        form.semester
       ),
       studyCourse: Number(
-        assignmentForm.studyCourse
+        form.studyCourse
       ),
       academicYear: Number(
-        assignmentForm.academicYear
+        form.academicYear
       ),
       hoursPerWeek: Number(
-        assignmentForm.hoursPerWeek
+        form.hoursPerWeek
       ),
       status: Number(
-        assignmentForm.status
+        form.status
       ),
       notes:
         String(
-          assignmentForm.notes ?? ''
+          form.notes ?? ''
         ).trim() || null,
     }
   }

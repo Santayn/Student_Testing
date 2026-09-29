@@ -12,6 +12,7 @@ export function useTeacherTopicMutations({
   notice,
   ensureSelectedMembershipActive,
   beginSaving,
+  saving,
   finishSaving,
   failSaving,
   loadTopics,
@@ -78,6 +79,10 @@ export function useTeacherTopicMutations({
   }
 
   async function saveTopic() {
+    if (saving?.value) {
+      return false
+    }
+
     formError.value = topicFormValidationMessage()
 
     if (formError.value) {

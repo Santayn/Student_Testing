@@ -164,6 +164,10 @@ function facultyFormValidationMessage() {
 }
 
 async function saveFaculty() {
+  if (saving.value) {
+    return
+  }
+
   const validationMessage = facultyFormValidationMessage()
 
   if (validationMessage) {

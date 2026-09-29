@@ -129,8 +129,9 @@ describe('teacher course templates overlay workspace', () => {
     expect(courseTemplateMutations).toContain('coursesApi.removeTemplate(template.id)')
     expect(courseTemplateMutations).toContain('coursesApi.createVersion(')
     expect(courseTemplateMutations).toContain('coursesApi.updateVersion(editingId, basePayload)')
-    expect(courseTemplateMutations).toContain('coursesApi.publishVersion(version.id)')
-    expect(courseTemplateMutations).toContain('coursesApi.unpublishVersion(version.id)')
+    expect(courseTemplateMutations).toContain('const targetVersionId = Number(version.id)')
+    expect(courseTemplateMutations).toContain('coursesApi.publishVersion(targetVersionId)')
+    expect(courseTemplateMutations).toContain('coursesApi.unpublishVersion(targetVersionId)')
   })
 
   it('does not invent unsupported version deletion and keeps contextual lecture navigation', () => {

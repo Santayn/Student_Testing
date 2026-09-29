@@ -13,7 +13,7 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 export function useTeacherTopicsData({
@@ -31,7 +31,7 @@ export function useTeacherTopicsData({
   const sortMode = ref('ordinal')
   const handledRouteTopicKey = ref('')
 
-  const topicsRequest = createLatestRequestGuard()
+  const topicsRequest = createAbortableRequestGuard()
 
   const notice = ref({
     type: 'info',
@@ -173,20 +173,12 @@ export function useTeacherTopicsData({
     sortMode.value = 'ordinal'
   }
 
-  async function resolveRouteTopic(membershipId, nextTopics) {
+  async function resolveRouteTopic(membershipId, nextTopics, signal) {
     const topicId = route.query.topicId
 
     if (!topicId) {
       return null
     }
-
-    const routeTopicKey = `${membershipId}:${topicId}`
-
-    if (handledRouteTopicKey.value === routeTopicKey) {
-      return null
-    }
-
-    handledRouteTopicKey.value = routeTopicKey
 
     let topic = nextTopics.find(
       (item) => String(item.id) === String(topicId)
@@ -197,7 +189,7 @@ export function useTeacherTopicsData({
     }
 
     try {
-      const topicResponse = await topicsApi.getOne(topicId)
+      const topicResponse = await topicsApi.getOne(topicId, { signal })
       const candidate = topicResponse.data
 
       if (
@@ -217,7 +209,7 @@ export function useTeacherTopicsData({
   }
 
   async function loadTopics({ openRouteTopic = false } = {}) {
-    const requestId = topicsRequest.begin()
+    const { requestId, signal } = topicsRequest.begin()
     const membershipId = Number(
       selectedMembership.value?.id ?? 0
     )
@@ -231,21 +223,31 @@ export function useTeacherTopicsData({
     loading.value = true
 
     try {
-      const response = await topicsApi.getAll({
-        subjectMembershipId: membershipId,
-      })
+      const response = await topicsApi.getAll(
+        { subjectMembershipId: membershipId },
+        { signal }
+      )
 
       const nextTopics = listFromResponse(response).sort(
         (left, right) =>
           Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0)
       )
 
+      const routeTopicKey = route.query.topicId
+        ? `${membershipId}:${route.query.topicId}`
+        : ''
+      const shouldHandleRouteTopic = Boolean(
+        openRouteTopic &&
+        routeTopicKey &&
+        handledRouteTopicKey.value !== routeTopicKey
+      )
       let routeTopic = null
 
-      if (openRouteTopic) {
+      if (shouldHandleRouteTopic) {
         routeTopic = await resolveRouteTopic(
           membershipId,
-          nextTopics
+          nextTopics,
+          signal
         )
       }
 
@@ -255,7 +257,9 @@ export function useTeacherTopicsData({
 
       topics.value = nextTopics
 
-      if (openRouteTopic && route.query.topicId) {
+      if (shouldHandleRouteTopic) {
+        handledRouteTopicKey.value = routeTopicKey
+
         if (routeTopic) {
           onOpenRouteTopic?.(routeTopic)
         } else {
@@ -285,6 +289,10 @@ export function useTeacherTopicsData({
     }
   }
 
+  function dispose() {
+    topicsRequest.invalidate()
+  }
+
   return {
     descriptionOptions,
     sortOptions,
@@ -303,5 +311,6 @@ export function useTeacherTopicsData({
     nextOrdinal,
     resetFilters,
     loadTopics,
+    dispose,
   }
 }

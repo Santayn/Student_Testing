@@ -101,6 +101,9 @@ describe('stale context hardening', () => {
     const loader = source('composables/teacher/useTeacherWorkloadData.js')
 
     expect(loader)
+      .toContain('createAbortableRequestGuard')
+
+    expect(loader)
       .toContain('assignmentsRequest.begin()')
 
     expect(loader)
@@ -116,7 +119,7 @@ describe('stale context hardening', () => {
       .toContain('const rawAssignments = responses')
 
     expect(loader)
-      .toContain('groupsApi.getById(groupId)')
+      .toContain('groupsApi.getById(groupId, { signal })')
   })
 
   it('keeps teacher workload free from mutation requests', () => {

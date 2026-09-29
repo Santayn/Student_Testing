@@ -21,6 +21,7 @@ export function useQuestionMutations({
   notice,
   questionValidationMessage,
   beginSaving,
+  saving,
   finishSaving,
   failSaving,
   ensureSelectedMembershipActive,
@@ -33,6 +34,10 @@ export function useQuestionMutations({
   const togglingQuestionId = ref(null)
 
   async function saveQuestion() {
+    if (saving?.value) {
+      return false
+    }
+
     const wasCreate = !form.id
 
     formError.value = questionValidationMessage()

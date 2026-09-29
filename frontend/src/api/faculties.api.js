@@ -25,10 +25,9 @@ export const facultiesApi = {
     return http.get(`/faculties/${facultyId}/subjects`)
   },
 
-  addSubject(facultyId, subjectId, data = undefined) {
+  addSubject(facultyId, subjectId) {
     return http.post(
-      `/faculties/${facultyId}/subjects/${subjectId}`,
-      data
+      `/faculties/${facultyId}/subjects/${subjectId}`
     )
   },
 

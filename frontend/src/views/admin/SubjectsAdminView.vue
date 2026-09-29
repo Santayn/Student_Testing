@@ -153,6 +153,10 @@ function subjectFormValidationMessage() {
 }
 
 async function saveSubject() {
+  if (saving.value) {
+    return
+  }
+
   const validationMessage = subjectFormValidationMessage()
 
   if (validationMessage) {

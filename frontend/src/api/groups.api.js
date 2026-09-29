@@ -5,8 +5,8 @@ export const groupsApi = {
     return http.get('/groups', { params })
   },
 
-  getById(groupId) {
-    return http.get(`/groups/${groupId}`)
+  getById(groupId, config = {}) {
+    return http.get(`/groups/${groupId}`, config)
   },
 
   create(data) {

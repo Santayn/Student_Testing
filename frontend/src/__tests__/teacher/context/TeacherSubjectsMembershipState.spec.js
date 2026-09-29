@@ -13,7 +13,6 @@ import {
 } from '@/utils/teacherMembershipEligibility'
 import {
   assignSubjectToTeacher,
-  assignSubjectsToTeacher,
 } from '@/utils/teacherSubjectAssignment'
 
 describe('teacher subject membership state', () => {
@@ -62,11 +61,11 @@ describe('teacher subject membership state', () => {
       },
     ]
 
-    const result = await assignSubjectsToTeacher({
+    const result = await assignSubjectToTeacher({
       api,
       memberships,
       personId: 7,
-      subjectIds: [5],
+      subjectId: 5,
       notes: '',
     })
 
@@ -78,21 +77,19 @@ describe('teacher subject membership state', () => {
       }
     )
     expect(api.addPersonToSubject).not.toHaveBeenCalled()
-    expect(result).toEqual([
-      {
-        subjectId: 5,
-        membershipId: 44,
-        action: 'reactivated',
-      },
-    ])
+    expect(result).toEqual({
+      subjectId: 5,
+      membershipId: 44,
+      action: 'reactivated',
+    })
   })
 
   it('creates a new membership when no paused non-removed membership exists', async () => {
-    await assignSubjectsToTeacher({
+    await assignSubjectToTeacher({
       api,
       memberships: [],
       personId: 7,
-      subjectIds: [5],
+      subjectId: 5,
       notes: 'Новая нагрузка',
     })
 

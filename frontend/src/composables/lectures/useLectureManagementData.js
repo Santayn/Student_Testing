@@ -14,7 +14,7 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 export function useLectureManagementData({
@@ -35,7 +35,7 @@ export function useLectureManagementData({
   const testFilter = ref('all')
   const sortMode = ref('ordinal')
 
-  const lecturesRequest = createLatestRequestGuard()
+  const lecturesRequest = createAbortableRequestGuard()
 
   const visibilityOptions = [
     { value: 'all', label: 'Все лекции' },
@@ -173,7 +173,7 @@ export function useLectureManagementData({
   }
 
   async function loadLectures({ openRouteLecture = false } = {}) {
-    const requestId = lecturesRequest.begin()
+    const { requestId, signal } = lecturesRequest.begin()
 
     const membershipId = Number(selectedMembership.value?.id ?? 0)
     const subjectId = Number(selectedSubjectId.value ?? 0)
@@ -190,9 +190,10 @@ export function useLectureManagementData({
     loading.value = true
 
     try {
-      const lecturesResponse = await lecturesApi.getAll({
-        subjectMembershipId: membershipId,
-      })
+      const lecturesResponse = await lecturesApi.getAll(
+        { subjectMembershipId: membershipId },
+        { signal }
+      )
 
       const nextLectures = listFromResponse(lecturesResponse)
         .sort(
@@ -205,9 +206,11 @@ export function useLectureManagementData({
         )
 
       const [testsResponse, testLists] = await Promise.all([
-        testsApi.getAll({ subjectId }),
+        testsApi.getAll({ subjectId }, { signal }),
         Promise.all(
-          nextLectures.map((lecture) => lecturesApi.getTests(lecture.id))
+          nextLectures.map((lecture) =>
+            lecturesApi.getTests(lecture.id, { signal })
+          )
         ),
       ])
 

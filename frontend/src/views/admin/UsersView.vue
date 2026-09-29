@@ -233,6 +233,8 @@ async function saveUser() {
     return
   }
 
+  const targetUserId = Number(userForm.id)
+
   const normalizedRoleIds = [
     ...new Set(
       (userForm.roleIds ?? [])
@@ -249,7 +251,7 @@ async function saveUser() {
 
   const original = users.value.find(
     (user) =>
-      Number(user.id) === Number(userForm.id)
+      Number(user.id) === targetUserId
   )
 
   if (!original) {
@@ -264,6 +266,10 @@ async function saveUser() {
       ? null
       : Number(userForm.personId)
 
+  const nextActive = Boolean(
+    userForm.active
+  )
+
   const currentPersonId =
     original.personId == null
       ? null
@@ -276,7 +282,7 @@ async function saveUser() {
     roleIdsForUser(original)
   )
   const activeChanged =
-    Boolean(userForm.active) !==
+    nextActive !==
     Boolean(original.active)
 
   if (
@@ -294,7 +300,7 @@ async function saveUser() {
   try {
     if (personChanged) {
       await usersApi.updatePersonBinding(
-        userForm.id,
+        targetUserId,
         nextPersonId
       )
       completedSteps += 1
@@ -302,7 +308,7 @@ async function saveUser() {
 
     if (rolesChanged) {
       await usersApi.updateRoles(
-        userForm.id,
+        targetUserId,
         {
           roleIds: normalizedRoleIds,
         }
@@ -312,8 +318,8 @@ async function saveUser() {
 
     if (activeChanged) {
       await usersApi.setActive(
-        userForm.id,
-        Boolean(userForm.active)
+        targetUserId,
+        nextActive
       )
       completedSteps += 1
     }
@@ -333,7 +339,7 @@ async function saveUser() {
 
     const refreshed = users.value.find(
       (user) =>
-        Number(user.id) === Number(userForm.id)
+        Number(user.id) === targetUserId
     )
 
     if (refreshed) {

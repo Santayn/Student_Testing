@@ -51,6 +51,10 @@ export function useCourseTemplateMutations({
   }
 
   async function saveTemplate() {
+    if (templateOverlay.saving.value) {
+      return false
+    }
+
     templateFormError.value = templateValidationMessage()
 
     if (templateFormError.value) {
@@ -146,6 +150,10 @@ export function useCourseTemplateMutations({
   }
 
   async function saveVersion() {
+    if (versionOverlay.saving.value) {
+      return false
+    }
+
     versionFormError.value = versionValidationMessage()
 
     if (versionFormError.value) {
@@ -153,6 +161,8 @@ export function useCourseTemplateMutations({
     }
 
     const editingId = versionOverlay.form.id
+    const targetTemplateId = Number(selectedTemplateId.value)
+    const requestedPublished = Boolean(versionOverlay.form.published)
 
     const basePayload = {
       versionNumber: Number(versionOverlay.form.versionNumber),
@@ -170,12 +180,16 @@ export function useCourseTemplateMutations({
         await coursesApi.updateVersion(editingId, basePayload)
       } else {
         await coursesApi.createVersion(
-          selectedTemplateId.value,
+          targetTemplateId,
           {
             ...basePayload,
-            published: Boolean(versionOverlay.form.published),
+            published: requestedPublished,
           }
         )
+      }
+
+      if (Number(selectedTemplateId.value) !== targetTemplateId) {
+        return
       }
 
       notice.value = {
@@ -187,6 +201,10 @@ export function useCourseTemplateMutations({
       versionFormError.value = ''
       await loadVersions()
     } catch (error) {
+      if (Number(selectedTemplateId.value) !== targetTemplateId) {
+        return
+      }
+
       versionFormError.value = getApiErrorMessage(
         error,
         editingId
@@ -198,38 +216,51 @@ export function useCourseTemplateMutations({
   }
 
   async function publishVersion(version) {
-    publishingVersionId.value = version.id
+    if (publishingVersionId.value !== null) {
+      return false
+    }
+
+    const targetTemplateId = Number(selectedTemplateId.value)
+    const targetVersionId = Number(version.id)
+    const wasPublished = Boolean(version.published)
+
+    publishingVersionId.value = targetVersionId
 
     try {
       await ensureSelectedMembershipActive()
 
-      if (version.published) {
-        await coursesApi.unpublishVersion(version.id)
-
-        notice.value = {
-          type: 'success',
-          message: 'Публикация версии снята.',
-        }
+      if (wasPublished) {
+        await coursesApi.unpublishVersion(targetVersionId)
       } else {
-        await coursesApi.publishVersion(version.id)
+        await coursesApi.publishVersion(targetVersionId)
+      }
 
-        notice.value = {
-          type: 'success',
-          message: 'Версия опубликована.',
-        }
+      if (Number(selectedTemplateId.value) !== targetTemplateId) {
+        return
+      }
+
+      notice.value = {
+        type: 'success',
+        message: wasPublished
+          ? 'Публикация версии снята.'
+          : 'Версия опубликована.',
       }
 
       await loadVersions()
     } catch (error) {
-      notice.value = {
-        type: 'danger',
-        message: getApiErrorMessage(
-          error,
-          'Не удалось изменить публикацию версии'
-        ),
+      if (Number(selectedTemplateId.value) === targetTemplateId) {
+        notice.value = {
+          type: 'danger',
+          message: getApiErrorMessage(
+            error,
+            'Не удалось изменить публикацию версии'
+          ),
+        }
       }
     } finally {
-      publishingVersionId.value = null
+      if (publishingVersionId.value === targetVersionId) {
+        publishingVersionId.value = null
+      }
     }
   }
 

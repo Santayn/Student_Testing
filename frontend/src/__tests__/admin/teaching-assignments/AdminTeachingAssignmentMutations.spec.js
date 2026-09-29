@@ -84,10 +84,14 @@ function buildState({
   })
   const refreshAssignments = vi.fn()
   const showNotice = vi.fn()
-  const assignmentPayload = vi.fn((groupId) => ({
+  const assignmentPayload = vi.fn((groupId, form = assignmentForm) => ({
     groupId,
-    subjectMembershipId:
-      assignmentForm.subjectMembershipId,
+    subjectMembershipId: form.subjectMembershipId,
+    loadTypeId: form.loadTypeId,
+    semester: form.semester,
+    studyCourse: form.studyCourse,
+    academicYear: form.academicYear,
+    status: form.status,
   }))
 
   const state = useAdminTeachingAssignmentMutations({
@@ -200,4 +204,47 @@ describe('admin teaching assignment mutations', () => {
       'Учебная нагрузка обновлена.'
     )
   })
+  it('uses one immutable form snapshot across membership revalidation and create mutation', async () => {
+    let releaseMembership
+    mocks.getSubjectMembership.mockImplementation(() => new Promise((resolve) => {
+      releaseMembership = () => resolve({
+        data: {
+          id: 10,
+          role: 1,
+          status: 1,
+          removedAtUtc: null,
+        },
+      })
+    }))
+
+    const { state, assignmentForm } = buildState()
+    const saving = state.saveAssignment()
+
+    await vi.waitFor(() => {
+      expect(mocks.getSubjectMembership).toHaveBeenCalledWith(10)
+    })
+
+    assignmentForm.subjectMembershipId = 99
+    assignmentForm.loadTypeId = 88
+    assignmentForm.groupIds = [31]
+    assignmentForm.semester = 2
+
+    releaseMembership()
+    await saving
+
+    expect(mocks.addLoadTypeToSubjectMembership).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ teachingLoadTypeId: 20 })
+    )
+    expect(mocks.createAssignment).toHaveBeenCalledTimes(1)
+    expect(mocks.createAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groupId: 30,
+        subjectMembershipId: 10,
+        loadTypeId: 20,
+        semester: 1,
+      })
+    )
+  })
+
 })

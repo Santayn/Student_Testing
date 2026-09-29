@@ -30,6 +30,7 @@ function setup({
   const selectedTopicId = ref('11')
   const questions = ref([])
   const notice = ref({ type: 'info', message: '' })
+  const saving = ref(false)
 
   const api = {
     create: vi.fn(),
@@ -46,6 +47,7 @@ function setup({
     notice,
     questionValidationMessage: vi.fn(() => ''),
     beginSaving: vi.fn(),
+    saving,
     finishSaving: vi.fn(),
     failSaving: vi.fn(),
     ensureSelectedMembershipActive: vi.fn(async () => {}),
@@ -167,6 +169,20 @@ describe('question mutations', () => {
       type: 'success',
       message: 'Вопрос обновлён.',
     })
+  })
+
+
+  it('ignores a repeated save while the previous mutation is still pending', async () => {
+    const state = setup()
+    state.saving.value = true
+
+    const result = await state.saveQuestion()
+
+    expect(result).toBe(false)
+    expect(state.beginSaving).not.toHaveBeenCalled()
+    expect(state.ensureSelectedMembershipActive).not.toHaveBeenCalled()
+    expect(state.api.create).not.toHaveBeenCalled()
+    expect(state.api.update).not.toHaveBeenCalled()
   })
 
   it('serializes active-status changes and refreshes the list', async () => {

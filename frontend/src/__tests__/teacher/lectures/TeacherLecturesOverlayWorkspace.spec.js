@@ -63,7 +63,7 @@ describe('teacher lectures overlay workspace', () => {
     expect(dataFlow).toContain('visibilityFilter')
     expect(dataFlow).toContain('testFilter')
     expect(dataFlow).toContain('sortMode')
-    expect(dataFlow).toContain('createLatestRequestGuard')
+    expect(dataFlow).toContain('createAbortableRequestGuard')
     expect(lectures).toContain('teacher-entity-list')
   })
 

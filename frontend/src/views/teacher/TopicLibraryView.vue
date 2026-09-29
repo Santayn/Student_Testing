@@ -1,5 +1,6 @@
 <script setup>
 import {
+  onBeforeUnmount,
   onMounted,
   ref,
   watch,
@@ -110,6 +111,7 @@ const {
   nextOrdinal,
   resetFilters,
   loadTopics,
+  dispose: disposeTopicsData,
 } = useTeacherTopicsData({
   route,
   selectedMembership,
@@ -150,6 +152,7 @@ const {
   notice,
   ensureSelectedMembershipActive,
   beginSaving,
+  saving,
   finishSaving,
   failSaving,
   loadTopics,
@@ -171,6 +174,8 @@ watch(
     loadTopics({ openRouteTopic: true })
   }
 )
+
+onBeforeUnmount(disposeTopicsData)
 
 onMounted(async () => {
   try {

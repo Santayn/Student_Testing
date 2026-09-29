@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:unit": "vitest",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "quality:static": "node scripts/static-quality.mjs",
+    "quality": "npm run quality:static && npm run test:unit -- --run && npm run build"
   },
   "dependencies": {
     "@primeuix/themes": "2.0.3",

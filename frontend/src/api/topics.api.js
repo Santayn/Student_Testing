@@ -1,12 +1,12 @@
 import http from './http'
 
 export const topicsApi = {
-  getAll(params = {}) {
-    return http.get('/topics', { params })
+  getAll(params = {}, config = {}) {
+    return http.get('/topics', { ...config, params })
   },
 
-  getOne(topicId) {
-    return http.get(`/topics/${topicId}`)
+  getOne(topicId, config = {}) {
+    return http.get(`/topics/${topicId}`, config)
   },
 
   create(data) {

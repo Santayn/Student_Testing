@@ -1,8 +1,8 @@
 import http from './http'
 
 export const testsApi = {
-  getAll(params = {}) {
-    return http.get('/tests', { params })
+  getAll(params = {}, config = {}) {
+    return http.get('/tests', { ...config, params })
   },
 
   create(data) {

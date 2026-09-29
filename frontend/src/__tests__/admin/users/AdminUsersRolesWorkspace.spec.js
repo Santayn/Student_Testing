@@ -73,4 +73,34 @@ describe('admin users workspace', () => {
     expect(navigation).toContain("label: 'Роли и права'")
     expect(navigation).not.toContain("label: 'Роли пользователей'")
   })
+
+  it('captures an immutable user mutation context before the first await', () => {
+    const saveStart = view.indexOf('async function saveUser()')
+    const firstMutation = view.indexOf(
+      'await usersApi.updatePersonBinding(',
+      saveStart
+    )
+
+    expect(saveStart).toBeGreaterThanOrEqual(0)
+    expect(firstMutation).toBeGreaterThan(saveStart)
+
+    const preMutationSource = view.slice(saveStart, firstMutation)
+    const saveSource = view.slice(saveStart)
+
+    expect(preMutationSource).toContain(
+      'const targetUserId = Number(userForm.id)'
+    )
+    expect(preMutationSource).toContain('const nextActive = Boolean(')
+
+    expect(saveSource).toMatch(
+      /usersApi\.updatePersonBinding\(\s*targetUserId,/
+    )
+    expect(saveSource).toMatch(
+      /usersApi\.updateRoles\(\s*targetUserId,/
+    )
+    expect(saveSource).toMatch(
+      /usersApi\.setActive\(\s*targetUserId,\s*nextActive/
+    )
+    expect(saveSource).toContain('Number(user.id) === targetUserId')
+  })
 })

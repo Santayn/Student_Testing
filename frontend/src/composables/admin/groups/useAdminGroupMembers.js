@@ -204,6 +204,10 @@ export function useAdminGroupMembers() {
     memberSearch.value = ''
   }
 
+  function isCurrentMemberGroup(groupId) {
+    return Number(membersGroup.value?.id) === Number(groupId)
+  }
+
   async function loadGroupMembers(groupId, { quiet = false } = {}) {
     const normalizedGroupId = Number(groupId)
 
@@ -325,6 +329,10 @@ export function useAdminGroupMembers() {
 
       await loadGroupMembers(groupId, { quiet: true })
 
+      if (!isCurrentMemberGroup(groupId)) {
+        return
+      }
+
       showMemberNotice(
         'success',
         pausedMembership
@@ -332,6 +340,10 @@ export function useAdminGroupMembers() {
           : `${personName(person)} добавлен в группу.`
       )
     } catch (error) {
+      if (!isCurrentMemberGroup(groupId)) {
+        return
+      }
+
       showMemberNotice(
         'error',
         getApiErrorMessage(
@@ -376,31 +388,49 @@ export function useAdminGroupMembers() {
       return
     }
 
-    removingMembershipId.value = membership.id
+    const targetMembershipId = Number(membership.id)
+    const targetPersonName = personName(target.person)
+
+    removingMembershipId.value = targetMembershipId
     memberRemoveError.value = ''
 
     try {
       await membershipsApi.updateGroupMembershipStatus(
-        membership.id,
+        targetMembershipId,
         { status: REMOVED_MEMBERSHIP_STATUS }
       )
 
       await loadGroupMembers(groupId, { quiet: true })
 
-      memberRemoveConfirmVisible.value = false
-      memberRemoveTarget.value = null
+      if (!isCurrentMemberGroup(groupId)) {
+        return
+      }
+
+      if (
+        Number(memberRemoveTarget.value?.membership?.id) ===
+        targetMembershipId
+      ) {
+        memberRemoveConfirmVisible.value = false
+        memberRemoveTarget.value = null
+      }
 
       showMemberNotice(
         'success',
-        `${personName(target.person)} убран из группы.`
+        `${targetPersonName} убран из группы.`
       )
     } catch (error) {
+      if (!isCurrentMemberGroup(groupId)) {
+        return
+      }
+
       memberRemoveError.value = getApiErrorMessage(
         error,
         'Не удалось убрать студента из группы'
       )
     } finally {
-      removingMembershipId.value = null
+      if (removingMembershipId.value === targetMembershipId) {
+        removingMembershipId.value = null
+      }
     }
   }
 

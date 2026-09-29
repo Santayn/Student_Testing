@@ -39,15 +39,22 @@ export function useAdminTeachingAssignmentMutations({
     })
   }
 
-  async function ensureSelectedSubjectLoadType() {
+  function captureAssignmentForm() {
+    return {
+      ...assignmentForm,
+      groupIds: Array.isArray(assignmentForm.groupIds)
+        ? [...assignmentForm.groupIds]
+        : [],
+    }
+  }
+
+  async function ensureSelectedSubjectLoadType(formSnapshot) {
     await teachingApi
       .addLoadTypeToSubjectMembership(
-        Number(
-          assignmentForm.subjectMembershipId
-        ),
+        Number(formSnapshot.subjectMembershipId),
         {
           teachingLoadTypeId: Number(
-            assignmentForm.loadTypeId
+            formSnapshot.loadTypeId
           ),
           notes:
             'Добавлено администратором при настройке учебной нагрузки',
@@ -55,17 +62,14 @@ export function useAdminTeachingAssignmentMutations({
       )
   }
 
-  async function validateSelectedTeacherMembership() {
+  async function validateSelectedTeacherMembership({
+    formSnapshot,
+    isCreate,
+    editingAssignment,
+  }) {
     const selectedId = Number(
-      assignmentForm.subjectMembershipId
+      formSnapshot.subjectMembershipId
     )
-
-    const editingAssignment =
-      assignments.value.find(
-        (item) =>
-          Number(item.id) ===
-          Number(assignmentForm.id)
-      ) ?? null
 
     const teacherChanged =
       !editingAssignment ||
@@ -75,11 +79,11 @@ export function useAdminTeachingAssignmentMutations({
 
     const statusRequiresActiveTeacher =
       [1, 2].includes(
-        Number(assignmentForm.status)
+        Number(formSnapshot.status)
       )
 
     if (
-      assignmentIsCreate.value ||
+      isCreate ||
       teacherChanged ||
       statusRequiresActiveTeacher
     ) {
@@ -104,22 +108,49 @@ export function useAdminTeachingAssignmentMutations({
       return
     }
 
+    const formSnapshot = captureAssignmentForm()
+    const isCreate = Boolean(assignmentIsCreate.value)
+    const contextSnapshot = {
+      studyCourse: Number(context.studyCourse),
+      semester: Number(context.semester),
+      academicYear: Number(context.academicYear),
+    }
+    const availableGroupIds = new Set(
+      groups.value.map((group) => Number(group.id))
+    )
+    const editingAssignment = isCreate
+      ? null
+      : assignments.value.find(
+          (item) =>
+            Number(item.id) ===
+            Number(formSnapshot.id)
+        ) ?? null
+
     beginAssignmentSaving()
 
     try {
-      await validateSelectedTeacherMembership()
-      await ensureSelectedSubjectLoadType()
+      await validateSelectedTeacherMembership({
+        formSnapshot,
+        isCreate,
+        editingAssignment,
+      })
+      await ensureSelectedSubjectLoadType(
+        formSnapshot
+      )
 
-      if (assignmentIsCreate.value) {
+      if (isCreate) {
         const groupIds = uniqueNumbers(
-          assignmentForm.groupIds
+          formSnapshot.groupIds
         )
 
         const results =
           await Promise.allSettled(
             groupIds.map((groupId) =>
               teachingApi.createAssignment(
-                assignmentPayload(groupId)
+                assignmentPayload(
+                  groupId,
+                  formSnapshot
+                )
               )
             )
           )
@@ -150,7 +181,7 @@ export function useAdminTeachingAssignmentMutations({
           finishAssignmentSaving({
             close: false,
             values: {
-              ...assignmentForm,
+              ...formSnapshot,
               groupIds: failedGroupIds,
             },
           })
@@ -176,32 +207,25 @@ export function useAdminTeachingAssignmentMutations({
         return
       }
 
-      const previous = assignments.value.find(
-        (item) =>
-          Number(item.id) ===
-          Number(assignmentForm.id)
-      )
-
       await teachingApi.updateAssignment(
-        assignmentForm.id,
+        formSnapshot.id,
         assignmentPayload(
-          assignmentForm.groupId
+          formSnapshot.groupId,
+          formSnapshot
         )
       )
 
       const movedOutOfContext =
-        Number(assignmentForm.studyCourse) !==
-          Number(context.studyCourse) ||
-        Number(assignmentForm.semester) !==
-          Number(context.semester) ||
-        Number(assignmentForm.academicYear) !==
-          Number(context.academicYear) ||
+        Number(formSnapshot.studyCourse) !==
+          contextSnapshot.studyCourse ||
+        Number(formSnapshot.semester) !==
+          contextSnapshot.semester ||
+        Number(formSnapshot.academicYear) !==
+          contextSnapshot.academicYear ||
         (
-          previous &&
-          !groups.value.some(
-            (group) =>
-              Number(group.id) ===
-              Number(assignmentForm.groupId)
+          editingAssignment &&
+          !availableGroupIds.has(
+            Number(formSnapshot.groupId)
           )
         )
 
@@ -226,7 +250,7 @@ export function useAdminTeachingAssignmentMutations({
         assignmentFormError.value =
           getApiErrorMessage(
             error,
-            assignmentIsCreate.value
+            isCreate
               ? 'Не удалось создать учебную нагрузку.'
               : 'Не удалось обновить учебную нагрузку.'
           )

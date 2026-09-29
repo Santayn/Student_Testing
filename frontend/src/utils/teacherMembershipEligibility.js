@@ -174,16 +174,6 @@ export async function revalidateAssignableTeacherMembershipIds({
   )
 }
 
-export function assignableTeacherMembershipIds(memberships = []) {
-  return new Set(
-    memberships
-      .filter(isAssignableTeacherMembership)
-      .map((membership) =>
-        Number(membership.id)
-      )
-  )
-}
-
 export function isReactivatableTeacherMembership(membership) {
   return (
     Number(membership?.role) ===

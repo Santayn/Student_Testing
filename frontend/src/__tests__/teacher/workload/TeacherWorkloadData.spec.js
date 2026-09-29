@@ -60,20 +60,29 @@ describe('useTeacherWorkloadData', () => {
       expect(workload.loadTeacherSubjects).toHaveBeenCalledTimes(1)
       expect(teachingApi.getLoadTypes).toHaveBeenCalledTimes(1)
       expect(teachingApi.getAssignments).toHaveBeenCalledTimes(2)
-      expect(teachingApi.getAssignments).toHaveBeenCalledWith({
-        subjectMembershipId: 11,
-        studyCourse: 1,
-        semester: 1,
-        academicYear: workload.academicYear.value,
-      })
-      expect(teachingApi.getAssignments).toHaveBeenCalledWith({
-        subjectMembershipId: 12,
-        studyCourse: 1,
-        semester: 1,
-        academicYear: workload.academicYear.value,
-      })
+      expect(teachingApi.getAssignments).toHaveBeenCalledWith(
+        {
+          subjectMembershipId: 11,
+          studyCourse: 1,
+          semester: 1,
+          academicYear: workload.academicYear.value,
+        },
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+      expect(teachingApi.getAssignments).toHaveBeenCalledWith(
+        {
+          subjectMembershipId: 12,
+          studyCourse: 1,
+          semester: 1,
+          academicYear: workload.academicYear.value,
+        },
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
       expect(groupsApi.getById).toHaveBeenCalledTimes(1)
-      expect(groupsApi.getById).toHaveBeenCalledWith(20)
+      expect(groupsApi.getById).toHaveBeenCalledWith(
+        20,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
       expect(workload.assignments.value.map((item) => item.subjectMembershipId)).toEqual([11, 12])
       expect(workload.assignments.value[0].groupName).toBe('КБ-23')
       expect(workload.loading.value).toBe(false)
@@ -116,6 +125,52 @@ describe('useTeacherWorkloadData', () => {
       await pendingOld
       expect(workload.assignments.value.map((item) => item.id)).toEqual([30])
       expect(groupsApi.getById).toHaveBeenCalledTimes(1)
+    } finally {
+      workload.dispose()
+    }
+  })
+
+
+  it('aborts the superseded period cascade without surfacing its error or clearing the current loader', async () => {
+    const workload = setup([{ id: 11, subjectId: 7 }])
+    try {
+      await workload.initialize()
+
+      const oldRead = deferred()
+      const configs = []
+      teachingApi.getAssignments
+        .mockImplementationOnce((_params, config) => {
+          configs.push(config)
+          return oldRead.promise
+        })
+        .mockImplementationOnce((_params, config) => {
+          configs.push(config)
+          return Promise.resolve({
+            data: [{ id: 30, subjectMembershipId: 11, groupId: 20 }],
+          })
+        })
+
+      const pendingOld = workload.refreshAssignments()
+      workload.semester.value = 2
+      await nextTick()
+
+      await vi.waitFor(() => {
+        expect(configs).toHaveLength(2)
+      })
+
+      expect(configs[0].signal.aborted).toBe(true)
+      expect(configs[1].signal.aborted).toBe(false)
+
+      await vi.waitFor(() => {
+        expect(workload.assignments.value.map((item) => item.id)).toEqual([30])
+      })
+
+      oldRead.reject(new Error('aborted stale read'))
+      await pendingOld
+
+      expect(workload.assignments.value.map((item) => item.id)).toEqual([30])
+      expect(workload.notice.value.message).toBe('')
+      expect(workload.loading.value).toBe(false)
     } finally {
       workload.dispose()
     }

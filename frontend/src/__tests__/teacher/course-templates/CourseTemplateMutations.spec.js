@@ -48,6 +48,7 @@ import {
 function overlay(form) {
   return {
     form,
+    saving: ref(false),
     beginSaving: vi.fn(),
     finishSaving: vi.fn(),
     failSaving: vi.fn(),
@@ -119,6 +120,23 @@ describe('course template mutations', () => {
     expect(state.deleteError.value).toBe('')
   })
 
+
+  it('ignores repeated template and version saves while a mutation is pending', async () => {
+    const { state, templateOverlay, versionOverlay } = createState()
+    templateOverlay.saving.value = true
+    versionOverlay.saving.value = true
+
+    expect(await state.saveTemplate()).toBe(false)
+    expect(await state.saveVersion()).toBe(false)
+
+    expect(templateOverlay.beginSaving).not.toHaveBeenCalled()
+    expect(versionOverlay.beginSaving).not.toHaveBeenCalled()
+    expect(createTemplate).not.toHaveBeenCalled()
+    expect(updateTemplate).not.toHaveBeenCalled()
+    expect(createVersion).not.toHaveBeenCalled()
+    expect(updateVersion).not.toHaveBeenCalled()
+  })
+
   it('creates a template only after membership revalidation and preserves the backend payload', async () => {
     const ensureSelectedMembershipActive = vi.fn().mockResolvedValue({ id: 5 })
     const loadTemplates = vi.fn().mockResolvedValue(undefined)
@@ -167,6 +185,17 @@ describe('course template mutations', () => {
     expect(loadTemplates).toHaveBeenCalledTimes(1)
   })
 
+
+  it('ignores repeated publication changes while another publication mutation is pending', async () => {
+    const { state } = createState()
+    state.publishingVersionId.value = 44
+
+    expect(await state.publishVersion({ id: 45, published: false })).toBe(false)
+
+    expect(publishVersion).not.toHaveBeenCalled()
+    expect(unpublishVersion).not.toHaveBeenCalled()
+  })
+
   it('publishes a version after membership revalidation and refreshes versions', async () => {
     const ensureSelectedMembershipActive = vi.fn().mockResolvedValue({ id: 5 })
     const loadVersions = vi.fn().mockResolvedValue(undefined)
@@ -184,4 +213,74 @@ describe('course template mutations', () => {
     expect(loadVersions).toHaveBeenCalledTimes(1)
     expect(state.publishingVersionId.value).toBeNull()
   })
+
+  it('keeps version creation bound to the template selected when save started', async () => {
+    let releaseMembership
+    const ensureSelectedMembershipActive = vi.fn(() => new Promise((resolve) => {
+      releaseMembership = () => resolve({ id: 5 })
+    }))
+    const selectedTemplateId = ref(11)
+    const loadVersions = vi.fn().mockResolvedValue(undefined)
+    const notice = ref({ type: 'info', message: '' })
+    createVersion.mockResolvedValue({})
+
+    const { state } = createState({
+      ensureSelectedMembershipActive,
+      selectedTemplateId,
+      loadVersions,
+      notice,
+    })
+
+    const saving = state.saveVersion()
+
+    await vi.waitFor(() => {
+      expect(ensureSelectedMembershipActive).toHaveBeenCalledTimes(1)
+    })
+
+    selectedTemplateId.value = 22
+    releaseMembership()
+    await saving
+
+    expect(createVersion).toHaveBeenCalledWith(
+      11,
+      expect.objectContaining({
+        versionNumber: 2,
+        title: 'Версия 2',
+        published: false,
+      })
+    )
+    expect(loadVersions).not.toHaveBeenCalled()
+    expect(notice.value.message).toBe('')
+  })
+
+  it('does not apply publication side effects to a different selected template', async () => {
+    let releasePublish
+    const selectedTemplateId = ref(11)
+    const loadVersions = vi.fn().mockResolvedValue(undefined)
+    const notice = ref({ type: 'info', message: '' })
+    publishVersion.mockImplementation(() => new Promise((resolve) => {
+      releasePublish = () => resolve({})
+    }))
+
+    const { state } = createState({
+      selectedTemplateId,
+      loadVersions,
+      notice,
+    })
+
+    const publishing = state.publishVersion({ id: 44, published: false })
+
+    await vi.waitFor(() => {
+      expect(publishVersion).toHaveBeenCalledWith(44)
+    })
+
+    selectedTemplateId.value = 22
+    releasePublish()
+    await publishing
+
+    expect(loadVersions).not.toHaveBeenCalled()
+    expect(notice.value.message).toBe('')
+    expect(state.publishingVersionId.value).toBeNull()
+  })
+
 })

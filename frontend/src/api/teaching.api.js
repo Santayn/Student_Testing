@@ -1,8 +1,8 @@
 import http from './http'
 
 export const teachingApi = {
-  getAssignments(params = {}) {
-    return http.get('/teaching/assignments', { params })
+  getAssignments(params = {}, config = {}) {
+    return http.get('/teaching/assignments', { ...config, params })
   },
 
   getAssignment(assignmentId) {

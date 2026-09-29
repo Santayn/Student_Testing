@@ -54,27 +54,3 @@ export async function assignSubjectToTeacher({
     action: 'created',
   }
 }
-
-export async function assignSubjectsToTeacher({
-  api,
-  memberships = [],
-  personId,
-  subjectIds = [],
-  notes = '',
-}) {
-  const results = []
-
-  for (const subjectId of subjectIds) {
-    results.push(
-      await assignSubjectToTeacher({
-        api,
-        memberships,
-        personId,
-        subjectId,
-        notes,
-      })
-    )
-  }
-
-  return results
-}

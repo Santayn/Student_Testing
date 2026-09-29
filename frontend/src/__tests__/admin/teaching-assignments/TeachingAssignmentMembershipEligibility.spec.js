@@ -8,7 +8,6 @@ import componentSource from '@/views/admin/TeachingAssignmentsView.vue?raw'
 import mutationSource from '@/composables/admin/teaching-assignments/useAdminTeachingAssignmentMutations.js?raw'
 
 import {
-  assignableTeacherMembershipIds,
   isAssignableTeacherMembership,
 } from '@/utils/teacherMembershipEligibility'
 
@@ -51,22 +50,12 @@ describe('admin workload membership eligibility', () => {
     ).toBe(false)
   })
 
-  it('builds the assignable id set only from active teacher memberships', () => {
-    const ids = assignableTeacherMembershipIds([
-      { id: 1, role: 1, status: 1, removedAtUtc: null },
-      { id: 2, role: 1, status: 2, removedAtUtc: null },
-      { id: 3, role: 1, status: 1, removedAtUtc: '2026-09-20T10:00:00Z' },
-      { id: 4, role: 2, status: 1, removedAtUtc: null },
-    ])
-
-    expect([...ids]).toEqual([1])
-  })
-
   it('rechecks the selected membership immediately before creating active workload', () => {
     expect(componentSource).toContain('useAdminTeachingAssignmentMutations')
     expect(mutationSource).toContain('currentAssignableMembershipIds(')
     expect(mutationSource).toContain('revalidateAssignableTeacherMembershipIds')
-    expect(mutationSource).toContain('assignmentForm.subjectMembershipId')
+    expect(mutationSource).toContain('formSnapshot.subjectMembershipId')
+    expect(mutationSource).toContain('const formSnapshot = captureAssignmentForm()')
     expect(mutationSource).toContain('Выбранное назначение преподавателя больше не активно')
   })
 })

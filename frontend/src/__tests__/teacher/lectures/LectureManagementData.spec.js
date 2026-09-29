@@ -91,8 +91,14 @@ describe('lecture management data', () => {
     const state = createHarness()
     await state.loadLectures()
 
-    expect(getLectures).toHaveBeenCalledWith({ subjectMembershipId: 10 })
-    expect(getTests).toHaveBeenCalledWith({ subjectId: 20 })
+    expect(getLectures).toHaveBeenCalledWith(
+      { subjectMembershipId: 10 },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
+    expect(getTests).toHaveBeenCalledWith(
+      { subjectId: 20 },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
     expect(state.lectures.value.map((item) => item.id)).toEqual([1, 2])
     expect(state.availableTests.value.map((item) => item.id)).toEqual([7, 8])
     expect(state.lectureTests(1).map((item) => item.id)).toEqual([7])
@@ -146,6 +152,48 @@ describe('lecture management data', () => {
     await Promise.all([firstLoad, secondLoad])
 
     expect(state.lectures.value.map((item) => item.id)).toEqual([22])
+  })
+
+
+  it('aborts the superseded lecture cascade and keeps the current loading state isolated', async () => {
+    const first = deferred()
+    const configs = []
+
+    getLectures
+      .mockImplementationOnce((_params, config) => {
+        configs.push(config)
+        return first.promise
+      })
+      .mockImplementationOnce((_params, config) => {
+        configs.push(config)
+        return Promise.resolve(response([
+          { id: 22, ordinal: 1, title: 'Новая лекция' },
+        ]))
+      })
+    getTests.mockResolvedValue(response([]))
+    getLectureTests.mockResolvedValue(response([]))
+
+    const state = createHarness()
+    const firstLoad = state.loadLectures()
+
+    state.selectedMembership.value = { id: 11 }
+    state.selectedSubjectId.value = 21
+    const secondLoad = state.loadLectures()
+
+    expect(configs[0].signal.aborted).toBe(true)
+    expect(configs[1].signal.aborted).toBe(false)
+
+    await secondLoad
+    expect(state.loading.value).toBe(false)
+    expect(state.lectures.value.map((item) => item.id)).toEqual([22])
+
+    first.resolve(response([
+      { id: 10, ordinal: 1, title: 'Старая лекция' },
+    ]))
+    await firstLoad
+
+    expect(state.lectures.value.map((item) => item.id)).toEqual([22])
+    expect(state.notice.value.message).toBe('')
   })
 
   it('filters by visibility, linked tests and search text', async () => {

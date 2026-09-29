@@ -6,13 +6,6 @@
  * TEACHER — преподаватель
  * ADMIN   — администратор
  */
-export const APP_ROLES = Object.freeze([
-  'USER',
-  'STUDENT',
-  'TEACHER',
-  'ADMIN',
-])
-
 /*
  * Роли, которые дают доступ к рабочей части приложения.
  * Одной роли недостаточно: frontend также требует привязанный personId.

@@ -215,6 +215,10 @@ function groupFormValidationMessage() {
 }
 
 async function saveGroup() {
+  if (saving.value) {
+    return
+  }
+
   const validationMessage = groupFormValidationMessage()
 
   if (validationMessage) {

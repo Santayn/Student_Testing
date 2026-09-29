@@ -19,6 +19,7 @@ export function useLectureSaveFlow({
   fileInputKey,
   notice,
   beginSaving,
+  saving,
   finishSaving,
   failSaving,
   loadLectures,
@@ -128,29 +129,47 @@ export function useLectureSaveFlow({
     lectureTestsById.value = next
   }
 
-  async function uploadPendingFiles(lectureId) {
-    if (!pendingFiles.value.length) {
+  async function uploadPendingFiles(lectureId, files) {
+    const filesToUpload = Array.isArray(files)
+      ? [...files]
+      : []
+
+    if (!filesToUpload.length) {
       return
     }
 
     await lecturesApi.uploadMaterials(
       lectureId,
-      pendingFiles.value
+      filesToUpload
     )
 
-    pendingFiles.value = []
+    pendingFiles.value = pendingFiles.value.filter(
+      (file) => !filesToUpload.includes(file)
+    )
     fileInputKey.value += 1
   }
 
   async function saveLecture() {
+    if (saving?.value) {
+      return false
+    }
+
     formError.value = lectureValidationMessage()
 
     if (formError.value) {
       return
     }
 
+    const editingId = form.id ? Number(form.id) : null
+    const selectedTestIds = Array.isArray(form.testIds)
+      ? [...form.testIds]
+      : []
+    const filesToUpload = Array.isArray(pendingFiles.value)
+      ? [...pendingFiles.value]
+      : []
+
     const editingLecture = lectures.value.find(
-      (item) => Number(item.id) === Number(form.id)
+      (item) => Number(item.id) === editingId
     ) ?? null
 
     const payload = {
@@ -190,8 +209,8 @@ export function useLectureSaveFlow({
           ...payload,
           id: partialCreateState.value.id,
         }
-      } else if (form.id) {
-        const response = await lecturesApi.update(form.id, payload)
+      } else if (editingId) {
+        const response = await lecturesApi.update(editingId, payload)
         lecture = response.data
         upsertLecture(lecture)
 
@@ -216,8 +235,8 @@ export function useLectureSaveFlow({
         }
       }
 
-      await syncLectureTests(lecture.id, form.testIds)
-      await uploadPendingFiles(lecture.id)
+      await syncLectureTests(lecture.id, selectedTestIds)
+      await uploadPendingFiles(lecture.id, filesToUpload)
 
       const completedCreateFlow = partialCreatePending.value
       resetPartialCreate()
@@ -239,7 +258,7 @@ export function useLectureSaveFlow({
         error,
         createdLectureNeedsFollowUp
           ? 'Лекция уже создана, но не удалось сохранить связанные тесты или материалы. Повторите сохранение — новая лекция создана повторно не будет.'
-          : form.id
+          : editingId
             ? 'Не удалось обновить лекцию'
             : 'Не удалось создать лекцию'
       )

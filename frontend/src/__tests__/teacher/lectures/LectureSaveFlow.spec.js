@@ -32,6 +32,7 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
   }
   const ensureSelectedMembershipActive = vi.fn(async () => undefined)
   const beginSaving = vi.fn()
+  const saving = ref(false)
   const finishSaving = vi.fn()
   const failSaving = vi.fn()
   const loadLectures = vi.fn(async () => undefined)
@@ -50,6 +51,7 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
     fileInputKey,
     notice,
     beginSaving,
+    saving,
     finishSaving,
     failSaving,
     loadLectures,
@@ -71,6 +73,7 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
     api,
     ensureSelectedMembershipActive,
     beginSaving,
+    saving,
     finishSaving,
     failSaving,
     loadLectures,
@@ -80,6 +83,20 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
 
 describe('lecture save flow', () => {
   beforeEach(() => vi.clearAllMocks())
+
+
+  it('ignores a repeated save while the previous mutation is still pending', async () => {
+    const h = createHarness()
+    h.saving.value = true
+
+    const result = await h.saveLecture()
+
+    expect(result).toBe(false)
+    expect(h.beginSaving).not.toHaveBeenCalled()
+    expect(h.ensureSelectedMembershipActive).not.toHaveBeenCalled()
+    expect(h.api.create).not.toHaveBeenCalled()
+    expect(h.api.update).not.toHaveBeenCalled()
+  })
 
   it('creates the lecture once, records its id, and saves dependent data', async () => {
     const file = { name: 'notes.pdf' }
@@ -208,4 +225,32 @@ describe('lecture save flow', () => {
     expect(h.formError.value).toBe('Не удалось создать лекцию')
     expect(h.failSaving).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps linked tests and files bound to the save snapshot across async revalidation', async () => {
+    const firstFile = { name: 'first.pdf' }
+    const secondFile = { name: 'second.pdf' }
+    const h = createHarness({ files: [firstFile] })
+
+    let releaseMembership
+    h.ensureSelectedMembershipActive.mockImplementation(() => new Promise((resolve) => {
+      releaseMembership = () => resolve(undefined)
+    }))
+
+    const saving = h.saveLecture()
+
+    await vi.waitFor(() => {
+      expect(h.ensureSelectedMembershipActive).toHaveBeenCalledTimes(1)
+    })
+
+    h.form.testIds = [99]
+    h.pendingFiles.value = [firstFile, secondFile]
+
+    releaseMembership()
+    await saving
+
+    expect(h.api.setTests).toHaveBeenCalledWith(100, { testIds: [3, 4] })
+    expect(h.api.uploadMaterials).toHaveBeenCalledWith(100, [firstFile])
+    expect(h.pendingFiles.value).toEqual([secondFile])
+  })
+
 })

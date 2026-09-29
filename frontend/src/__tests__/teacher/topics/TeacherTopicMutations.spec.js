@@ -44,6 +44,7 @@ function createState({ id = null } = {}) {
   const notice = ref({ type: 'info', message: '' })
   const ensureSelectedMembershipActive = vi.fn().mockResolvedValue(undefined)
   const beginSaving = vi.fn()
+  const saving = ref(false)
   const finishSaving = vi.fn()
   const failSaving = vi.fn()
   const loadTopics = vi.fn().mockResolvedValue(undefined)
@@ -55,6 +56,7 @@ function createState({ id = null } = {}) {
     notice,
     ensureSelectedMembershipActive,
     beginSaving,
+    saving,
     finishSaving,
     failSaving,
     loadTopics,
@@ -65,6 +67,7 @@ function createState({ id = null } = {}) {
       notice,
       ensureSelectedMembershipActive,
       beginSaving,
+      saving,
       finishSaving,
       failSaving,
       loadTopics,
@@ -122,6 +125,20 @@ describe('teacher topic mutations', () => {
     expect(create).not.toHaveBeenCalled()
     expect(ctx.ensureSelectedMembershipActive).not.toHaveBeenCalled()
     expect(ctx.state.formError.value).toContain('порядковым номером')
+  })
+
+
+  it('ignores a repeated save while the previous mutation is still pending', async () => {
+    const ctx = createState()
+    ctx.saving.value = true
+
+    const result = await ctx.state.saveTopic()
+
+    expect(result).toBe(false)
+    expect(ctx.beginSaving).not.toHaveBeenCalled()
+    expect(ctx.ensureSelectedMembershipActive).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
   })
 
   it('revalidates membership before deleting and refreshes the list', async () => {
