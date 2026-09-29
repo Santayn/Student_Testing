@@ -12,8 +12,6 @@ import {
 
 import {
   getApiErrorMessage,
-  questionsApi,
-  topicsApi,
 } from '@/api'
 
 import {
@@ -37,35 +35,41 @@ import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import {
   useQuestionEditorState,
-  questionToForm,
-} from '@/composables/useQuestionEditorState'
+} from '@/composables/questions/useQuestionEditorState'
+
+import {
+  useQuestionImport,
+} from '@/composables/questions/useQuestionImport'
+
+import {
+  useQuestionMutations,
+} from '@/composables/questions/useQuestionMutations'
+
+import {
+  useQuestionDrawerWorkspace,
+} from '@/composables/questions/useQuestionDrawerWorkspace'
 
 import {
   useQuestionFilters,
-} from '@/composables/useQuestionFilters'
+} from '@/composables/questions/useQuestionFilters'
 
 import {
   useQuestionOptions,
-} from '@/composables/useQuestionOptions'
+} from '@/composables/questions/useQuestionOptions'
+
+import {
+  useQuestionTopicContext,
+} from '@/composables/questions/useQuestionTopicContext'
 
 import {
   useQuestionsList,
-} from '@/composables/useQuestionsList'
+} from '@/composables/questions/useQuestionsList'
 
 import {
   useTeacherSubjects,
-} from '@/composables/useTeacherSubjects'
+} from '@/composables/teacher/useTeacherSubjects'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
-
-import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
-
-import {
-  ensureMatchingPairRows,
   normalizeMatchingPairs,
 } from '@/utils/matchingPairs'
 
@@ -82,27 +86,24 @@ const {
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
-const topics = ref([])
-
-const selectedTopicId = ref('')
-const selectedImportTopicId = ref('')
-
-const togglingQuestionId = ref(null)
-const importing = ref(false)
 const initialized = ref(false)
-
-
-const importDialogVisible = ref(false)
-const importError = ref('')
-const wordFiles = ref([])
-const fileInputKey = ref(0)
 const formError = ref('')
-
-const topicsRequest = createLatestRequestGuard()
 
 const notice = ref({
   type: 'info',
   message: '',
+})
+
+const {
+  selectedTopicId,
+  selectedImportTopicId,
+  topicOptions,
+  currentTopic,
+  loadTopics: loadTopicContext,
+} = useQuestionTopicContext({
+  route,
+  selectedMembership,
+  notice,
 })
 
 const {
@@ -112,6 +113,26 @@ const {
   resetQuestions,
 } = useQuestionsList({
   selectedTopicId,
+  notice,
+})
+
+const {
+  importing,
+  importDialogVisible,
+  importError,
+  wordFiles,
+  fileInputKey,
+  openImportDialog,
+  closeImportDialog,
+  onWordFiles,
+  importWord,
+} = useQuestionImport({
+  selectedMembership,
+  topicOptions,
+  selectedTopicId,
+  selectedImportTopicId,
+  ensureSelectedMembershipActive,
+  loadQuestions,
   notice,
 })
 
@@ -194,23 +215,6 @@ const {
   ensureSelectedMembershipActive,
   notice,
   formError,
-})
-
-const topicOptions = computed(() => {
-  return topics.value.map(
-    (topic) => ({
-      value: topic.id,
-      label: `${topic.ordinal}. ${topic.name}`,
-    })
-  )
-})
-
-const currentTopic = computed(() => {
-  return topics.value.find(
-    (topic) =>
-      String(topic.id) ===
-      String(selectedTopicId.value)
-  ) ?? null
 })
 
 const canCreateQuestion = computed(() => {
@@ -300,389 +304,62 @@ function routeQuery(topicId = null) {
   return query
 }
 
-function nextQuestionOrdinal() {
-  return questions.value.reduce(
-    (max, question) =>
-      Math.max(max, Number(question.ordinal ?? 0)),
-    0
-  ) + 1
-}
-
-function clearQuestionDrawerState() {
-  formError.value = ''
-  clearOptions()
-}
-
-function openCreateQuestion() {
-  if (!canCreateQuestion.value) {
-    notice.value = {
-      type: 'danger',
-      message: 'Выберите предмет и тему.',
-    }
-    return
-  }
-
-  clearQuestionDrawerState()
-  openCreate({
-    ordinal: nextQuestionOrdinal(),
-  })
-}
-
-async function editQuestion(question) {
-  clearQuestionDrawerState()
-  openEdit(question)
-
-  if (
-    Number(question.type) === 1 ||
-    Number(question.type) === 2
-  ) {
-    await loadOptions(question.id)
-  }
-}
-
-function requestQuestionDrawerClose() {
-  if (savingQuestion.value || savingOption.value) {
-    return false
-  }
-
-  if (questionDirty.value || optionDraftDirty.value) {
-    confirmCloseVisible.value = true
-    return false
-  }
-
-  closeImmediately()
-  clearQuestionDrawerState()
-  return true
-}
-
-function handleQuestionDrawerVisibility(nextValue) {
-  if (nextValue) {
-    return
-  }
-
-  requestQuestionDrawerClose()
-}
-
-function discardQuestionDrawer() {
-  resetOptionForm()
-  discardAndClose()
-  clearQuestionDrawerState()
-}
-
-function closeQuestionDrawerImmediately() {
-  closeImmediately()
-  clearQuestionDrawerState()
-}
-
-function handleQuestionTypeChange(value) {
-  if (Number(value) === 3) {
-    form.matchingPairs = ensureMatchingPairRows(
-      form.matchingPairs,
-      2
-    )
-  }
-
-  if (!form.id) {
-    clearOptions()
-    return
-  }
-
-  if (Number(value) === 1 || Number(value) === 2) {
-    loadOptions(form.id)
-  } else {
-    clearOptions()
-  }
-}
-
-function openImportDialog() {
-  if (!selectedMembership.value || !topicOptions.value.length) {
-    notice.value = {
-      type: 'danger',
-      message: 'Выберите предмет с доступными темами.',
-    }
-    return
-  }
-
-  selectedImportTopicId.value =
-    selectedTopicId.value ||
-    String(topicOptions.value[0]?.value ?? '')
-  wordFiles.value = []
-  fileInputKey.value += 1
-  importError.value = ''
-  importDialogVisible.value = true
-}
-
-function closeImportDialog() {
-  if (importing.value) {
-    return
-  }
-
-  importDialogVisible.value = false
-  importError.value = ''
-  wordFiles.value = []
-}
+const {
+  openCreateQuestion,
+  editQuestion,
+  requestQuestionDrawerClose,
+  handleQuestionDrawerVisibility,
+  discardQuestionDrawer,
+  closeQuestionDrawerImmediately,
+  handleQuestionTypeChange,
+} = useQuestionDrawerWorkspace({
+  canCreateQuestion,
+  questions,
+  form,
+  formError,
+  savingQuestion,
+  savingOption,
+  questionDirty,
+  optionDraftDirty,
+  confirmCloseVisible,
+  openCreate,
+  openEdit,
+  closeImmediately,
+  discardAndClose,
+  resetOptionForm,
+  clearOptions,
+  loadOptions,
+  notice,
+})
 
 async function loadTopics() {
-  const requestId = topicsRequest.begin()
-
   resetQuestions()
   clearOptions()
-
-  topics.value = []
-  selectedTopicId.value = ''
   closeQuestionDrawerImmediately()
 
-  const membershipId = Number(
-    selectedMembership.value?.id ?? 0
-  )
-
-  if (!membershipId) {
-    return
-  }
-
-  try {
-    const response = await topicsApi.getAll({
-      subjectMembershipId: membershipId,
-    })
-
-    if (!topicsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    topics.value = listFromResponse(response).sort(
-      (left, right) =>
-        Number(left.ordinal ?? 0) -
-        Number(right.ordinal ?? 0)
-    )
-
-    const preferredTopicId = route.query.topicId
-
-    if (
-      preferredTopicId &&
-      topics.value.some(
-        (item) =>
-          String(item.id) ===
-          String(preferredTopicId)
-      )
-    ) {
-      selectedTopicId.value = String(preferredTopicId)
-    } else if (topics.value.length === 1) {
-      selectedTopicId.value = String(topics.value[0].id)
-    }
-
-    selectedImportTopicId.value = selectedTopicId.value
-  } catch (error) {
-    if (!topicsRequest.isCurrent(requestId)) {
-      return
-    }
-
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось загрузить темы'
-      ),
-    }
-  }
+  await loadTopicContext()
 }
 
-async function saveQuestion() {
-  const wasCreate = !form.id
-
-  formError.value = questionValidationMessage()
-
-  if (formError.value) {
-    return
-  }
-
-  const type = Number(form.type)
-  const basePayload = {
-    courseLectureId: null,
-    topicId: Number(selectedTopicId.value),
-    type,
-    question: String(form.question).trim(),
-    points: Number(form.points) || 0,
-    ordinal: Number(form.ordinal) || 1,
-    correctAnswer:
-      type === 4
-        ? String(form.correctAnswer ?? '').trim() || null
-        : null,
-    matchingPairs:
-      type === 3
-        ? normalizeMatchingPairs(form.matchingPairs)
-        : [],
-  }
-
-  beginSaving()
-
-  try {
-    await ensureSelectedMembershipActive()
-
-    let response
-
-    if (form.id) {
-      response = await questionsApi.update(
-        form.id,
-        {
-          ...basePayload,
-          active: Boolean(form.active),
-        }
-      )
-
-      notice.value = {
-        type: 'success',
-        message: 'Вопрос обновлён.',
-      }
-    } else {
-      response = await questionsApi.create({
-        testId: null,
-        ...basePayload,
-      })
-
-      notice.value = {
-        type: 'success',
-        message:
-          'Вопрос создан. Теперь можно добавить варианты ответа, если они нужны.',
-      }
-    }
-
-    const savedId = Number(
-      response.data?.id ?? form.id ?? 0
-    )
-
-    await loadQuestions()
-
-    const saved =
-      questions.value.find(
-        (item) => Number(item.id) === savedId
-      ) ?? response.data
-
-    if (saved) {
-      if (wasCreate) {
-        openEdit(saved)
-      } else {
-        finishSaving({
-          close: false,
-          values: questionToForm(saved),
-        })
-      }
-
-      if (
-        Number(saved.type) === 1 ||
-        Number(saved.type) === 2
-      ) {
-        await loadOptions(saved.id)
-      } else {
-        clearOptions()
-      }
-    } else {
-      finishSaving({ close: true })
-      clearQuestionDrawerState()
-    }
-  } catch (error) {
-    formError.value = getApiErrorMessage(
-      error,
-      form.id
-        ? 'Не удалось обновить вопрос'
-        : 'Не удалось создать вопрос'
-    )
-    failSaving()
-  }
-}
-
-async function toggleQuestionActive(question) {
-  if (togglingQuestionId.value !== null) {
-    return
-  }
-
-  togglingQuestionId.value = question.id
-
-  try {
-    await ensureSelectedMembershipActive()
-
-    await questionsApi.updateActive(
-      question.id,
-      {
-        active: !question.active,
-      }
-    )
-
-    await loadQuestions()
-
-    notice.value = {
-      type: 'success',
-      message:
-        question.active
-          ? 'Вопрос скрыт.'
-          : 'Вопрос активирован.',
-    }
-  } catch (error) {
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось изменить статус вопроса'
-      ),
-    }
-  } finally {
-    togglingQuestionId.value = null
-  }
-}
-
-function onWordFiles(files) {
-  wordFiles.value = files
-  importError.value = ''
-}
-
-async function importWord() {
-  const file = wordFiles.value[0]
-
-  if (!selectedImportTopicId.value || !file) {
-    importError.value = 'Выберите тему и файл .docx.'
-    return
-  }
-
-  importing.value = true
-  importError.value = ''
-
-  try {
-    await ensureSelectedMembershipActive()
-
-    const response = await questionsApi.importFile(
-      file,
-      {
-        topicId: Number(selectedImportTopicId.value),
-      }
-    )
-
-    const payload = response.data ?? {}
-
-    notice.value = {
-      type: 'success',
-      message:
-        `Импортировано вопросов: ${payload.importedQuestions ?? 0}. ` +
-        `Вариантов ответа: ${payload.importedOptions ?? 0}.`,
-    }
-
-    importDialogVisible.value = false
-    wordFiles.value = []
-    fileInputKey.value += 1
-
-    if (
-      String(selectedTopicId.value) ===
-      String(selectedImportTopicId.value)
-    ) {
-      await loadQuestions()
-    }
-  } catch (error) {
-    importError.value = getApiErrorMessage(
-      error,
-      'Не удалось импортировать вопросы'
-    )
-  } finally {
-    importing.value = false
-  }
-}
+const {
+  togglingQuestionId,
+  saveQuestion,
+  toggleQuestionActive,
+} = useQuestionMutations({
+  form,
+  formError,
+  selectedTopicId,
+  questions,
+  notice,
+  questionValidationMessage,
+  beginSaving,
+  finishSaving,
+  failSaving,
+  ensureSelectedMembershipActive,
+  loadQuestions,
+  openEdit,
+  loadOptions,
+  clearOptions,
+})
 
 watch(
   selectedMembershipId,

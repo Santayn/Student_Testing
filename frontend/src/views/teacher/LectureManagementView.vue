@@ -13,7 +13,6 @@ import {
 import {
   getApiErrorMessage,
   lecturesApi,
-  testsApi,
 } from '@/api'
 
 import {
@@ -33,23 +32,27 @@ import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import {
   useTeacherSubjects,
-} from '@/composables/useTeacherSubjects'
+} from '@/composables/teacher/useTeacherSubjects'
 
 import {
   useLectureSaveFlow,
-} from '@/composables/useLectureSaveFlow'
+} from '@/composables/lectures/useLectureSaveFlow'
+
+import {
+  useLectureManagementData,
+} from '@/composables/lectures/useLectureManagementData'
 
 import {
   useLectureMaterials,
-} from '@/composables/useLectureMaterials'
+} from '@/composables/lectures/useLectureMaterials'
 
 import {
-  listFromResponse,
-} from '@/utils/apiData'
+  useLectureDrawerWorkspace,
+} from '@/composables/lectures/useLectureDrawerWorkspace'
 
 import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
+  useLectureDelete,
+} from '@/composables/lectures/useLectureDelete'
 
 const route = useRoute()
 
@@ -64,53 +67,46 @@ const {
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
-const lectures = ref([])
-const availableTests = ref([])
-const lectureTestsById = ref(new Map())
-const loading = ref(false)
 const initialized = ref(false)
-
-const searchQuery = ref('')
-const visibilityFilter = ref('all')
-const testFilter = ref('all')
-const sortMode = ref('ordinal')
-
-const deleteTarget = ref(null)
-const deleteConfirmVisible = ref(false)
-const deletingId = ref(null)
-const deleteError = ref('')
-
 const formError = ref('')
-const handledRouteLectureKey = ref('')
-
-const lecturesRequest = createLatestRequestGuard()
-
 const notice = ref({
   type: 'info',
   message: '',
 })
 
-const visibilityOptions = [
-  { value: 'all', label: 'Все лекции' },
-  { value: 'visible', label: 'Опубликованные' },
-  { value: 'hidden', label: 'Скрытые' },
-]
+let lectureEditorActions = null
 
-const testFilterOptions = [
-  { value: 'all', label: 'Все связи с тестами' },
-  { value: 'with-tests', label: 'Есть связанные тесты' },
-  { value: 'without-tests', label: 'Без связанных тестов' },
-]
-
-const sortOptions = [
-  { value: 'ordinal', label: 'По порядку' },
-  { value: 'title-asc', label: 'Название А–Я' },
-  { value: 'title-desc', label: 'Название Я–А' },
-]
-
-function lectureTests(lectureId) {
-  return lectureTestsById.value.get(Number(lectureId)) ?? []
+async function openRouteLecture(lecture) {
+  await lectureEditorActions?.openEditLecture(lecture)
 }
+
+const {
+  lectures,
+  availableTests,
+  lectureTestsById,
+  loading,
+  searchQuery,
+  visibilityFilter,
+  testFilter,
+  sortMode,
+  visibilityOptions,
+  testFilterOptions,
+  sortOptions,
+  hasActiveFilters,
+  filteredLectures,
+  filterResultText,
+  lectureTests,
+  lectureTestSummary,
+  resetFilters,
+  loadLectures,
+  resetRouteLectureHandling,
+} = useLectureManagementData({
+  selectedMembership,
+  selectedSubjectId,
+  route,
+  notice,
+  onOpenRouteLecture: openRouteLecture,
+})
 
 function lectureToForm(lecture = null) {
   return {
@@ -212,100 +208,6 @@ const contextHint = computed(() => {
   return `Предмет «${selectedSubject.value.name}». Лекций в выбранном назначении: ${lectures.value.length}.`
 })
 
-const hasActiveFilters = computed(() => {
-  return Boolean(searchQuery.value.trim()) ||
-    visibilityFilter.value !== 'all' ||
-    testFilter.value !== 'all' ||
-    sortMode.value !== 'ordinal'
-})
-
-const filteredLectures = computed(() => {
-  const query = searchQuery.value
-    .trim()
-    .toLocaleLowerCase('ru-RU')
-
-  const result = lectures.value.filter((lecture) => {
-    if (
-      visibilityFilter.value === 'visible' &&
-      !lecture.publicVisible
-    ) {
-      return false
-    }
-
-    if (
-      visibilityFilter.value === 'hidden' &&
-      lecture.publicVisible
-    ) {
-      return false
-    }
-
-    const linkedTests = lectureTests(lecture.id)
-
-    if (
-      testFilter.value === 'with-tests' &&
-      !linkedTests.length
-    ) {
-      return false
-    }
-
-    if (
-      testFilter.value === 'without-tests' &&
-      linkedTests.length
-    ) {
-      return false
-    }
-
-    if (!query) {
-      return true
-    }
-
-    const haystack = [
-      lecture.id,
-      lecture.ordinal,
-      lecture.title,
-      lecture.description,
-      ...linkedTests.map((test) => test.title),
-    ]
-      .filter((value) => value !== null && value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase('ru-RU')
-
-    return haystack.includes(query)
-  })
-
-  return [...result].sort((left, right) => {
-    if (sortMode.value === 'title-asc') {
-      return String(left.title ?? '').localeCompare(
-        String(right.title ?? ''),
-        'ru'
-      )
-    }
-
-    if (sortMode.value === 'title-desc') {
-      return String(right.title ?? '').localeCompare(
-        String(left.title ?? ''),
-        'ru'
-      )
-    }
-
-    return (
-      Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0) ||
-      String(left.title ?? '').localeCompare(
-        String(right.title ?? ''),
-        'ru'
-      )
-    )
-  })
-})
-
-const filterResultText = computed(() => {
-  if (!selectedMembership.value) {
-    return 'Сначала выберите предмет преподавателя.'
-  }
-
-  return `Показано: ${filteredLectures.value.length} из ${lectures.value.length}`
-})
-
 const drawerTitle = computed(() => {
   return isCreate.value ? 'Новая лекция' : 'Редактирование лекции'
 })
@@ -328,236 +230,56 @@ function routeQuery(lectureId = null) {
   return query
 }
 
-function lectureTestSummary(lectureId) {
-  const tests = lectureTests(lectureId)
-
-  if (!tests.length) {
-    return 'Нет связанных тестов'
-  }
-
-  return tests
-    .map((test) => test.title || `Тест #${test.id}`)
-    .join(', ')
-}
-
-function resetFilters() {
-  searchQuery.value = ''
-  visibilityFilter.value = 'all'
-  testFilter.value = 'all'
-  sortMode.value = 'ordinal'
-}
-
 function clearLectureDrawerState() {
   resetPartialCreate()
   resetMaterials()
   formError.value = ''
 }
 
-function openCreateLecture() {
-  if (!canEdit.value) {
-    notice.value = {
-      type: 'danger',
-      message: 'Выберите предмет преподавателя.',
-    }
-    return
-  }
+const {
+  openCreateLecture,
+  openEditLecture,
+  requestLectureDrawerClose,
+  handleLectureDrawerVisibility,
+  discardLectureDrawer,
+  closeLectureDrawerImmediately,
+} = useLectureDrawerWorkspace({
+  canEdit,
+  saving,
+  lectureDirty,
+  pendingFilesDirty,
+  partialCreatePending,
+  confirmCloseVisible,
+  openCreate,
+  openEdit,
+  closeImmediately,
+  discardAndClose,
+  clearLectureDrawerState,
+  loadMaterials,
+  notice,
+})
 
-  clearLectureDrawerState()
-  openCreate()
+lectureEditorActions = {
+  openEditLecture,
 }
 
-async function openEditLecture(lecture) {
-  clearLectureDrawerState()
-  openEdit(lecture)
-  await loadMaterials(lecture.id)
-}
-
-function requestLectureDrawerClose() {
-  if (saving.value) {
-    return false
-  }
-
-  if (
-    lectureDirty.value ||
-    pendingFilesDirty.value ||
-    partialCreatePending.value
-  ) {
-    confirmCloseVisible.value = true
-    return false
-  }
-
-  closeImmediately()
-  clearLectureDrawerState()
-  return true
-}
-
-function handleLectureDrawerVisibility(nextValue) {
-  if (nextValue) {
-    return
-  }
-
-  requestLectureDrawerClose()
-}
-
-function discardLectureDrawer() {
-  discardAndClose()
-  clearLectureDrawerState()
-}
-
-function closeLectureDrawerImmediately() {
-  closeImmediately()
-  clearLectureDrawerState()
-}
-
-function requestDeleteLecture(lecture) {
-  deleteTarget.value = lecture
-  deleteError.value = ''
-  deleteConfirmVisible.value = true
-}
-
-function closeDeleteDialog() {
-  if (deletingId.value !== null) {
-    return
-  }
-
-  deleteConfirmVisible.value = false
-  deleteTarget.value = null
-  deleteError.value = ''
-}
-
-async function loadLectures({ openRouteLecture = false } = {}) {
-  const requestId = lecturesRequest.begin()
-
-  const membershipId = Number(selectedMembership.value?.id ?? 0)
-  const subjectId = Number(selectedSubjectId.value ?? 0)
-
-  lectures.value = []
-  availableTests.value = []
-  lectureTestsById.value = new Map()
-
-  if (!membershipId) {
-    loading.value = false
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const lecturesResponse = await lecturesApi.getAll({
-      subjectMembershipId: membershipId,
-    })
-
-    const nextLectures = listFromResponse(lecturesResponse)
-      .sort(
-        (left, right) =>
-          Number(left.ordinal ?? 0) - Number(right.ordinal ?? 0) ||
-          String(left.title ?? '').localeCompare(
-            String(right.title ?? ''),
-            'ru'
-          )
-      )
-
-    const [testsResponse, testLists] = await Promise.all([
-      testsApi.getAll({ subjectId }),
-      Promise.all(
-        nextLectures.map((lecture) => lecturesApi.getTests(lecture.id))
-      ),
-    ])
-
-    if (!lecturesRequest.isCurrent(requestId)) {
-      return
-    }
-
-    lectures.value = nextLectures
-    availableTests.value = listFromResponse(testsResponse)
-      .sort((left, right) =>
-        String(left.title ?? '').localeCompare(
-          String(right.title ?? ''),
-          'ru'
-        )
-      )
-
-    lectureTestsById.value = new Map(
-      nextLectures.map((lecture, index) => [
-        Number(lecture.id),
-        listFromResponse(testLists[index]),
-      ])
-    )
-
-    if (openRouteLecture && route.query.lectureId) {
-      const routeLectureKey = `${membershipId}:${route.query.lectureId}`
-
-      if (handledRouteLectureKey.value !== routeLectureKey) {
-        handledRouteLectureKey.value = routeLectureKey
-
-        const lecture = nextLectures.find(
-          (item) => String(item.id) === String(route.query.lectureId)
-        )
-
-        if (lecture) {
-          await openEditLecture(lecture)
-        } else {
-          notice.value = {
-            type: 'info',
-            message: 'Лекция из ссылки не найдена в выбранном назначении преподавателя.',
-          }
-        }
-      }
-    }
-  } catch (error) {
-    if (!lecturesRequest.isCurrent(requestId)) {
-      return
-    }
-
-    notice.value = {
-      type: 'danger',
-      message: getApiErrorMessage(
-        error,
-        'Не удалось загрузить лекции'
-      ),
-    }
-  } finally {
-    if (lecturesRequest.isCurrent(requestId)) {
-      loading.value = false
-    }
-  }
-}
-
-async function deleteLecture() {
-  const lecture = deleteTarget.value
-
-  if (!lecture || deletingId.value !== null) {
-    return
-  }
-
-  deletingId.value = lecture.id
-  deleteError.value = ''
-
-  try {
-    await ensureSelectedMembershipActive()
-    await lecturesApi.remove(lecture.id)
-
-    if (Number(form.id) === Number(lecture.id)) {
-      closeLectureDrawerImmediately()
-    }
-
-    notice.value = {
-      type: 'success',
-      message: 'Лекция удалена.',
-    }
-
-    deleteConfirmVisible.value = false
-    deleteTarget.value = null
-    await loadLectures()
-  } catch (error) {
-    deleteError.value = getApiErrorMessage(
-      error,
-      'Не удалось удалить лекцию'
-    )
-  } finally {
-    deletingId.value = null
-  }
-}
+const {
+  deleteTarget,
+  deleteConfirmVisible,
+  deletingId,
+  deleteError,
+  requestDeleteLecture,
+  closeDeleteDialog,
+  deleteLecture,
+} = useLectureDelete({
+  form,
+  lecturesApi,
+  ensureSelectedMembershipActive,
+  closeLectureDrawerImmediately,
+  loadLectures,
+  notice,
+  getApiErrorMessage,
+})
 
 watch(
   selectedMembershipId,
@@ -569,7 +291,7 @@ watch(
     closeLectureDrawerImmediately()
     closeDeleteDialog()
     resetFilters()
-    handledRouteLectureKey.value = ''
+    resetRouteLectureHandling()
     loadLectures({ openRouteLecture: true })
   }
 )

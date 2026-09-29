@@ -29,11 +29,11 @@ import {
 
 import {
   useAdminGroupsData,
-} from '@/composables/useAdminGroupsData'
+} from '@/composables/admin/groups/useAdminGroupsData'
 
 import {
   useAdminGroupMembers,
-} from '@/composables/useAdminGroupMembers'
+} from '@/composables/admin/groups/useAdminGroupMembers'
 
 
 

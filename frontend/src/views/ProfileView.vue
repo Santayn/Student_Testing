@@ -1,11 +1,7 @@
 <script setup>
 import {
   computed,
-  onBeforeUnmount,
   onMounted,
-  reactive,
-  ref,
-  watch,
 } from 'vue'
 
 import {
@@ -22,67 +18,32 @@ import {
 } from '@/components/ui'
 
 import {
-  facultiesApi,
-  groupsApi,
-  membershipsApi,
-  subjectsApi,
-  teachingApi,
-} from '@/api'
-
-import {
   useAuthStore,
 } from '@/stores/auth'
 
 import {
-  hasWorkspaceAccess,
-} from '@/utils/accountAccess'
+  usePasswordChange,
+} from '@/composables/profile/usePasswordChange'
 
 import {
-  listFromResponse,
-  uniqueNumbers,
-} from '@/utils/apiData'
-
-import {
-  createLatestRequestGuard,
-} from '@/utils/latestRequest'
-
-import {
-  getSharedLearningContextCache,
-} from '@/utils/learningContextCache'
-
-import {
-  loadTeacherSubjectContext,
-} from '@/utils/teacherSubjectContext'
-
-import {
-  loadStudentLearningContext,
-} from '@/utils/studentLearningContext'
+  useProfileContext,
+} from '@/composables/profile/useProfileContext'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const profileRequest = createLatestRequestGuard()
-
-const identityLoading = ref(false)
-const studentLoading = ref(false)
-const teacherLoading = ref(false)
-const profileError = ref('')
-const studentError = ref('')
-const teacherError = ref('')
-
-const studentInfo = ref(emptyStudentInfo())
-const teacherInfo = ref(emptyTeacherInfo())
-
-const passwordDialogOpen = ref(false)
-const passwordSubmitted = ref(false)
-const passwordTouched = reactive({
-  current: false,
-  next: false,
-  confirm: false,
-})
-const passwordForm = reactive({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: '',
+const {
+  profileLoading,
+  studentLoading,
+  teacherLoading,
+  profileError,
+  studentError,
+  teacherError,
+  studentInfo,
+  teacherInfo,
+  loadProfile,
+} = useProfileContext({
+  authStore,
+  router,
 })
 
 const user = computed(() => authStore.user ?? {})
@@ -146,111 +107,21 @@ const workspaceRoleText = computed(() => {
   return workspaceRoleLabel(authStore.workspaceRole)
 })
 
-const profileLoading = computed(() => {
-  return (
-    identityLoading.value ||
-    studentLoading.value ||
-    teacherLoading.value
-  )
+const {
+  passwordDialogOpen,
+  passwordTouched,
+  passwordForm,
+  currentPasswordError,
+  newPasswordError,
+  confirmPasswordError,
+  canChangePassword,
+  openPasswordDialog,
+  setPasswordDialogVisible,
+  submitPasswordChange,
+} = usePasswordChange({
+  authStore,
+  router,
 })
-
-const currentPasswordIssue = computed(() => {
-  return validatePassword(passwordForm.currentPassword, 'Текущий пароль')
-})
-
-const newPasswordIssue = computed(() => {
-  const base = validatePassword(passwordForm.newPassword, 'Новый пароль')
-
-  if (base) {
-    return base
-  }
-
-  if (
-    passwordForm.currentPassword &&
-    passwordForm.newPassword === passwordForm.currentPassword
-  ) {
-    return 'Новый пароль должен отличаться от текущего'
-  }
-
-  return ''
-})
-
-const confirmPasswordIssue = computed(() => {
-  if (!passwordForm.confirmPassword) {
-    return 'Повторите новый пароль'
-  }
-
-  if (passwordForm.confirmPassword !== passwordForm.newPassword) {
-    return 'Пароли не совпадают'
-  }
-
-  return ''
-})
-
-const currentPasswordError = computed(() => {
-  return passwordSubmitted.value || passwordTouched.current
-    ? currentPasswordIssue.value
-    : ''
-})
-
-const newPasswordError = computed(() => {
-  return passwordSubmitted.value || passwordTouched.next
-    ? newPasswordIssue.value
-    : ''
-})
-
-const confirmPasswordError = computed(() => {
-  return passwordSubmitted.value || passwordTouched.confirm
-    ? confirmPasswordIssue.value
-    : ''
-})
-
-const canChangePassword = computed(() => {
-  return Boolean(
-    !currentPasswordIssue.value &&
-    !newPasswordIssue.value &&
-    !confirmPasswordIssue.value &&
-    !authStore.changingPassword
-  )
-})
-
-watch(
-  () => [
-    passwordForm.currentPassword,
-    passwordForm.newPassword,
-    passwordForm.confirmPassword,
-  ],
-  () => {
-    if (authStore.passwordError) {
-      authStore.clearError('password')
-    }
-  }
-)
-
-function emptyStudentInfo() {
-  return {
-    memberships: [],
-    groups: [],
-    faculties: [],
-    subjects: [],
-  }
-}
-
-function emptyTeacherInfo() {
-  return {
-    subjects: [],
-    groups: [],
-  }
-}
-
-function resetProfileContext() {
-  studentInfo.value = emptyStudentInfo()
-  teacherInfo.value = emptyTeacherInfo()
-  studentError.value = ''
-  teacherError.value = ''
-  studentLoading.value = false
-  teacherLoading.value = false
-}
 
 function roleLabel(role) {
   const labels = {
@@ -309,293 +180,7 @@ function facultyLabel(faculty) {
   return faculty?.name ?? faculty?.code ?? 'Факультет без названия'
 }
 
-function sortByLabel(items, labelResolver) {
-  return [...items].sort((left, right) => {
-    return labelResolver(left).localeCompare(
-      labelResolver(right),
-      'ru',
-      { sensitivity: 'base' }
-    )
-  })
-}
-
-async function loadStudentContext() {
-  if (!authStore.personId) {
-    return emptyStudentInfo()
-  }
-
-  const context = await loadStudentLearningContext({
-    personId: authStore.personId,
-    membershipsApi,
-    groupsApi,
-    facultiesApi,
-    teachingApi,
-    subjectsApi,
-    cache: getSharedLearningContextCache(authStore),
-  })
-
-  return {
-    memberships: context.memberships,
-    groups: sortByLabel(context.groups, groupLabel),
-    faculties: sortByLabel(context.faculties, facultyLabel),
-    subjects: sortByLabel(context.subjects, subjectLabel),
-  }
-}
-
-async function loadTeacherContext() {
-  if (!authStore.personId) {
-    return emptyTeacherInfo()
-  }
-
-  const cache = getSharedLearningContextCache(authStore)
-  const { memberships: teacherMemberships, subjects } =
-    await loadTeacherSubjectContext({
-      authStore,
-      membershipsApi,
-      subjectsApi,
-      cache,
-    })
-
-  if (!teacherMemberships.length) {
-    return emptyTeacherInfo()
-  }
-
-  /*
-   * Assignment queries remain scoped by membership as required by the
-   * backend. Subject references come from the shared teacher catalog.
-   */
-  const assignmentResponses = await Promise.all(
-    teacherMemberships.map((membership) =>
-      teachingApi.getAssignments({
-        subjectMembershipId: membership.id,
-      })
-    )
-  )
-
-  const assignments = assignmentResponses.flatMap(listFromResponse)
-  const groupIds = new Set(
-    uniqueNumbers(assignments.map((item) => item.groupId))
-  )
-
-  let groups = []
-
-  if (groupIds.size) {
-    const fetchGroups = async () =>
-      listFromResponse(await groupsApi.getAll())
-    const allGroups = cache
-      ? await cache.load('groups:catalog', fetchGroups, {
-          ttlMs: 60_000,
-        })
-      : await fetchGroups()
-
-    groups = allGroups
-      .filter((group) => groupIds.has(Number(group.id)))
-  }
-
-  return {
-    subjects: sortByLabel(subjects, subjectLabel),
-    groups: sortByLabel(groups, groupLabel),
-  }
-}
-
-async function redirectAfterIdentityLoss() {
-  if (!authStore.isAuthenticated) {
-    await router.replace({
-      name: 'login',
-      query: {
-        redirect: '/profile',
-      },
-    })
-
-    return true
-  }
-
-  if (!hasWorkspaceAccess(authStore)) {
-    await router.replace({
-      name: 'account-pending',
-    })
-
-    return true
-  }
-
-  return false
-}
-
-async function loadProfile({ synchronizeIdentity = false } = {}) {
-  const requestId = profileRequest.begin()
-
-  identityLoading.value = true
-  profileError.value = ''
-  resetProfileContext()
-
-  try {
-    if (synchronizeIdentity) {
-      await authStore.refreshIdentity()
-    } else {
-      await authStore.loadCurrentUser()
-    }
-
-    if (!profileRequest.isCurrent(requestId)) {
-      return
-    }
-
-    if (await redirectAfterIdentityLoss()) {
-      return
-    }
-  } catch (error) {
-    if (!profileRequest.isCurrent(requestId)) {
-      return
-    }
-
-    if (await redirectAfterIdentityLoss()) {
-      return
-    }
-
-    profileError.value =
-      'Не удалось обновить данные профиля. Повторите попытку.'
-
-    return
-  } finally {
-    if (profileRequest.isCurrent(requestId)) {
-      identityLoading.value = false
-    }
-  }
-
-  const jobs = []
-
-  if (authStore.isStudent) {
-    studentLoading.value = true
-
-    jobs.push(
-      loadStudentContext()
-        .then((context) => {
-          if (profileRequest.isCurrent(requestId)) {
-            studentInfo.value = context
-          }
-        })
-        .catch(() => {
-          if (profileRequest.isCurrent(requestId)) {
-            studentInfo.value = emptyStudentInfo()
-            studentError.value = 'Не удалось загрузить учебный контекст студента.'
-          }
-        })
-        .finally(() => {
-          if (profileRequest.isCurrent(requestId)) {
-            studentLoading.value = false
-          }
-        })
-    )
-  }
-
-  if (authStore.isTeacher) {
-    teacherLoading.value = true
-
-    jobs.push(
-      loadTeacherContext()
-        .then((context) => {
-          if (profileRequest.isCurrent(requestId)) {
-            teacherInfo.value = context
-          }
-        })
-        .catch(() => {
-          if (profileRequest.isCurrent(requestId)) {
-            teacherInfo.value = emptyTeacherInfo()
-            teacherError.value = 'Не удалось загрузить учебный контекст преподавателя.'
-          }
-        })
-        .finally(() => {
-          if (profileRequest.isCurrent(requestId)) {
-            teacherLoading.value = false
-          }
-        })
-    )
-  }
-
-  await Promise.all(jobs)
-}
-
-function validatePassword(value, label) {
-  if (!value) {
-    return `Введите поле «${label}»`
-  }
-
-  if (value.length < 6) {
-    return `${label} должен содержать минимум 6 символов`
-  }
-
-  if (value.length > 200) {
-    return `${label} не должен превышать 200 символов`
-  }
-
-  return ''
-}
-
-function resetPasswordForm() {
-  passwordForm.currentPassword = ''
-  passwordForm.newPassword = ''
-  passwordForm.confirmPassword = ''
-  passwordSubmitted.value = false
-  passwordTouched.current = false
-  passwordTouched.next = false
-  passwordTouched.confirm = false
-  authStore.clearError('password')
-}
-
-function openPasswordDialog() {
-  resetPasswordForm()
-  passwordDialogOpen.value = true
-}
-
-function setPasswordDialogVisible(visible) {
-  if (!visible && authStore.changingPassword) {
-    return
-  }
-
-  passwordDialogOpen.value = visible
-
-  if (!visible) {
-    resetPasswordForm()
-  }
-}
-
-async function submitPasswordChange() {
-  passwordSubmitted.value = true
-  passwordTouched.current = true
-  passwordTouched.next = true
-  passwordTouched.confirm = true
-
-  if (!canChangePassword.value) {
-    return
-  }
-
-  try {
-    const result = await authStore.changePassword(
-      passwordForm.currentPassword,
-      passwordForm.newPassword
-    )
-
-    if (result?.requiresReauthentication) {
-      passwordDialogOpen.value = false
-      resetPasswordForm()
-
-      await router.replace({
-        name: 'login',
-        query: {
-          passwordChanged: '1',
-          redirect: '/profile',
-        },
-      })
-    }
-  } catch {
-    // Password-specific message is stored in authStore.passwordError.
-  }
-}
-
 onMounted(() => loadProfile())
-
-onBeforeUnmount(() => {
-  profileRequest.invalidate()
-})
 </script>
 
 <template>

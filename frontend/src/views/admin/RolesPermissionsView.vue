@@ -1,7 +1,6 @@
 <script setup>
 import {
   onMounted,
-  ref,
 } from 'vue'
 
 import AdminNotice from '@/components/admin/AdminNotice.vue'
@@ -24,20 +23,16 @@ import {
 } from '@/components/ui'
 
 import {
-  getApiErrorMessage,
-  rolesApi,
-} from '@/api'
-
-import {
   useAdminRolesPermissionsData,
-} from '@/composables/useAdminRolesPermissionsData'
+} from '@/composables/admin/roles-permissions/useAdminRolesPermissionsData'
 
 import {
   useAdminRolePermissionsEditor,
-} from '@/composables/useAdminRolePermissionsEditor'
+} from '@/composables/admin/roles-permissions/useAdminRolePermissionsEditor'
 
-const roleFormError = ref('')
-const permissionFormError = ref('')
+import {
+  useAdminRolesPermissionsMutations,
+} from '@/composables/admin/roles-permissions/useAdminRolesPermissionsMutations'
 
 const {
   ROLE_PERMISSION_FILTER_OPTIONS,
@@ -110,245 +105,27 @@ function loadData(options = {}) {
   })
 }
 
-function openCreateRole() {
-  roleFormError.value = ''
-  roleCreateOverlay.openCreate()
-}
-
-function openCreatePermission() {
-  permissionFormError.value = ''
-  permissionCreateOverlay.openCreate()
-}
-
-
-function validateRoleForm() {
-  const name = String(
-    roleCreateOverlay.form.name ?? ''
-  ).trim()
-  const description = String(
-    roleCreateOverlay.form.description ?? ''
-  ).trim()
-
-  if (!name) {
-    return 'Введите название роли.'
-  }
-
-  if (name.length > 100) {
-    return 'Название роли не должно превышать 100 символов.'
-  }
-
-  if (description.length > 500) {
-    return 'Описание роли не должно превышать 500 символов.'
-  }
-
-  const duplicate = roles.value.some(
-    (role) => normalize(role.name) === normalize(name)
-  )
-
-  if (duplicate) {
-    return 'Роль с таким названием уже существует.'
-  }
-
-  return ''
-}
-
-function validatePermissionForm() {
-  const name = String(
-    permissionCreateOverlay.form.name ?? ''
-  ).trim()
-  const description = String(
-    permissionCreateOverlay.form.description ?? ''
-  ).trim()
-
-  if (!name) {
-    return 'Введите название permission.'
-  }
-
-  if (name.length > 100) {
-    return 'Название permission не должно превышать 100 символов.'
-  }
-
-  if (description.length > 500) {
-    return 'Описание permission не должно превышать 500 символов.'
-  }
-
-  const duplicate = permissions.value.some(
-    (permission) =>
-      normalize(permission.name) === normalize(name)
-  )
-
-  if (duplicate) {
-    return 'Permission с таким названием уже существует.'
-  }
-
-  return ''
-}
-
-async function createRole() {
-  if (roleCreateOverlay.saving.value) {
-    return
-  }
-
-  const validationError = validateRoleForm()
-
-  if (validationError) {
-    roleFormError.value = validationError
-    return
-  }
-
-  roleFormError.value = ''
-  roleCreateOverlay.beginSaving()
-
-  try {
-    const response = await rolesApi.createRole({
-      name: String(
-        roleCreateOverlay.form.name
-      ).trim(),
-      description:
-        String(
-          roleCreateOverlay.form.description ?? ''
-        ).trim() || null,
-    })
-
-    const createdRole = response?.data
-
-    if (createdRole?.id != null) {
-      roles.value = [
-        ...roles.value,
-        createdRole,
-      ]
-    } else {
-      await loadData({ preserveDrawer: false })
-    }
-
-    roleCreateOverlay.finishSaving()
-
-    showNotice(
-      'success',
-      createdRole?.name
-        ? `Роль «${createdRole.name}» создана.`
-        : 'Роль создана.'
-    )
-  } catch (error) {
-    roleCreateOverlay.failSaving()
-    roleFormError.value = getApiErrorMessage(
-      error,
-      'Не удалось создать роль.'
-    )
-  }
-}
-
-async function createPermission() {
-  if (permissionCreateOverlay.saving.value) {
-    return
-  }
-
-  const validationError = validatePermissionForm()
-
-  if (validationError) {
-    permissionFormError.value = validationError
-    return
-  }
-
-  permissionFormError.value = ''
-  permissionCreateOverlay.beginSaving()
-
-  try {
-    const response = await rolesApi.createPermission({
-      name: String(
-        permissionCreateOverlay.form.name
-      ).trim(),
-      description:
-        String(
-          permissionCreateOverlay.form.description ?? ''
-        ).trim() || null,
-    })
-
-    const createdPermission = response?.data
-
-    if (createdPermission?.id != null) {
-      permissions.value = [
-        ...permissions.value,
-        createdPermission,
-      ]
-    } else {
-      await loadData()
-    }
-
-    permissionCreateOverlay.finishSaving()
-
-    showNotice(
-      'success',
-      createdPermission?.name
-        ? `Permission «${createdPermission.name}» создан.`
-        : 'Permission создан.'
-    )
-  } catch (error) {
-    permissionCreateOverlay.failSaving()
-    permissionFormError.value = getApiErrorMessage(
-      error,
-      'Не удалось создать permission.'
-    )
-  }
-}
-
-async function saveRolePermissions() {
-  if (
-    rolePermissionsOverlay.saving.value ||
-    selectedRoleId.value == null
-  ) {
-    return
-  }
-
-  rolePermissionsError.value = ''
-  rolePermissionsOverlay.beginSaving()
-
-  const permissionIds = [
-    ...new Set(
-      (rolePermissionsOverlay.form.permissionIds ?? [])
-        .map(Number)
-        .filter(Number.isFinite)
-    ),
-  ]
-
-  try {
-    const response = await rolesApi.setPermissions(
-      selectedRoleId.value,
-      permissionIds
-    )
-
-    const updatedRole = response?.data
-
-    roles.value = roles.value.map((role) =>
-      Number(role.id) === Number(selectedRoleId.value)
-        ? updatedRole ?? role
-        : role
-    )
-
-    rolePermissionsOverlay.finishSaving({
-      values: {
-        permissionIds:
-          rolePermissionIds(updatedRole),
-      },
-    })
-
-    selectedRoleId.value = null
-
-    showNotice(
-      'success',
-      updatedRole?.name
-        ? `Права роли «${updatedRole.name}» сохранены.`
-        : 'Права роли сохранены.'
-    )
-  } catch (error) {
-    rolePermissionsOverlay.failSaving()
-    rolePermissionsError.value = getApiErrorMessage(
-      error,
-      'Не удалось сохранить права роли.'
-    )
-  }
-}
-
+const {
+  roleFormError,
+  permissionFormError,
+  openCreateRole,
+  openCreatePermission,
+  createRole,
+  createPermission,
+  saveRolePermissions,
+} = useAdminRolesPermissionsMutations({
+  roles,
+  permissions,
+  normalize,
+  showNotice,
+  loadData,
+  roleCreateOverlay,
+  permissionCreateOverlay,
+  rolePermissionsOverlay,
+  selectedRoleId,
+  rolePermissionIds,
+  rolePermissionsError,
+})
 
 onMounted(loadData)
 </script>

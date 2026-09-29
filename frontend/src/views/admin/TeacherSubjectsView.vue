@@ -32,7 +32,7 @@ import {
 
 import {
   useAdminTeacherSubjectsData,
-} from '@/composables/useAdminTeacherSubjectsData'
+} from '@/composables/admin/teacher-subjects/useAdminTeacherSubjectsData'
 
 const REMOVED_STATUS = 3
 

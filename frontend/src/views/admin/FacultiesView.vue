@@ -29,7 +29,7 @@ import {
 
 import {
   useAdminFacultiesData,
-} from '@/composables/useAdminFacultiesData'
+} from '@/composables/admin/faculties/useAdminFacultiesData'
 
 const {
   descriptionOptions,

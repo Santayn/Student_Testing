@@ -27,7 +27,7 @@ import {
 
 import {
   useAdminFacultySubjectsData,
-} from '@/composables/useAdminFacultySubjectsData'
+} from '@/composables/admin/faculty-subjects/useAdminFacultySubjectsData'
 
 const {
   sortOptions,

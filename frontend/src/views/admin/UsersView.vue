@@ -27,10 +27,10 @@ import {
 import {
   emptyAdminPersonDraft,
   useAdminPersonEditor,
-} from '@/composables/useAdminPersonEditor'
+} from '@/composables/admin/users/useAdminPersonEditor'
 import {
   useAdminUsersData,
-} from '@/composables/useAdminUsersData'
+} from '@/composables/admin/users/useAdminUsersData'
 
 const {
   ACTIVE_OPTIONS,

@@ -11,7 +11,6 @@ import {
 
 import {
   getApiErrorMessage,
-  topicsApi,
 } from '@/api'
 
 import {
@@ -32,11 +31,15 @@ import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import {
   useTeacherSubjects,
-} from '@/composables/useTeacherSubjects'
+} from '@/composables/teacher/useTeacherSubjects'
 
 import {
   useTeacherTopicsData,
-} from '@/composables/useTeacherTopicsData'
+} from '@/composables/teacher/useTeacherTopicsData'
+
+import {
+  useTeacherTopicMutations,
+} from '@/composables/teacher/useTeacherTopicMutations'
 
 const route = useRoute()
 
@@ -52,12 +55,6 @@ const {
 } = useTeacherSubjects()
 
 const initialized = ref(false)
-
-const deleteTarget = ref(null)
-const deleteConfirmVisible = ref(false)
-const deletingId = ref(null)
-const deleteError = ref('')
-const formError = ref('')
 
 const {
   form,
@@ -136,157 +133,27 @@ function openCreateTopic() {
   })
 }
 
-function requestDeleteTopic(topic) {
-  deleteTarget.value = topic
-  deleteError.value = ''
-  deleteConfirmVisible.value = true
-}
-
-function closeDeleteDialog() {
-  if (deletingId.value !== null) {
-    return
-  }
-
-  deleteConfirmVisible.value = false
-  deleteTarget.value = null
-  deleteError.value = ''
-}
-
-function topicFormValidationMessage() {
-  const membership = selectedMembership.value
-  const ordinal = Number(form.ordinal)
-  const name = String(form.name ?? '').trim()
-  const description = String(form.description ?? '').trim()
-
-  if (!membership) {
-    return 'Выберите предмет преподавателя.'
-  }
-
-  if (!Number.isInteger(ordinal) || ordinal <= 0) {
-    return 'Порядковый номер темы должен быть целым числом больше нуля.'
-  }
-
-  if (!name) {
-    return 'Введите название темы.'
-  }
-
-  if (name.length > 200) {
-    return 'Название темы не может быть длиннее 200 символов.'
-  }
-
-  if (description.length > 2000) {
-    return 'Описание темы не может быть длиннее 2000 символов.'
-  }
-
-  const duplicateOrdinal = topics.value.find(
-    (topic) =>
-      Number(topic.ordinal) === ordinal &&
-      String(topic.id) !== String(form.id ?? '')
-  )
-
-  if (duplicateOrdinal) {
-    return 'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.'
-  }
-
-  return ''
-}
-
-async function saveTopic() {
-  formError.value = topicFormValidationMessage()
-
-  if (formError.value) {
-    return
-  }
-
-  const membership = selectedMembership.value
-  const ordinal = Number(form.ordinal)
-  const name = String(form.name ?? '').trim()
-  const description = String(form.description ?? '').trim()
-
-  const payload = {
-    /*
-     * subjectId и subjectMembershipId всегда берутся
-     * из одного membership-контекста.
-     */
-    subjectId: Number(membership.subjectId),
-    courseLectureId: null,
-    subjectMembershipId: Number(membership.id),
-    ordinal,
-    name,
-    description: description || null,
-  }
-
-  beginSaving()
-
-  try {
-    await ensureSelectedMembershipActive()
-
-    if (form.id) {
-      await topicsApi.update(form.id, payload)
-      notice.value = {
-        type: 'success',
-        message: 'Тема обновлена.',
-      }
-    } else {
-      await topicsApi.create(payload)
-      notice.value = {
-        type: 'success',
-        message: 'Тема создана.',
-      }
-    }
-
-    await loadTopics()
-    finishSaving({ close: true })
-  } catch (error) {
-    formError.value = topicSaveErrorMessage(error)
-    failSaving()
-  }
-}
-
-async function deleteTopic() {
-  const topic = deleteTarget.value
-
-  if (!topic || deletingId.value !== null) {
-    return
-  }
-
-  deletingId.value = topic.id
-  deleteError.value = ''
-
-  try {
-    await ensureSelectedMembershipActive()
-    await topicsApi.remove(topic.id)
-
-    notice.value = {
-      type: 'success',
-      message: 'Тема удалена.',
-    }
-
-    deleteConfirmVisible.value = false
-    deleteTarget.value = null
-    await loadTopics()
-  } catch (error) {
-    deleteError.value = topicDeleteErrorMessage(error)
-  } finally {
-    deletingId.value = null
-  }
-}
-
-function topicSaveErrorMessage(error) {
-  return getApiErrorMessage(
-    error,
-    form.id
-      ? 'Не удалось обновить тему.'
-      : 'Не удалось создать тему.'
-  )
-}
-
-function topicDeleteErrorMessage(error) {
-  return getApiErrorMessage(
-    error,
-    'Не удалось удалить тему.'
-  )
-}
+const {
+  deleteTarget,
+  deleteConfirmVisible,
+  deletingId,
+  deleteError,
+  formError,
+  requestDeleteTopic,
+  closeDeleteDialog,
+  saveTopic,
+  deleteTopic,
+} = useTeacherTopicMutations({
+  form,
+  selectedMembership,
+  topics,
+  notice,
+  ensureSelectedMembershipActive,
+  beginSaving,
+  finishSaving,
+  failSaving,
+  loadTopics,
+})
 
 watch(
   selectedMembershipId,

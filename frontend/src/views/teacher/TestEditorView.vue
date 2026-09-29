@@ -33,19 +33,19 @@ import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import {
   useTeacherSubjects,
-} from '@/composables/useTeacherSubjects'
+} from '@/composables/teacher/useTeacherSubjects'
 
 import {
   useUnsavedNavigationGuard,
-} from '@/composables/useUnsavedNavigationGuard'
+} from '@/composables/shared/useUnsavedNavigationGuard'
 
 import {
   useTestEditorState,
-} from '@/composables/useTestEditorState'
+} from '@/composables/tests/useTestEditorState'
 
 import {
   useTestEditorSaveFlow,
-} from '@/composables/useTestEditorSaveFlow'
+} from '@/composables/tests/useTestEditorSaveFlow'
 
 import {
   listFromResponse,

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import {
   UiButton,
@@ -29,12 +29,37 @@ const emit = defineEmits([
   'update:modelValue',
 ])
 
+let nextRowKey = 1
+const rowKeys = ref([])
+
+function createRowKey() {
+  const key = `matching-pair-${nextRowKey}`
+  nextRowKey += 1
+  return key
+}
+
+function syncRowKeys(length) {
+  while (rowKeys.value.length < length) {
+    rowKeys.value.push(createRowKey())
+  }
+
+  if (rowKeys.value.length > length) {
+    rowKeys.value.splice(length)
+  }
+}
+
 const pairs = computed(() => (
   ensureMatchingPairRows(
     props.modelValue,
     props.minimumPairs
   )
 ))
+
+watch(
+  () => pairs.value.length,
+  (length) => syncRowKeys(length),
+  { immediate: true }
+)
 
 function emitPairs(nextPairs) {
   emit(
@@ -54,6 +79,8 @@ function updatePair(index, field, value) {
 }
 
 function addPair() {
+  rowKeys.value.push(createRowKey())
+
   emitPairs([
     ...pairs.value,
     {
@@ -68,6 +95,8 @@ function removePair(index) {
   if (pairs.value.length <= props.minimumPairs) {
     return
   }
+
+  rowKeys.value.splice(index, 1)
 
   emitPairs(
     pairs.value.filter((_, pairIndex) => pairIndex !== index)
@@ -98,7 +127,7 @@ function removePair(index) {
     <div class="matching-editor__list">
       <article
         v-for="(pair, index) in pairs"
-        :key="index"
+        :key="rowKeys[index]"
         class="matching-editor__pair"
       >
         <div class="matching-editor__pair-header">

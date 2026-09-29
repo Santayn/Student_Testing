@@ -26,11 +26,11 @@ import {
 
 import {
   useAttemptDraft,
-} from '@/composables/useAttemptDraft'
+} from '@/composables/tests/useAttemptDraft'
 
 import {
   useTestAttemptLifecycle,
-} from '@/composables/useTestAttemptLifecycle'
+} from '@/composables/tests/useTestAttemptLifecycle'
 
 import {
   UiAlert,

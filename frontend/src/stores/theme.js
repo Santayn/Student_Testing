@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 const THEMES = ['system', 'light', 'dark']
@@ -74,6 +74,20 @@ export const useThemeStore = defineStore(
         applyTheme()
       }
     }
+
+    function detachSystemThemeListener() {
+      if (!mediaQuery) {
+        return
+      }
+
+      mediaQuery.removeEventListener(
+        'change',
+        handleSystemThemeChange
+      )
+      mediaQuery = null
+    }
+
+    onScopeDispose(detachSystemThemeListener)
 
     function init() {
       if (!THEMES.includes(theme.value)) {

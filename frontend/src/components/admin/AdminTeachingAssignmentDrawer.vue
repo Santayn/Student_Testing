@@ -15,11 +15,11 @@ import {
   ADMIN_TEACHING_COURSE_OPTIONS as COURSE_OPTIONS,
   ADMIN_TEACHING_SEMESTER_OPTIONS as SEMESTER_OPTIONS,
   ADMIN_TEACHING_STATUS_OPTIONS as STATUS_OPTIONS,
-} from '@/composables/useAdminTeachingAssignmentsData'
+} from '@/composables/admin/teaching-assignments/useAdminTeachingAssignmentsData'
 
 import {
   ADMIN_TEACHING_MAX_HOURS_PER_WEEK,
-} from '@/composables/useAdminTeachingAssignmentEditor'
+} from '@/composables/admin/teaching-assignments/useAdminTeachingAssignmentEditor'
 
 const props = defineProps({
   modelValue: {

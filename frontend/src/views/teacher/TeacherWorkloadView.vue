@@ -11,9 +11,9 @@ import {
   UiSelect,
 } from '@/components/ui'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
-import { useTeacherSubjects } from '@/composables/useTeacherSubjects'
-import { useTeacherWorkloadData } from '@/composables/useTeacherWorkloadData'
-import { useTeacherWorkloadPresentation } from '@/composables/useTeacherWorkloadPresentation'
+import { useTeacherSubjects } from '@/composables/teacher/useTeacherSubjects'
+import { useTeacherWorkloadData } from '@/composables/teacher/useTeacherWorkloadData'
+import { useTeacherWorkloadPresentation } from '@/composables/teacher/useTeacherWorkloadPresentation'
 
 const router = useRouter()
 const {
