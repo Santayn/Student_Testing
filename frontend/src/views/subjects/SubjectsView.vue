@@ -22,7 +22,6 @@ import {
   UiButton,
   UiEmptyState,
   UiSearchInput,
-  UiTag,
 } from '@/components/ui'
 
 import {
@@ -98,7 +97,7 @@ const metaText = computed(() => {
         (item) =>
           item.name ||
           item.code ||
-          `#${item.id}`
+          'Группа без названия'
       )
       .join(', ')
 
@@ -108,7 +107,7 @@ const metaText = computed(() => {
             (item) =>
               item.name ||
               item.code ||
-              `#${item.id}`
+              'Факультет без названия'
           )
           .join(', ')
       : '-'
@@ -333,9 +332,8 @@ onMounted(loadSubjects)
         <div class="subject-tile__body">
           <div class="subject-tile__heading">
             <h2>
-              {{ subjectItem.name || `Предмет #${subjectItem.id}` }}
+              {{ subjectItem.name || 'Предмет без названия' }}
             </h2>
-            <UiTag :value="`#${subjectItem.id}`" />
           </div>
 
           <p>

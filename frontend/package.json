@@ -9,8 +9,10 @@
     "preview": "vite preview",
     "test:unit": "vitest",
     "format": "prettier --write --experimental-cli src/",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "quality:static": "node scripts/static-quality.mjs",
-    "quality": "npm run quality:static && npm run test:unit -- --run && npm run build"
+    "quality": "npm run lint && npm run quality:static && npm run test:unit -- --run && npm run build"
   },
   "dependencies": {
     "@primeuix/themes": "2.0.3",
@@ -25,9 +27,13 @@
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.4.11",
+    "eslint": "^10.11.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "globals": "^17.12.0",
     "jsdom": "^29.1.1",
     "prettier": "3.9.5",
     "vite": "^8.1.5",

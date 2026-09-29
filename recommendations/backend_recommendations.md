@@ -755,6 +755,112 @@ POST /api/v1/tests/attempts/{attemptId}/invalidate
 
 ---
 
+
+---
+
+## 21. BE-PERF-01 — Добавить агрегированный student learning context endpoint — OPEN
+
+**Приоритет:** P2 performance  
+**Связанный frontend item:** `FE-PERF-01`
+
+### Проблема
+
+После Stage 26 frontend убрал повторные assignment reads и сократил critical path, но по текущему REST-контракту всё ещё вынужден собирать учебный контекст студента через несколько семейств ресурсов:
+
+```text
+group memberships
+groups
+faculties
+teaching assignments
+teaching enrollments
+subject memberships
+subjects
+```
+
+Количество HTTP-запросов продолжает расти вместе с числом групп, назначений и предметов.
+
+### Рекомендация
+
+Добавить read-only агрегированный endpoint для текущего student learning context.
+
+Пример маршрута:
+
+```text
+GET /api/v1/public/learning/context
+```
+
+Точный URI следует согласовать с существующими API conventions.
+
+Предпочтительно определять текущего пользователя из authenticated security context, а не принимать произвольный `personId` от клиента.
+
+### Минимальный результат
+
+Endpoint должен возвращать только связанные с текущим студентом данные, например:
+
+```json
+{
+  "memberships": [],
+  "groups": [],
+  "faculties": [],
+  "assignments": [],
+  "enrollments": [],
+  "subjectMemberships": [],
+  "subjects": []
+}
+```
+
+Допустим более компактный DTO, если frontend не нуждается в полных entity-представлениях.
+
+### Security requirements
+
+Filtering должен выполняться **на backend**.
+
+Недопустим вариант:
+
+```text
+прочитать все groups/subjects/faculties
+→ отдать браузеру
+→ фильтровать на frontend
+```
+
+Студент должен получать только данные, достижимые через его активные memberships/enrollments.
+
+Нужно сохранить текущие effective rules:
+
+- active student group membership;
+- active teaching assignment;
+- active/non-removed enrollment;
+- только связанные subject membership / subject / faculty / group.
+
+### Performance target
+
+Количество HTTP-запросов frontend для загрузки student context должно стать:
+
+```text
+O(1)
+```
+
+относительно числа групп и предметов.
+
+Backend внутри может использовать несколько SQL queries, но следует избегать per-row/N+1 query loops.
+
+### Тесты
+
+Добавить backend tests:
+
+1. student получает только собственный active context;
+2. inactive/removed memberships исключаются;
+3. inactive assignments исключаются;
+4. removed/inactive enrollments исключаются;
+5. unrelated groups/subjects не утекут;
+6. несколько групп/предметов агрегируются корректно;
+7. пустой student context возвращает успешный пустой response.
+
+### Acceptance condition
+
+`BE-PERF-01` закрывается, когда frontend может получить полный student learning context без graph traversal по нескольким resource endpoints.
+
+
 # Рекомендуемый порядок исправления
 
 1. **A1/A2 / рекомендация 18** — исправить матрицу TEACHER и унифицировать roles / permissions / domain authorization.
@@ -769,3 +875,4 @@ POST /api/v1/tests/attempts/{attemptId}/invalidate
 10. **Рекомендации 8–10** — активность и lifecycle SubjectMembership.
 11. **Рекомендация 12** — убрать mutation из student GET.
 12. **Рекомендация 13** — score-based results.
+14. **BE-PERF-01 / рекомендация 21** — агрегированный student learning context endpoint после закрытия correctness/security P0/P1.

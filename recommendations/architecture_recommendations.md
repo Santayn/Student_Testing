@@ -128,6 +128,88 @@ ARCH-01 следует переводить из `DEFERRED` в `OPEN`, когд�
 
 ---
 
+
+## ARCH-02 — Автоматизировать frontend quality gate в CI
+
+**Приоритет:** P2/P3  
+**Статус:** OPEN
+
+### Проблема
+
+Frontend уже имеет единый локальный quality gate:
+
+```bash
+npm run quality
+```
+
+который последовательно запускает:
+
+```text
+ESLint
+→ custom static quality
+→ Vitest
+→ Vite build
+```
+
+Однако в предоставленном проекте не обнаружен CI workflow, который гарантированно запускает этот gate на push/pull request.
+
+Текущий frontend Docker build выполняет:
+
+```text
+npm ci
+npm run build
+```
+
+Это корректно для production image, но не заменяет CI-проверку lint/static/tests.
+
+### Рекомендация
+
+Добавить CI job:
+
+```text
+checkout
+→ setup Node согласно package.json engines
+→ npm ci
+→ npm run quality
+```
+
+Минимально job должен запускаться:
+
+- на pull request;
+- на push в основную integration/default branch.
+
+### Почему это архитектурная рекомендация
+
+Проблема относится не к runtime frontend-коду, а к общему engineering process:
+
+```text
+локальный quality contract
+→ автоматическое enforcement
+```
+
+CI должен гарантировать, что green quality является условием merge, а не только ручной практикой разработчика.
+
+### Что не требуется
+
+Не нужно:
+
+- запускать unit tests внутри production Docker image build;
+- дублировать все команды отдельно, если `npm run quality` остаётся authoritative script;
+- блокировать ARCH-01 E2E на этом этапе.
+
+### Acceptance condition
+
+`ARCH-02` закрывается, когда CI автоматически выполняет:
+
+```bash
+npm ci
+npm run quality
+```
+
+и merge/pull-request получает failing status при любой ошибке lint/static/tests/build.
+
+---
+
 ## Правило классификации архитектурных рекомендаций
 
 В этот реестр следует помещать проблемы, которые требуют согласованного изменения нескольких слоёв системы, например:

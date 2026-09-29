@@ -1,56 +1,54 @@
 # Актуальные рекомендации frontend ↔ backend
 
-Дата актуализации: **29.09.2026**.
+Дата актуализации: **29.09.2026**.  
+Статус после Stage 28: **authoritative registry**.
 
 ## Правило проекта
 
-Backend считается **неизменяемой константой** и в рамках текущей доработки проекта не изменяется.
+Backend считается **неизменяемой константой** в рамках текущей frontend-доработки.
 
-Frontend дорабатывается максимально полно в пределах уже существующего backend-контракта. Если корректное решение технически требует изменения backend, рекомендация **не удаляется**, а сохраняется с пометкой:
+Frontend исправляется максимально полно в пределах существующего backend-контракта. Если корректное решение технически требует изменения backend, пункт сохраняется с пометкой:
 
-> **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
+> **BACKEND BLOCKED / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
 
-Такие пункты не входят в текущий frontend backlog и не должны имитироваться небезопасными или архитектурно слабыми клиентскими обходами.
-
----
-
-# Состояние frontend-рекомендаций
-
-Повторная сверка рекомендаций с текущим кодом frontend показала, что все ранее зафиксированные проблемы, которые можно было надёжно исправить **только на frontend**, закрыты.
-
-Подтверждено наличие следующих механизмов:
-
-- operation-specific timeout для обычных запросов, submit и файловых операций;
-- защита от слепого повторного submit после неизвестного сетевого исхода;
-- восстановление черновика незавершённой тестовой попытки через `sessionStorage`;
-- привязка draft к `testId + assignmentId + attemptId` и fingerprint вопросов;
-- workspace route isolation через `meta.workspaceRoles`;
-- использование effective workspace mode вместо raw account roles там, где это требуется;
-- защита route/context-driven загрузчиков через `createLatestRequestGuard()`;
-- защита от stale responses и stale reactive context;
-- regression/contract tests для перечисленных механизмов.
-
-Соответствующие ранее закрытые пункты FE-4, FE-5, FE-6, FE-7 и FE-8 удалены из активного списка рекомендаций как выполненные.
-
-На текущий момент **подтверждённых незакрытых frontend-only рекомендаций из прежнего файла нет**.
+Такие пункты не должны имитироваться небезопасными или архитектурно слабыми клиентскими обходами.
 
 ---
 
-# Рекомендации, требующие изменения backend
+# 1. Текущее состояние frontend
 
-## FE-9. Надёжный таймер теста нельзя реализовать по текущему student contract
-
-**Приоритет:** 🟡 P2  
-**Статус:** BACKEND BLOCKED  
-**Пометка:** **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
-
-Backend возвращает в `PublicTestResponse`:
+После Stage 24–27 и финального re-audit:
 
 ```text
-duration
+frontend-only P0: 0
+frontend-only P1: 0
+frontend-only P2: 0
 ```
 
-но `PublicTestAttemptLoadResponse` не содержит серверных временных данных, достаточных для authoritative countdown:
+Закрыты и подтверждены:
+
+- startup/bootstrap fallback;
+- root runtime error boundary;
+- ESLint + Vue lint quality gate;
+- custom static-quality gate;
+- duplicate assignment read в student learning context;
+- сокращение cold-load critical path;
+- semantic UI fallbacks вместо технических `#id`;
+- stale/race/session/workspace protections;
+- test-attempt draft recovery;
+- API-contract hardening;
+- accessibility/responsive foundation.
+
+Активного standalone frontend-only backlog сейчас нет.
+
+---
+
+# 2. FE-9 — Authoritative timer тестовой попытки
+
+**Приоритет:** P2  
+**Статус:** BACKEND BLOCKED
+
+Backend возвращает `duration`, но student attempt contract не предоставляет серверных временных данных, достаточных для authoritative countdown:
 
 ```text
 startedAtUtc
@@ -58,34 +56,25 @@ effectiveDeadlineUtc
 serverNowUtc
 ```
 
-Добавление только локального frontend-countdown не решает задачу корректно:
+Frontend не может корректно восстановить оставшееся время после reload и не должен сам становиться источником бизнес-истины по deadline.
 
-- reload сбрасывает локальную точку старта;
-- часы клиента могут отличаться от серверных;
-- клиентский таймер можно обойти;
-- frontend не может доказать истечение серверного времени;
-- текущий backend-контракт не предоставляет authoritative deadline.
+## Что требуется от backend
 
-### Что требуется от backend в будущем
-
-1. backend вычисляет authoritative deadline попытки;
+1. backend вычисляет authoritative deadline;
 2. start/resume DTO возвращает минимум `effectiveDeadlineUtc`;
-3. backend проверяет deadline при submit;
-4. после этого frontend отображает countdown и использует deadline только как UX-представление серверного ограничения.
+3. backend проверяет deadline при submit/complete;
+4. frontend отображает countdown только как UX-представление серверного ограничения.
 
-### Что делать на frontend сейчас
+## Что делать frontend сейчас
 
-**Ничего не имитировать.**
-
-Не рекомендуется строить локальный таймер и выдавать его за реальное ограничение времени теста. Это создаст ложное ощущение корректности и добавит дублирующую бизнес-логику на клиенте.
+Не имитировать серверный deadline локальным таймером.
 
 ---
 
-## FE-10. HttpOnly refresh-session требует изменения auth-контракта backend
+# 3. FE-10 — HttpOnly refresh-session
 
-**Приоритет:** 🟡 P2 / security hardening  
-**Статус:** BACKEND BLOCKED  
-**Пометка:** **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
+**Приоритет:** P2 / security hardening  
+**Статус:** BACKEND BLOCKED
 
 Текущий auth API:
 
@@ -93,42 +82,116 @@ serverNowUtc
 - ожидает refresh token в body `/auth/refresh`;
 - ожидает refresh token в body `/auth/revoke`.
 
-Поэтому frontend вынужден иметь refresh token в JavaScript-доступном состоянии.
+Frontend поэтому вынужден держать refresh token в JavaScript-доступном состоянии.
 
-Frontend не способен самостоятельно превратить такой токен в `HttpOnly` cookie, потому что `HttpOnly` задаётся сервером через `Set-Cookie`.
+Frontend не может самостоятельно превратить такой token в `HttpOnly` cookie.
 
-### Что требуется от backend в будущем
+## Что требуется от backend
 
 Целевой web-contract:
 
 ```text
 refresh token -> Secure + HttpOnly + SameSite cookie
 access token  -> короткоживущий, предпочтительно in-memory
-refresh       -> работает с cookie-сессией
-revoke/logout -> инвалидирует cookie-сессию
+refresh       -> cookie-based session
+revoke/logout -> инвалидирует cookie-session
 ```
 
-При таком контракте отдельно потребуется определить CSRF/CORS/credentials policy.
+Также потребуется определить CORS/credentials/CSRF policy.
 
-### Что делать на frontend сейчас
+## Что делать frontend сейчас
 
-Текущий auth flow не перестраивать искусственно.
-
-Перенос refresh token между `localStorage`, `sessionStorage` или другим JS-доступным storage может уменьшить persistence, но **не является полноценной защитой от XSS token theft**.
+Не перестраивать auth-flow искусственно и не считать перенос между `localStorage`/`sessionStorage` полноценной XSS-защитой.
 
 ---
 
-# Итог
+# 4. FE-PERF-01 — Student learning context fan-out
 
-Активный frontend backlog из данного файла исчерпан.
+**Приоритет:** P2 performance  
+**Статус:** PARTIAL / BACKEND BLOCKED  
+**Связанный backend item:** `BE-PERF-01`
 
-Остались только две рекомендации, которые невозможно корректно закрыть без изменения backend:
+## Что уже закрыто на frontend в Stage 26
+
+- enrolled teaching assignment не перечитывается по ID, если он уже пришёл из group assignment query;
+- group reads, assignment-list reads и enrollment reads запускаются одной async-фазой;
+- fallback `getAssignment(id)` сохранён только для отсутствующих assignment;
+- существующие TTL/cache/invalidation semantics сохранены;
+- не добавлены новые stale-prone cache layers.
+
+## Что остаётся
+
+Frontend всё ещё реконструирует контекст через несколько REST-ресурсов:
+
+```text
+group memberships
+→ groups
+→ faculties
+→ teaching assignments
+→ enrollments
+→ subject memberships
+→ subjects
+```
+
+Request count остаётся зависимым от числа связей.
+
+## Почему не нужно продолжать frontend-only оптимизацию
+
+Не рекомендуется:
+
+- загружать широкие `getAll()` каталоги ради сокращения request count;
+- увеличивать TTL access-related сущностей;
+- вводить большой normalized entity cache только для компенсации backend granularity.
+
+## Что требуется от backend
+
+Нужен агрегированный student learning context endpoint с server-side object-level filtering.
+
+После появления endpoint frontend должен:
+
+1. перейти на aggregate contract;
+2. временно оставить старый traversal только как migration fallback при необходимости;
+3. затем удалить устаревший graph traversal;
+4. сохранить session/workspace invalidation semantics.
+
+---
+
+# 5. Закрытые пункты, важные для истории
+
+## FE-NEW-05 — Technical IDs in ordinary UI
+
+**Статус:** CLOSED by Stage 27.
+
+Зафиксированный UI contract:
+
+```text
+ordinary UI:
+semantic label -> semantic fallback
+
+admin/support/recovery:
+technical ID допустим, если он реально нужен для идентификации
+```
+
+Stage 27 не менял backend contracts, auth, cache, mutations или routing IDs.
+
+---
+
+# 6. Итоговый активный frontend registry
 
 | ID | Приоритет | Статус | Причина |
 |---|---|---|---|
-| FE-9 | 🟡 P2 | BACKEND BLOCKED | нет authoritative server deadline в student attempt contract |
-| FE-10 | 🟡 P2 | BACKEND BLOCKED | refresh token contract требует JS-доступного token storage |
+| FE-9 | P2 | BACKEND BLOCKED | нет authoritative server deadline |
+| FE-10 | P2 | BACKEND BLOCKED | refresh-token contract требует JS-accessible token |
+| FE-PERF-01 | P2 | PARTIAL / BACKEND BLOCKED | остаточный REST fan-out требует aggregate backend endpoint |
 
-При текущем правиле проекта эти пункты **сохраняются как документация ограничений**, но не являются задачами текущей доработки frontend.
+## Правило дальнейшей работы
 
-Следующие улучшения frontend следует формировать уже по новому аудиту качества кода, а не переносить закрытые пункты из старого списка.
+Новый frontend Stage открывать только если появляется:
+
+- реальный bug/regression;
+- новая feature requirement;
+- измеренный performance symptom;
+- изменение backend-контракта;
+- новое архитектурное требование.
+
+Новый рефакторинг «на всякий случай» не нужен.
