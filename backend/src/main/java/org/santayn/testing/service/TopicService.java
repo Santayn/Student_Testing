@@ -16,6 +16,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TopicService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final TopicRepository topicRepository;
     private final SubjectRepository subjectRepository;
     private final LectureRepository lectureRepository;
@@ -121,7 +124,7 @@ public class TopicService {
         if (subjectMembershipId == null) {
             throw new IllegalArgumentException("SubjectMembershipId is required.");
         }
-        SubjectMembership membership = requireSubjectMembership(subjectMembershipId);
+        SubjectMembership membership = requireActiveTeacherSubjectMembership(subjectMembershipId);
 
         if (subjectId != null && !subjectId.equals(membership.getSubjectId())) {
             throw new IllegalArgumentException("Subject membership " + subjectMembershipId
@@ -148,6 +151,18 @@ public class TopicService {
     private SubjectMembership requireSubjectMembership(Integer subjectMembershipId) {
         return subjectMembershipRepository.findById(subjectMembershipId)
                 .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
+    }
+
+    private SubjectMembership requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
+        SubjectMembership membership = requireSubjectMembership(subjectMembershipId);
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null) {
+            throw new IllegalArgumentException(
+                    "Active teacher subject membership is required: " + subjectMembershipId
+            );
+        }
+        return membership;
     }
 
     private LecturePlacement requireLecturePlacement(Integer courseLectureId) {

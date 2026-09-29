@@ -31,6 +31,9 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class CurrentUserAccessService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final UserRegisterService userRegisterService;
     private final SubjectMembershipRepository subjectMembershipRepository;
     private final TopicRepository topicRepository;
@@ -86,9 +89,28 @@ public class CurrentUserAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Subject membership not found: " + subjectMembershipId
                 ));
-        if (membership.getRole() != 1
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
                 || !Objects.equals(membership.getPersonId(), currentPersonId(authentication))) {
             throw new AccessDeniedException("Subject membership belongs to another user.");
+        }
+    }
+
+    public void requireActiveSubjectMembershipOwner(Authentication authentication, Integer subjectMembershipId) {
+        if (isAdmin(authentication)) {
+            return;
+        }
+        if (subjectMembershipId == null) {
+            throw new AccessDeniedException("Subject membership is required.");
+        }
+        SubjectMembership membership = subjectMembershipRepository.findById(subjectMembershipId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Subject membership not found: " + subjectMembershipId
+                ));
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null
+                || !Objects.equals(membership.getPersonId(), currentPersonId(authentication))) {
+            throw new AccessDeniedException("Active teacher subject membership belongs to another user.");
         }
     }
 
@@ -123,12 +145,18 @@ public class CurrentUserAccessService {
         requireSubjectMembershipOwner(authentication, topic.getSubjectMembershipId());
     }
 
+    public void requireActiveTopicOwner(Authentication authentication, Integer topicId) {
+        Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Topic not found: " + topicId));
+        requireActiveSubjectMembershipOwner(authentication, topic.getSubjectMembershipId());
+    }
+
     public void requireSubjectOwner(Authentication authentication, Integer subjectId) {
         if (isAdmin(authentication)) {
             return;
         }
         if (!subjectMembershipRepository.existsBySubjectIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(
-                subjectId, currentPersonId(authentication), 1
+                subjectId, currentPersonId(authentication), SUBJECT_ROLE_TEACHER
         )) {
             throw new AccessDeniedException("Subject does not belong to current teacher.");
         }
@@ -219,7 +247,7 @@ public class CurrentUserAccessService {
             var ownedSubjectMembershipIds = subjectMembershipRepository
                     .findByPersonIdAndRemovedAtUtcIsNull(personId)
                     .stream()
-                    .filter(subjectMembership -> subjectMembership.getRole() == 1)
+                    .filter(subjectMembership -> subjectMembership.getRole() == SUBJECT_ROLE_TEACHER)
                     .map(SubjectMembership::getId)
                     .collect(java.util.stream.Collectors.toSet());
             boolean teachesGroup = teachingAssignmentRepository.findByGroupId(membership.getGroupId())
@@ -284,11 +312,24 @@ public class CurrentUserAccessService {
         requireQuestionContextOwner(authentication, question.getTopicId(), question.getCourseLectureId(), question.getTestId());
     }
 
+    public void requireActiveQuestionOwner(Authentication authentication, Long questionId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Question not found: " + questionId));
+        requireActiveQuestionContextOwner(authentication, question.getTopicId(), question.getCourseLectureId(), question.getTestId());
+    }
+
     public void requireOptionOwner(Authentication authentication, Long optionId) {
         Long questionId = questionOptionRepository.findById(optionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Question option not found: " + optionId))
                 .getTestQuestionId();
         requireQuestionOwner(authentication, questionId);
+    }
+
+    public void requireActiveOptionOwner(Authentication authentication, Long optionId) {
+        Long questionId = questionOptionRepository.findById(optionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Question option not found: " + optionId))
+                .getTestQuestionId();
+        requireActiveQuestionOwner(authentication, questionId);
     }
 
     public void requireQuestionContextOwner(Authentication authentication,
@@ -318,6 +359,33 @@ public class CurrentUserAccessService {
         }
     }
 
+    public void requireActiveQuestionContextOwner(Authentication authentication,
+                                                  Integer topicId,
+                                                  Integer courseLectureId,
+                                                  Integer testId) {
+        if (isAdmin(authentication)) {
+            return;
+        }
+        boolean hasContext = false;
+        if (topicId != null) {
+            requireActiveTopicOwner(authentication, topicId);
+            hasContext = true;
+        }
+        if (courseLectureId != null) {
+            requireActiveLectureOwner(authentication, courseLectureId);
+            hasContext = true;
+        }
+        if (testId != null) {
+            requireTestOwner(authentication, testId);
+            hasContext = true;
+        }
+        if (!hasContext) {
+            throw new AccessDeniedException(
+                    "Teacher questions must belong to an owned test, topic or lecture."
+            );
+        }
+    }
+
     public void requireLectureOwner(Authentication authentication, Integer lectureId) {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course lecture not found: " + lectureId));
@@ -326,6 +394,26 @@ public class CurrentUserAccessService {
         }
         if (lecture.getSubjectMembershipId() != null) {
             requireSubjectMembershipOwner(authentication, lecture.getSubjectMembershipId());
+            return;
+        }
+        Integer personId = currentPersonId(authentication);
+        boolean owned = courseVersionRepository.findById(lecture.getCourseVersionId())
+                .flatMap(version -> courseTemplateRepository.findById(version.getCourseTemplateId()))
+                .map(template -> Objects.equals(template.getAuthorPersonId(), personId))
+                .orElse(false);
+        if (!owned) {
+            throw new AccessDeniedException("Course lecture belongs to another user.");
+        }
+    }
+
+    public void requireActiveLectureOwner(Authentication authentication, Integer lectureId) {
+        Lecture lecture = lectureRepository.findById(lectureId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course lecture not found: " + lectureId));
+        if (isAdmin(authentication)) {
+            return;
+        }
+        if (lecture.getSubjectMembershipId() != null) {
+            requireActiveSubjectMembershipOwner(authentication, lecture.getSubjectMembershipId());
             return;
         }
         Integer personId = currentPersonId(authentication);

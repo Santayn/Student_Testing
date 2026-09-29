@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface GroupMembershipRepository extends JpaRepository<GroupMembership, Integer> {
 
@@ -16,6 +17,10 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
     boolean existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(Integer groupId, Integer personId, int role);
 
     boolean existsByGroupIdAndRoleAndRemovedAtUtcIsNull(Integer groupId, int role);
+
+    Optional<GroupMembership> findFirstByPersonIdAndRoleAndStatusAndRemovedAtUtcIsNull(Integer personId,
+                                                                                       int role,
+                                                                                       int status);
 
     @Query("""
             select membership

@@ -63,7 +63,7 @@ public class QuestionUploadRestController {
                                              @RequestParam(required = false) Integer topicId,
                                              @RequestParam("file") MultipartFile file,
                                              Authentication authentication) {
-        accessService.requireQuestionContextOwner(authentication, topicId, courseLectureId, testId);
+        accessService.requireActiveQuestionContextOwner(authentication, topicId, courseLectureId, testId);
         QuestionService.QuestionImportResult result = questionService.importDocx(testId, courseLectureId, topicId, file);
         return new QuestionImportResponse(
                 result.questions().size(),
@@ -75,7 +75,7 @@ public class QuestionUploadRestController {
     @PostMapping
     public ApiResponses.QuestionResponseDto create(@Valid @RequestBody QuestionRequest request,
                                                    Authentication authentication) {
-        accessService.requireQuestionContextOwner(
+        accessService.requireActiveQuestionContextOwner(
                 authentication, request.topicId(), request.courseLectureId(), request.testId()
         );
         return ApiResponses.question(questionService.create(
@@ -95,9 +95,9 @@ public class QuestionUploadRestController {
     public ApiResponses.QuestionResponseDto update(@PathVariable Long questionId,
                                                    @Valid @RequestBody QuestionUpdateRequest request,
                                                    Authentication authentication) {
-        accessService.requireQuestionOwner(authentication, questionId);
+        accessService.requireActiveQuestionOwner(authentication, questionId);
         if (request.topicId() != null || request.courseLectureId() != null) {
-            accessService.requireQuestionContextOwner(
+            accessService.requireActiveQuestionContextOwner(
                     authentication, request.topicId(), request.courseLectureId(), null
             );
         } else if (!accessService.isAdmin(authentication)
@@ -128,7 +128,7 @@ public class QuestionUploadRestController {
     public ApiResponses.QuestionOptionResponse addOption(@PathVariable Long questionId,
                                                          @Valid @RequestBody OptionRequest request,
                                                          Authentication authentication) {
-        accessService.requireQuestionOwner(authentication, questionId);
+        accessService.requireActiveQuestionOwner(authentication, questionId);
         return ApiResponses.questionOption(questionService.addOption(questionId, request.text(), request.ordinal(), request.correct()));
     }
 
@@ -136,7 +136,7 @@ public class QuestionUploadRestController {
     public ApiResponses.QuestionOptionResponse updateOption(@PathVariable Long optionId,
                                                             @Valid @RequestBody OptionRequest request,
                                                             Authentication authentication) {
-        accessService.requireOptionOwner(authentication, optionId);
+        accessService.requireActiveOptionOwner(authentication, optionId);
         return ApiResponses.questionOption(questionService.updateOption(optionId, request.text(), request.ordinal(), request.correct()));
     }
 
@@ -144,7 +144,7 @@ public class QuestionUploadRestController {
     public ApiResponses.QuestionResponseDto setActive(@PathVariable Long questionId,
                                                       @Valid @RequestBody QuestionActiveRequest request,
                                                       Authentication authentication) {
-        accessService.requireQuestionOwner(authentication, questionId);
+        accessService.requireActiveQuestionOwner(authentication, questionId);
         return ApiResponses.question(questionService.setActive(questionId, request.active()));
     }
 

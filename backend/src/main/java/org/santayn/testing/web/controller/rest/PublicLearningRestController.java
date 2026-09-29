@@ -1,5 +1,6 @@
 package org.santayn.testing.web.controller.rest;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.santayn.testing.models.course.CourseTemplate;
 import org.santayn.testing.models.course.CourseVersion;
 import org.santayn.testing.models.group.GroupMembership;
@@ -261,6 +262,9 @@ public class PublicLearningRestController {
         return new PublicTestAttemptLoadResponse(
                 questionSet.attempt().getId(),
                 actualAssignmentId,
+                Instant.now(),
+                questionSet.attempt().getStartedAt(),
+                testService.effectiveDeadlineUtc(questionSet.attempt()),
                 testResponse(test, actualAssignmentId, true, null,
                         testService.attemptsRemaining(actualAssignmentId, context.personId()), true),
                 questions
@@ -332,7 +336,7 @@ public class PublicLearningRestController {
                     question.getQuestion(),
                     givenAnswerDisplay(question, answer, selectedIds),
                     null,
-                    Boolean.TRUE.equals(response.getCorrect())
+                    null
             ));
         }
 
@@ -871,6 +875,9 @@ public class PublicLearningRestController {
 
     public record PublicTestAttemptLoadResponse(Integer attemptId,
                                                 Integer assignmentId,
+                                                Instant serverTimeUtc,
+                                                Instant startedAtUtc,
+                                                Instant effectiveDeadlineUtc,
                                                 PublicTestResponse test,
                                                 List<PublicQuestionResponse> questions) {
     }
@@ -906,7 +913,9 @@ public class PublicLearningRestController {
 
     public record PublicSubmitDetailResponse(String questionText,
                                              String givenAnswer,
+                                             @JsonInclude(JsonInclude.Include.NON_NULL)
                                              String correctAnswer,
-                                             boolean correct) {
+                                             @JsonInclude(JsonInclude.Include.NON_NULL)
+                                             Boolean correct) {
     }
 }

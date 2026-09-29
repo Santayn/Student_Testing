@@ -197,6 +197,14 @@ public class TestRestController {
         return ApiResponses.testAttempt(testService.getAttempt(attemptId));
     }
 
+    @PostMapping("/attempts/{attemptId}/invalidate")
+    public ApiResponses.TestAttemptResponse invalidateAttempt(@PathVariable Integer attemptId,
+                                                              @Valid @RequestBody(required = false) InvalidateAttemptRequest request,
+                                                              Authentication authentication) {
+        String reason = request == null ? null : request.reason();
+        return ApiResponses.testAttempt(testService.invalidateAttempt(attemptId, reason, authentication.getName()));
+    }
+
     @PostMapping("/assignments/{assignmentId}/attempts")
     public ApiResponses.TestAttemptResponse startAttempt(@PathVariable Integer assignmentId,
                                                          @Valid @RequestBody StartAttemptRequest request) {
@@ -292,6 +300,11 @@ public class TestRestController {
             @NotNull Long testQuestionId,
             @Size(max = 4000) String answerText,
             List<Long> selectedOptionIds
+    ) {
+    }
+
+    public record InvalidateAttemptRequest(
+            @Size(max = 1000) String reason
     ) {
     }
 

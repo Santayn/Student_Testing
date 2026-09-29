@@ -47,7 +47,7 @@ public class LectureRestController {
     @PostMapping
     public ApiResponses.LectureResponse create(@Valid @RequestBody LectureRequest request,
                                                Authentication authentication) {
-        requirePlacementOwner(
+        requireActivePlacementOwner(
                 authentication, request.subjectId(), request.subjectMembershipId(), request.courseVersionId()
         );
         if (request.linkedTestId() != null) {
@@ -70,8 +70,8 @@ public class LectureRestController {
     public ApiResponses.LectureResponse update(@PathVariable Integer id,
                                                @Valid @RequestBody LectureRequest request,
                                                Authentication authentication) {
-        accessService.requireLectureOwner(authentication, id);
-        requirePlacementOwner(
+        accessService.requireActiveLectureOwner(authentication, id);
+        requireActivePlacementOwner(
                 authentication, request.subjectId(), request.subjectMembershipId(), request.courseVersionId()
         );
         if (request.linkedTestId() != null) {
@@ -95,7 +95,7 @@ public class LectureRestController {
     public ApiResponses.LectureResponse updateLinkedTest(@PathVariable Integer id,
                                                          @Valid @RequestBody LinkedTestRequest request,
                                                          Authentication authentication) {
-        accessService.requireLectureOwner(authentication, id);
+        accessService.requireActiveLectureOwner(authentication, id);
         if (request.linkedTestId() != null) {
             accessService.requireTestOwner(authentication, request.linkedTestId());
         }
@@ -105,7 +105,7 @@ public class LectureRestController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer id, Authentication authentication) {
-        accessService.requireLectureOwner(authentication, id);
+        accessService.requireActiveLectureOwner(authentication, id);
         lectureService.delete(id);
     }
 
@@ -131,12 +131,31 @@ public class LectureRestController {
                                        Integer subjectId,
                                        Integer subjectMembershipId,
                                        Integer courseVersionId) {
+        requirePlacementOwner(authentication, subjectId, subjectMembershipId, courseVersionId, false);
+    }
+
+    private void requireActivePlacementOwner(Authentication authentication,
+                                            Integer subjectId,
+                                            Integer subjectMembershipId,
+                                            Integer courseVersionId) {
+        requirePlacementOwner(authentication, subjectId, subjectMembershipId, courseVersionId, true);
+    }
+
+    private void requirePlacementOwner(Authentication authentication,
+                                       Integer subjectId,
+                                       Integer subjectMembershipId,
+                                       Integer courseVersionId,
+                                       boolean requireActiveSubjectMembership) {
         if (accessService.isAdmin(authentication)) {
             return;
         }
         boolean hasOwnedPlacement = false;
         if (subjectMembershipId != null) {
-            accessService.requireSubjectMembershipOwner(authentication, subjectMembershipId);
+            if (requireActiveSubjectMembership) {
+                accessService.requireActiveSubjectMembershipOwner(authentication, subjectMembershipId);
+            } else {
+                accessService.requireSubjectMembershipOwner(authentication, subjectMembershipId);
+            }
             hasOwnedPlacement = true;
         }
         if (courseVersionId != null) {

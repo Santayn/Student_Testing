@@ -65,4 +65,13 @@ public class TestAttempt {
 
     @Column(name = "`Score`", precision = 8, scale = 2)
     private BigDecimal score;
+
+    @Column(name = "`InvalidatedAtUtc`")
+    private Instant invalidatedAtUtc;
+
+    @Column(name = "`InvalidatedByLogin`", length = 100)
+    private String invalidatedByLogin;
+
+    @Column(name = "`InvalidationReason`", length = 1000)
+    private String invalidationReason;
 }

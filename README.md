@@ -51,7 +51,13 @@ start-local.cmd
 ```
 
 Скрипт создаёт локальный `.env` с новыми случайными секретами, если файла ещё
-нет. После этого обычный `docker compose up -d --build` также будет работать.
+нет, и запускает явный local/demo overlay `docker-compose.local.yml`.
+
+Для повторного запуска local/demo режима вручную используйте:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+```
 
 ## Ручная настройка
 
@@ -62,6 +68,10 @@ cp .env.example .env
 # Обязательно замените POSTGRES_PASSWORD и APP_JWT_SECRET в .env.
 docker compose up -d --build
 ```
+
+Обычный `docker compose up -d --build` использует production-safe backend
+defaults: `BACKEND_SPRING_PROFILES_ACTIVE=prod`, `BACKEND_JPA_DDL_AUTO=validate`,
+`BACKEND_SQL_INIT_MODE=never`, `BACKEND_DATA_LOADER_ENABLED=false`.
 
 После запуска:
 

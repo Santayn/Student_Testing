@@ -35,6 +35,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TeachingService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final TeachingLoadTypeRepository teachingLoadTypeRepository;
     private final SubjectMembershipLoadTypeRepository subjectMembershipLoadTypeRepository;
     private final SubjectMembershipRepository subjectMembershipRepository;
@@ -107,7 +110,7 @@ public class TeachingService {
     public SubjectMembershipLoadType addSubjectLoadType(Integer subjectMembershipId,
                                                         Integer teachingLoadTypeId,
                                                         String notes) {
-        requireSubjectMembership(subjectMembershipId);
+        requireActiveTeacherSubjectMembership(subjectMembershipId);
         requireLoadType(teachingLoadTypeId);
 
         return subjectMembershipLoadTypeRepository
@@ -184,7 +187,7 @@ public class TeachingService {
                                                BigDecimal hoursPerWeek,
                                                Integer status,
                                                String notes) {
-        SubjectMembership subjectMembership = requireSubjectMembership(subjectMembershipId);
+        SubjectMembership subjectMembership = requireActiveTeacherSubjectMembership(subjectMembershipId);
         Group group = requireGroup(groupId);
         requireLoadType(loadTypeId);
         requireSubjectAssignedToFaculty(group.getFacultyId(), subjectMembership.getSubjectId());
@@ -230,7 +233,7 @@ public class TeachingService {
                                                Integer status,
                                                String notes) {
         TeachingAssignment assignment = getAssignment(teachingAssignmentId);
-        SubjectMembership subjectMembership = requireSubjectMembership(subjectMembershipId);
+        SubjectMembership subjectMembership = requireActiveTeacherSubjectMembership(subjectMembershipId);
         Group group = requireGroup(groupId);
         requireLoadType(loadTypeId);
         requireSubjectAssignedToFaculty(group.getFacultyId(), subjectMembership.getSubjectId());
@@ -503,6 +506,18 @@ public class TeachingService {
     private SubjectMembership requireSubjectMembership(Integer subjectMembershipId) {
         return subjectMembershipRepository.findById(subjectMembershipId)
                 .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
+    }
+
+    private SubjectMembership requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
+        SubjectMembership membership = requireSubjectMembership(subjectMembershipId);
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null) {
+            throw new IllegalArgumentException(
+                    "Active teacher subject membership is required: " + subjectMembershipId
+            );
+        }
+        return membership;
     }
 
     private Group requireGroup(Integer groupId) {

@@ -22,6 +22,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PersonRepository personRepository;
+    private final AdminAccountInvariantService adminAccountInvariantService;
 
     @Transactional(readOnly = true)
     public List<User> findUsers() {
@@ -110,7 +111,8 @@ public class UserService {
     }
 
     @Transactional
-    public User setActive(Integer userId, boolean active) {
+    public User setActive(Integer userId, boolean active, String actorLogin) {
+        adminAccountInvariantService.requireCanSetActive(userId, active, actorLogin);
         User user = getUser(userId);
         user.setActive(active);
         return user;

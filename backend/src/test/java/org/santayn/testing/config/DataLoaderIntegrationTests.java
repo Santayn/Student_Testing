@@ -24,7 +24,9 @@ import org.santayn.testing.repository.GroupMembershipRepository;
 import org.santayn.testing.repository.GroupRepository;
 import org.santayn.testing.repository.LectureAssignmentRepository;
 import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.PermissionRepository;
 import org.santayn.testing.repository.QuestionRepository;
+import org.santayn.testing.repository.RoleRepository;
 import org.santayn.testing.repository.SubjectRepository;
 import org.santayn.testing.repository.TeachingAssignmentEnrollmentRepository;
 import org.santayn.testing.repository.TeachingAssignmentRepository;
@@ -67,7 +69,9 @@ class DataLoaderIntegrationTests {
     @Autowired private LectureRepository lectureRepository;
     @Autowired private LectureTestLinkService lectureTestLinkService;
     @Autowired private MembershipService membershipService;
+    @Autowired private PermissionRepository permissionRepository;
     @Autowired private QuestionRepository questionRepository;
+    @Autowired private RoleRepository roleRepository;
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private TeachingAssignmentEnrollmentRepository teachingAssignmentEnrollmentRepository;
     @Autowired private TeachingAssignmentRepository teachingAssignmentRepository;
@@ -140,6 +144,32 @@ class DataLoaderIntegrationTests {
         assertActiveTeacherSubjects("teacher", List.of("Informatics"));
         assertActiveTeacherSubjects("teacher2", List.of("Databases"));
         assertActiveTeacherSubjects("teacher3", List.of("Algorithms"));
+    }
+
+    @Test
+    void seededTeacherRoleDoesNotIncludeAdministrativeWritePermissions() {
+        assertThat(teacherPermissionNames())
+                .contains(
+                        "people.read",
+                        "courses.manage",
+                        "teaching.manage",
+                        "tests.manage",
+                        "questions.manage",
+                        "lectures.read"
+                )
+                .doesNotContain("people.write", "academic.manage");
+    }
+
+    @Test
+    void rerunRemovesObsoleteTeacherAdministrativeWritePermissions() {
+        var teacherRole = roleRepository.findByName("TEACHER").orElseThrow();
+        teacherRole.getPermissions().add(permissionRepository.findByName("people.write").orElseThrow());
+        teacherRole.getPermissions().add(permissionRepository.findByName("academic.manage").orElseThrow());
+        roleRepository.saveAndFlush(teacherRole);
+
+        dataLoader.run();
+
+        assertThat(teacherPermissionNames()).doesNotContain("people.write", "academic.manage");
     }
 
     @Test
@@ -308,6 +338,14 @@ class DataLoaderIntegrationTests {
                 .filteredOn(membership -> membership.getRole() == 1)
                 .extracting(membership -> subjectRepository.findById(membership.getSubjectId()).orElseThrow().getName())
                 .containsExactlyInAnyOrderElementsOf(subjectNames);
+    }
+
+    private List<String> teacherPermissionNames() {
+        return roleRepository.findByName("TEACHER").orElseThrow()
+                .getPermissions()
+                .stream()
+                .map(permission -> permission.getName())
+                .toList();
     }
 
     private org.santayn.testing.models.test.Test seededTest(String title) {

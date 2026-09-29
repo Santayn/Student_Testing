@@ -361,7 +361,10 @@ public final class ApiResponses {
                 item.getStatus(),
                 item.getStartedAt(),
                 item.getCompletedAt(),
-                item.getScore()
+                item.getScore(),
+                item.getInvalidatedAtUtc(),
+                item.getInvalidatedByLogin(),
+                item.getInvalidationReason()
         );
     }
 
@@ -535,7 +538,8 @@ public final class ApiResponses {
 
     public record TestAttemptResponse(Integer id, int ordinal, Integer testAssignmentId, Integer personId,
                                       Integer teachingAssignmentEnrollmentId, int status, Instant startedAt,
-                                      Instant completedAt, BigDecimal score) {
+                                      Instant completedAt, BigDecimal score, Instant invalidatedAtUtc,
+                                      String invalidatedByLogin, String invalidationReason) {
     }
 
     public record QuestionAnswerResponse(Long id, Integer testAttemptId, Long testQuestionId, String answerText,

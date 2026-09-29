@@ -298,6 +298,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IX_TestAttempts_One_InProgress"
     ON "TestAttempts" ("TestAssignmentId", "PersonId")
     WHERE "Status" = 1;
 
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_GroupMemberships_One_Active_Student_Group"
+    ON "GroupMemberships" ("PersonId")
+    WHERE "Role" = 1 AND "Status" = 1 AND "RemovedAtUtc" IS NULL;
+
+ALTER TABLE "TestAttempts"
+    ADD COLUMN IF NOT EXISTS "Score" numeric(8, 2);
+
+ALTER TABLE "TestAttempts"
+    ADD COLUMN IF NOT EXISTS "InvalidatedAtUtc" timestamp with time zone;
+
+ALTER TABLE "TestAttempts"
+    ADD COLUMN IF NOT EXISTS "InvalidatedByLogin" varchar(100);
+
+ALTER TABLE "TestAttempts"
+    ADD COLUMN IF NOT EXISTS "InvalidationReason" varchar(1000);
+
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_QuestionResponses_Attempt_Question"
     ON "QuestionResponses" ("TestAttemptId", "TestQuestionId");
 

@@ -61,7 +61,7 @@
 Frontend-контейнер сохранён намеренно: итоговый вариант запускается одной
 командой Docker Compose, как было выбрано для этой сборки.
 
-## Локальный запуск
+## Docker запуск
 
 ```bash
 cp .env.example .env
@@ -74,7 +74,7 @@ POSTGRES_PASSWORD=сложный-пароль-базы
 APP_JWT_SECRET=случайная-строка-длиной-не-менее-32-символов
 ```
 
-После этого:
+После этого обычный запуск использует production-safe defaults:
 
 ```bash
 docker compose up -d --build
@@ -82,14 +82,19 @@ docker compose up -d --build
 
 Главная страница: `http://localhost/`.
 
-Профиль `local` оставляет автоматическое создание схемы и демонстрационные
-данные для разработки. Для развёртывания следует использовать существующую
-мигрированную БД и значения:
+Для local/demo режима с автоматическим созданием схемы и демонстрационными
+данными используйте явный overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+```
+
+Для развёртывания следует использовать существующую мигрированную БД и значения:
 
 ```dotenv
-SPRING_PROFILES_ACTIVE=prod
-SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-SPRING_SQL_INIT_MODE=never
-APP_DATA_LOADER_ENABLED=false
+BACKEND_SPRING_PROFILES_ACTIVE=prod
+BACKEND_JPA_DDL_AUTO=validate
+BACKEND_SQL_INIT_MODE=never
+BACKEND_DATA_LOADER_ENABLED=false
 APP_PUBLIC_REGISTRATION_ENABLED=false
 ```

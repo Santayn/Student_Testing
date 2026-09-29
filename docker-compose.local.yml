@@ -1,0 +1,7 @@
+services:
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SQL_INIT_MODE: always
+      APP_DATA_LOADER_ENABLED: "true"

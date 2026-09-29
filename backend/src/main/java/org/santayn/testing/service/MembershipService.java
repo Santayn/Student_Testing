@@ -16,10 +16,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class MembershipService {
+
+    private static final int ROLE_STUDENT = 1;
+    private static final int ROLE_GROUP_CURATOR = 2;
+    private static final int STATUS_ACTIVE = 1;
 
     private final PersonRepository personRepository;
     private final FacultyRepository facultyRepository;
@@ -82,7 +87,10 @@ public class MembershipService {
         if (groupMembershipRepository.existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(groupId, personId, role)) {
             throw new AuthConflictException("Active group membership already exists for this group, person and role.");
         }
-        if (role == 2 && groupMembershipRepository.existsByGroupIdAndRoleAndRemovedAtUtcIsNull(groupId, role)) {
+        if (role == ROLE_STUDENT) {
+            requireNoOtherActiveStudentGroup(personId, null);
+        }
+        if (role == ROLE_GROUP_CURATOR && groupMembershipRepository.existsByGroupIdAndRoleAndRemovedAtUtcIsNull(groupId, role)) {
             throw new AuthConflictException("Active group curator already exists for this group.");
         }
 
@@ -146,6 +154,9 @@ public class MembershipService {
     @Transactional
     public GroupMembership updateGroupMembershipStatus(Integer membershipId, int status) {
         GroupMembership membership = getGroupMembership(membershipId);
+        if (membership.getRole() == ROLE_STUDENT && status == STATUS_ACTIVE) {
+            requireNoOtherActiveStudentGroup(membership.getPersonId(), membership.getId());
+        }
         applyMembershipStatus(membership, status);
         return membership;
     }
@@ -153,6 +164,9 @@ public class MembershipService {
     @Transactional
     public GroupMembership updateGroupMembership(Integer membershipId, int status, String notes) {
         GroupMembership membership = getGroupMembership(membershipId);
+        if (membership.getRole() == ROLE_STUDENT && status == STATUS_ACTIVE) {
+            requireNoOtherActiveStudentGroup(membership.getPersonId(), membership.getId());
+        }
         applyMembershipStatus(membership, status);
         membership.setNotes(FacultyService.trimToNull(notes));
         return membership;
@@ -189,6 +203,17 @@ public class MembershipService {
         if (status < 1 || status > 3) {
             throw new IllegalArgumentException("Status must be between 1 and 3.");
         }
+    }
+
+    private void requireNoOtherActiveStudentGroup(Integer personId, Integer currentMembershipId) {
+        groupMembershipRepository
+                .findFirstByPersonIdAndRoleAndStatusAndRemovedAtUtcIsNull(personId, ROLE_STUDENT, STATUS_ACTIVE)
+                .filter(existing -> !Objects.equals(existing.getId(), currentMembershipId))
+                .ifPresent(existing -> {
+                    throw new AuthConflictException(
+                            "Student already has an active group membership: groupId=" + existing.getGroupId()
+                    );
+                });
     }
 
     private static void applyMembershipStatus(FacultyMembership membership, int status) {

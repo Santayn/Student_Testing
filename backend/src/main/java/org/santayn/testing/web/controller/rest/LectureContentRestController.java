@@ -46,7 +46,7 @@ public class LectureContentRestController {
     public List<ApiResponses.TestResponse> replaceLinkedTests(@PathVariable Integer id,
                                                               @Valid @RequestBody LectureTestsRequest request,
                                                               Authentication authentication) {
-        accessService.requireLectureOwner(authentication, id);
+        accessService.requireActiveLectureOwner(authentication, id);
         if (request.testIds() != null) {
             request.testIds().forEach(testId -> accessService.requireTestOwner(authentication, testId));
         }
@@ -67,7 +67,7 @@ public class LectureContentRestController {
     public List<ApiResponses.LectureMaterialResponse> uploadMaterials(@PathVariable Integer lectureId,
                                                                       @RequestParam("files") List<MultipartFile> files,
                                                                       Authentication authentication) {
-        accessService.requireLectureOwner(authentication, lectureId);
+        accessService.requireActiveLectureOwner(authentication, lectureId);
         lectureMaterialService.upload(lectureId, files);
         return ApiResponses.list(lectureMaterialService.findByLectureId(lectureId), ApiResponses::lectureMaterial);
     }
@@ -77,7 +77,7 @@ public class LectureContentRestController {
     public void deleteMaterial(@PathVariable Integer lectureId,
                                @PathVariable Integer materialId,
                                Authentication authentication) {
-        accessService.requireLectureOwner(authentication, lectureId);
+        accessService.requireActiveLectureOwner(authentication, lectureId);
         lectureMaterialService.delete(lectureId, materialId);
     }
 

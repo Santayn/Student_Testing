@@ -7,10 +7,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockMultipartFile;
+
+import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -26,6 +29,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SecurityAccessRegressionTests {
+
+    private static final List<SimpleGrantedAuthority> STANDARD_TEACHER_AUTHORITIES = List.of(
+            new SimpleGrantedAuthority("ROLE_TEACHER"),
+            new SimpleGrantedAuthority("TEACHER"),
+            new SimpleGrantedAuthority("people.read"),
+            new SimpleGrantedAuthority("PEOPLE.READ"),
+            new SimpleGrantedAuthority("courses.manage"),
+            new SimpleGrantedAuthority("COURSES.MANAGE"),
+            new SimpleGrantedAuthority("teaching.manage"),
+            new SimpleGrantedAuthority("TEACHING.MANAGE"),
+            new SimpleGrantedAuthority("tests.manage"),
+            new SimpleGrantedAuthority("TESTS.MANAGE"),
+            new SimpleGrantedAuthority("questions.manage"),
+            new SimpleGrantedAuthority("QUESTIONS.MANAGE"),
+            new SimpleGrantedAuthority("lectures.read"),
+            new SimpleGrantedAuthority("LECTURES.READ")
+    );
 
     @Autowired
     private MockMvc mockMvc;
@@ -67,6 +87,27 @@ class SecurityAccessRegressionTests {
     @Test
     void studentCannotRestoreDatabaseBackup() throws Exception {
         assertStudentForbidden(HttpMethod.POST, "/api/v1/admin/database-backups/restore");
+    }
+
+    @Test
+    void teacherCannotChangePeople() throws Exception {
+        assertTeacherForbidden(HttpMethod.POST, "/api/v1/users/people");
+        assertTeacherForbidden(HttpMethod.PUT, "/api/v1/users/people/1");
+    }
+
+    @Test
+    void teacherCannotChangeAcademicCatalog() throws Exception {
+        assertTeacherForbidden(HttpMethod.POST, "/api/v1/faculties");
+        assertTeacherForbidden(HttpMethod.PUT, "/api/v1/faculties/1");
+        assertTeacherForbidden(HttpMethod.DELETE, "/api/v1/faculties/1");
+
+        assertTeacherForbidden(HttpMethod.POST, "/api/v1/groups");
+        assertTeacherForbidden(HttpMethod.PUT, "/api/v1/groups/1");
+        assertTeacherForbidden(HttpMethod.DELETE, "/api/v1/groups/1");
+
+        assertTeacherForbidden(HttpMethod.POST, "/api/v1/subjects");
+        assertTeacherForbidden(HttpMethod.PUT, "/api/v1/subjects/1");
+        assertTeacherForbidden(HttpMethod.DELETE, "/api/v1/subjects/1");
     }
 
     @Test
@@ -126,6 +167,14 @@ class SecurityAccessRegressionTests {
     private void assertStudentForbidden(HttpMethod method, String path) throws Exception {
         mockMvc.perform(request(method, path)
                         .with(user("student").roles("STUDENT"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    private void assertTeacherForbidden(HttpMethod method, String path) throws Exception {
+        mockMvc.perform(request(method, path)
+                        .with(user("teacher").authorities(STANDARD_TEACHER_AUTHORITIES))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());

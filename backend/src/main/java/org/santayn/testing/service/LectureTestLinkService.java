@@ -3,10 +3,12 @@ package org.santayn.testing.service;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureTestLink;
+import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.test.TestAssignment;
 import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.LectureTestLinkRepository;
+import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.santayn.testing.repository.TestAssignmentRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.springframework.stereotype.Service;
@@ -25,8 +27,12 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class LectureTestLinkService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final LectureRepository lectureRepository;
     private final LectureTestLinkRepository lectureTestLinkRepository;
+    private final SubjectMembershipRepository subjectMembershipRepository;
     private final TestAssignmentRepository testAssignmentRepository;
     private final TestRepository testRepository;
 
@@ -53,6 +59,7 @@ public class LectureTestLinkService {
     @Transactional
     public List<Test> replaceLectureTests(Integer lectureId, List<Integer> testIds) {
         Lecture lecture = requireLecture(lectureId);
+        requireActiveLectureContext(lecture);
         Integer subjectId = lecture.getSubjectId() != null
                 ? lecture.getSubjectId()
                 : lectureRepository.findSubjectIdByLectureId(lectureId)
@@ -154,5 +161,22 @@ public class LectureTestLinkService {
     private Lecture requireLecture(Integer lectureId) {
         return lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture not found: " + lectureId));
+    }
+
+    private void requireActiveLectureContext(Lecture lecture) {
+        if (lecture.getSubjectMembershipId() == null) {
+            return;
+        }
+        SubjectMembership membership = subjectMembershipRepository.findById(lecture.getSubjectMembershipId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Subject membership not found: " + lecture.getSubjectMembershipId()
+                ));
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null) {
+            throw new IllegalArgumentException(
+                    "Active teacher subject membership is required: " + lecture.getSubjectMembershipId()
+            );
+        }
     }
 }

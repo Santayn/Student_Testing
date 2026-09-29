@@ -29,6 +29,7 @@ import org.santayn.testing.repository.TestAssignmentRepository;
 import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.santayn.testing.repository.UserRepository;
+import org.santayn.testing.service.TestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -115,6 +116,34 @@ class PublicLearningSecurityIntegrationTests {
     }
 
     @Test
+    void startAttemptReturnsServerDeadlineMetadata() throws Exception {
+        String suffix = uniqueSuffix();
+        Person student = person("Deadline", suffix);
+        saveUser("student-" + suffix, student);
+        TeachingAssignment teachingAssignment = teachingAssignmentFor(student, suffix);
+        org.santayn.testing.models.test.Test test = test(1, suffix);
+        TestAssignment assignment = assignment(test, teachingAssignment.getId());
+
+        Question question = new Question();
+        question.setTestId(test.getId());
+        question.setType(QuestionTypeSupport.TYPE_TEXT);
+        question.setQuestion("Deadline metadata question");
+        question.setCorrectAnswer("deadline");
+        question.setPoints(BigDecimal.ONE);
+        question.setOrdinal(1);
+        question.setActive(true);
+        questionRepository.saveAndFlush(question);
+
+        mockMvc.perform(post("/api/v1/public/learning/test-assignments/{assignmentId}/attempts/start", assignment.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attemptId").exists())
+                .andExpect(jsonPath("$.serverTimeUtc").exists())
+                .andExpect(jsonPath("$.startedAtUtc").exists())
+                .andExpect(jsonPath("$.effectiveDeadlineUtc").exists());
+    }
+
+    @Test
     void studentResultDoesNotExposeCorrectAnswer() throws Exception {
         String suffix = uniqueSuffix();
         Person student = person("Result", suffix);
@@ -148,11 +177,35 @@ class PublicLearningSecurityIntegrationTests {
         response.setAwardedPoints(BigDecimal.ZERO);
         questionResponseRepository.saveAndFlush(response);
 
+        TestAttempt invalidatedAttempt = new TestAttempt();
+        invalidatedAttempt.setTestAssignmentId(assignment.getId());
+        invalidatedAttempt.setPersonId(student.getId());
+        invalidatedAttempt.setOrdinal(2);
+        invalidatedAttempt.setStatus(TestService.ATTEMPT_STATUS_INVALIDATED);
+        invalidatedAttempt.setCompletedAt(Instant.now());
+        invalidatedAttempt.setInvalidatedAtUtc(Instant.now());
+        invalidatedAttempt.setInvalidatedByLogin("admin");
+        invalidatedAttempt.setInvalidationReason("technical failure");
+        invalidatedAttempt = testAttemptRepository.saveAndFlush(invalidatedAttempt);
+
+        QuestionResponse invalidatedResponse = new QuestionResponse();
+        invalidatedResponse.setTestAttemptId(invalidatedAttempt.getId());
+        invalidatedResponse.setTestQuestionId(question.getId());
+        invalidatedResponse.setAnswerText("invalidated answer");
+        invalidatedResponse.setCorrect(true);
+        invalidatedResponse.setAwardedPoints(BigDecimal.ONE);
+        questionResponseRepository.saveAndFlush(invalidatedResponse);
+
         mockMvc.perform(get("/api/v1/results/student/data")
                         .with(user("student-" + suffix).roles("STUDENT")))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attemptCount").value(1))
                 .andExpect(jsonPath("$.attempts[0].results[0].questionText").value("Secret question"))
-                .andExpect(jsonPath("$.attempts[0].results[0].correctAnswer").doesNotExist());
+                .andExpect(jsonPath("$.attempts[0].results[0].correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].results[0].correct").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].results[0].questionPoints").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].results[0].awardedPoints").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].results[0].gradingStatus").doesNotExist());
     }
 
     private Person person(String name, String suffix) {

@@ -1,15 +1,18 @@
 package org.santayn.testing.service;
 
 import lombok.RequiredArgsConstructor;
+import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
 import org.santayn.testing.models.question.QuestionTypeSupport;
+import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.topic.Topic;
 import org.santayn.testing.repository.QuestionOptionRepository;
 import org.santayn.testing.repository.QuestionRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.TopicRepository;
 import org.springframework.stereotype.Service;
@@ -25,10 +28,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class QuestionService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository optionRepository;
     private final TestRepository testRepository;
     private final LectureRepository lectureRepository;
+    private final SubjectMembershipRepository subjectMembershipRepository;
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
     private final QuestionDocxImportParser docxImportParser;
@@ -273,27 +280,48 @@ public class QuestionService {
 
     private QuestionContext resolveQuestionContext(Integer courseLectureId, Integer topicId) {
         if (topicId == null) {
-            requireLectureExists(courseLectureId);
+            requireActiveLectureContext(courseLectureId);
             return new QuestionContext(courseLectureId, null);
         }
 
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new IllegalArgumentException("Topic not found: " + topicId));
+        requireActiveTeacherSubjectMembership(topic.getSubjectMembershipId());
         Integer resolvedLectureId = topic.getCourseLectureId();
         if (resolvedLectureId != null) {
-            requireLectureExists(resolvedLectureId);
+            requireActiveLectureContext(resolvedLectureId);
         }
         if (courseLectureId != null && resolvedLectureId != null && !courseLectureId.equals(resolvedLectureId)) {
             throw new IllegalArgumentException("Topic " + topicId + " does not belong to lecture " + courseLectureId + ".");
         }
         Integer effectiveLectureId = courseLectureId != null ? courseLectureId : resolvedLectureId;
-        requireLectureExists(effectiveLectureId);
+        requireActiveLectureContext(effectiveLectureId);
         return new QuestionContext(effectiveLectureId, topic.getId());
     }
 
-    private void requireLectureExists(Integer courseLectureId) {
-        if (courseLectureId != null && !lectureRepository.existsById(courseLectureId)) {
-            throw new IllegalArgumentException("Course lecture not found: " + courseLectureId);
+    private void requireActiveLectureContext(Integer courseLectureId) {
+        if (courseLectureId == null) {
+            return;
+        }
+        Lecture lecture = lectureRepository.findById(courseLectureId)
+                .orElseThrow(() -> new IllegalArgumentException("Course lecture not found: " + courseLectureId));
+        if (lecture.getSubjectMembershipId() != null) {
+            requireActiveTeacherSubjectMembership(lecture.getSubjectMembershipId());
+        }
+    }
+
+    private void requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
+        if (subjectMembershipId == null) {
+            throw new IllegalArgumentException("Active teacher subject membership is required.");
+        }
+        SubjectMembership membership = subjectMembershipRepository.findById(subjectMembershipId)
+                .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null) {
+            throw new IllegalArgumentException(
+                    "Active teacher subject membership is required: " + subjectMembershipId
+            );
         }
     }
 

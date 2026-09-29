@@ -75,8 +75,10 @@ public class UserProfileRestController {
     }
 
     @PutMapping("/{id}/active")
-    public ApiResponses.UserResponse setActive(@PathVariable Integer id, @Valid @RequestBody UserActiveRequest request) {
-        return ApiResponses.user(userService.setActive(id, request.active()));
+    public ApiResponses.UserResponse setActive(@PathVariable Integer id,
+                                               @Valid @RequestBody UserActiveRequest request,
+                                               Authentication authentication) {
+        return ApiResponses.user(userService.setActive(id, request.active(), authentication.getName()));
     }
 
     @PutMapping("/{id}/person")

@@ -126,14 +126,13 @@ public class DataLoader implements CommandLineRunner {
         );
         assignPermissions("TEACHER",
                 "people.read",
-                "people.write",
-                "academic.manage",
                 "courses.manage",
                 "teaching.manage",
                 "tests.manage",
                 "questions.manage",
                 "lectures.read"
         );
+        removePermissions("TEACHER", "people.write", "academic.manage");
         assignPermissions("STUDENT", "tests.take", "lectures.read");
 
         createUserIfNotExists("student", "student1", "Student", "User", "student@example.local", "+10000000001", "STUDENT");
@@ -1005,6 +1004,15 @@ public class DataLoader implements CommandLineRunner {
             Permission permission = permissionRepository.findByName(permissionName)
                     .orElseThrow(() -> new IllegalStateException("Seed permission was not created: " + permissionName));
             role.getPermissions().add(permission);
+        }
+    }
+
+    private void removePermissions(String roleName, String... permissionNames) {
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new IllegalStateException("Seed role was not created: " + roleName));
+        List<String> revokedPermissionNames = List.of(permissionNames);
+        if (role.getPermissions().removeIf(permission -> revokedPermissionNames.contains(permission.getName()))) {
+            roleRepository.save(role);
         }
     }
 

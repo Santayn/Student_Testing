@@ -83,9 +83,6 @@ POSTGRES_DB=student_test
 POSTGRES_USER=student_test
 POSTGRES_PASSWORD=$databasePassword
 
-SPRING_JPA_HIBERNATE_DDL_AUTO=update
-SPRING_SQL_INIT_MODE=always
-APP_DATA_LOADER_ENABLED=true
 APP_PUBLIC_REGISTRATION_ENABLED=false
 APP_JWT_SECRET=$jwtSecret
 APP_CORS_ALLOWED_ORIGINS=http://localhost:[*],http://127.0.0.1:[*]
@@ -107,7 +104,15 @@ if (-not $dockerCommand) {
     throw "Docker не найден. Установите и запустите Docker Desktop."
 }
 
-$composeArguments = @("compose", "up", "-d")
+$composeArguments = @(
+    "compose",
+    "-f",
+    "docker-compose.yml",
+    "-f",
+    "docker-compose.local.yml",
+    "up",
+    "-d"
+)
 
 if (-not $NoBuild) {
     $composeArguments += "--build"

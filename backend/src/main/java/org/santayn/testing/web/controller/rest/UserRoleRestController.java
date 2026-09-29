@@ -3,6 +3,7 @@ package org.santayn.testing.web.controller.rest;
 import jakarta.validation.Valid;
 import org.santayn.testing.service.UserRoleService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
@@ -18,8 +19,10 @@ public class UserRoleRestController {
     }
 
     @PutMapping("/{id}/roles")
-    public ApiResponses.UserResponse setRoles(@PathVariable Integer id, @Valid @RequestBody UserRolesRequest request) {
-        return ApiResponses.user(userRoleService.setRoles(id, request.roleIds()));
+    public ApiResponses.UserResponse setRoles(@PathVariable Integer id,
+                                              @Valid @RequestBody UserRolesRequest request,
+                                              Authentication authentication) {
+        return ApiResponses.user(userRoleService.setRoles(id, request.roleIds(), authentication.getName()));
     }
 
     @PutMapping("/{id}/permissions")

@@ -16,6 +16,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LectureService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final LectureRepository lectureRepository;
     private final CourseVersionRepository courseVersionRepository;
     private final SubjectMembershipRepository subjectMembershipRepository;
@@ -131,8 +134,7 @@ public class LectureService {
                                              Integer subjectMembershipId,
                                              Integer courseVersionId) {
         if (subjectMembershipId != null) {
-            SubjectMembership membership = subjectMembershipRepository.findById(subjectMembershipId)
-                    .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
+            SubjectMembership membership = requireActiveTeacherSubjectMembership(subjectMembershipId);
             if (subjectId != null && !subjectId.equals(membership.getSubjectId())) {
                 throw new IllegalArgumentException("Subject membership " + subjectMembershipId
                         + " does not belong to subject " + subjectId + ".");
@@ -153,6 +155,19 @@ public class LectureService {
                     + " does not belong to subject " + subjectId + ".");
         }
         return new LecturePlacement(resolvedSubjectId, null, courseVersionId);
+    }
+
+    private SubjectMembership requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
+        SubjectMembership membership = subjectMembershipRepository.findById(subjectMembershipId)
+                .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null) {
+            throw new IllegalArgumentException(
+                    "Active teacher subject membership is required: " + subjectMembershipId
+            );
+        }
+        return membership;
     }
 
     private void requireCourseVersionMatchesSubject(Integer courseVersionId, Integer subjectId) {

@@ -54,7 +54,7 @@ public class TopicRestController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponses.TopicResponse create(@Valid @RequestBody TopicRequest request, Authentication authentication) {
-        accessService.requireSubjectMembershipOwner(authentication, request.subjectMembershipId());
+        accessService.requireActiveSubjectMembershipOwner(authentication, request.subjectMembershipId());
         if (request.courseLectureId() != null) {
             accessService.requireLectureOwner(authentication, request.courseLectureId());
         }
@@ -72,8 +72,8 @@ public class TopicRestController {
     public ApiResponses.TopicResponse update(@PathVariable Integer id,
                                              @Valid @RequestBody TopicRequest request,
                                              Authentication authentication) {
-        accessService.requireTopicOwner(authentication, id);
-        accessService.requireSubjectMembershipOwner(authentication, request.subjectMembershipId());
+        accessService.requireActiveTopicOwner(authentication, id);
+        accessService.requireActiveSubjectMembershipOwner(authentication, request.subjectMembershipId());
         if (request.courseLectureId() != null) {
             accessService.requireLectureOwner(authentication, request.courseLectureId());
         }
@@ -91,7 +91,7 @@ public class TopicRestController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Integer id, Authentication authentication) {
-        accessService.requireTopicOwner(authentication, id);
+        accessService.requireActiveTopicOwner(authentication, id);
         topicService.delete(id);
     }
 

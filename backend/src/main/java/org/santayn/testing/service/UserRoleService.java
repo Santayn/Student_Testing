@@ -32,6 +32,7 @@ public class UserRoleService {
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final UserPermissionRepository userPermissionRepository;
+    private final AdminAccountInvariantService adminAccountInvariantService;
 
     @Transactional(readOnly = true)
     public List<Role> findRoles() {
@@ -70,10 +71,11 @@ public class UserRoleService {
     }
 
     @Transactional
-    public User setRoles(Integer userId, Set<Integer> roleIds) {
+    public User setRoles(Integer userId, Set<Integer> roleIds, String actorLogin) {
         requireUser(userId);
         Set<Integer> normalizedRoleIds = normalizeIds(roleIds);
         requireRoles(normalizedRoleIds);
+        adminAccountInvariantService.requireCanSetRoles(userId, normalizedRoleIds, actorLogin);
 
         Set<Integer> existingRoleIds = userRoleRepository.findByIdUserId(userId)
                 .stream()

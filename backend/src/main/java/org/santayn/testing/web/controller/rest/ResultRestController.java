@@ -337,7 +337,8 @@ public class ResultRestController {
             if (filterByPersonContext && !allowedPersonIds.contains(attempt.getPersonId())) {
                 continue;
             }
-            if (attempt.getStatus() == 1) {
+            if (attempt.getStatus() == TestService.ATTEMPT_STATUS_IN_PROGRESS
+                    || attempt.getStatus() == TestService.ATTEMPT_STATUS_INVALIDATED) {
                 continue;
             }
 
@@ -353,6 +354,8 @@ public class ResultRestController {
             }
 
             List<ResultItemResponse> results = new ArrayList<>();
+            int resultTotal = 0;
+            long resultRight = 0;
             for (QuestionResponse response : questionResponseRepository.findByTestAttemptIdOrderByIdAsc(attempt.getId())) {
                 Question question = questionCache.computeIfAbsent(
                         response.getTestQuestionId(),
@@ -361,15 +364,20 @@ public class ResultRestController {
                 if (question == null) {
                     continue;
                 }
+                boolean correct = Boolean.TRUE.equals(response.getCorrect());
+                resultTotal++;
+                if (correct) {
+                    resultRight++;
+                }
 
                 results.add(new ResultItemResponse(
                         question.getQuestion(),
                         givenAnswerDisplay(response, question),
                         teacherMode ? correctAnswerDisplay(question) : null,
-                        Boolean.TRUE.equals(response.getCorrect()),
-                        question.getPoints(),
-                        response.getAwardedPoints(),
-                        gradingStatus(response, question),
+                        teacherMode ? correct : null,
+                        teacherMode ? question.getPoints() : null,
+                        teacherMode ? response.getAwardedPoints() : null,
+                        teacherMode ? gradingStatus(response, question) : null,
                         teacherMode ? gradingNote(response, question) : null
                 ));
             }
@@ -398,7 +406,7 @@ public class ResultRestController {
                     studentName,
                     attempt.getOrdinal(),
                     attempt.getCompletedAt(),
-                    statsResponse(results),
+                    statsResponse(resultTotal, resultRight),
                     results
             ));
         }
@@ -445,7 +453,7 @@ public class ResultRestController {
     }
 
     private ResultStatsResponse statsResponse(List<ResultItemResponse> results) {
-        return statsResponse(results.size(), results.stream().filter(ResultItemResponse::correct).count());
+        return statsResponse(results.size(), results.stream().filter(item -> Boolean.TRUE.equals(item.correct())).count());
     }
 
     private ResultStatsResponse statsResponse(int total, long right) {
@@ -528,7 +536,8 @@ public class ResultRestController {
                 .forEach(subjectIds::add);
 
         for (TestAttempt attempt : testAttemptRepository.findByPersonId(studentPersonId)) {
-            if (attempt.getStatus() == 1) {
+            if (attempt.getStatus() == TestService.ATTEMPT_STATUS_IN_PROGRESS
+                    || attempt.getStatus() == TestService.ATTEMPT_STATUS_INVALIDATED) {
                 continue;
             }
             TestAssignment assignment = testAssignmentRepository.findById(attempt.getTestAssignmentId()).orElse(null);
@@ -905,10 +914,10 @@ public class ResultRestController {
     public record ResultItemResponse(String questionText,
                                      String givenAnswer,
                                      @JsonInclude(JsonInclude.Include.NON_NULL) String correctAnswer,
-                                     boolean correct,
-                                     BigDecimal questionPoints,
-                                     BigDecimal awardedPoints,
-                                     String gradingStatus,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) Boolean correct,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) BigDecimal questionPoints,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) BigDecimal awardedPoints,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String gradingStatus,
                                      @JsonInclude(JsonInclude.Include.NON_NULL) String gradingNote) {
     }
 

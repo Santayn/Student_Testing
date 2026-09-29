@@ -53,18 +53,17 @@ class TestServiceConcurrencyIntegrationTests {
         test.setQuestionCount(1);
         test = testRepository.saveAndFlush(test);
 
-        TestAssignment firstAssignment = activeAssignment(test.getId());
-        TestAssignment secondAssignment = activeAssignment(test.getId());
+        TestAssignment assignment = activeAssignment(test.getId());
 
         Integer personId = person.getId();
         CountDownLatch startGate = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<Object> first = executor.submit(() -> startAttempt(
-                    startGate, firstAssignment.getId(), personId
+                    startGate, assignment.getId(), personId
             ));
             Future<Object> second = executor.submit(() -> startAttempt(
-                    startGate, secondAssignment.getId(), personId
+                    startGate, assignment.getId(), personId
             ));
             startGate.countDown();
 
@@ -75,7 +74,7 @@ class TestServiceConcurrencyIntegrationTests {
 
             assertThat(outcomes).filteredOn(TestAttempt.class::isInstance).hasSize(1);
             assertThat(outcomes).filteredOn(RuntimeException.class::isInstance).hasSize(1);
-            assertThat(testAttemptRepository.countByTestIdAndPersonId(test.getId(), personId)).isEqualTo(1);
+            assertThat(testAttemptRepository.countByTestAssignmentIdAndPersonId(assignment.getId(), personId)).isEqualTo(1);
         } finally {
             executor.shutdownNow();
         }

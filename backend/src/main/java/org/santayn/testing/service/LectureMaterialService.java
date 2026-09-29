@@ -3,8 +3,10 @@ package org.santayn.testing.service;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureMaterial;
+import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.repository.LectureMaterialRepository;
 import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +28,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LectureMaterialService {
 
+    private static final int SUBJECT_ROLE_TEACHER = 1;
+    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+
     private final LectureRepository lectureRepository;
     private final LectureMaterialRepository lectureMaterialRepository;
+    private final SubjectMembershipRepository subjectMembershipRepository;
 
     @Value("${app.storage.lecture-materials-dir:uploads/lecture-materials}")
     private String lectureMaterialsDir;
@@ -41,6 +47,7 @@ public class LectureMaterialService {
     @Transactional
     public List<LectureMaterial> upload(Integer lectureId, List<MultipartFile> files) {
         Lecture lecture = requireLecture(lectureId);
+        requireActiveLectureContext(lecture);
         List<MultipartFile> normalizedFiles = files == null
                 ? List.of()
                 : files.stream().filter(file -> file != null && !file.isEmpty()).toList();
@@ -77,6 +84,7 @@ public class LectureMaterialService {
 
     @Transactional
     public void delete(Integer lectureId, Integer materialId) {
+        requireActiveLectureContext(requireLecture(lectureId));
         LectureMaterial material = lectureMaterialRepository.findByIdAndCourseLectureId(materialId, lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture material not found: " + materialId));
         lectureMaterialRepository.delete(material);
@@ -102,6 +110,23 @@ public class LectureMaterialService {
     private Lecture requireLecture(Integer lectureId) {
         return lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture not found: " + lectureId));
+    }
+
+    private void requireActiveLectureContext(Lecture lecture) {
+        if (lecture.getSubjectMembershipId() == null) {
+            return;
+        }
+        SubjectMembership membership = subjectMembershipRepository.findById(lecture.getSubjectMembershipId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Subject membership not found: " + lecture.getSubjectMembershipId()
+                ));
+        if (membership.getRole() != SUBJECT_ROLE_TEACHER
+                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
+                || membership.getRemovedAtUtc() != null) {
+            throw new IllegalArgumentException(
+                    "Active teacher subject membership is required: " + lecture.getSubjectMembershipId()
+            );
+        }
     }
 
     private Path materialsRoot() {

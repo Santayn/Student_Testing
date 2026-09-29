@@ -51,6 +51,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TestService {
 
+    public static final int ATTEMPT_STATUS_IN_PROGRESS = 1;
+    public static final int ATTEMPT_STATUS_COMPLETED = 2;
+    public static final int ATTEMPT_STATUS_EXPIRED = 3;
+    public static final int ATTEMPT_STATUS_INVALIDATED = 4;
 
     private final TestRepository testRepository;
     private final TestAssignmentRepository testAssignmentRepository;
@@ -69,6 +73,7 @@ public class TestService {
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
     private final TextAnswerEvaluationService textAnswerEvaluationService;
+    private final TestAttemptExpirationService testAttemptExpirationService;
 
     @Transactional(readOnly = true)
     public List<Test> findAll() {
@@ -330,16 +335,23 @@ public class TestService {
     public int attemptsRemaining(Integer testAssignmentId, Integer personId) {
         TestAssignment assignment = getAssignment(testAssignmentId);
         Test test = get(assignment.getTestId());
-        long used = testAttemptRepository.countByTestIdAndPersonId(test.getId(), personId);
+        long used = testAttemptRepository.countByTestAssignmentIdAndPersonIdAndStatusNot(
+                assignment.getId(),
+                personId,
+                ATTEMPT_STATUS_INVALIDATED
+        );
         return Math.max(0, test.getAttemptsAllowed() - (int) used);
     }
 
     @Transactional(readOnly = true)
     public boolean hasInProgressAttempt(Integer testAssignmentId, Integer personId) {
         TestAssignment assignment = getAssignment(testAssignmentId);
-        return testAttemptRepository.findByTestIdAndPersonId(assignment.getTestId(), personId)
+        Test test = get(assignment.getTestId());
+        Instant now = Instant.now();
+        return testAttemptRepository.findByTestAssignmentIdAndPersonId(assignment.getId(), personId)
                 .stream()
-                .anyMatch(attempt -> attempt.getStatus() == 1);
+                .anyMatch(attempt -> attempt.getStatus() == ATTEMPT_STATUS_IN_PROGRESS
+                        && !isAttemptExpired(attempt, assignment, test, now));
     }
 
     @Transactional
@@ -386,11 +398,15 @@ public class TestService {
         }
         requireAssignmentAvailable(assignment);
 
-        TestAttempt existingAttempt = testAttemptRepository.findByTestIdAndPersonId(test.getId(), personId)
+        TestAttempt existingAttempt = testAttemptRepository.findByTestAssignmentIdAndPersonId(assignment.getId(), personId)
                 .stream()
-                .filter(attempt -> attempt.getStatus() == 1)
+                .filter(attempt -> attempt.getStatus() == ATTEMPT_STATUS_IN_PROGRESS)
                 .min(Comparator.comparing(TestAttempt::getStartedAt))
                 .orElse(null);
+        if (existingAttempt != null
+                && expireAttemptIfDeadlinePassed(existingAttempt, assignment, test, Instant.now())) {
+            existingAttempt = null;
+        }
         if (existingAttempt != null) {
             List<Question> existingQuestions = questionsForAttempt(existingAttempt.getId());
             if (!existingQuestions.isEmpty()) {
@@ -411,12 +427,19 @@ public class TestService {
                                                      Test test,
                                                      Integer personId,
                                                      TeachingAssignmentEnrollment enrollment) {
-        List<TestAttempt> attempts = testAttemptRepository.findByTestIdAndPersonId(test.getId(), personId);
-        if (attempts.stream().anyMatch(attempt -> attempt.getStatus() == 1)) {
-            throw new AuthConflictException("An in-progress attempt already exists for test: " + test.getId());
+        List<TestAttempt> attempts = testAttemptRepository.findByTestAssignmentIdAndPersonId(assignment.getId(), personId);
+        Instant now = Instant.now();
+        attempts.stream()
+                .filter(attempt -> attempt.getStatus() == ATTEMPT_STATUS_IN_PROGRESS)
+                .forEach(attempt -> expireAttemptIfDeadlinePassed(attempt, assignment, test, now));
+        if (attempts.stream().anyMatch(attempt -> attempt.getStatus() == ATTEMPT_STATUS_IN_PROGRESS)) {
+            throw new AuthConflictException("An in-progress attempt already exists for test assignment: " + assignment.getId());
         }
-        if (attempts.size() >= test.getAttemptsAllowed()) {
-            throw new IllegalArgumentException("Attempt limit exceeded for test: " + test.getId());
+        long usedAttempts = attempts.stream()
+                .filter(attempt -> attempt.getStatus() != ATTEMPT_STATUS_INVALIDATED)
+                .count();
+        if (usedAttempts >= test.getAttemptsAllowed()) {
+            throw new IllegalArgumentException("Attempt limit exceeded for test assignment: " + assignment.getId());
         }
 
         TestAttempt attempt = new TestAttempt();
@@ -424,8 +447,8 @@ public class TestService {
         attempt.setPersonId(personId);
         attempt.setTeachingAssignmentEnrollmentId(enrollment == null ? null : enrollment.getId());
         attempt.setOrdinal(attempts.size() + 1);
-        attempt.setStatus(1);
-        attempt.setStartedAt(Instant.now());
+        attempt.setStatus(ATTEMPT_STATUS_IN_PROGRESS);
+        attempt.setStartedAt(now);
         return testAttemptRepository.save(attempt);
     }
 
@@ -450,11 +473,13 @@ public class TestService {
                                            String answerText,
                                            List<Long> selectedOptionIds) {
         TestAttempt attempt = getAttempt(testAttemptId);
-        if (attempt.getStatus() != 1) {
+        if (attempt.getStatus() != ATTEMPT_STATUS_IN_PROGRESS) {
             throw new IllegalArgumentException("Test attempt is not in progress: " + testAttemptId);
         }
         TestAssignment assignment = testAssignmentRepository.findById(attempt.getTestAssignmentId())
                 .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + attempt.getTestAssignmentId()));
+        Test test = get(assignment.getTestId());
+        requireAttemptWithinDeadline(attempt, assignment, test);
         Question question = questionRepository.findById(testQuestionId)
                 .orElseThrow(() -> new IllegalArgumentException("Test question not found: " + testQuestionId));
 
@@ -476,13 +501,42 @@ public class TestService {
     @Transactional
     public TestAttempt completeAttempt(Integer testAttemptId) {
         TestAttempt attempt = getAttempt(testAttemptId);
-        if (attempt.getStatus() != 1) {
+        if (attempt.getStatus() != ATTEMPT_STATUS_IN_PROGRESS) {
             throw new IllegalArgumentException("Test attempt is not in progress: " + testAttemptId);
         }
-        attempt.setStatus(2);
+        TestAssignment assignment = testAssignmentRepository.findById(attempt.getTestAssignmentId())
+                .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + attempt.getTestAssignmentId()));
+        Test test = get(assignment.getTestId());
+        requireAttemptWithinDeadline(attempt, assignment, test);
+        attempt.setStatus(ATTEMPT_STATUS_COMPLETED);
         attempt.setCompletedAt(Instant.now());
         attempt.setScore(calculateScore(testAttemptId));
         return attempt;
+    }
+
+    @Transactional
+    public TestAttempt invalidateAttempt(Integer testAttemptId, String reason, String actorLogin) {
+        TestAttempt attempt = getAttempt(testAttemptId);
+        if (attempt.getStatus() == ATTEMPT_STATUS_INVALIDATED) {
+            return attempt;
+        }
+        Instant now = Instant.now();
+        attempt.setStatus(ATTEMPT_STATUS_INVALIDATED);
+        if (attempt.getCompletedAt() == null) {
+            attempt.setCompletedAt(now);
+        }
+        attempt.setInvalidatedAtUtc(now);
+        attempt.setInvalidatedByLogin(FacultyService.trimToNull(actorLogin));
+        attempt.setInvalidationReason(FacultyService.trimToNull(reason));
+        return attempt;
+    }
+
+    @Transactional(readOnly = true)
+    public Instant effectiveDeadlineUtc(TestAttempt attempt) {
+        TestAssignment assignment = testAssignmentRepository.findById(attempt.getTestAssignmentId())
+                .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + attempt.getTestAssignmentId()));
+        Test test = get(assignment.getTestId());
+        return effectiveDeadlineUtc(attempt, assignment, test);
     }
 
     private void applyAutomaticScore(QuestionResponse response,
@@ -973,6 +1027,77 @@ public class TestService {
         if (now.isBefore(assignment.getAvailableFromUtc()) || !now.isBefore(assignment.getAvailableUntilUtc())) {
             throw new IllegalArgumentException("Test assignment is not available now: " + assignment.getId());
         }
+    }
+
+    private void requireAttemptWithinDeadline(TestAttempt attempt, TestAssignment assignment, Test test) {
+        Instant now = Instant.now();
+        Instant deadline = effectiveDeadlineUtc(attempt, assignment, test);
+        if (deadline != null && !now.isBefore(deadline)) {
+            testAttemptExpirationService.expireAttempt(attempt.getId(), deadline);
+            throw new IllegalArgumentException("Test attempt deadline has expired: " + attempt.getId());
+        }
+    }
+
+    private boolean expireAttemptIfDeadlinePassed(TestAttempt attempt,
+                                                  TestAssignment assignment,
+                                                  Test test,
+                                                  Instant now) {
+        if (!isAttemptExpired(attempt, assignment, test, now)) {
+            return false;
+        }
+        Instant deadline = effectiveDeadlineUtc(attempt, assignment, test);
+        expireAttemptInCurrentTransaction(attempt, deadline);
+        return true;
+    }
+
+    private boolean isAttemptExpired(TestAttempt attempt, TestAssignment assignment, Test test, Instant now) {
+        Instant deadline = effectiveDeadlineUtc(attempt, assignment, test);
+        return deadline != null && !now.isBefore(deadline);
+    }
+
+    private void expireAttemptInCurrentTransaction(TestAttempt attempt, Instant expiredAtUtc) {
+        if (attempt.getStatus() != ATTEMPT_STATUS_IN_PROGRESS) {
+            return;
+        }
+        attempt.setStatus(ATTEMPT_STATUS_EXPIRED);
+        attempt.setCompletedAt(expiredAtUtc);
+        attempt.setScore(calculateScore(attempt.getId()));
+    }
+
+    private Instant effectiveDeadlineUtc(TestAttempt attempt, TestAssignment assignment, Test test) {
+        Instant deadline = assignment.getAvailableUntilUtc();
+        Instant durationDeadline = durationDeadlineUtc(attempt, test);
+        if (durationDeadline != null && (deadline == null || durationDeadline.isBefore(deadline))) {
+            deadline = durationDeadline;
+        }
+        return deadline;
+    }
+
+    private static Instant durationDeadlineUtc(TestAttempt attempt, Test test) {
+        if (attempt.getStartedAt() == null || test.getDuration() == null) {
+            return null;
+        }
+        int durationSeconds = test.getDuration().toSecondOfDay();
+        if (durationSeconds <= 0) {
+            return null;
+        }
+        return attempt.getStartedAt().plusSeconds(durationSeconds);
+    }
+
+    private TestAssignment assignmentForAttempt(TestAttempt attempt, TestAssignment defaultAssignment) {
+        if (Objects.equals(attempt.getTestAssignmentId(), defaultAssignment.getId())) {
+            return defaultAssignment;
+        }
+        return testAssignmentRepository.findById(attempt.getTestAssignmentId())
+                .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + attempt.getTestAssignmentId()));
+    }
+
+    private Test testForAttempt(TestAttempt attempt, TestAssignment defaultAssignment, Test defaultTest) {
+        TestAssignment assignment = assignmentForAttempt(attempt, defaultAssignment);
+        if (Objects.equals(assignment.getTestId(), defaultTest.getId())) {
+            return defaultTest;
+        }
+        return get(assignment.getTestId());
     }
 
     private void requireEnrollmentBelongsToPerson(TeachingAssignmentEnrollment enrollment, Integer personId) {
