@@ -6,7 +6,7 @@ import ToastService from 'primevue/toastservice'
 
 import StudentTestingPreset from '@/theme/studentTestingPreset'
 
-import App from './App.vue'
+import AppRoot from './AppRoot.vue'
 import '@/assets/tailwind.css'
 import '@/theme/tokens.css'
 import '@/theme/base.css'
@@ -27,8 +27,12 @@ import {
   useThemeStore,
 } from '@/stores/theme'
 
+import {
+  renderBootstrapFailure,
+} from '@/utils/bootstrapFailure'
+
 async function bootstrap() {
-  const app = createApp(App)
+  const app = createApp(AppRoot)
 
   const pinia = createPinia()
 
@@ -138,8 +142,5 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  console.error(
-    'Не удалось запустить приложение:',
-    error
-  )
+  renderBootstrapFailure(error)
 })
