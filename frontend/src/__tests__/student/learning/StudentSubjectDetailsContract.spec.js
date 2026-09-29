@@ -41,6 +41,8 @@ vi.mock('@/api', () => ({
     _error,
     fallback
   ) => fallback,
+  isApiNotFound: (error) =>
+    Number(error?.response?.status) === 404,
   learningApi: {
     getSubject: vi.fn(),
   },

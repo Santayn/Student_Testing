@@ -24,6 +24,8 @@ import {
 
 import {
   getApiErrorMessage,
+  isApiConflict,
+  isApiForbidden,
   subjectsApi,
 } from '@/api'
 
@@ -227,10 +229,14 @@ async function deleteSubject() {
       'Предмет удалён.'
     )
   } catch (error) {
-    deleteError.value = getApiErrorMessage(
-      error,
-      'Не удалось удалить предмет'
-    )
+    deleteError.value = isApiConflict(error)
+      ? 'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.'
+      : isApiForbidden(error)
+        ? 'Недостаточно прав для удаления предмета.'
+        : getApiErrorMessage(
+            error,
+            'Не удалось удалить предмет'
+          )
   } finally {
     deletingId.value = null
   }

@@ -29,6 +29,23 @@ function validationDetails(payload) {
     .join('; ')
 }
 
+export function apiErrorStatus(error) {
+  const status = Number(error?.response?.status)
+  return Number.isInteger(status) ? status : null
+}
+
+export function isApiConflict(error) {
+  return apiErrorStatus(error) === 409
+}
+
+export function isApiForbidden(error) {
+  return apiErrorStatus(error) === 403
+}
+
+export function isApiNotFound(error) {
+  return apiErrorStatus(error) === 404
+}
+
 export function getApiErrorMessage(
   error,
   fallback = 'Не удалось выполнить запрос'

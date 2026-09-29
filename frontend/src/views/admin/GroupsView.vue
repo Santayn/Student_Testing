@@ -24,6 +24,8 @@ import {
 
 import {
   getApiErrorMessage,
+  isApiConflict,
+  isApiForbidden,
   groupsApi,
 } from '@/api'
 
@@ -289,10 +291,14 @@ async function deleteGroup() {
       'Группа удалена.'
     )
   } catch (error) {
-    deleteError.value = getApiErrorMessage(
-      error,
-      'Не удалось удалить группу'
-    )
+    deleteError.value = isApiConflict(error)
+      ? 'Группа используется назначениями, участниками, результатами или другими связанными данными и не может быть удалена.'
+      : isApiForbidden(error)
+        ? 'Недостаточно прав для удаления группы.'
+        : getApiErrorMessage(
+            error,
+            'Не удалось удалить группу'
+          )
   } finally {
     deletingId.value = null
   }

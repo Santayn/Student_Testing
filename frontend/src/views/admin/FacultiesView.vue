@@ -25,6 +25,8 @@ import {
 import {
   facultiesApi,
   getApiErrorMessage,
+  isApiConflict,
+  isApiForbidden,
 } from '@/api'
 
 import {
@@ -239,10 +241,14 @@ async function deleteFaculty() {
       'Факультет удалён.'
     )
   } catch (error) {
-    deleteError.value = getApiErrorMessage(
-      error,
-      'Не удалось удалить факультет'
-    )
+    deleteError.value = isApiConflict(error)
+      ? 'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.'
+      : isApiForbidden(error)
+        ? 'Недостаточно прав для удаления факультета.'
+        : getApiErrorMessage(
+            error,
+            'Не удалось удалить факультет'
+          )
   } finally {
     deletingId.value = null
   }

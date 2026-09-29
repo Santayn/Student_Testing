@@ -6,7 +6,11 @@ export {
 } from './http'
 
 export {
+  apiErrorStatus,
   getApiErrorMessage,
+  isApiConflict,
+  isApiForbidden,
+  isApiNotFound,
 } from './error'
 
 export { authApi } from './auth.api'

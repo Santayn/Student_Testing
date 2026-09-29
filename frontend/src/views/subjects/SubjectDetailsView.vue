@@ -12,6 +12,7 @@ import {
 
 import {
   getApiErrorMessage,
+  isApiNotFound,
   learningApi,
   subjectsApi,
 } from '@/api'
@@ -196,11 +197,12 @@ async function loadSubject() {
 
     subject.value = null
 
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось загрузить предмет.'
-      )
+    error.value = isApiNotFound(requestError)
+      ? 'Предмет больше не существует или недоступен.'
+      : getApiErrorMessage(
+          requestError,
+          'Не удалось загрузить предмет.'
+        )
   } finally {
     if (
       subjectRequest.isCurrent(

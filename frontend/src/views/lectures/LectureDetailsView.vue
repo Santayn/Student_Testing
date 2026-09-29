@@ -12,6 +12,7 @@ import {
 
 import {
   getApiErrorMessage,
+  isApiNotFound,
   learningApi,
 } from '@/api'
 
@@ -592,11 +593,12 @@ async function loadLecture() {
     materials.value = []
     tests.value = []
 
-    error.value =
-      getApiErrorMessage(
-        requestError,
-        'Не удалось загрузить данные лекции.'
-      )
+    error.value = isApiNotFound(requestError)
+      ? 'Лекция больше не существует или недоступна.'
+      : getApiErrorMessage(
+          requestError,
+          'Не удалось загрузить данные лекции.'
+        )
   } finally {
     if (
       lectureRequest.isCurrent(
