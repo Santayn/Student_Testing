@@ -8,9 +8,11 @@ import StudentTestingPreset from '@/theme/studentTestingPreset'
 
 import AppRoot from './AppRoot.vue'
 import '@/assets/tailwind.css'
+import '@/theme/fonts.css'
 import '@/theme/tokens.css'
 import '@/theme/base.css'
 import '@/theme/foundation.css'
+import '@/theme/lecture-content.css'
 import 'primeicons/primeicons.css'
 
 import router from './router'

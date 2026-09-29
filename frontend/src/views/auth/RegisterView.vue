@@ -202,7 +202,7 @@ async function submit() {
 .auth-page__brand {
   color: var(--st-text-secondary);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   letter-spacing: 0.08em;
   text-align: center;
   text-transform: uppercase;
@@ -230,7 +230,7 @@ async function submit() {
 .auth-card__eyebrow {
   color: var(--st-primary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -260,7 +260,7 @@ async function submit() {
 
 .auth-switch a {
   color: var(--st-primary);
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   text-decoration: none;
 }
 

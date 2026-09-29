@@ -118,7 +118,7 @@ defineProps({
   color: var(--st-primary);
 
   font-size: var(--st-font-xs);
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: var(--st-line-normal);
   letter-spacing: 0.08em;
   text-transform: uppercase;

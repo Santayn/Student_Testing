@@ -1096,7 +1096,7 @@ onBeforeUnmount(() => {
   background: var(--st-surface-muted);
 
   border: 1px solid var(--st-border);
-  border-radius: 9px;
+  border-radius: var(--st-radius-md);
 }
 
 .test-result-detail__header {
@@ -1123,7 +1123,7 @@ onBeforeUnmount(() => {
   color: var(--st-text-secondary);
 
   font-size: var(--st-font-xs);
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .test-result-detail__data dd {
@@ -1155,6 +1155,12 @@ onBeforeUnmount(() => {
 
   .test-result-detail__header {
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .test-progress__track span {
+    transition: none;
   }
 }
 </style>

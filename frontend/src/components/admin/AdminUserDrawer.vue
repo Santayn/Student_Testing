@@ -65,7 +65,7 @@ const emit = defineEmits([
       />
 
       <UiCard
-        title="Учётная запись"
+        title="1. Учётная запись"
         description="Логин изменяется только через отдельный серверный сценарий и здесь доступен только для просмотра."
         compact
       >
@@ -90,7 +90,7 @@ const emit = defineEmits([
       </UiCard>
 
       <UiCard
-        title="Профиль пользователя"
+        title="2. Профиль пользователя"
         description="Один профиль Person может быть привязан только к одной учётной записи."
         compact
       >
@@ -131,7 +131,7 @@ const emit = defineEmits([
       </UiCard>
 
       <UiCard
-        title="Роли"
+        title="3. Доступ · Роли"
         description="Выберите одну или несколько ролей. Изменения отправятся только после нажатия «Сохранить»."
         compact
       >
@@ -156,8 +156,8 @@ const emit = defineEmits([
       </UiCard>
 
       <UiCard
-        title="Права выбранных ролей"
-        description="Справочно. Здесь показаны права, которые дают выбранные роли; индивидуальные права пользователя этим экраном не изменяются."
+        title="Итоговые права · Только для просмотра"
+        description="Права вычисляются из выбранных ролей. На этом экране они не редактируются напрямую."
         compact
       >
         <div
@@ -231,7 +231,7 @@ const emit = defineEmits([
 .admin-user-drawer__summary dt {
   color: var(--st-text-secondary);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.35;
 }
 

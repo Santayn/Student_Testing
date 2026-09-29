@@ -1,0 +1,237 @@
+/*
+ * Student Testing — semantic lecture typography contract.
+ *
+ * These classes are intentionally semantic. The future lecture editor/DSL
+ * should emit this markup instead of arbitrary inline typography styles.
+ */
+
+.lecture-content {
+  display: grid;
+  gap: var(--st-space-card);
+
+  color: var(--st-text);
+
+  font-family: var(--st-font-sans);
+  font-size: var(--st-font-md);
+  font-weight: var(--st-font-weight-regular);
+  line-height: 1.7;
+
+  overflow-wrap: anywhere;
+}
+
+.lecture-content > :first-child {
+  margin-top: 0;
+}
+
+.lecture-content > :last-child {
+  margin-bottom: 0;
+}
+
+.lecture-content__text,
+.lecture-content__lead,
+.lecture-content__note,
+.lecture-content__quote,
+.lecture-content__caption {
+  margin: 0;
+}
+
+.lecture-content__text {
+  font-size: var(--st-font-md);
+  font-weight: var(--st-font-weight-regular);
+  line-height: 1.7;
+}
+
+.lecture-content__lead {
+  color: var(--st-text-secondary);
+
+  font-size: var(--st-font-lg);
+  font-weight: var(--st-font-weight-regular);
+  line-height: 1.7;
+}
+
+.lecture-content__section,
+.lecture-content__subsection,
+.lecture-content__heading {
+  margin: 0;
+
+  color: var(--st-text);
+
+  overflow-wrap: anywhere;
+}
+
+.lecture-content__section {
+  font-size: var(--st-font-xl);
+  font-weight: var(--st-font-weight-bold);
+  line-height: var(--st-line-tight);
+}
+
+.lecture-content__subsection {
+  font-size: var(--st-font-lg);
+  font-weight: var(--st-font-weight-semibold);
+  line-height: var(--st-line-tight);
+}
+
+.lecture-content__heading {
+  font-size: var(--st-font-md);
+  font-weight: var(--st-font-weight-semibold);
+  line-height: var(--st-line-normal);
+}
+
+.lecture-content strong,
+.lecture-content__strong {
+  font-weight: var(--st-font-weight-semibold);
+}
+
+.lecture-content em,
+.lecture-content__emphasis {
+  font-style: italic;
+}
+
+.lecture-content__note {
+  padding: 14px 16px;
+
+  color: var(--st-text-secondary);
+  background: var(--st-surface-muted);
+
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-md);
+
+  font-size: var(--st-font-sm);
+  font-weight: var(--st-font-weight-medium);
+  line-height: 1.65;
+}
+
+.lecture-content__quote {
+  padding: 4px 0 4px 18px;
+
+  color: var(--st-text-secondary);
+
+  border-left: 3px solid var(--st-primary);
+
+  font-size: var(--st-font-md);
+  font-weight: var(--st-font-weight-regular);
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.lecture-content__list {
+  margin: 0;
+  padding-left: 1.5rem;
+
+  display: grid;
+  gap: 8px;
+}
+
+.lecture-content__list li {
+  padding-left: 2px;
+
+  font-size: var(--st-font-md);
+  font-weight: var(--st-font-weight-regular);
+  line-height: 1.65;
+}
+
+.lecture-content__code {
+  margin: 0;
+  padding: 14px 16px;
+
+  overflow-x: auto;
+
+  color: var(--st-text);
+  background: var(--st-surface-muted);
+
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius-md);
+
+  font-family: var(--st-font-mono);
+  font-size: var(--st-font-sm);
+  font-weight: var(--st-font-weight-regular);
+  line-height: 1.65;
+
+  tab-size: 2;
+  white-space: pre;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--st-scrollbar-thumb) transparent;
+}
+
+.lecture-content__code::-webkit-scrollbar {
+  width: var(--st-scrollbar-size);
+  height: var(--st-scrollbar-size);
+}
+
+.lecture-content__code::-webkit-scrollbar-thumb {
+  background: var(--st-scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.lecture-content__code::-webkit-scrollbar-thumb:hover {
+  background: var(--st-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.lecture-content__figure {
+  margin: 0;
+
+  display: grid;
+  gap: 8px;
+}
+
+.lecture-content__figure img {
+  max-width: 100%;
+  height: auto;
+
+  display: block;
+
+  border-radius: var(--st-radius-md);
+}
+
+.lecture-content__caption {
+  color: var(--st-text-muted);
+
+  font-size: var(--st-font-sm);
+  font-weight: var(--st-font-weight-regular);
+  line-height: 1.5;
+}
+
+.lecture-content a,
+.lecture-content__link {
+  color: var(--st-primary);
+
+  font-weight: var(--st-font-weight-medium);
+  text-decoration: underline;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.15em;
+}
+
+.lecture-content a:hover,
+.lecture-content__link:hover {
+  color: var(--st-primary-hover);
+}
+
+.lecture-content a:focus-visible,
+.lecture-content__link:focus-visible {
+  outline: 2px solid var(--st-primary);
+  outline-offset: 2px;
+  border-radius: var(--st-radius-control);
+}
+
+@media (max-width: 640px) {
+  .lecture-content {
+    gap: 14px;
+  }
+
+  .lecture-content__section {
+    font-size: var(--st-font-lg);
+  }
+
+  .lecture-content__lead {
+    font-size: var(--st-font-md);
+  }
+
+  .lecture-content__note,
+  .lecture-content__code {
+    padding: 12px 13px;
+  }
+}

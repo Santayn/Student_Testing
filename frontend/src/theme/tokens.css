@@ -7,8 +7,17 @@
 :root,
 html[data-theme='light'] {
   --st-font-sans:
-    Inter, ui-sans-serif, system-ui, -apple-system,
+    "Manrope", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --st-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+
+  /* Fixed typography weights. Keep this contract intentionally small. */
+  --st-font-weight-regular: 400;
+  --st-font-weight-medium: 500;
+  --st-font-weight-semibold: 600;
+  --st-font-weight-bold: 700;
 
   /* Typography */
   --st-font-xs: 0.75rem;
@@ -47,6 +56,13 @@ html[data-theme='light'] {
   --st-text-muted: #64748b;
   --st-text-subtle: #94a3b8;
   --st-overlay-backdrop: rgb(15 23 42 / 46%);
+
+  /* Scrollbars */
+  --st-scrollbar-size: 8px;
+  --st-scrollbar-thumb: #cbd5e1;
+  --st-scrollbar-thumb-hover: #94a3b8;
+  --st-scrollbar-shell-thumb: #475569;
+  --st-scrollbar-shell-thumb-hover: #64748b;
 
   /* Semantic */
   --st-success: #16a34a;
@@ -122,6 +138,11 @@ html[data-theme='dark'] {
   --st-text-muted: #8e97a3;
   --st-text-subtle: #78818d;
   --st-overlay-backdrop: rgb(0 0 0 / 68%);
+
+  --st-scrollbar-thumb: #3a424d;
+  --st-scrollbar-thumb-hover: #596474;
+  --st-scrollbar-shell-thumb: #343c47;
+  --st-scrollbar-shell-thumb-hover: #566171;
 
   --st-success: #4fa56f;
   --st-success-soft: #102319;

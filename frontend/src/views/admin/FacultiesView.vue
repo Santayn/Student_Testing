@@ -9,6 +9,7 @@ import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
 import {
+  UiActionMenu,
   UiAlert,
   UiButton,
   UiCard,
@@ -97,6 +98,22 @@ const facultyDialogTitle = computed(() => {
 const canSubmit = computed(() => {
   return !facultyFormValidationMessage() && !saving.value
 })
+
+function facultyActionItems(faculty) {
+  return [
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => openEditFaculty(faculty),
+    },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => requestDeleteFaculty(faculty),
+    },
+  ]
+}
 
 function openCreateFaculty() {
   formError.value = ''
@@ -261,10 +278,11 @@ onMounted(loadFaculties)
 <template>
   <AdminPageShell
     title="Факультеты"
-    description="Просматривайте и находите факультеты в рабочем списке. Создание и редактирование открываются поверх страницы и не сбрасывают текущие фильтры."
+    description="Управляйте факультетами и их основными данными."
   >
     <template #actions>
       <UiButton
+        variant="secondary"
         size="sm"
         icon="pi pi-refresh"
         label="Обновить"
@@ -370,21 +388,9 @@ onMounted(loadFaculties)
             </p>
 
             <div class="admin-faculty-card__actions">
-              <UiButton
-                size="sm"
-                icon="pi pi-pencil"
-                label="Изменить"
-                @click="openEditFaculty(faculty)"
-              />
-
-              <UiButton
-                variant="danger"
-                size="sm"
-                icon="pi pi-trash"
-                label="Удалить"
-                :loading="deletingId === faculty.id"
-                loading-text="Удаление..."
-                @click="requestDeleteFaculty(faculty)"
+              <UiActionMenu
+                :items="facultyActionItems(faculty)"
+                :aria-label="`Действия: ${faculty.name}`"
               />
             </div>
           </article>
@@ -551,7 +557,7 @@ onMounted(loadFaculties)
   border-radius: 999px;
 
   font-size: 11px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.25;
   letter-spacing: 0.04em;
   overflow-wrap: anywhere;

@@ -143,14 +143,14 @@ defineProps({
   color: var(--st-text-secondary);
 
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-stat__value {
   overflow-wrap: anywhere;
 
   font-size: 17px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-muted {
@@ -188,7 +188,7 @@ defineProps({
 .teacher-list-item__title {
   min-width: 0;
 
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   overflow-wrap: anywhere;
 }
 
@@ -213,7 +213,7 @@ defineProps({
   border-radius: 999px;
 
   font-size: 11px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-status--success {
@@ -264,7 +264,7 @@ defineProps({
   color: var(--st-text);
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-file-list {
@@ -355,7 +355,7 @@ defineProps({
   color: var(--st-text-secondary);
 
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-entity-card__title {
@@ -364,7 +364,7 @@ defineProps({
   color: var(--st-text);
 
   font-size: 14px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -432,7 +432,7 @@ defineProps({
   color: var(--st-text);
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   overflow-wrap: anywhere;
 }
 

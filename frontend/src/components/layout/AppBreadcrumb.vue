@@ -60,7 +60,7 @@ const parentCrumb = computed(() => {
       />
     </RouterLink>
 
-    <ol class="app-breadcrumb__list">
+    <ol class="app-breadcrumb__list st-scrollbar">
       <li
         v-for="(crumb, index) in crumbs"
         :key="`${crumb.key}-${index}`"
@@ -107,10 +107,10 @@ const parentCrumb = computed(() => {
 }
 
 .app-breadcrumb__back {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
 
-  flex: 0 0 32px;
+  flex: 0 0 44px;
 
   display: inline-flex;
   align-items: center;
@@ -120,7 +120,7 @@ const parentCrumb = computed(() => {
   text-decoration: none;
 
   border: 1px solid var(--st-border);
-  border-radius: 8px;
+  border-radius: var(--st-radius-control);
 
   background: var(--st-surface);
 
@@ -155,7 +155,6 @@ const parentCrumb = computed(() => {
   list-style: none;
 
   overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 .app-breadcrumb__item {
@@ -174,7 +173,7 @@ const parentCrumb = computed(() => {
 
   color: var(--st-text-muted);
 
-  font-size: 10px;
+  font-size: var(--st-font-xs);
 }
 
 .app-breadcrumb__link,
@@ -187,7 +186,7 @@ const parentCrumb = computed(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  font-size: 13px;
+  font-size: var(--st-font-sm);
   line-height: 1.4;
 }
 
@@ -196,7 +195,7 @@ const parentCrumb = computed(() => {
 
   text-decoration: none;
 
-  border-radius: 5px;
+  border-radius: var(--st-radius-control);
 
   transition:
     color 0.15s ease,
@@ -218,7 +217,7 @@ const parentCrumb = computed(() => {
 
 .app-breadcrumb__current {
   color: var(--st-text);
-  font-weight: 600;
+  font-weight: var(--st-font-weight-semibold);
 }
 
 @media (max-width: 960px) {
@@ -237,6 +236,13 @@ const parentCrumb = computed(() => {
   .app-breadcrumb__link,
   .app-breadcrumb__current {
     max-width: 190px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-breadcrumb__back,
+  .app-breadcrumb__link {
+    transition: none;
   }
 }
 </style>

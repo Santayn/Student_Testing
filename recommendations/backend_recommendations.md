@@ -1,6 +1,6 @@
 # Актуальные рекомендации и аудит backend
 
-Дата проверки: **22.09.2026**.
+Дата проверки: **30.09.2026**.
 
 Файл актуализирован по фактическому состоянию backend после последнего объединения. Старые пункты не считаются выполненными только потому, что frontend содержит workaround. При проверке учитывались `SecurityConfig`, сервисы, REST-контроллеры, репозитории, `schema.sql`, Docker-конфигурация и текущие DTO.
 
@@ -755,110 +755,238 @@ POST /api/v1/tests/attempts/{attemptId}/invalidate
 
 ---
 
-
 ---
 
-## 21. BE-PERF-01 — Добавить агрегированный student learning context endpoint — OPEN
+## 21. BE-LECTURE-01 — Добавить versioned semantic content contract для тела лекции — OPEN
 
-**Приоритет:** P2 performance  
-**Связанный frontend item:** `FE-PERF-01`
+**Приоритет:** P2 / product capability  
+**Статус:** OPEN  
+**Связанный frontend-пункт:** `FE-LECTURE-01`
 
 ### Проблема
 
-После Stage 26 frontend убрал повторные assignment reads и сократил critical path, но по текущему REST-контракту всё ещё вынужден собирать учебный контекст студента через несколько семейств ресурсов:
+Текущий lecture contract хранит метаданные лекции и файловый ключ, но отдельного полноценного versioned textual body для будущего редактора лекций нет.
+
+Существующие поля имеют другую семантику:
 
 ```text
-group memberships
-groups
-faculties
-teaching assignments
-teaching enrollments
-subject memberships
-subjects
+title
+description
+ordinal
+publicVisible
+contentFolderKey
 ```
 
-Количество HTTP-запросов продолжает расти вместе с числом групп, назначений и предметов.
+`description` не следует превращать в большой DSL-документ, а `contentFolderKey` относится к файловому/материальному контенту.
 
-### Рекомендация
+Для будущего teacher lecture editor требуется отдельный канонический формат содержимого лекции.
 
-Добавить read-only агрегированный endpoint для текущего student learning context.
+### Рекомендуемая модель хранения
 
-Пример маршрута:
+На первом этапе отдельная таблица не требуется. В `Lecture` рекомендуется добавить:
 
 ```text
-GET /api/v1/public/learning/context
+content_source          TEXT
+content_format          VARCHAR(32)
+content_schema_version  INTEGER
 ```
 
-Точный URI следует согласовать с существующими API conventions.
+Семантика:
 
-Предпочтительно определять текущего пользователя из authenticated security context, а не принимать произвольный `personId` от клиента.
+```text
+content_source
+  → канонический DSL source
 
-### Минимальный результат
+content_format
+  → STUDENT_TESTING_DSL
 
-Endpoint должен возвращать только связанные с текущим студентом данные, например:
+content_schema_version
+  → 1
+```
+
+### Почему каноническим источником должен быть DSL, а не HTML
+
+Не рекомендуется хранить generated HTML как source of truth:
+
+```html
+<h2 class="lecture-content__section">...</h2>
+```
+
+Поскольку такой формат жёстко связывает данные БД с текущими frontend CSS-классами.
+
+Предпочтительно:
+
+```text
+[section]...[/section]
+```
+
+а представление генерировать на frontend по текущему semantic renderer.
+
+Это позволяет менять визуальные классы без миграции сохранённого контента.
+
+### API contract
+
+Рекомендуется расширить lecture request/response объектом:
 
 ```json
 {
-  "memberships": [],
-  "groups": [],
-  "faculties": [],
-  "assignments": [],
-  "enrollments": [],
-  "subjectMemberships": [],
-  "subjects": []
+  "content": {
+    "format": "STUDENT_TESTING_DSL",
+    "schemaVersion": 1,
+    "source": "[section]\\nЧто такое REST\\n[/section]"
+  }
 }
 ```
 
-Допустим более компактный DTO, если frontend не нуждается в полных entity-представлениях.
+Предпочтительно не добавлять три несвязанных поля верхнего уровня JSON, а инкапсулировать их в `content`.
 
-### Security requirements
+### DTO
 
-Filtering должен выполняться **на backend**.
+Пример:
 
-Недопустим вариант:
-
-```text
-прочитать все groups/subjects/faculties
-→ отдать браузеру
-→ фильтровать на frontend
+```java
+public record LectureContentDto(
+    LectureContentFormat format,
+    Integer schemaVersion,
+    String source
+) {
+}
 ```
 
-Студент должен получать только данные, достижимые через его активные memberships/enrollments.
-
-Нужно сохранить текущие effective rules:
-
-- active student group membership;
-- active teaching assignment;
-- active/non-removed enrollment;
-- только связанные subject membership / subject / faculty / group.
-
-### Performance target
-
-Количество HTTP-запросов frontend для загрузки student context должно стать:
-
-```text
-O(1)
+```java
+public enum LectureContentFormat {
+    STUDENT_TESTING_DSL
+}
 ```
 
-относительно числа групп и предметов.
+`LectureRequest` и lecture response должны содержать:
 
-Backend внутри может использовать несколько SQL queries, но следует избегать per-row/N+1 query loops.
+```java
+LectureContentDto content
+```
+
+### Backward compatibility
+
+`content` на первом этапе должен быть nullable.
+
+Старые lecture create/update request и существующие записи должны продолжать работать:
+
+```text
+content == null
+→ лекция без semantic body
+```
+
+Нельзя вводить обязательную миграцию всех существующих лекций одновременно.
+
+### Validation
+
+Backend должен валидировать как минимум:
+
+1. `format` входит в разрешённый enum;
+2. `schemaVersion` поддерживается;
+3. `source` имеет разумный максимальный размер;
+4. комбинация `format/schemaVersion/source` согласована;
+5. неизвестный `schemaVersion` не интерпретируется автоматически как актуальный;
+6. raw generated HTML не принимается как эквивалент DSL без отдельного явно определённого format.
+
+Backend не обязан рендерить HTML.
+
+### Student read-model
+
+Public/student lecture DTO должен возвращать тот же semantic content contract:
+
+```json
+{
+  "content": {
+    "format": "STUDENT_TESTING_DSL",
+    "schemaVersion": 1,
+    "source": "..."
+  }
+}
+```
+
+Только для лекций, к которым текущий пользователь имеет доступ по существующей learning authorization model.
+
+Нельзя добавлять отдельный публичный endpoint, позволяющий читать arbitrary lecture content без object-level access checks.
+
+### Security boundary
+
+Backend хранит DSL как data, а не как trusted executable markup.
+
+Рекомендуется:
+
+- не исполнять/не интерпретировать HTML/event handlers из source;
+- не доверять URL/material references без validation;
+- сохранить существующие authorization checks на create/update/read;
+- добавить максимальный размер `source` для защиты от неограниченного payload;
+- логировать/отклонять unsupported content format/version.
+
+Frontend обязан дополнительно выполнять controlled rendering/sanitization согласно `FE-LECTURE-01`.
+
+### Versioning
+
+`content_schema_version` является публичной частью persisted content contract.
+
+После появления сохранённых документов нельзя молча менять семантику существующих DSL tags.
+
+Breaking syntax/semantic change должен означать:
+
+```text
+schemaVersion = 2
+```
+
+и иметь отдельный parser/migration strategy.
+
+### Отдельная таблица / revisions — не сейчас
+
+На первом этапе не рекомендуется сразу вводить:
+
+```text
+lecture_content_revision
+```
+
+Отдельная revision table нужна только когда появятся реальные требования:
+
+```text
+draft/published
+history
+autosave revisions
+restore previous version
+collaborative editing
+```
+
+До этого три поля в `Lecture` проще и достаточны.
 
 ### Тесты
 
-Добавить backend tests:
+Добавить backend regression/contract tests:
 
-1. student получает только собственный active context;
-2. inactive/removed memberships исключаются;
-3. inactive assignments исключаются;
-4. removed/inactive enrollments исключаются;
-5. unrelated groups/subjects не утекут;
-6. несколько групп/предметов агрегируются корректно;
-7. пустой student context возвращает успешный пустой response.
+1. create lecture без `content` остаётся валидным;
+2. create/update с валидным DSL content сохраняет все три свойства;
+3. GET lecture возвращает content без изменений;
+4. student learning endpoint возвращает content только доступной лекции;
+5. unsupported `format` отклоняется;
+6. unsupported `schemaVersion` отклоняется;
+7. oversized source отклоняется;
+8. update lecture может установить/заменить/очистить content по явно определённому правилу;
+9. `description` и `contentFolderKey` не переиспользуются вместо semantic body;
+10. существующие material/test relations не меняют поведение.
 
 ### Acceptance condition
 
-`BE-PERF-01` закрывается, когда frontend может получить полный student learning context без graph traversal по нескольким resource endpoints.
+`BE-LECTURE-01` считается выполненным, когда:
+
+```text
+DB
++ Lecture entity
++ request/response DTO
++ service mapping
++ teacher CRUD
++ student read-model
++ validation/tests
+```
+
+поддерживают versioned `LectureContentDto`, при этом старые лекции без `content` остаются совместимыми.
 
 
 # Рекомендуемый порядок исправления
@@ -875,4 +1003,4 @@ Backend внутри может использовать несколько SQL 
 10. **Рекомендации 8–10** — активность и lifecycle SubjectMembership.
 11. **Рекомендация 12** — убрать mutation из student GET.
 12. **Рекомендация 13** — score-based results.
-14. **BE-PERF-01 / рекомендация 21** — агрегированный student learning context endpoint после закрытия correctness/security P0/P1.
+13. **BE-LECTURE-01 / рекомендация 21** — versioned semantic content contract для тела лекции.

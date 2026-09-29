@@ -734,7 +734,7 @@ onMounted(loadLecture)
 <style scoped>
 .lecture-overview { display: grid; gap: 14px; }
 .lecture-overview__description { min-width: 0; display: grid; gap: 7px; }
-.lecture-overview__eyebrow { color: var(--st-text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.lecture-overview__eyebrow { color: var(--st-text-muted); font-size: 12px; font-weight: var(--st-font-weight-bold); text-transform: uppercase; letter-spacing: .04em; }
 .lecture-overview p { margin: 0; color: var(--st-text-secondary); line-height: 1.65; overflow-wrap: anywhere; }
 .lecture-overview__meta { display: flex; flex-wrap: wrap; gap: 7px; }
 

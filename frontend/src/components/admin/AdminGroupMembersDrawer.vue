@@ -215,10 +215,10 @@ function handleRemoveDialogModel(value) {
               </div>
 
               <UiButton
-                variant="danger"
+                variant="secondary"
                 size="sm"
                 icon="pi pi-user-minus"
-                label="Убрать"
+                label="Убрать из группы"
                 :disabled="addingPersonId !== null"
                 :loading="removingMembershipId === membership.id"
                 loading-text="Удаление..."
@@ -415,7 +415,7 @@ function handleRemoveDialogModel(value) {
   border-radius: 999px;
 
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .admin-group-members__list {

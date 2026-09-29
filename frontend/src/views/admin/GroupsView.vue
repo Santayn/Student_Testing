@@ -10,6 +10,7 @@ import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
 import {
+  UiActionMenu,
   UiAlert,
   UiButton,
   UiCard,
@@ -142,6 +143,22 @@ const groupDialogTitle = computed(() => {
 const canSubmit = computed(() => {
   return !groupFormValidationMessage() && !saving.value
 })
+
+function groupActionItems(group) {
+  return [
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => openEditGroup(group),
+    },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => requestDeleteGroup(group),
+    },
+  ]
+}
 
 function openCreateGroup() {
   formError.value = ''
@@ -315,6 +332,7 @@ onMounted(loadData)
   >
     <template #actions>
       <UiButton
+        variant="secondary"
         size="sm"
         icon="pi pi-refresh"
         label="Обновить"
@@ -436,21 +454,9 @@ onMounted(loadData)
                 @click="openGroupMembers(group)"
               />
 
-              <UiButton
-                size="sm"
-                icon="pi pi-pencil"
-                label="Изменить"
-                @click="openEditGroup(group)"
-              />
-
-              <UiButton
-                variant="danger"
-                size="sm"
-                icon="pi pi-trash"
-                label="Удалить"
-                :loading="deletingId === group.id"
-                loading-text="Удаление..."
-                @click="requestDeleteGroup(group)"
+              <UiActionMenu
+                :items="groupActionItems(group)"
+                :aria-label="`Действия группы «${group.name}»`"
               />
             </div>
           </article>
@@ -649,7 +655,7 @@ onMounted(loadData)
   border-radius: 999px;
 
   font-size: 11px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.25;
   letter-spacing: 0.04em;
   overflow-wrap: anywhere;
@@ -679,7 +685,7 @@ onMounted(loadData)
   color: var(--st-text-secondary);
 
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .admin-group-card__faculty strong {

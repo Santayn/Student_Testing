@@ -103,7 +103,7 @@ const pairs = computed(() => (
 .result-matching small {
   color: var(--st-text-secondary);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .result-matching__list {
@@ -161,7 +161,7 @@ const pairs = computed(() => (
   background: var(--st-primary-soft);
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .result-matching__arrow {

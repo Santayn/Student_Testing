@@ -557,7 +557,7 @@ onMounted(() => loadProfile())
   margin-bottom: 6px;
   color: var(--st-primary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -611,7 +611,7 @@ onMounted(() => loadProfile())
   overflow-wrap: anywhere;
   color: var(--st-text);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: var(--st-font-weight-semibold);
 }
 
 .security-row {
@@ -676,7 +676,7 @@ onMounted(() => loadProfile())
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--st-primary);
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   text-decoration: none;
 }
 

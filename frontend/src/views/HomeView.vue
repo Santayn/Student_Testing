@@ -164,11 +164,91 @@ const teacherActions = computed(() => {
   }
 
   return [
-    { title: 'Темы и вопросы', description: 'Откройте учебный контент предмета и банк вопросов.', icon: 'pi pi-list-check', route: { name: 'teacher-topics' }, action: 'Открыть контент' },
-    { title: 'Создать тест', description: 'Соберите тест из вопросов выбранной темы и назначьте его группам.', icon: 'pi pi-file-edit', route: { name: 'teacher-test-create' }, action: 'Создать тест' },
-    { title: 'Лекции', description: 'Управляйте лекциями, материалами и привязанными тестами.', icon: 'pi pi-book', route: { name: 'teacher-lectures' }, action: 'Открыть лекции' },
-    { title: 'Моя нагрузка', description: 'Посмотрите назначенные предметы, группы и часы.', icon: 'pi pi-calendar', route: { name: 'teacher-workload' }, action: 'Открыть нагрузку' },
-    { title: 'Результаты', description: 'Посмотрите попытки студентов по тестам и группам.', icon: 'pi pi-chart-bar', route: { name: 'results' }, action: 'Открыть результаты' },
+    {
+      title: 'Темы и вопросы',
+      description: 'Откройте учебный контент предмета и банк вопросов.',
+      icon: 'pi pi-list-check',
+      route: { name: 'teacher-topics' },
+      action: 'Открыть контент',
+    },
+    {
+      title: 'Создать тест',
+      description: 'Соберите тест из вопросов выбранной темы и назначьте его группам.',
+      icon: 'pi pi-file-edit',
+      route: { name: 'teacher-test-create' },
+      action: 'Создать тест',
+    },
+    {
+      title: 'Лекции',
+      description: 'Управляйте лекциями, материалами и привязанными тестами.',
+      icon: 'pi pi-book',
+      route: { name: 'teacher-lectures' },
+      action: 'Открыть лекции',
+    },
+    {
+      title: 'Моя нагрузка',
+      description: 'Посмотрите назначенные предметы, группы и часы.',
+      icon: 'pi pi-calendar',
+      route: { name: 'teacher-workload' },
+      action: 'Открыть нагрузку',
+    },
+    {
+      title: 'Результаты',
+      description: 'Посмотрите попытки студентов по тестам и группам.',
+      icon: 'pi pi-chart-bar',
+      route: { name: 'results' },
+      action: 'Открыть результаты',
+    },
+  ]
+})
+
+const adminActions = computed(() => {
+  if (!authStore.isAdminMode) {
+    return []
+  }
+
+  return [
+    {
+      title: 'Пользователи',
+      description: 'Управляйте учётными записями, профилями и ролями.',
+      icon: 'pi pi-users',
+      route: { name: 'admin-users' },
+      action: 'Открыть пользователей',
+    },
+    {
+      title: 'Группы',
+      description: 'Создавайте учебные группы и управляйте их составом.',
+      icon: 'pi pi-sitemap',
+      route: { name: 'admin-groups' },
+      action: 'Открыть группы',
+    },
+    {
+      title: 'Предметы',
+      description: 'Управляйте справочником предметов и их связями.',
+      icon: 'pi pi-book',
+      route: { name: 'admin-subjects' },
+      action: 'Открыть предметы',
+    },
+    {
+      title: 'Учебная нагрузка',
+      description: 'Назначайте преподавателей, группы, часы и учебные периоды.',
+      icon: 'pi pi-calendar-plus',
+      route: { name: 'admin-teaching' },
+      action: 'Открыть нагрузку',
+    },
+  ]
+})
+
+const adminSecondaryActions = computed(() => {
+  if (!authStore.isAdminMode) {
+    return []
+  }
+
+  return [
+    { label: 'Факультеты', route: { name: 'admin-faculties' } },
+    { label: 'Роли и права', route: { name: 'admin-roles' } },
+    { label: 'Предметы факультетов', route: { name: 'admin-faculty-subjects' } },
+    { label: 'Преподаватели и предметы', route: { name: 'admin-teacher-subjects' } },
   ]
 })
 
@@ -206,6 +286,9 @@ async function refreshUser() {
           </template>
           <template v-else-if="authStore.isTeacherMode">
             Управляйте учебным контентом, создавайте тесты и проверяйте результаты студентов.
+          </template>
+          <template v-else-if="authStore.isAdminMode">
+            Управляйте пользователями, академической структурой и учебной нагрузкой.
           </template>
           <template v-else>
             Это обзор текущего рабочего пространства и доступных направлений работы.
@@ -292,6 +375,47 @@ async function refreshUser() {
               {{ action.action }}
             </UiButton>
           </article>
+        </div>
+
+        <div
+          v-else-if="authStore.isAdminMode"
+          class="admin-home-actions"
+        >
+          <div class="student-quick-actions admin-quick-actions">
+            <article
+              v-for="action in adminActions"
+              :key="action.title"
+              class="student-quick-action"
+            >
+              <div class="student-quick-action__icon" aria-hidden="true">
+                <i :class="action.icon" />
+              </div>
+
+              <div class="student-quick-action__copy">
+                <h3>{{ action.title }}</h3>
+                <p>{{ action.description }}</p>
+              </div>
+
+              <UiButton
+                :to="action.route"
+                :variant="action.title === 'Учебная нагрузка' ? 'primary' : 'secondary'"
+              >
+                {{ action.action }}
+              </UiButton>
+            </article>
+          </div>
+
+          <div class="admin-home-secondary-actions" aria-label="Дополнительные разделы администрирования">
+            <UiButton
+              v-for="action in adminSecondaryActions"
+              :key="action.label"
+              :to="action.route"
+              variant="ghost"
+              size="sm"
+            >
+              {{ action.label }}
+            </UiButton>
+          </div>
         </div>
 
         <template v-else>
@@ -383,7 +507,7 @@ async function refreshUser() {
   color: var(--st-primary);
 
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -581,7 +705,7 @@ async function refreshUser() {
 
   color: var(--st-text);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .home-panel__actions {
@@ -610,4 +734,23 @@ async function refreshUser() {
     border-radius: var(--st-radius-lg);
   }
 }
+
+.admin-home-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-home-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .admin-home-secondary-actions,
+  .admin-home-secondary-actions :deep(.st-ui-link-button) {
+    width: 100%;
+  }
+}
+
 </style>

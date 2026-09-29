@@ -66,7 +66,7 @@ defineProps({
   color: var(--st-primary);
 
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -171,7 +171,7 @@ defineProps({
   color: var(--st-text);
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 
@@ -231,7 +231,7 @@ defineProps({
   color: var(--st-text);
 
   font-size: 20px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 

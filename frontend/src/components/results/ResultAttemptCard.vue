@@ -336,7 +336,7 @@ function formatDateTime(value) {
   color: var(--st-primary-soft-text);
   background: var(--st-primary-soft);
   border-radius: 10px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .result-answer__question {
@@ -349,7 +349,7 @@ function formatDateTime(value) {
 .result-answer__data span {
   color: var(--st-text-secondary);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .result-answer__question strong,
@@ -393,7 +393,7 @@ function formatDateTime(value) {
 .result-answer__score span {
   color: var(--st-text-secondary);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .result-answer__score strong {

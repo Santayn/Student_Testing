@@ -319,7 +319,7 @@ onMounted(loadSubject)
   box-shadow: var(--st-shadow-card);
 }
 
-.subject-destination__eyebrow { color: var(--st-text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.subject-destination__eyebrow { color: var(--st-text-muted); font-size: 12px; font-weight: var(--st-font-weight-bold); text-transform: uppercase; letter-spacing: .04em; }
 .subject-destination h2 { margin: 5px 0 0; color: var(--st-text); font-size: 19px; }
 .subject-destination p { margin: 8px 0 0; color: var(--st-text-secondary); font-size: 13px; line-height: 1.55; }
 .subject-destination :deep(.st-ui-link-button) { justify-self: start; }

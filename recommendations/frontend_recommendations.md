@@ -1,54 +1,56 @@
 # Актуальные рекомендации frontend ↔ backend
 
-Дата актуализации: **29.09.2026**.  
-Статус после Stage 28: **authoritative registry**.
+Дата актуализации: **30.09.2026**.
 
 ## Правило проекта
 
-Backend считается **неизменяемой константой** в рамках текущей frontend-доработки.
+Backend считается **неизменяемой константой** и в рамках текущей доработки проекта не изменяется.
 
-Frontend исправляется максимально полно в пределах существующего backend-контракта. Если корректное решение технически требует изменения backend, пункт сохраняется с пометкой:
+Frontend дорабатывается максимально полно в пределах уже существующего backend-контракта. Если корректное решение технически требует изменения backend, рекомендация **не удаляется**, а сохраняется с пометкой:
 
-> **BACKEND BLOCKED / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
+> **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
 
-Такие пункты не должны имитироваться небезопасными или архитектурно слабыми клиентскими обходами.
+Такие пункты не входят в текущий frontend backlog и не должны имитироваться небезопасными или архитектурно слабыми клиентскими обходами.
 
 ---
 
-# 1. Текущее состояние frontend
+# Состояние frontend-рекомендаций
 
-После Stage 24–27 и финального re-audit:
+Повторная сверка рекомендаций с текущим кодом frontend показала, что все ранее зафиксированные проблемы, которые можно было надёжно исправить **только на frontend**, закрыты.
+
+Подтверждено наличие следующих механизмов:
+
+- operation-specific timeout для обычных запросов, submit и файловых операций;
+- защита от слепого повторного submit после неизвестного сетевого исхода;
+- восстановление черновика незавершённой тестовой попытки через `sessionStorage`;
+- привязка draft к `testId + assignmentId + attemptId` и fingerprint вопросов;
+- workspace route isolation через `meta.workspaceRoles`;
+- использование effective workspace mode вместо raw account roles там, где это требуется;
+- защита route/context-driven загрузчиков через `createLatestRequestGuard()`;
+- защита от stale responses и stale reactive context;
+- regression/contract tests для перечисленных механизмов.
+
+Соответствующие ранее закрытые пункты FE-4, FE-5, FE-6, FE-7 и FE-8 удалены из активного списка рекомендаций как выполненные.
+
+На текущий момент **подтверждённых незакрытых frontend-only рекомендаций из прежнего файла нет**.
+
+---
+
+# Рекомендации, требующие изменения backend
+
+## FE-9. Надёжный таймер теста нельзя реализовать по текущему student contract
+
+**Приоритет:** 🟡 P2  
+**Статус:** BACKEND BLOCKED  
+**Пометка:** **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
+
+Backend возвращает в `PublicTestResponse`:
 
 ```text
-frontend-only P0: 0
-frontend-only P1: 0
-frontend-only P2: 0
+duration
 ```
 
-Закрыты и подтверждены:
-
-- startup/bootstrap fallback;
-- root runtime error boundary;
-- ESLint + Vue lint quality gate;
-- custom static-quality gate;
-- duplicate assignment read в student learning context;
-- сокращение cold-load critical path;
-- semantic UI fallbacks вместо технических `#id`;
-- stale/race/session/workspace protections;
-- test-attempt draft recovery;
-- API-contract hardening;
-- accessibility/responsive foundation.
-
-Активного standalone frontend-only backlog сейчас нет.
-
----
-
-# 2. FE-9 — Authoritative timer тестовой попытки
-
-**Приоритет:** P2  
-**Статус:** BACKEND BLOCKED
-
-Backend возвращает `duration`, но student attempt contract не предоставляет серверных временных данных, достаточных для authoritative countdown:
+но `PublicTestAttemptLoadResponse` не содержит серверных временных данных, достаточных для authoritative countdown:
 
 ```text
 startedAtUtc
@@ -56,25 +58,34 @@ effectiveDeadlineUtc
 serverNowUtc
 ```
 
-Frontend не может корректно восстановить оставшееся время после reload и не должен сам становиться источником бизнес-истины по deadline.
+Добавление только локального frontend-countdown не решает задачу корректно:
 
-## Что требуется от backend
+- reload сбрасывает локальную точку старта;
+- часы клиента могут отличаться от серверных;
+- клиентский таймер можно обойти;
+- frontend не может доказать истечение серверного времени;
+- текущий backend-контракт не предоставляет authoritative deadline.
 
-1. backend вычисляет authoritative deadline;
+### Что требуется от backend в будущем
+
+1. backend вычисляет authoritative deadline попытки;
 2. start/resume DTO возвращает минимум `effectiveDeadlineUtc`;
-3. backend проверяет deadline при submit/complete;
-4. frontend отображает countdown только как UX-представление серверного ограничения.
+3. backend проверяет deadline при submit;
+4. после этого frontend отображает countdown и использует deadline только как UX-представление серверного ограничения.
 
-## Что делать frontend сейчас
+### Что делать на frontend сейчас
 
-Не имитировать серверный deadline локальным таймером.
+**Ничего не имитировать.**
+
+Не рекомендуется строить локальный таймер и выдавать его за реальное ограничение времени теста. Это создаст ложное ощущение корректности и добавит дублирующую бизнес-логику на клиенте.
 
 ---
 
-# 3. FE-10 — HttpOnly refresh-session
+## FE-10. HttpOnly refresh-session требует изменения auth-контракта backend
 
-**Приоритет:** P2 / security hardening  
-**Статус:** BACKEND BLOCKED
+**Приоритет:** 🟡 P2 / security hardening  
+**Статус:** BACKEND BLOCKED  
+**Пометка:** **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
 
 Текущий auth API:
 
@@ -82,116 +93,162 @@ Frontend не может корректно восстановить остав�
 - ожидает refresh token в body `/auth/refresh`;
 - ожидает refresh token в body `/auth/revoke`.
 
-Frontend поэтому вынужден держать refresh token в JavaScript-доступном состоянии.
+Поэтому frontend вынужден иметь refresh token в JavaScript-доступном состоянии.
 
-Frontend не может самостоятельно превратить такой token в `HttpOnly` cookie.
+Frontend не способен самостоятельно превратить такой токен в `HttpOnly` cookie, потому что `HttpOnly` задаётся сервером через `Set-Cookie`.
 
-## Что требуется от backend
+### Что требуется от backend в будущем
 
 Целевой web-contract:
 
 ```text
 refresh token -> Secure + HttpOnly + SameSite cookie
 access token  -> короткоживущий, предпочтительно in-memory
-refresh       -> cookie-based session
-revoke/logout -> инвалидирует cookie-session
+refresh       -> работает с cookie-сессией
+revoke/logout -> инвалидирует cookie-сессию
 ```
 
-Также потребуется определить CORS/credentials/CSRF policy.
+При таком контракте отдельно потребуется определить CSRF/CORS/credentials policy.
 
-## Что делать frontend сейчас
+### Что делать на frontend сейчас
 
-Не перестраивать auth-flow искусственно и не считать перенос между `localStorage`/`sessionStorage` полноценной XSS-защитой.
+Текущий auth flow не перестраивать искусственно.
+
+Перенос refresh token между `localStorage`, `sessionStorage` или другим JS-доступным storage может уменьшить persistence, но **не является полноценной защитой от XSS token theft**.
 
 ---
 
-# 4. FE-PERF-01 — Student learning context fan-out
+---
 
-**Приоритет:** P2 performance  
-**Статус:** PARTIAL / BACKEND BLOCKED  
-**Связанный backend item:** `BE-PERF-01`
+## FE-LECTURE-01. Поддержка семантического DSL-содержимого лекции после расширения backend-контракта
 
-## Что уже закрыто на frontend в Stage 26
+**Приоритет:** 🟡 P2 / product capability  
+**Статус:** BACKEND BLOCKED  
+**Связанный backend-пункт:** `BE-LECTURE-01`  
+**Пометка:** **ТРЕБУЕТ ИЗМЕНЕНИЯ BACKEND / НЕ РЕАЛИЗУЕТСЯ ПОЛНОСТЬЮ НА FRONTEND ПРИ ТЕКУЩЕМ КОНТРАКТЕ**
 
-- enrolled teaching assignment не перечитывается по ID, если он уже пришёл из group assignment query;
-- group reads, assignment-list reads и enrollment reads запускаются одной async-фазой;
-- fallback `getAssignment(id)` сохранён только для отсутствующих assignment;
-- существующие TTL/cache/invalidation semantics сохранены;
-- не добавлены новые stale-prone cache layers.
+### Контекст
 
-## Что остаётся
-
-Frontend всё ещё реконструирует контекст через несколько REST-ресурсов:
+В frontend уже зафиксирован будущий семантический typography/DSL contract для лекций:
 
 ```text
-group memberships
-→ groups
-→ faculties
-→ teaching assignments
-→ enrollments
-→ subject memberships
-→ subjects
+[text]
+[lead]
+[section]
+[subsection]
+[heading]
+[strong]
+[note]
+[quote]
+[list]
+[numbered]
+[item]
+[code]
+[link]
+[figure]
+[caption]
 ```
 
-Request count остаётся зависимым от числа связей.
+Также зафиксирована единая визуальная система:
 
-## Почему не нужно продолжать frontend-only оптимизацию
+```text
+Manrope
+400 / 500 / 600 / 700
+.lecture-content*
+```
+
+Однако текущий backend lecture contract не имеет отдельного поля для полноценного структурированного тела лекции. Существующие `title`, `description` и `contentFolderKey` не должны переиспользоваться как контейнер для DSL:
+
+- `description` остаётся кратким описанием;
+- `contentFolderKey` остаётся ключом файлового/материального контента;
+- тело лекции должно иметь собственный versioned contract.
+
+### Что должен сделать frontend после появления backend-контракта
+
+После реализации `BE-LECTURE-01` frontend должен:
+
+1. расширить lecture editor полем semantic lecture source;
+2. отправлять/получать объект:
+
+```json
+{
+  "content": {
+    "format": "STUDENT_TESTING_DSL",
+    "schemaVersion": 1,
+    "source": "..."
+  }
+}
+```
+
+3. не хранить и не генерировать произвольные inline `style`;
+4. не давать преподавателю свободный выбор:
+   - `font-family`;
+   - arbitrary `font-size`;
+   - arbitrary `font-weight`;
+   - arbitrary text/background color;
+5. преобразовывать DSL в контролируемую структуру/AST;
+6. рендерить AST через разрешённые Vue-компоненты/semantic elements;
+7. не использовать unsanitized `v-html`;
+8. валидировать ссылки и material references;
+9. обрабатывать неизвестный `format`/`schemaVersion` как unsupported content, а не пытаться интерпретировать его эвристически;
+10. сохранять текущие `description`, materials и `contentFolderKey` как независимые сущности интерфейса.
+
+### Предпочтительная модель rendering
+
+```text
+backend content.source
+        ↓
+DSL parser
+        ↓
+validated AST
+        ↓
+controlled Vue markup
+        ↓
+.lecture-content*
+```
 
 Не рекомендуется:
 
-- загружать широкие `getAll()` каталоги ради сокращения request count;
-- увеличивать TTL access-related сущностей;
-- вводить большой normalized entity cache только для компенсации backend granularity.
-
-## Что требуется от backend
-
-Нужен агрегированный student learning context endpoint с server-side object-level filtering.
-
-После появления endpoint frontend должен:
-
-1. перейти на aggregate contract;
-2. временно оставить старый traversal только как migration fallback при необходимости;
-3. затем удалить устаревший graph traversal;
-4. сохранить session/workspace invalidation semantics.
-
----
-
-# 5. Закрытые пункты, важные для истории
-
-## FE-NEW-05 — Technical IDs in ordinary UI
-
-**Статус:** CLOSED by Stage 27.
-
-Зафиксированный UI contract:
-
 ```text
-ordinary UI:
-semantic label -> semantic fallback
-
-admin/support/recovery:
-technical ID допустим, если он реально нужен для идентификации
+backend HTML
+→ direct v-html
 ```
 
-Stage 27 не менял backend contracts, auth, cache, mutations или routing IDs.
+### Backward compatibility
 
----
+Лекции без `content` должны продолжать нормально открываться:
 
-# 6. Итоговый активный frontend registry
+```text
+content == null
+→ обычная лекция без текстового semantic body
+```
+
+Frontend migration не должна требовать массовой переработки существующих лекций.
+
+### Acceptance condition
+
+`FE-LECTURE-01` можно закрыть, когда:
+
+1. backend поддерживает `BE-LECTURE-01`;
+2. teacher editor сохраняет versioned DSL source;
+3. student lecture view отображает его через controlled renderer;
+4. raw HTML/inline styles не используются как канонический формат;
+5. старые лекции без semantic content продолжают работать;
+6. parser/renderer покрыт unit/security regression tests.
+
+
+# Итог
+
+Frontend-only backlog, не требующий изменения backend, по-прежнему исчерпан.
+
+Остались рекомендации, которые невозможно корректно закрыть без изменения backend:
 
 | ID | Приоритет | Статус | Причина |
 |---|---|---|---|
-| FE-9 | P2 | BACKEND BLOCKED | нет authoritative server deadline |
-| FE-10 | P2 | BACKEND BLOCKED | refresh-token contract требует JS-accessible token |
-| FE-PERF-01 | P2 | PARTIAL / BACKEND BLOCKED | остаточный REST fan-out требует aggregate backend endpoint |
+| FE-9 | 🟡 P2 | BACKEND BLOCKED | нет authoritative server deadline в student attempt contract |
+| FE-10 | 🟡 P2 | BACKEND BLOCKED | refresh token contract требует JS-доступного token storage |
+| FE-LECTURE-01 | 🟡 P2 | BACKEND BLOCKED | текущий Lecture API не хранит versioned semantic body лекции |
 
-## Правило дальнейшей работы
+При текущем правиле проекта эти пункты **сохраняются как документация ограничений**, но не являются задачами текущей доработки frontend.
 
-Новый frontend Stage открывать только если появляется:
-
-- реальный bug/regression;
-- новая feature requirement;
-- измеренный performance symptom;
-- изменение backend-контракта;
-- новое архитектурное требование.
-
-Новый рефакторинг «на всякий случай» не нужен.
+Следующие улучшения frontend следует формировать уже по новому аудиту качества кода, а не переносить закрытые пункты из старого списка.

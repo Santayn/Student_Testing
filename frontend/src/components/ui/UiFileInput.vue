@@ -106,7 +106,7 @@ function handleChange(event) {
   border: 1px solid var(--st-border);
   border-radius: 7px;
   font: inherit;
-  font-weight: 650;
+  font-weight: var(--st-font-weight-semibold);
   cursor: pointer;
   transition:
     color 140ms ease,

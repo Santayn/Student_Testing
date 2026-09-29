@@ -1,6 +1,7 @@
 <script setup>
 import {
   onMounted,
+  ref,
 } from 'vue'
 
 import AdminNotice from '@/components/admin/AdminNotice.vue'
@@ -128,19 +129,21 @@ const {
   rolePermissionsError,
 })
 
+const permissionDirectoryOpen = ref(false)
+
 onMounted(loadData)
 </script>
 
 <template>
   <AdminPageShell
     title="Роли и права"
-    description="Создание ролей и permissions, а также явная настройка набора прав для каждой роли."
+    description="Управляйте ролями и наборами прав доступа."
   >
     <template #actions>
       <UiButton
         variant="secondary"
         icon="pi pi-key"
-        label="Создать permission"
+        label="Создать право"
         :disabled="loading"
         @click="openCreatePermission"
       />
@@ -159,6 +162,16 @@ onMounted(loadData)
       :message="notice.message"
       @close="clearNotice"
     />
+
+    <div class="admin-access-directory-toggle">
+      <UiButton
+        variant="secondary"
+        size="sm"
+        icon="pi pi-key"
+        :label="permissionDirectoryOpen ? 'Скрыть справочник прав' : 'Показать справочник прав'"
+        @click="permissionDirectoryOpen = !permissionDirectoryOpen"
+      />
+    </div>
 
     <UiCard
       title="Роли"
@@ -228,14 +241,14 @@ onMounted(loadData)
               class="admin-access-tags"
             >
               <UiTag
-                v-for="permission in rolePermissions(role).slice(0, 6)"
+                v-for="permission in rolePermissions(role).slice(0, 3)"
                 :key="permission.id"
                 :value="permission.name"
               />
 
               <UiTag
-                v-if="rolePermissions(role).length > 6"
-                :value="`+${rolePermissions(role).length - 6}`"
+                v-if="rolePermissions(role).length > 3"
+                :value="`+${rolePermissions(role).length - 3}`"
               />
             </div>
 
@@ -243,7 +256,7 @@ onMounted(loadData)
               v-else
               class="admin-access-muted"
             >
-              Для роли пока не назначены permissions.
+              Для роли пока не назначены права.
             </p>
 
             <div class="admin-access-role-card__actions">
@@ -260,8 +273,9 @@ onMounted(loadData)
     </UiCard>
 
     <UiCard
-      title="Справочник permissions"
-      description="Доступные права платформы. Созданный permission можно назначить одной или нескольким ролям."
+      v-if="permissionDirectoryOpen"
+      title="Справочник прав"
+      description="Доступные права платформы и количество ролей, в которых они используются."
     >
       <div class="admin-access-workspace">
         <UiFilterBar
@@ -388,7 +402,7 @@ onMounted(loadData)
 
     <UiDialog
       v-model="permissionCreateOverlay.model.value"
-      title="Новый permission"
+      title="Новое право"
       width="34rem"
     >
       <div class="admin-access-form">
@@ -400,7 +414,7 @@ onMounted(loadData)
 
         <UiInput
           v-model="permissionCreateOverlay.form.name"
-          label="Название permission"
+          label="Название права"
           placeholder="Например: reports.manage"
           required
           maxlength="100"
@@ -416,7 +430,7 @@ onMounted(loadData)
 
         <UiAlert
           variant="info"
-          message="После создания permission можно назначать ролям. Изменение или удаление существующего permission текущим API не предусмотрено."
+          message="После создания право можно назначать ролям. Изменение или удаление существующего права текущим API не предусмотрено."
         />
       </div>
 
@@ -431,7 +445,7 @@ onMounted(loadData)
 
           <UiButton
             variant="primary"
-            label="Создать permission"
+            label="Создать право"
             :loading="permissionCreateOverlay.saving.value"
             loading-text="Создание..."
             @click="createPermission"
@@ -578,4 +592,10 @@ onMounted(loadData)
     width: 100%;
   }
 }
+
+.admin-access-directory-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
 </style>

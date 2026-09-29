@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Select from 'primevue/select'
 
 import { publicRegistrationEnabled } from '@/config/features'
 import { hasWorkspaceAccess } from '@/utils/accountAccess'
@@ -87,9 +88,7 @@ function toggleTheme() {
   themeStore.toggleTheme()
 }
 
-async function changeWorkspaceRole(event) {
-  const nextRole =
-    event.target.value
+async function changeWorkspaceRole(nextRole) {
 
   if (
     !nextRole ||
@@ -184,7 +183,7 @@ onBeforeUnmount(() => {
 
       <div
         id="mobile-account-menu"
-        class="app-header__content"
+        class="app-header__content st-scrollbar st-scrollbar--shell"
         :class="{
           'app-header__content--open': mobileMenuOpen,
         }"
@@ -202,19 +201,15 @@ onBeforeUnmount(() => {
               Режим
             </span>
 
-            <select
+            <Select
               class="workspace-role-switcher__select"
-              :value="authStore.workspaceRole"
-              @change="changeWorkspaceRole"
-            >
-              <option
-                v-for="option in workspaceRoleOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
+              :model-value="authStore.workspaceRole"
+              :options="workspaceRoleOptions"
+              option-label="label"
+              option-value="value"
+              aria-label="Режим работы"
+              @update:model-value="changeWorkspaceRole"
+            />
           </label>
 
           <button
@@ -320,8 +315,8 @@ onBeforeUnmount(() => {
 .app-header__brand {
   color: inherit;
 
-  font-size: 17px;
-  font-weight: 700;
+  font-size: var(--st-font-lg);
+  font-weight: var(--st-font-weight-bold);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -353,30 +348,68 @@ onBeforeUnmount(() => {
 .workspace-role-switcher__label {
   color: var(--st-shell-muted);
 
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--st-font-xs);
+  font-weight: var(--st-font-weight-semibold);
 }
 
 .workspace-role-switcher__select {
-  min-height: 36px;
-  max-width: 170px;
+  width: 164px;
+  max-width: 164px;
+  min-height: 38px;
+}
 
-  padding: 6px 28px 6px 9px;
-
+.workspace-role-switcher :deep(.workspace-role-switcher__select.p-select) {
   color: var(--st-shell-text);
   background: var(--st-shell-hover);
 
   border: 1px solid var(--st-shell-border);
-  border-radius: 8px;
+  border-radius: var(--st-radius-control);
 
-  color-scheme: dark;
-  font: inherit;
-  font-size: 13px;
+  box-shadow: none;
+
+  font-size: var(--st-font-sm);
+  font-weight: var(--st-font-weight-medium);
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.workspace-role-switcher__select option {
+.workspace-role-switcher :deep(.workspace-role-switcher__select.p-select:hover) {
+  background: var(--st-shell-active);
+  border-color: color-mix(
+    in srgb,
+    var(--st-shell-muted) 58%,
+    var(--st-shell-border)
+  );
+}
+
+.workspace-role-switcher :deep(.workspace-role-switcher__select.p-select.p-focus) {
+  background: var(--st-shell-active);
+  border-color: var(--st-primary);
+  box-shadow: var(--st-focus-shadow);
+}
+
+.workspace-role-switcher :deep(.workspace-role-switcher__select .p-select-label) {
+  padding: 8px 8px 8px 11px;
+
   color: var(--st-shell-text);
-  background: var(--st-shell-elevated);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-role-switcher :deep(.workspace-role-switcher__select .p-select-dropdown) {
+  width: 34px;
+
+  color: var(--st-shell-muted);
+}
+
+.workspace-role-switcher :deep(.workspace-role-switcher__select:hover .p-select-dropdown),
+.workspace-role-switcher :deep(.workspace-role-switcher__select.p-focus .p-select-dropdown) {
+  color: var(--st-shell-text);
 }
 
 .app-header__login-link {
@@ -386,7 +419,7 @@ onBeforeUnmount(() => {
   color:
     var(--st-shell-muted);
 
-  border-radius: 8px;
+  border-radius: var(--st-radius-control);
 
   text-decoration: none;
   white-space: nowrap;
@@ -423,7 +456,7 @@ onBeforeUnmount(() => {
   border: 1px solid
     var(--st-shell-border);
 
-  border-radius: 9px;
+  border-radius: var(--st-radius-md);
 
   cursor: pointer;
 
@@ -442,7 +475,7 @@ onBeforeUnmount(() => {
 }
 
 .theme-toggle__icon {
-  font-size: 20px;
+  font-size: var(--st-font-xl);
   line-height: 1;
 }
 
@@ -457,7 +490,7 @@ onBeforeUnmount(() => {
 
   color: inherit;
 
-  border-radius: 8px;
+  border-radius: var(--st-radius-control);
 }
 
 .user-badge__name,
@@ -468,15 +501,15 @@ onBeforeUnmount(() => {
 }
 
 .user-badge__name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--st-font-md);
+  font-weight: var(--st-font-weight-semibold);
 }
 
 .user-badge__role {
   color:
     var(--st-shell-muted);
 
-  font-size: 12px;
+  font-size: var(--st-font-xs);
 }
 
 .app-header__button {
@@ -497,10 +530,10 @@ onBeforeUnmount(() => {
   border: 1px solid
     var(--st-shell-border);
 
-  border-radius: 8px;
+  border-radius: var(--st-radius-control);
 
   font: inherit;
-  font-size: 14px;
+  font-size: var(--st-font-md);
   text-decoration: none;
 
   cursor: pointer;
@@ -551,7 +584,7 @@ onBeforeUnmount(() => {
   background: transparent;
 
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--st-radius-control);
 
   cursor: pointer;
 }
@@ -605,9 +638,12 @@ onBeforeUnmount(() => {
   }
 
   .app-header__content--open {
-    max-height: 620px;
+    max-height: min(620px, calc(100dvh - 58px));
 
     padding: 4px 0 14px;
+
+    overflow-y: auto;
+    overscroll-behavior: contain;
 
     opacity: 1;
   }
@@ -655,8 +691,8 @@ onBeforeUnmount(() => {
 
     margin-left: 8px;
 
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--st-font-md);
+    font-weight: var(--st-font-weight-semibold);
   }
 
   .user-badge {
@@ -688,7 +724,20 @@ onBeforeUnmount(() => {
     overflow: hidden;
     text-overflow: ellipsis;
 
-    font-size: 16px;
+    font-size: var(--st-font-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header__content,
+  .app-header__login-link,
+  .theme-toggle,
+  .app-header__button {
+    transition: none;
+  }
+
+  .theme-toggle:active {
+    transform: none;
   }
 }
 </style>

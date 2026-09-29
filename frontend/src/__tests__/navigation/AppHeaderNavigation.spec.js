@@ -88,6 +88,7 @@ function mountHeader() {
     global: {
       stubs: {
         RouterLink: RouterLinkStub,
+        Select: true,
       },
     },
   })

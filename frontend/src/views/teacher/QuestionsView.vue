@@ -972,7 +972,7 @@ onMounted(async () => {
   background: var(--st-primary-soft);
   border-radius: 7px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-question-drawer {

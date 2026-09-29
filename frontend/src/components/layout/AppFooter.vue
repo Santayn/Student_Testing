@@ -55,7 +55,7 @@ const currentYear = new Date().getFullYear()
 }
 
 .app-footer__copyright {
-  font-size: 13px;
+  font-size: var(--st-font-sm);
   white-space: nowrap;
 }
 
@@ -68,7 +68,7 @@ const currentYear = new Date().getFullYear()
 .app-footer__link {
   color: inherit;
 
-  font-size: 13px;
+  font-size: var(--st-font-sm);
   text-decoration: none;
 
   transition: color 0.15s ease;
@@ -84,7 +84,7 @@ const currentYear = new Date().getFullYear()
   outline: 2px solid
     var(--st-primary);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: var(--st-radius-control);
 }
 
 @media (max-width: 520px) {
@@ -96,6 +96,12 @@ const currentYear = new Date().getFullYear()
 
     flex-direction: column;
     gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-footer__link {
+    transition: none;
   }
 }
 </style>

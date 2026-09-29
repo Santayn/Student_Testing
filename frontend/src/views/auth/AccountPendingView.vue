@@ -192,7 +192,7 @@ async function logout() {
   border-radius: 50%;
 
   font-size: 32px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .account-pending h1,

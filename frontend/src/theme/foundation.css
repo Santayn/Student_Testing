@@ -11,7 +11,7 @@
   .st-ui-field__label {
     color: var(--st-text);
     font-size: var(--st-font-sm);
-    font-weight: 650;
+    font-weight: var(--st-font-weight-semibold);
     line-height: 1.35;
   }
 
@@ -167,7 +167,7 @@
     color: var(--st-text);
     background: var(--st-surface-muted);
     border-color: var(--st-border);
-    border-radius: 7px;
+    border-radius: var(--st-radius-control);
   }
 
   .p-select-filter.p-inputtext:enabled:focus,
@@ -177,7 +177,7 @@
   }
 
   .p-select-list-container {
-    scrollbar-color: var(--st-border) transparent;
+    scrollbar-color: var(--st-scrollbar-thumb) transparent;
   }
 
   .p-select-list {
@@ -191,7 +191,7 @@
     padding: 8px 10px;
     color: var(--st-text);
     background: transparent;
-    border-radius: 7px;
+    border-radius: var(--st-radius-control);
     overflow-wrap: anywhere;
     transition:
       color 120ms ease,
@@ -210,7 +210,7 @@
   .p-select-option[data-p-selected='true'] {
     color: var(--st-primary-soft-text);
     background: var(--st-primary-soft);
-    font-weight: 650;
+    font-weight: var(--st-font-weight-semibold);
   }
 
   .p-select-option.p-select-option-selected:hover,
@@ -317,7 +317,7 @@
     padding: 0 14px;
     border-radius: var(--st-radius-control);
     font-size: var(--st-font-sm);
-    font-weight: 650;
+    font-weight: var(--st-font-weight-semibold);
     line-height: 1;
   }
 
@@ -332,7 +332,7 @@
   .st-ui-link-button--lg {
     min-height: var(--st-control-height-lg);
     padding-inline: 17px;
-    font-size: 14px;
+    font-size: var(--st-font-md);
   }
 
   .st-ui-button--block.p-button,
@@ -595,7 +595,7 @@
 
   .st-ui-choice__label {
     font-size: var(--st-font-sm);
-    font-weight: 650;
+    font-weight: var(--st-font-weight-semibold);
     line-height: 1.35;
   }
 
@@ -624,7 +624,7 @@
   .st-ui-card.p-card .p-card-title {
     color: var(--st-text);
     font-size: 18px;
-    font-weight: 700;
+    font-weight: var(--st-font-weight-bold);
   }
 
   .st-ui-card.p-card .p-card-subtitle {
@@ -653,7 +653,7 @@
 
   .st-ui-card__heading-title {
     font-size: 18px;
-    font-weight: 700;
+    font-weight: var(--st-font-weight-bold);
   }
 
   .st-ui-card__heading-description {
@@ -721,7 +721,7 @@
     border: 1px solid transparent;
     border-radius: 999px;
     font-size: 11px;
-    font-weight: 650;
+    font-weight: var(--st-font-weight-semibold);
     line-height: 1;
   }
 
@@ -840,7 +840,7 @@
     background: var(--st-surface);
     border-radius: var(--st-radius-card);
     box-shadow: var(--st-shadow-card);
-    scrollbar-color: var(--st-border) transparent;
+    scrollbar-color: var(--st-scrollbar-thumb) transparent;
     overscroll-behavior-inline: contain;
     -webkit-overflow-scrolling: touch;
   }
@@ -873,7 +873,7 @@
     background: var(--st-surface-muted);
     border-color: var(--st-border);
     font-size: var(--st-font-xs);
-    font-weight: 700;
+    font-weight: var(--st-font-weight-bold);
   }
 
   .st-ui-table.p-datatable .p-datatable-tbody > tr {
@@ -1015,7 +1015,7 @@
 
   .st-ui-drawer.p-drawer .p-drawer-title {
     color: var(--st-text);
-    font-weight: 700;
+    font-weight: var(--st-font-weight-bold);
   }
 
   .st-ui-drawer.p-drawer .p-drawer-content {
@@ -1077,7 +1077,7 @@
   .st-ui-action-menu.p-menu .p-menuitem-content {
     color: var(--st-text);
     background: transparent;
-    border-radius: 7px;
+    border-radius: var(--st-radius-control);
     transition:
       color 120ms ease,
       background-color 120ms ease;
@@ -1087,7 +1087,7 @@
     min-height: 36px;
     padding: 8px 10px;
     color: inherit;
-    border-radius: 7px;
+    border-radius: var(--st-radius-control);
   }
 
   .st-ui-action-menu.p-menu .p-menuitem-icon {
@@ -1273,7 +1273,7 @@
 
   .st-ui-toast-host.p-toast .p-toast-summary {
     color: currentColor;
-    font-weight: 700;
+    font-weight: var(--st-font-weight-bold);
   }
 
   .st-ui-toast-host.p-toast .p-toast-detail {
@@ -1604,11 +1604,62 @@
 
   @media (prefers-reduced-motion: reduce) {
     .st-ui-control,
+    .st-ui-search,
+    .st-ui-search__icon,
     .st-ui-button.p-button,
     .st-ui-link-button,
     .st-ui-choice,
-    .st-ui-action-menu.p-menu .p-menuitem-content {
-      transition-duration: 0.01ms;
+    .p-select-option,
+    .st-ui-action-menu.p-menu .p-menuitem-content,
+    .st-ui-dialog.p-dialog,
+    .st-ui-drawer.p-drawer,
+    .st-ui-toast-host.p-toast {
+      transition: none;
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
     }
   }
+}
+
+
+/* Internal PrimeVue / table scroll regions share the application scrollbar contract. */
+.p-select-list-container,
+.st-ui-table-scroll,
+.st-ui-drawer.p-drawer .p-drawer-content,
+.st-ui-dialog.p-dialog .p-dialog-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--st-scrollbar-thumb) transparent;
+}
+
+.p-select-list-container::-webkit-scrollbar,
+.st-ui-table-scroll::-webkit-scrollbar,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar {
+  width: var(--st-scrollbar-size);
+  height: var(--st-scrollbar-size);
+}
+
+.p-select-list-container::-webkit-scrollbar-track,
+.st-ui-table-scroll::-webkit-scrollbar-track,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar-track,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.p-select-list-container::-webkit-scrollbar-thumb,
+.st-ui-table-scroll::-webkit-scrollbar-thumb,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar-thumb,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar-thumb {
+  background: var(--st-scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.p-select-list-container::-webkit-scrollbar-thumb:hover,
+.st-ui-table-scroll::-webkit-scrollbar-thumb:hover,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar-thumb:hover,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar-thumb:hover {
+  background: var(--st-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }

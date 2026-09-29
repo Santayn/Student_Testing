@@ -94,7 +94,7 @@ const loginRoute = computed(() => ({
   border-radius: 50%;
 
   font-size: 32px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .auth-required h1,

@@ -1,5 +1,18 @@
 export const devRoutes = [
   {
+    path: '/font-preview',
+    name: 'font-preview',
+
+    component: () =>
+      import(
+        '@/views/dev/FontPreviewView.vue'
+      ),
+
+    meta: {
+      public: true,
+    },
+  },
+  {
     path: '/overlay-components-preview',
     name: 'overlay-components-preview',
 

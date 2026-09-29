@@ -9,6 +9,7 @@ import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
 import {
+  UiActionMenu,
   UiAlert,
   UiButton,
   UiCard,
@@ -95,6 +96,22 @@ const subjectDialogTitle = computed(() => {
 const canSubmit = computed(() => {
   return !subjectFormValidationMessage() && !saving.value
 })
+
+function subjectActionItems(subject) {
+  return [
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => openEditSubject(subject),
+    },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => requestDeleteSubject(subject),
+    },
+  ]
+}
 
 function openCreateSubject() {
   formError.value = ''
@@ -249,10 +266,11 @@ onMounted(loadSubjects)
 <template>
   <AdminPageShell
     title="Предметы"
-    description="Просматривайте и находите предметы в рабочем списке. Создание и редактирование открываются поверх страницы и не сбрасывают текущие фильтры."
+    description="Управляйте справочником предметов и их описаниями."
   >
     <template #actions>
       <UiButton
+        variant="secondary"
         size="sm"
         icon="pi pi-refresh"
         label="Обновить"
@@ -358,21 +376,9 @@ onMounted(loadSubjects)
             </p>
 
             <div class="admin-subject-card__actions">
-              <UiButton
-                size="sm"
-                icon="pi pi-pencil"
-                label="Изменить"
-                @click="openEditSubject(subject)"
-              />
-
-              <UiButton
-                variant="danger"
-                size="sm"
-                icon="pi pi-trash"
-                label="Удалить"
-                :loading="deletingId === subject.id"
-                loading-text="Удаление..."
-                @click="requestDeleteSubject(subject)"
+              <UiActionMenu
+                :items="subjectActionItems(subject)"
+                :aria-label="`Действия: ${subject.name}`"
               />
             </div>
           </article>
@@ -530,7 +536,7 @@ onMounted(loadSubjects)
   border-radius: 999px;
 
   font-size: 11px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.25;
   letter-spacing: 0.04em;
 }

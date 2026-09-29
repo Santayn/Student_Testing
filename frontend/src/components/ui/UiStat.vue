@@ -42,7 +42,7 @@ defineProps({
   color: var(--st-text-secondary);
 
   font-size: var(--st-font-xs);
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   line-height: var(--st-line-normal);
 }
 
@@ -50,7 +50,7 @@ defineProps({
   min-width: 0;
 
   font-size: var(--st-font-xl);
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: var(--st-line-tight);
   overflow-wrap: anywhere;
 }

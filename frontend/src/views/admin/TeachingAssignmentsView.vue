@@ -1,6 +1,7 @@
 <script setup>
 import {
   onMounted,
+  ref,
   watch,
 } from 'vue'
 
@@ -208,6 +209,8 @@ watch(
   }
 )
 
+const advancedFiltersOpen = ref(false)
+
 onMounted(async () => {
   await loadBaseData()
   initialized.value = true
@@ -225,22 +228,6 @@ onMounted(async () => {
   >
     <template #actions>
       <UiButton
-        variant="secondary"
-        icon="pi pi-tags"
-        label="Типы нагрузки"
-        :disabled="loading || assignmentDrawerModel"
-        @click="openLoadTypeManager"
-      />
-
-      <UiButton
-        variant="secondary"
-        icon="pi pi-refresh"
-        label="Обновить"
-        :disabled="loading || assignmentDrawerModel"
-        @click="reloadAll"
-      />
-
-      <UiButton
         variant="primary"
         icon="pi pi-plus"
         label="Добавить нагрузку"
@@ -251,6 +238,22 @@ onMounted(async () => {
           !groups.length
         "
         @click="openCreateAssignment"
+      />
+
+      <UiButton
+        variant="secondary"
+        icon="pi pi-tags"
+        label="Типы нагрузки"
+        :disabled="loading || assignmentDrawerModel"
+        @click="openLoadTypeManager"
+      />
+
+      <UiButton
+        variant="ghost"
+        icon="pi pi-refresh"
+        label="Обновить"
+        :disabled="loading || assignmentDrawerModel"
+        @click="reloadAll"
       />
     </template>
 
@@ -341,6 +344,7 @@ onMounted(async () => {
               size="sm"
             />
 
+            <template v-if="advancedFiltersOpen">
             <UiSelect
               v-model="groupFilter"
               :options="assignmentGroupFilterOptions"
@@ -369,6 +373,17 @@ onMounted(async () => {
               :options="SORT_OPTIONS"
               aria-label="Сортировка нагрузки"
               size="sm"
+            />
+            </template>
+          </template>
+
+          <template #actions>
+            <UiButton
+              variant="ghost"
+              size="sm"
+              icon="pi pi-sliders-h"
+              :label="advancedFiltersOpen ? 'Скрыть дополнительные фильтры' : 'Дополнительные фильтры'"
+              @click="advancedFiltersOpen = !advancedFiltersOpen"
             />
           </template>
         </UiFilterBar>
@@ -621,7 +636,7 @@ onMounted(async () => {
   color: var(--st-text-secondary);
 
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .workload-assignment__meta dd {
@@ -632,7 +647,7 @@ onMounted(async () => {
   overflow-wrap: anywhere;
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.4;
 }
 

@@ -287,7 +287,7 @@ onMounted(loadLectures)
   color: var(--st-primary-soft-text);
   background: var(--st-primary-soft);
   border-radius: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .lecture-tile__copy { min-width: 0; display: grid; gap: 10px; }

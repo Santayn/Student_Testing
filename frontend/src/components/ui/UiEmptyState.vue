@@ -36,7 +36,7 @@ defineProps({
 .st-ui-empty__title {
   color: var(--st-text);
   font-size: var(--st-font-md);
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .st-ui-empty__description {

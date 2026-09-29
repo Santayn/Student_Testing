@@ -127,7 +127,7 @@ function updateModelValue(value) {
       />
 
       <UiCard
-        title="Назначение"
+        title="1. Что назначаем"
         description="Преподаватель выбирается среди активных назначений на выбранный предмет."
         compact
       >
@@ -201,7 +201,7 @@ function updateModelValue(value) {
       </UiCard>
 
       <UiCard
-        title="Учебный период"
+        title="2. Учебный период"
         description="Изменение периода у существующего назначения может переместить его из текущего списка."
         compact
       >
@@ -236,7 +236,7 @@ function updateModelValue(value) {
 
       <UiCard
         v-if="isCreate"
-        title="Группы"
+        title="3. Кому назначаем"
         description="Можно создать одинаковую нагрузку сразу для нескольких групп факультета."
         compact
       >
@@ -283,7 +283,7 @@ function updateModelValue(value) {
 
       <UiCard
         v-else
-        title="Группа"
+        title="3. Группа"
         description="Для одного существующего назначения выбирается одна группа."
         compact
       >
@@ -299,13 +299,19 @@ function updateModelValue(value) {
         />
       </UiCard>
 
-      <UiTextarea
-        v-model="form.notes"
-        label="Примечание"
-        maxlength="1000"
-        placeholder="Необязательное примечание к нагрузке"
-        :disabled="saving"
-      />
+      <UiCard
+        title="4. Дополнительно"
+        description="Необязательные данные назначения."
+        compact
+      >
+        <UiTextarea
+          v-model="form.notes"
+          label="Примечание"
+          maxlength="1000"
+          placeholder="Необязательное примечание к нагрузке"
+          :disabled="saving"
+        />
+      </UiCard>
     </div>
 
     <template #footer>

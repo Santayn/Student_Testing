@@ -323,6 +323,9 @@ onMounted(loadBaseData)
           title="Назначенные предметы"
           description="Предметы, которые уже доступны этому факультету."
         >
+          <template #actions>
+            <UiTag variant="info" :value="`Назначено · ${assignedSubjects.length}`" />
+          </template>
           <UiLoadingState
             v-if="loadingAssigned"
             compact
@@ -362,9 +365,9 @@ onMounted(loadBaseData)
               </div>
 
               <UiButton
-                variant="danger"
+                variant="secondary"
                 size="sm"
-                label="Убрать"
+                label="Убрать из факультета"
                 icon="pi pi-times"
                 :loading="mutatingSubjectId === Number(subject.id)"
                 loading-text="Удаление..."
@@ -379,6 +382,9 @@ onMounted(loadBaseData)
           title="Доступные предметы"
           description="Предметы из справочника, которые ещё не связаны с факультетом."
         >
+          <template #actions>
+            <UiTag variant="secondary" :value="`Доступно · ${availableSubjects.length}`" />
+          </template>
           <UiLoadingState
             v-if="loadingAssigned"
             compact
@@ -504,7 +510,7 @@ onMounted(loadBaseData)
   color: var(--st-text);
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .faculty-subjects__context {

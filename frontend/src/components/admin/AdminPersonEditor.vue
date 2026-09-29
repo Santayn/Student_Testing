@@ -284,7 +284,7 @@ const emit = defineEmits([
 .admin-user-drawer__summary dt {
   color: var(--st-text-secondary);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.35;
 }
 

@@ -371,6 +371,9 @@ onMounted(async () => {
           title="Назначенные предметы"
           description="Активные предметы выбранного преподавателя."
         >
+          <template #actions>
+            <UiTag variant="info" :value="`Назначено · ${assignedSubjects.length}`" />
+          </template>
           <UiLoadingState
             v-if="loadingMemberships"
             compact
@@ -423,9 +426,9 @@ onMounted(async () => {
               </div>
 
               <UiButton
-                variant="danger"
+                variant="secondary"
                 size="sm"
-                label="Убрать"
+                label="Снять с преподавателя"
                 icon="pi pi-times"
                 :loading="mutatingSubjectId === Number(subject.id)"
                 loading-text="Снятие..."
@@ -440,6 +443,9 @@ onMounted(async () => {
           title="Доступные предметы"
           description="Предметы, которые можно назначить или восстановить преподавателю."
         >
+          <template #actions>
+            <UiTag variant="secondary" :value="`Доступно · ${availableSubjects.length}`" />
+          </template>
           <label class="teacher-subjects__notes-field">
             <span>Примечание к новому назначению</span>
 
@@ -595,7 +601,7 @@ onMounted(async () => {
   color: var(--st-text);
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .teacher-subjects__context {

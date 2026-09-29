@@ -243,7 +243,7 @@ function removePair(index) {
   background: var(--st-primary-soft);
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
 }
 
 .matching-editor__remove {

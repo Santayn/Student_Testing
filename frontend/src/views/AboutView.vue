@@ -86,7 +86,7 @@ import {
     var(--st-text-secondary);
 
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

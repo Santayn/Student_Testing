@@ -96,7 +96,7 @@ const primaryLabel = computed(() => {
 
 .error-code {
   font-size: clamp(64px, 14vw, 110px);
-  font-weight: 800;
+  font-weight: var(--st-font-weight-bold);
   line-height: 0.9;
 
   color:

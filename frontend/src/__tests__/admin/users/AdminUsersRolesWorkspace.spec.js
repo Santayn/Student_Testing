@@ -3,7 +3,6 @@ import {
 } from 'node:fs'
 import { resolve } from 'node:path'
 
-
 import {
   describe,
   expect,
@@ -56,7 +55,8 @@ describe('admin users workspace', () => {
     expect(usersApi).toContain('`/users/${userId}/active`')
 
     expect(view).not.toContain('updatePermissions(')
-    expect(drawer).toContain('индивидуальные права пользователя этим экраном не изменяются')
+    expect(drawer).toContain('Итоговые права · Только для просмотра')
+    expect(drawer).toContain('На этом экране они не редактируются напрямую')
   })
 
   it('supports scalable filtering and searchable person binding', () => {

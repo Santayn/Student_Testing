@@ -68,7 +68,7 @@ describe('admin roles and permissions workspace', () => {
 
     expect(rolesApi).not.toContain('delete(')
     expect(view).toContain('Изменение имени или описания существующей роли текущим API не предусмотрено.')
-    expect(view).toContain('Изменение или удаление существующего permission текущим API не предусмотрено.')
+    expect(view).toContain('Изменение или удаление существующего права текущим API не предусмотрено.')
   })
 
   it('provides scalable search and filters for roles and permissions', () => {

@@ -39,6 +39,13 @@ describe('UI foundation', () => {
     expect(devRoutes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          path: '/font-preview',
+          name: 'font-preview',
+          meta: {
+            public: true,
+          },
+        }),
+        expect.objectContaining({
           path: '/ui-showcase',
           name: 'ui-showcase',
           meta: {

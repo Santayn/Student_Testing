@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
     <aside
       id="app-sidebar"
       ref="sidebarRef"
-      class="app-sidebar"
+      class="app-sidebar st-scrollbar st-scrollbar--shell"
       :class="{
         'app-sidebar--open': mobileOpen,
       }"
@@ -370,10 +370,6 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color:
-    var(--st-shell-border)
-    transparent;
 
   background:
     var(--st-shell-bg);
@@ -382,19 +378,6 @@ onBeforeUnmount(() => {
     var(--st-shell-border);
 
   border-radius: 12px;
-}
-
-.app-sidebar::-webkit-scrollbar {
-  width: 8px;
-}
-
-.app-sidebar::-webkit-scrollbar-thumb {
-  background:
-    var(--st-shell-border);
-
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background-clip: padding-box;
 }
 
 .app-sidebar__nav {
@@ -416,7 +399,7 @@ onBeforeUnmount(() => {
     var(--st-shell-muted);
 
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--st-font-weight-bold);
   line-height: 1.3;
 
   text-transform: uppercase;
@@ -482,7 +465,7 @@ onBeforeUnmount(() => {
   background:
     var(--st-shell-active);
 
-  font-weight: 600;
+  font-weight: var(--st-font-weight-semibold);
 }
 
 .app-sidebar__link--active .app-sidebar__icon {
@@ -532,7 +515,7 @@ onBeforeUnmount(() => {
 
     font: inherit;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: var(--st-font-weight-semibold);
 
     cursor: pointer;
   }
@@ -558,7 +541,7 @@ onBeforeUnmount(() => {
       var(--st-shell-muted);
 
     font-size: 13px;
-    font-weight: 500;
+    font-weight: var(--st-font-weight-medium);
 
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -171,9 +171,20 @@ describe('AdminGroupMembersDrawer', () => {
 
     expect(wrapper.text()).toContain('Историческая запись назначения сохранится в системе.')
 
-    await button(wrapper, 'Убрать из группы').trigger('click')
-    await button(wrapper, 'Отмена').trigger('click')
-    wrapper.findComponent(UiDialogStub).vm.$emit('update:modelValue', false)
+    const dialog = wrapper.findComponent(UiDialogStub)
+    const confirmButton = dialog.findAll('button').find(
+      (entry) => entry.text().includes('Убрать из группы')
+    )
+    const cancelButton = dialog.findAll('button').find(
+      (entry) => entry.text().includes('Отмена')
+    )
+
+    expect(confirmButton).toBeDefined()
+    expect(cancelButton).toBeDefined()
+
+    await confirmButton.trigger('click')
+    await cancelButton.trigger('click')
+    dialog.vm.$emit('update:modelValue', false)
 
     expect(wrapper.emitted('confirm-remove')).toHaveLength(1)
     expect(wrapper.emitted('close-remove')).toHaveLength(2)
