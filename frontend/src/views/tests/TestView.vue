@@ -986,7 +986,7 @@ onBeforeUnmount(() => {
 
   background: var(--st-primary);
   border-radius: inherit;
-  transition: width 160ms ease;
+  transition: width var(--st-motion-normal) var(--st-ease-standard);
 }
 
 .test-question-card {

@@ -70,10 +70,10 @@ const themeButtonLabel = computed(() => {
     : 'Включить тёмную тему'
 })
 
-const themeButtonIcon = computed(() => {
+const themeButtonIconClass = computed(() => {
   return themeStore.isDark
-    ? '☀'
-    : '☾'
+    ? 'pi-sun'
+    : 'pi-moon'
 })
 
 function toggleMobileMenu() {
@@ -219,18 +219,19 @@ onBeforeUnmount(() => {
             :title="themeButtonLabel"
             @click="toggleTheme"
           >
-            <span
-              class="theme-toggle__icon"
+            <i
+              class="theme-toggle__icon pi"
+              :class="themeButtonIconClass"
               aria-hidden="true"
-            >
-              {{ themeButtonIcon }}
-            </span>
+            />
           </button>
 
           <template v-if="authStore.isAuthenticated">
-            <div
+            <RouterLink
               class="user-badge"
-              aria-label="Текущий пользователь"
+              :to="{ name: 'profile' }"
+              aria-label="Открыть профиль"
+              @click="closeMobileMenu"
             >
               <span class="user-badge__name">
                 {{ userLabel }}
@@ -242,10 +243,10 @@ onBeforeUnmount(() => {
               >
                 {{ roleLabel }}
               </span>
-            </div>
+            </RouterLink>
 
             <button
-              class="app-header__button"
+              class="app-header__button app-header__button--ghost"
               type="button"
               :disabled="authStore.loggingOut"
               @click="logout"
@@ -346,10 +347,19 @@ onBeforeUnmount(() => {
 }
 
 .workspace-role-switcher__label {
-  color: var(--st-shell-muted);
+  position: absolute;
 
-  font-size: var(--st-font-xs);
-  font-weight: var(--st-font-weight-semibold);
+  width: 1px;
+  height: 1px;
+
+  padding: 0;
+  margin: -1px;
+
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+
+  border: 0;
 }
 
 .workspace-role-switcher__select {
@@ -371,9 +381,9 @@ onBeforeUnmount(() => {
   font-weight: var(--st-font-weight-medium);
 
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    border-color var(--st-motion-fast) var(--st-ease-standard),
+    box-shadow var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .workspace-role-switcher :deep(.workspace-role-switcher__select.p-select:hover) {
@@ -425,8 +435,8 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 
   transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-header__login-link:hover,
@@ -461,8 +471,8 @@ onBeforeUnmount(() => {
   cursor: pointer;
 
   transition:
-    background-color 0.15s ease,
-    transform 0.15s ease;
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    transform var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .theme-toggle:hover {
@@ -475,7 +485,7 @@ onBeforeUnmount(() => {
 }
 
 .theme-toggle__icon {
-  font-size: var(--st-font-xl);
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -489,8 +499,25 @@ onBeforeUnmount(() => {
   gap: 1px;
 
   color: inherit;
+  background: transparent;
 
   border-radius: var(--st-radius-control);
+
+  text-decoration: none;
+
+  transition:
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    color var(--st-motion-fast) var(--st-ease-standard);
+}
+
+.user-badge:hover,
+.user-badge:focus-visible {
+  background: var(--st-shell-hover);
+}
+
+.user-badge:focus-visible {
+  outline: 2px solid var(--st-primary);
+  outline-offset: 2px;
 }
 
 .user-badge__name,
@@ -539,13 +566,26 @@ onBeforeUnmount(() => {
   cursor: pointer;
 
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    border-color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-header__button:hover:not(:disabled) {
   background:
     var(--st-shell-active);
+}
+
+.app-header__button--ghost {
+  color: var(--st-shell-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.app-header__button--ghost:hover:not(:disabled),
+.app-header__button--ghost:focus-visible {
+  color: var(--st-shell-text);
+  background: var(--st-shell-hover);
+  border-color: var(--st-shell-border);
 }
 
 .app-header__button:disabled {
@@ -632,9 +672,9 @@ onBeforeUnmount(() => {
     opacity: 0;
 
     transition:
-      max-height 0.25s ease,
-      opacity 0.2s ease,
-      padding 0.25s ease;
+      max-height var(--st-motion-slow) var(--st-ease-emphasized),
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      padding var(--st-motion-slow) var(--st-ease-emphasized);
   }
 
   .app-header__content--open {
@@ -670,6 +710,25 @@ onBeforeUnmount(() => {
 
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspace-role-switcher__label {
+    position: static;
+
+    width: auto;
+    height: auto;
+
+    margin: 0;
+    padding: 0;
+
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+
+    color: var(--st-shell-muted);
+
+    font-size: var(--st-font-xs);
+    font-weight: var(--st-font-weight-semibold);
   }
 
   .workspace-role-switcher__select {
@@ -732,6 +791,7 @@ onBeforeUnmount(() => {
   .app-header__content,
   .app-header__login-link,
   .theme-toggle,
+  .user-badge,
   .app-header__button {
     transition: none;
   }

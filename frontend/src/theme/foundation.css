@@ -1,4 +1,30 @@
 @layer components {
+  /*
+   * Motion Stage 3 — bounded state reveal.
+   *
+   * Applies only to transient UI state: loading, validation and alerts.
+   * It is intentionally not a route/page/card entrance animation.
+   */
+  .st-motion-state-reveal {
+    animation:
+      st-motion-state-reveal
+      var(--st-motion-normal)
+      var(--st-ease-standard)
+      both;
+  }
+
+  @keyframes st-motion-state-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .st-ui-field {
     width: 100%;
     max-width: 100%;
@@ -28,6 +54,12 @@
 
   .st-ui-field__message--error {
     color: var(--st-danger);
+
+    animation:
+      st-motion-state-reveal
+      var(--st-motion-normal)
+      var(--st-ease-standard)
+      both;
   }
 
   .st-ui-control,
@@ -41,9 +73,9 @@
     min-height: var(--st-control-height);
     border-radius: var(--st-radius-control);
     transition:
-      border-color 140ms ease,
-      box-shadow 140ms ease,
-      background-color 140ms ease;
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-control--sm,
@@ -194,8 +226,8 @@
     border-radius: var(--st-radius-control);
     overflow-wrap: anywhere;
     transition:
-      color 120ms ease,
-      background-color 120ms ease;
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .p-select-option:not(.p-disabled):hover,
@@ -245,9 +277,9 @@
     border: 1px solid var(--st-border);
     border-radius: var(--st-radius-control);
     transition:
-      border-color 140ms ease,
-      box-shadow 140ms ease,
-      background-color 140ms ease;
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-search:hover:not(.st-ui-search--disabled) {
@@ -273,7 +305,7 @@
     display: grid;
     place-items: center;
     color: var(--st-text-muted);
-    transition: color 140ms ease;
+    transition: color var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-search__icon::after {
@@ -342,10 +374,10 @@
 
   .st-ui-button.p-button {
     transition:
-      color 140ms ease,
-      background-color 140ms ease,
-      border-color 140ms ease,
-      box-shadow 140ms ease;
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-button.p-button:focus-visible {
@@ -425,10 +457,10 @@
     text-decoration: none;
     cursor: pointer;
     transition:
-      color 140ms ease,
-      background-color 140ms ease,
-      border-color 140ms ease,
-      box-shadow 140ms ease;
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-link-button--primary {
@@ -495,9 +527,9 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition:
-      border-color 140ms ease,
-      background-color 140ms ease,
-      box-shadow 140ms ease;
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-radio {
@@ -545,9 +577,9 @@
     background: var(--st-surface);
     border-color: var(--st-border);
     transition:
-      background-color 140ms ease,
-      border-color 140ms ease,
-      box-shadow 140ms ease;
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-choice:hover:not(.st-ui-choice--disabled):not(.st-ui-choice--readonly) .p-checkbox-box,
@@ -679,6 +711,12 @@
     border: 1px solid transparent;
     border-radius: var(--st-radius-control);
     box-shadow: none;
+
+    animation:
+      st-motion-state-reveal
+      var(--st-motion-normal)
+      var(--st-ease-standard)
+      both;
   }
 
   .st-ui-alert.p-message .p-message-icon,
@@ -1079,8 +1117,8 @@
     background: transparent;
     border-radius: var(--st-radius-control);
     transition:
-      color 120ms ease,
-      background-color 120ms ease;
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
   }
 
   .st-ui-action-menu.p-menu .p-menuitem-link {
@@ -1330,6 +1368,70 @@
     color: var(--st-text-secondary);
     background: var(--st-surface-muted);
     border-color: var(--st-border);
+  }
+
+
+  /*
+   * Motion Stage 2 — PrimeVue overlay motion contract.
+   *
+   * PrimeVue 4.5.5 uses:
+   * - p-anchored-overlay for Select/Menu style anchored overlays;
+   * - p-dialog for Dialog;
+   * - p-drawer for Drawer;
+   * - p-toast-message for Toast message transitions.
+   *
+   * Keep movement deliberately small. Motion explains origin/state change
+   * without becoming a decorative layer.
+   */
+
+  .p-anchored-overlay-enter-active,
+  .p-anchored-overlay-leave-active {
+    transition:
+      opacity var(--st-motion-fast) var(--st-ease-standard),
+      transform var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .p-anchored-overlay-enter-from,
+  .p-anchored-overlay-leave-to {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  .p-dialog-enter-active,
+  .p-dialog-leave-active {
+    transition:
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      transform var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .p-dialog-enter-from,
+  .p-dialog-leave-to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  /*
+   * Drawer already owns direction-specific translate values in PrimeVue.
+   * Only normalize duration/easing so left/right/top/bottom drawers keep
+   * their native direction.
+   */
+  .p-drawer-enter-active,
+  .p-drawer-leave-active {
+    transition-duration: var(--st-motion-slow) !important;
+    transition-timing-function: var(--st-ease-standard) !important;
+  }
+
+  .p-toast-message-enter-active,
+  .p-toast-message-leave-active {
+    transition:
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      transform var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .p-toast-message-enter-from,
+  .p-toast-message-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
   }
 
   @media (max-width: 640px) {
@@ -1613,10 +1715,21 @@
     .st-ui-action-menu.p-menu .p-menuitem-content,
     .st-ui-dialog.p-dialog,
     .st-ui-drawer.p-drawer,
-    .st-ui-toast-host.p-toast {
-      transition: none;
-      animation-duration: 0.01ms;
-      animation-iteration-count: 1;
+    .st-ui-toast-host.p-toast,
+    .st-motion-state-reveal,
+    .st-ui-field__message--error,
+    .st-ui-alert.p-message,
+    .p-anchored-overlay-enter-active,
+    .p-anchored-overlay-leave-active,
+    .p-dialog-enter-active,
+    .p-dialog-leave-active,
+    .p-drawer-enter-active,
+    .p-drawer-leave-active,
+    .p-toast-message-enter-active,
+    .p-toast-message-leave-active {
+      transition: none !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
     }
   }
 }

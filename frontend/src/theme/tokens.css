@@ -30,6 +30,13 @@ html[data-theme='light'] {
   --st-line-normal: 1.45;
   --st-line-relaxed: 1.6;
 
+  /* Motion */
+  --st-motion-fast: 140ms;
+  --st-motion-normal: 180ms;
+  --st-motion-slow: 240ms;
+  --st-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --st-ease-emphasized: var(--st-ease-standard);
+
   /* Brand */
   --st-primary: #2563eb;
   --st-primary-hover: #1d4ed8;

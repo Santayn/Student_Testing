@@ -13,7 +13,7 @@ defineProps({
 
 <template>
   <div
-    class="st-ui-loading"
+    class="st-ui-loading st-motion-state-reveal"
     :class="{
       'st-ui-loading--compact': compact,
     }"

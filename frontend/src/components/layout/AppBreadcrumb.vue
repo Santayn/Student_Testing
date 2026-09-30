@@ -125,9 +125,9 @@ const parentCrumb = computed(() => {
   background: var(--st-surface);
 
   transition:
-    color 0.15s ease,
-    border-color 0.15s ease,
-    background-color 0.15s ease;
+    color var(--st-motion-fast) var(--st-ease-standard),
+    border-color var(--st-motion-fast) var(--st-ease-standard),
+    background-color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-breadcrumb__back:hover {
@@ -198,8 +198,8 @@ const parentCrumb = computed(() => {
   border-radius: var(--st-radius-control);
 
   transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
+    color var(--st-motion-fast) var(--st-ease-standard),
+    background-color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-breadcrumb__link:hover {

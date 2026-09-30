@@ -61,10 +61,10 @@ function handleChange(event) {
   font: inherit;
   font-size: 13px;
   transition:
-    color 140ms ease,
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+    color var(--st-motion-fast) var(--st-ease-standard),
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    border-color var(--st-motion-fast) var(--st-ease-standard),
+    box-shadow var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .st-ui-file-input:not(:disabled):hover {
@@ -109,9 +109,9 @@ function handleChange(event) {
   font-weight: var(--st-font-weight-semibold);
   cursor: pointer;
   transition:
-    color 140ms ease,
-    background-color 140ms ease,
-    border-color 140ms ease;
+    color var(--st-motion-fast) var(--st-ease-standard),
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    border-color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .st-ui-file-input:not(:disabled)::file-selector-button:hover {

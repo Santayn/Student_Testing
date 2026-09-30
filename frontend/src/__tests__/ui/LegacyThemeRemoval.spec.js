@@ -53,7 +53,12 @@ describe('legacy stylesheet removal', () => {
     expect(base).toMatch(/html\[data-theme='dark'\]\s*\{\s*color-scheme:\s*dark;/)
     expect(base).toMatch(/html\s*\{[^}]*background:\s*var\(--st-page-bg\)/s)
     expect(base).toMatch(/html\s*\{[^}]*color:\s*var\(--st-text\)/s)
-    expect(base).toMatch(/body\s*\{[^}]*background-color\s+0\.16s\s+ease/s)
+    expect(base).toMatch(
+      /body\s*\{[^}]*background-color\s+var\(--st-motion-normal\)\s+var\(--st-ease-standard\)/s
+    )
+    expect(base).toMatch(
+      /body\s*\{[^}]*color\s+var\(--st-motion-normal\)\s+var\(--st-ease-standard\)/s
+    )
     expect(base).toMatch(/::selection\s*\{[^}]*color:\s*var\(--st-on-primary\)/s)
     expect(base).toMatch(/::selection\s*\{[^}]*background:\s*var\(--st-primary\)/s)
   })

@@ -424,8 +424,8 @@ onBeforeUnmount(() => {
   text-decoration: none;
 
   transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-sidebar__icon {
@@ -438,7 +438,7 @@ onBeforeUnmount(() => {
 
   text-align: center;
 
-  transition: color 0.15s ease;
+  transition: color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-sidebar__link:hover,
@@ -587,8 +587,8 @@ onBeforeUnmount(() => {
     transform: translateX(-100%);
 
     transition:
-      transform 0.22s ease,
-      visibility 0s linear 0.22s;
+      transform var(--st-motion-slow) var(--st-ease-emphasized),
+      visibility 0s linear var(--st-motion-slow);
   }
 
   .app-sidebar--open {

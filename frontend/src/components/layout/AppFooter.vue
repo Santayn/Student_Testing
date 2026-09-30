@@ -43,10 +43,10 @@ const currentYear = new Date().getFullYear()
 .app-footer__inner {
   width: min(100%, 1180px);
 
-  min-height: 42px;
+  min-height: 40px;
 
   margin: 0 auto;
-  padding: 8px 20px;
+  padding: 7px 20px;
 
   display: flex;
   align-items: center;
@@ -55,7 +55,14 @@ const currentYear = new Date().getFullYear()
 }
 
 .app-footer__copyright {
+  color: color-mix(
+    in srgb,
+    var(--st-shell-muted) 86%,
+    transparent
+  );
+
   font-size: var(--st-font-sm);
+  font-weight: var(--st-font-weight-regular);
   white-space: nowrap;
 }
 
@@ -66,18 +73,28 @@ const currentYear = new Date().getFullYear()
 }
 
 .app-footer__link {
+  padding: 4px 6px;
+
   color: inherit;
 
+  border-radius: var(--st-radius-control);
+
   font-size: var(--st-font-sm);
+  font-weight: var(--st-font-weight-medium);
   text-decoration: none;
 
-  transition: color 0.15s ease;
+  transition:
+    color var(--st-motion-fast) var(--st-ease-standard),
+    background-color var(--st-motion-fast) var(--st-ease-standard);
 }
 
 .app-footer__link:hover,
 .app-footer__link.router-link-active {
   color:
     var(--st-shell-text);
+
+  background:
+    var(--st-shell-hover);
 }
 
 .app-footer__link:focus-visible {

@@ -117,12 +117,12 @@ describe('AppHeader navigation responsibility', () => {
       .findAll('[data-route-name]')
       .map((link) => link.attributes('data-route-name'))
 
-    expect(routeNames).toEqual(['home'])
+    expect(routeNames).toEqual(['home', 'profile'])
     expect(routeNames).not.toContain('subjects')
     expect(routeNames).not.toContain('results')
-    expect(routeNames).not.toContain('profile')
+    expect(routeNames).toContain('profile')
 
-    expect(wrapper.find('.user-badge').element.tagName).toBe('DIV')
+    expect(wrapper.find('.user-badge').attributes('data-route-name')).toBe('profile')
 
     wrapper.unmount()
   })

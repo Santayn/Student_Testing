@@ -31,6 +31,14 @@ const showSidebar = computed(() => {
   return Boolean(route.meta.navKey)
 })
 
+const routeContentKey = computed(() => {
+  return String(
+    route.name ??
+    route.path ??
+    'route-content'
+  )
+})
+
 watch(
   () => route.name,
   (routeName) => {
@@ -78,7 +86,13 @@ watch(
         tabindex="-1"
       >
         <AppBreadcrumb />
-        <RouterView />
+
+        <div
+          :key="routeContentKey"
+          class="app-route-content"
+        >
+          <RouterView />
+        </div>
       </main>
     </div>
 
@@ -149,8 +163,34 @@ body {
   background: transparent;
 }
 
+.app-route-content {
+  animation:
+    app-route-content-reveal
+    var(--st-motion-normal)
+    var(--st-ease-standard)
+    both;
+}
+
+@keyframes app-route-content-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .app-main:focus {
   outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-route-content {
+    animation: none;
+  }
 }
 
 @media (max-width: 960px) {

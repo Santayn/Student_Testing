@@ -5,6 +5,9 @@ import App from '@/App.vue'
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({
+    name: 'home',
+    path: '/',
+    fullPath: '/',
     meta: {
       navKey: 'home',
     },
@@ -31,6 +34,7 @@ describe('App', () => {
     )
     expect(wrapper.find('app-sidebar-stub').exists()).toBe(true)
     expect(wrapper.find('app-breadcrumb-stub').exists()).toBe(true)
+    expect(wrapper.find('.app-route-content').exists()).toBe(true)
     expect(wrapper.find('router-view-stub').exists()).toBe(true)
   })
 })

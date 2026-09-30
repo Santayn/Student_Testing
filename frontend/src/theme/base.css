@@ -34,8 +34,8 @@ option {
 /* App.vue owns body background/text; keep legacy theme-switch transitions. */
 body {
   transition:
-    background-color 0.16s ease,
-    color 0.16s ease;
+    background-color var(--st-motion-normal) var(--st-ease-standard),
+    color var(--st-motion-normal) var(--st-ease-standard);
 }
 
 ::selection {
