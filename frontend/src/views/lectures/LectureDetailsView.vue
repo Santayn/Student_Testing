@@ -12,9 +12,12 @@ import {
 
 import {
   getApiErrorMessage,
-  isApiNotFound,
   learningApi,
 } from '@/api'
+
+import {
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
 
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
 
@@ -594,12 +597,18 @@ async function loadLecture() {
     materials.value = []
     tests.value = []
 
-    error.value = isApiNotFound(requestError)
-      ? 'Лекция больше не существует или недоступна.'
-      : getApiErrorMessage(
-          requestError,
-          'Не удалось загрузить данные лекции.'
-        )
+    error.value = presentApiError(
+      requestError,
+      {
+        context: 'route-resource',
+        fallback:
+          'Не удалось загрузить данные лекции.',
+        notFoundMessage:
+          'Лекция больше не существует или недоступна.',
+        forbiddenMessage:
+          'Лекция больше не существует или недоступна.',
+      }
+    ).message
   } finally {
     if (
       lectureRequest.isCurrent(

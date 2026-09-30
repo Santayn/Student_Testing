@@ -11,11 +11,13 @@ import {
 } from 'vue-router'
 
 import {
-  getApiErrorMessage,
-  isApiNotFound,
   learningApi,
   subjectsApi,
 } from '@/api'
+
+import {
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
 
 import SubjectsPageShell from '@/components/subjects/SubjectsPageShell.vue'
 
@@ -195,12 +197,18 @@ async function loadSubject() {
 
     subject.value = null
 
-    error.value = isApiNotFound(requestError)
-      ? 'Предмет больше не существует или недоступен.'
-      : getApiErrorMessage(
-          requestError,
-          'Не удалось загрузить предмет.'
-        )
+    error.value = presentApiError(
+      requestError,
+      {
+        context: 'route-resource',
+        fallback:
+          'Не удалось загрузить предмет.',
+        notFoundMessage:
+          'Предмет больше не существует или недоступен.',
+        forbiddenMessage:
+          'Предмет больше не существует или недоступен.',
+      }
+    ).message
   } finally {
     if (
       subjectRequest.isCurrent(

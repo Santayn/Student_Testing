@@ -25,11 +25,14 @@ import {
 } from '@/components/ui'
 
 import {
-  getApiErrorMessage,
-  isApiConflict,
-  isApiForbidden,
+  API_ERROR_CODES,
   subjectsApi,
 } from '@/api'
+
+import {
+  apiFieldError,
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
 
 import {
   useAdminSubjectsData,
@@ -54,6 +57,7 @@ const {
 } = useAdminSubjectsData()
 
 const formError = ref('')
+const formFieldErrors = ref({})
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
@@ -115,11 +119,13 @@ function subjectActionItems(subject) {
 
 function openCreateSubject() {
   formError.value = ''
+  formFieldErrors.value = {}
   openCreate()
 }
 
 function openEditSubject(subject) {
   formError.value = ''
+  formFieldErrors.value = {}
   openEdit(subject)
 }
 
@@ -186,6 +192,7 @@ async function saveSubject() {
 
   beginSaving()
   formError.value = ''
+  formFieldErrors.value = {}
   clearNotice()
 
   const payload = {
@@ -216,11 +223,24 @@ async function saveSubject() {
         : 'Предмет создан.'
     )
   } catch (error) {
-    failSaving()
-    formError.value = getApiErrorMessage(
+    const presentation = presentApiError(
       error,
-      'Не удалось сохранить предмет'
+      {
+        context: 'form',
+        fallback: 'Не удалось сохранить предмет',
+        forbiddenMessage:
+          'Недостаточно прав для сохранения изменений.',
+      }
     )
+
+    formFieldErrors.value =
+      presentation.fieldErrors
+
+    formError.value =
+      presentation.channel === 'field'
+        ? 'Проверьте выделенные поля.'
+        : presentation.message
+    failSaving()
   }
 }
 
@@ -247,14 +267,23 @@ async function deleteSubject() {
       'Предмет удалён.'
     )
   } catch (error) {
-    deleteError.value = isApiConflict(error)
-      ? 'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.'
-      : isApiForbidden(error)
-        ? 'Недостаточно прав для удаления предмета.'
-        : getApiErrorMessage(
-            error,
-            'Не удалось удалить предмет'
-          )
+    deleteError.value = presentApiError(
+      error,
+      {
+        context: 'delete',
+        fallback: 'Не удалось удалить предмет',
+        codeMessages: {
+          [API_ERROR_CODES.SUBJECT_HAS_DEPENDENCIES]:
+            'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.',
+        },
+        conflictMessage:
+          'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.',
+        forbiddenMessage:
+          'Недостаточно прав для удаления предмета.',
+        notFoundMessage:
+          'Предмет уже удалён или больше недоступен.',
+      }
+    ).message
   } finally {
     deletingId.value = null
   }
@@ -404,6 +433,7 @@ onMounted(loadSubjects)
 
         <UiInput
           v-model="form.name"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
           label="Название предмета"
           maxlength="200"
           :disabled="saving"
@@ -412,6 +442,7 @@ onMounted(loadSubjects)
 
         <UiTextarea
           v-model="form.description"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
           label="Описание"
           maxlength="1000"
           :rows="6"

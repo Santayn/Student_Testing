@@ -1004,3 +1004,197 @@ DB
 11. **Рекомендация 12** — убрать mutation из student GET.
 12. **Рекомендация 13** — score-based results.
 13. **BE-LECTURE-01 / рекомендация 21** — versioned semantic content contract для тела лекции.
+14. **BE-PERF-02 / рекомендация 22** — объединить refresh/session restore с актуальной identity и убрать обязательный второй `/auth/me` из startup path.
+
+
+---
+
+## BE-PERF-02 / рекомендация 22 — Убрать startup waterfall `refresh → /auth/me`
+
+**Приоритет:** 🟡 P2  
+**Статус:** OPEN  
+**Связано с frontend:** `FE-PERF-02`
+
+### Проблема
+
+Текущий authenticated cold-start при истёкшем access token требует два последовательных сетевых запроса:
+
+```text
+POST /api/v1/auth/refresh
+        ↓
+GET /api/v1/auth/me
+        ↓
+frontend router bootstrap
+```
+
+Frontend не может безопасно выполнить их параллельно, потому что `/auth/me` должен использовать access token, полученный после успешного refresh.
+
+На медленном соединении это добавляет целый дополнительный network round-trip к startup path.
+
+### Рекомендуемый контракт
+
+Предпочтительный вариант — successful refresh должен возвращать не только новую token pair, но и актуальную identity пользователя:
+
+```json
+{
+  "tokenType": "Bearer",
+  "accessToken": "...",
+  "accessTokenExpiresAtUtc": "...",
+  "refreshToken": "...",
+  "refreshTokenExpiresAtUtc": "...",
+  "lifetimeKind": "...",
+  "user": {
+    "userId": 1,
+    "personId": 10,
+    "login": "...",
+    "roles": [],
+    "permissions": []
+  }
+}
+```
+
+Допустимый альтернативный дизайн:
+
+```text
+POST /api/v1/auth/session/restore
+```
+
+который атомарно:
+
+1. проверяет refresh token;
+2. выполняет refresh-token rotation;
+3. выдаёт новую token pair;
+4. возвращает актуальную user identity / roles / permissions / person binding.
+
+### Важные требования безопасности
+
+Оптимизация не должна:
+
+- ослаблять refresh-token rotation;
+- возвращать identity из непроверенного client-side state;
+- расходиться по authorities между access token и `user`;
+- позволять устаревшему refresh response восстановить уже завершённую сессию;
+- менять существующую семантику revoke/logout;
+- превращать refresh endpoint в источник частично устаревшей identity.
+
+`user`, возвращаемый вместе с refreshed session, должен быть сформирован из того же актуального серверного security context, который используется для выпуска нового access token.
+
+### Backward compatibility
+
+На переходный период допустимо:
+
+```text
+user отсутствует в refresh response
+→ frontend делает старый /auth/me fallback
+```
+
+После миграции поле можно сделать обязательной частью нового versioned contract или отдельного restore endpoint.
+
+### Тесты
+
+Добавить backend regression/contract tests:
+
+1. successful refresh возвращает новую token pair и актуального пользователя;
+2. `roles`/`permissions` в identity соответствуют новому security context;
+3. изменение ролей между предыдущей сессией и refresh отражается в response;
+4. изменение/удаление Person binding отражается в response;
+5. revoked/expired refresh token не возвращает identity;
+6. refresh-token rotation остаётся атомарной;
+7. response старой/отозванной сессии не может восстановить новую сессию;
+8. logout/revoke semantics не меняются;
+9. при backend error не возвращается частичная token/identity структура.
+
+### Acceptance condition
+
+`BE-PERF-02` считается выполненным, когда один successful session restore request даёт frontend всё необходимое для безопасного продолжения authenticated bootstrap без обязательного второго `/auth/me`.
+
+Ожидаемая startup цепочка:
+
+```text
+сейчас:
+refresh → me → router
+
+после:
+refresh/restore + identity → router
+```
+
+
+---
+
+## BE-ERR-01 / рекомендация 23 — Единый structured error DTO с machine-readable `code`
+
+**Приоритет:** 🟠 P1  
+**Статус:** OPEN  
+**Связано с frontend:** `HTTP Error Stage 3`
+
+### Проблема
+
+Frontend уже умеет различать HTTP status и структурированные validation details,
+но один `409` или `422` не сообщает точную бизнес-причину ошибки. Определять её
+по свободному тексту `message` нельзя: текст предназначен для человека и может
+меняться без изменения API semantics.
+
+### Рекомендуемый DTO
+
+Все domain/API ошибки должны стремиться к единой форме:
+
+```json
+{
+  "status": 409,
+  "code": "GROUP_HAS_DEPENDENCIES",
+  "message": "Группа используется связанными данными.",
+  "details": [],
+  "requestId": "..."
+}
+```
+
+Для validation:
+
+```json
+{
+  "status": 422,
+  "code": "VALIDATION_ERROR",
+  "message": "Проверьте данные.",
+  "details": [
+    {
+      "field": "name",
+      "issue": "Название обязательно."
+    }
+  ],
+  "requestId": "..."
+}
+```
+
+### Начальный перечень кодов
+
+```text
+VALIDATION_ERROR
+ACCESS_DENIED
+RESOURCE_NOT_FOUND
+RATE_LIMITED
+
+GROUP_HAS_DEPENDENCIES
+FACULTY_HAS_DEPENDENCIES
+SUBJECT_HAS_DEPENDENCIES
+TOPIC_HAS_DEPENDENCIES
+```
+
+Коды являются частью API contract и не должны зависеть от локализации текста.
+
+### Требования
+
+- `status` соответствует фактическому HTTP status;
+- `code` стабилен и machine-readable;
+- `message` остаётся human-readable;
+- `details[]` используется для структурированных validation errors;
+- `field` должен совпадать с именем поля request DTO либо иметь документированное отображение;
+- `requestId` желательно возвращать для корреляции с backend logs;
+- неизвестная ошибка не должна маскироваться под известный domain code;
+- `401`/refresh semantics остаются без изменений;
+- `403` не означает автоматический logout;
+- `429` должен по возможности сопровождаться стандартным `Retry-After` header.
+
+### Acceptance condition
+
+Frontend может выбирать UX/message по `code`, не анализируя текст `message`.
+При отсутствии `code` старый status/message fallback продолжает работать.

@@ -1,5 +1,6 @@
 <script setup>
 import {
+  computed,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -13,6 +14,10 @@ import {
 import {
   getApiErrorMessage,
 } from '@/api'
+
+import {
+  apiFieldError,
+} from '@/utils/apiErrorPresentation'
 
 import {
   UiActionMenu,
@@ -124,8 +129,17 @@ const {
 
 function topicActionItems(topic) {
   return [
-    { label: 'Изменить', icon: 'pi pi-pencil', command: () => openEditTopic(topic) },
-    { label: 'Удалить', icon: 'pi pi-trash', danger: true, command: () => requestDeleteTopic(topic) },
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => openEditTopic(topic),
+    },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => requestDeleteTopic(topic),
+    },
   ]
 }
 
@@ -139,10 +153,17 @@ function openCreateTopic() {
   }
 
   formError.value = ''
+  formFieldErrors.value = {}
   openCreate({
     ordinal: nextOrdinal(),
   })
 }
+
+const topicDialogTitle = computed(() =>
+  isCreate.value
+    ? 'Создание темы'
+    : 'Редактирование темы'
+)
 
 const {
   deleteTarget,
@@ -150,6 +171,7 @@ const {
   deletingId,
   deleteError,
   formError,
+  formFieldErrors,
   requestDeleteTopic,
   closeDeleteDialog,
   saveTopic,
@@ -432,6 +454,7 @@ onMounted(async () => {
         <div class="teacher-grid">
           <UiInput
             v-model="form.ordinal"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'ordinal')"
             label="Порядок"
             type="number"
             min="1"
@@ -442,6 +465,7 @@ onMounted(async () => {
 
           <UiInput
             v-model="form.name"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
             label="Название темы"
             maxlength="200"
             :disabled="!canEdit || saving"
@@ -451,6 +475,7 @@ onMounted(async () => {
 
         <UiTextarea
           v-model="form.description"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
           label="Описание"
           maxlength="2000"
           :rows="6"

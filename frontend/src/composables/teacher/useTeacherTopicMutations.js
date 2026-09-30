@@ -1,9 +1,13 @@
 import { ref } from 'vue'
 
 import {
-  getApiErrorMessage,
+  API_ERROR_CODES,
   topicsApi,
 } from '@/api'
+
+import {
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
 
 export function useTeacherTopicMutations({
   form,
@@ -22,6 +26,7 @@ export function useTeacherTopicMutations({
   const deletingId = ref(null)
   const deleteError = ref('')
   const formError = ref('')
+  const formFieldErrors = ref({})
 
   function requestDeleteTopic(topic) {
     deleteTarget.value = topic
@@ -83,6 +88,7 @@ export function useTeacherTopicMutations({
       return false
     }
 
+    formFieldErrors.value = {}
     formError.value = topicFormValidationMessage()
 
     if (formError.value) {
@@ -115,12 +121,26 @@ export function useTeacherTopicMutations({
       await loadTopics()
       finishSaving({ close: true })
     } catch (error) {
-      formError.value = getApiErrorMessage(
+      const presentation = presentApiError(
         error,
-        form.id
-          ? 'Не удалось обновить тему.'
-          : 'Не удалось создать тему.'
+        {
+          context: 'form',
+          fallback: form.id
+            ? 'Не удалось обновить тему.'
+            : 'Не удалось создать тему.',
+          forbiddenMessage:
+            'Недостаточно прав для сохранения темы.',
+        }
       )
+
+      formFieldErrors.value =
+        presentation.fieldErrors
+
+      formError.value =
+        presentation.channel === 'field'
+          ? 'Проверьте выделенные поля.'
+          : presentation.message
+
       failSaving()
     }
   }
@@ -144,10 +164,24 @@ export function useTeacherTopicMutations({
       deleteTarget.value = null
       await loadTopics()
     } catch (error) {
-      deleteError.value = getApiErrorMessage(
+      deleteError.value = presentApiError(
         error,
-        'Не удалось удалить тему.'
-      )
+        {
+          context: 'delete',
+          fallback:
+            'Не удалось удалить тему.',
+          codeMessages: {
+            [API_ERROR_CODES.TOPIC_HAS_DEPENDENCIES]:
+              'Тема используется вопросами, тестами или другими связанными данными и не может быть удалена.',
+          },
+          conflictMessage:
+            'Тема используется вопросами, тестами или другими связанными данными и не может быть удалена.',
+          forbiddenMessage:
+            'Недостаточно прав для удаления темы.',
+          notFoundMessage:
+            'Тема уже удалена или больше недоступна.',
+        }
+      ).message
     } finally {
       deletingId.value = null
     }
@@ -159,6 +193,7 @@ export function useTeacherTopicMutations({
     deletingId,
     deleteError,
     formError,
+    formFieldErrors,
     requestDeleteTopic,
     closeDeleteDialog,
     topicFormValidationMessage,

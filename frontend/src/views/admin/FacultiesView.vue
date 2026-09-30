@@ -25,11 +25,14 @@ import {
 } from '@/components/ui'
 
 import {
+  API_ERROR_CODES,
   facultiesApi,
-  getApiErrorMessage,
-  isApiConflict,
-  isApiForbidden,
 } from '@/api'
+
+import {
+  apiFieldError,
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
 
 import {
   useAdminFacultiesData,
@@ -54,6 +57,7 @@ const {
 } = useAdminFacultiesData()
 
 const formError = ref('')
+const formFieldErrors = ref({})
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
@@ -117,11 +121,13 @@ function facultyActionItems(faculty) {
 
 function openCreateFaculty() {
   formError.value = ''
+  formFieldErrors.value = {}
   openCreate()
 }
 
 function openEditFaculty(faculty) {
   formError.value = ''
+  formFieldErrors.value = {}
   openEdit(faculty)
 }
 
@@ -197,6 +203,7 @@ async function saveFaculty() {
 
   beginSaving()
   formError.value = ''
+  formFieldErrors.value = {}
   clearNotice()
 
   const payload = {
@@ -228,11 +235,24 @@ async function saveFaculty() {
         : 'Факультет создан.'
     )
   } catch (error) {
-    failSaving()
-    formError.value = getApiErrorMessage(
+    const presentation = presentApiError(
       error,
-      'Не удалось сохранить факультет'
+      {
+        context: 'form',
+        fallback: 'Не удалось сохранить факультет',
+        forbiddenMessage:
+          'Недостаточно прав для сохранения изменений.',
+      }
     )
+
+    formFieldErrors.value =
+      presentation.fieldErrors
+
+    formError.value =
+      presentation.channel === 'field'
+        ? 'Проверьте выделенные поля.'
+        : presentation.message
+    failSaving()
   }
 }
 
@@ -259,14 +279,23 @@ async function deleteFaculty() {
       'Факультет удалён.'
     )
   } catch (error) {
-    deleteError.value = isApiConflict(error)
-      ? 'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.'
-      : isApiForbidden(error)
-        ? 'Недостаточно прав для удаления факультета.'
-        : getApiErrorMessage(
-            error,
-            'Не удалось удалить факультет'
-          )
+    deleteError.value = presentApiError(
+      error,
+      {
+        context: 'delete',
+        fallback: 'Не удалось удалить факультет',
+        codeMessages: {
+          [API_ERROR_CODES.FACULTY_HAS_DEPENDENCIES]:
+            'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.',
+        },
+        conflictMessage:
+          'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.',
+        forbiddenMessage:
+          'Недостаточно прав для удаления факультета.',
+        notFoundMessage:
+          'Факультет уже удалён или больше недоступен.',
+      }
+    ).message
   } finally {
     deletingId.value = null
   }
@@ -416,6 +445,7 @@ onMounted(loadFaculties)
 
         <UiInput
           v-model="form.name"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
           label="Название факультета"
           maxlength="200"
           :disabled="saving"
@@ -424,6 +454,7 @@ onMounted(loadFaculties)
 
         <UiInput
           v-model="form.code"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'code')"
           label="Код факультета"
           hint="Код должен быть уникальным. Например: fit."
           maxlength="50"
@@ -433,6 +464,7 @@ onMounted(loadFaculties)
 
         <UiTextarea
           v-model="form.description"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
           label="Описание"
           maxlength="1000"
           :rows="6"

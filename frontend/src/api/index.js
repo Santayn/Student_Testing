@@ -6,12 +6,26 @@ export {
 } from './http'
 
 export {
+  apiErrorCode,
   apiErrorStatus,
+  apiRetryAfterSeconds,
   getApiErrorMessage,
+  isApiBadRequest,
   isApiConflict,
   isApiForbidden,
+  isApiNetworkError,
   isApiNotFound,
+  isApiRateLimited,
+  isApiTimeout,
+  isApiUnauthorized,
+  isApiUnprocessable,
+  normalizeApiError,
 } from './error'
+
+export {
+  API_ERROR_CODES,
+  apiErrorCodeMessage,
+} from './errorCodes'
 
 export { authApi } from './auth.api'
 export { usersApi } from './users.api'

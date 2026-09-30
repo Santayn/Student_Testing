@@ -25,11 +25,14 @@ import {
 } from '@/components/ui'
 
 import {
-  getApiErrorMessage,
-  isApiConflict,
-  isApiForbidden,
+  API_ERROR_CODES,
   groupsApi,
 } from '@/api'
+
+import {
+  apiFieldError,
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
 
 import {
   useAdminGroupsData,
@@ -96,6 +99,7 @@ const {
 } = useAdminGroupMembers()
 
 const formError = ref('')
+const formFieldErrors = ref({})
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
@@ -162,11 +166,13 @@ function groupActionItems(group) {
 
 function openCreateGroup() {
   formError.value = ''
+  formFieldErrors.value = {}
   openCreate()
 }
 
 function openEditGroup(group) {
   formError.value = ''
+  formFieldErrors.value = {}
   openEdit(group)
 }
 
@@ -248,6 +254,7 @@ async function saveGroup() {
 
   beginSaving()
   formError.value = ''
+  formFieldErrors.value = {}
   clearNotice()
 
   const payload = {
@@ -278,11 +285,24 @@ async function saveGroup() {
         : 'Группа создана.'
     )
   } catch (error) {
-    failSaving()
-    formError.value = getApiErrorMessage(
+    const presentation = presentApiError(
       error,
-      'Не удалось сохранить группу'
+      {
+        context: 'form',
+        fallback: 'Не удалось сохранить группу',
+        forbiddenMessage:
+          'Недостаточно прав для сохранения изменений.',
+      }
     )
+
+    formFieldErrors.value =
+      presentation.fieldErrors
+
+    formError.value =
+      presentation.channel === 'field'
+        ? 'Проверьте выделенные поля.'
+        : presentation.message
+    failSaving()
   }
 }
 
@@ -309,14 +329,23 @@ async function deleteGroup() {
       'Группа удалена.'
     )
   } catch (error) {
-    deleteError.value = isApiConflict(error)
-      ? 'Группа используется назначениями, участниками, результатами или другими связанными данными и не может быть удалена.'
-      : isApiForbidden(error)
-        ? 'Недостаточно прав для удаления группы.'
-        : getApiErrorMessage(
-            error,
-            'Не удалось удалить группу'
-          )
+    deleteError.value = presentApiError(
+      error,
+      {
+        context: 'delete',
+        fallback: 'Не удалось удалить группу',
+        codeMessages: {
+          [API_ERROR_CODES.GROUP_HAS_DEPENDENCIES]:
+            'Группа используется назначениями, участниками, результатами или другими связанными данными и не может быть удалена.',
+        },
+        conflictMessage:
+          'Группа используется назначениями, участниками, результатами или другими связанными данными и не может быть удалена.',
+        forbiddenMessage:
+          'Недостаточно прав для удаления группы.',
+        notFoundMessage:
+          'Группа уже удалена или больше недоступна.',
+      }
+    ).message
   } finally {
     deletingId.value = null
   }
@@ -515,6 +544,7 @@ onMounted(loadData)
 
         <UiInput
           v-model="form.name"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
           label="Название группы"
           maxlength="200"
           :disabled="saving"
@@ -523,6 +553,7 @@ onMounted(loadData)
 
         <UiInput
           v-model="form.code"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'code')"
           label="Код группы"
           maxlength="50"
           :disabled="saving"
@@ -531,6 +562,7 @@ onMounted(loadData)
 
         <UiSelect
           v-model="form.facultyId"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'facultyId', 'faculty')"
           label="Факультет"
           :options="facultyOptions"
           placeholder="Выберите факультет"

@@ -248,7 +248,133 @@ Frontend-only backlog, не требующий изменения backend, по-
 | FE-9 | 🟡 P2 | BACKEND BLOCKED | нет authoritative server deadline в student attempt contract |
 | FE-10 | 🟡 P2 | BACKEND BLOCKED | refresh token contract требует JS-доступного token storage |
 | FE-LECTURE-01 | 🟡 P2 | BACKEND BLOCKED | текущий Lecture API не хранит versioned semantic body лекции |
+| FE-PERF-02 | 🟡 P2 | BACKEND BLOCKED | refresh и `/auth/me` образуют безопасный, но последовательный startup waterfall; нужен backend restore contract с identity |
 
 При текущем правиле проекта эти пункты **сохраняются как документация ограничений**, но не являются задачами текущей доработки frontend.
 
 Следующие улучшения frontend следует формировать уже по новому аудиту качества кода, а не переносить закрытые пункты из старого списка.
+
+
+---
+
+## FE-PERF-02 — Не ломать auth bootstrap ради параллелизации `refresh` и `/auth/me`
+
+**Приоритет:** 🟡 P2  
+**Статус:** BACKEND BLOCKED  
+**Связано с:** `BE-PERF-02`
+
+### Наблюдение
+
+Production cold-start на Slow 4G подтвердил последовательный auth bootstrap:
+
+```text
+POST /auth/refresh
+        ↓
+GET /auth/me
+        ↓
+router.isReady()
+        ↓
+mount / first protected route
+```
+
+При измерении оба auth-запроса занимали примерно по одному сетевому RTT, поэтому истёкший persisted access token добавляет около одного лишнего последовательного RTT к старту приложения.
+
+### Почему frontend не должен просто распараллелить запросы
+
+Текущая зависимость корректна:
+
+```text
+refresh
+→ получить новый access token
+→ /auth/me с новым access token
+```
+
+Нельзя заменять её на:
+
+```js
+await Promise.all([
+  refreshSession(),
+  loadCurrentUser(),
+])
+```
+
+потому что `/auth/me` может уйти со старым/истёкшим access token.
+
+Также не рекомендуется ради ускорения:
+
+- использовать persisted `user` как authoritative security context;
+- монтировать защищённый workspace до завершения восстановления актуальной identity;
+- ослаблять `ensureAccessToken()` / session epoch protection;
+- отправлять защищённые запросы до завершения token refresh.
+
+### Frontend contract после backend-исправления
+
+Если `BE-PERF-02` будет реализован и refresh/restore endpoint начнёт возвращать актуального пользователя вместе с новой token pair, frontend должен:
+
+1. принять token pair;
+2. принять актуальный `user` из того же успешного ответа;
+3. вызвать `setSessionTokens(...)`;
+4. вызвать `setUser(...)`;
+5. **не выполнять отдельный `/auth/me`** в этой ветке bootstrap;
+6. сохранить текущие session epoch / stale-session / fail-closed гарантии;
+7. оставить `/auth/me` для сценария, когда access token ещё жив и identity нужно восстановить отдельно.
+
+### Ожидаемый результат
+
+Worst-case authenticated startup:
+
+```text
+сейчас:
+refresh → me → router
+
+после BE-PERF-02:
+refresh/restore + identity → router
+```
+
+То есть убирается один последовательный network round-trip без ослабления security model.
+
+### Acceptance condition
+
+`FE-PERF-02` можно закрыть, когда:
+
+- backend поддерживает `BE-PERF-02`;
+- bootstrap не делает отдельный `/auth/me` после successful refresh/restore с identity;
+- сценарий с ещё живым access token остаётся корректным;
+- guest startup по-прежнему не делает лишних auth-запросов;
+- session epoch / refresh single-flight / stale-response regression tests остаются зелёными.
+
+
+---
+
+## FE-ERR-01 — Использовать machine-readable `code`, не парсить backend message
+
+**Приоритет:** 🟠 P1  
+**Статус:** READY / BACKEND COMPATIBLE  
+**Связано с:** `BE-ERR-01`
+
+Frontend Stage 3 уже поддерживает code-first обработку:
+
+```text
+known code
+→ domain-specific UX/message
+
+unknown/missing code
+→ status fallback
+→ backend message
+→ frontend fallback
+```
+
+Запрещено определять бизнес-причину по подстрокам в `message`.
+
+Первые поддерживаемые domain codes:
+
+```text
+GROUP_HAS_DEPENDENCIES
+FACULTY_HAS_DEPENDENCIES
+SUBJECT_HAS_DEPENDENCIES
+TOPIC_HAS_DEPENDENCIES
+```
+
+После реализации `BE-ERR-01` новые бизнес-коды добавляются только через
+централизованный registry/contract tests, а не локальными строковыми сравнениями
+в отдельных view/composable.
