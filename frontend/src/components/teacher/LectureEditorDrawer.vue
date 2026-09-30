@@ -1,4 +1,6 @@
 <script setup>
+import { ref } from 'vue'
+
 import {
   UiAlert,
   UiButton,
@@ -11,6 +13,14 @@ import {
 
 import LectureMaterialsManager from '@/components/teacher/LectureMaterialsManager.vue'
 
+import {
+  apiFieldError,
+} from '@/utils/apiErrorPresentation'
+
+import {
+  focusFirstInvalidField as focusInvalidField,
+} from '@/utils/formErrorLifecycle'
+
 // The parent owns the reactive form, dirty-state, save flow and API requests.
 // This component edits its existing form object and emits user intent only.
 defineProps({
@@ -20,6 +30,7 @@ defineProps({
   isCreate: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
   formError: { type: String, default: '' },
+  formFieldErrors: { type: Object, default: () => ({}) },
   availableTests: { type: Array, default: () => [] },
   materials: { type: Array, default: () => [] },
   pendingFiles: { type: Array, default: () => [] },
@@ -31,6 +42,7 @@ defineProps({
 const emit = defineEmits([
   'update:open',
   'dismiss-error',
+  'field-change',
   'files-change',
   'remove-pending-file',
   'download-material',
@@ -38,6 +50,18 @@ const emit = defineEmits([
   'close',
   'save',
 ])
+
+const formElement = ref(null)
+
+async function focusFirstInvalidField() {
+  return focusInvalidField(
+    formElement.value
+  )
+}
+
+defineExpose({
+  focusFirstInvalidField,
+})
 </script>
 
 <template>
@@ -47,7 +71,10 @@ const emit = defineEmits([
       width="46rem"
       @update:model-value="emit('update:open', $event)"
     >
-      <div class="teacher-stack teacher-lecture-drawer">
+      <div
+        ref="formElement"
+        class="teacher-stack teacher-lecture-drawer"
+      >
         <UiAlert
           v-if="formError"
           variant="danger"
@@ -66,15 +93,19 @@ const emit = defineEmits([
 
           <UiInput
             v-model="form.title"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'title')"
             label="Название"
             maxlength="200"
             required
+            @update:model-value="emit('field-change', 'title')"
           />
 
           <UiTextarea
             v-model="form.description"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
             label="Описание"
             maxlength="2000"
+            @update:model-value="emit('field-change', 'description')"
           />
 
           <UiCheckbox

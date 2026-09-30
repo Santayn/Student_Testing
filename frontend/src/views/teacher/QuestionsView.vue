@@ -74,6 +74,15 @@ import {
   normalizeMatchingPairs,
 } from '@/utils/matchingPairs'
 
+import {
+  apiFieldError,
+} from '@/utils/apiErrorPresentation'
+
+import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+} from '@/utils/formErrorLifecycle'
+
 const route = useRoute()
 
 const {
@@ -89,6 +98,8 @@ const {
 
 const initialized = ref(false)
 const formError = ref('')
+const formFieldErrors = ref({})
+const questionFormElement = ref(null)
 
 const notice = ref({
   type: 'info',
@@ -193,6 +204,7 @@ const {
   isMatchingType,
   isTextType,
   drawerTitle,
+  validation: questionValidation,
   validationMessage: questionValidationMessage,
 } = useQuestionEditorState({
   selectedMembership,
@@ -341,6 +353,12 @@ async function loadTopics() {
   await loadTopicContext()
 }
 
+async function focusQuestionFormErrors() {
+  await focusFirstInvalidField(
+    questionFormElement.value
+  )
+}
+
 const {
   togglingQuestionId,
   saveQuestion,
@@ -351,7 +369,11 @@ const {
   selectedTopicId,
   questions,
   notice,
+  questionValidation,
   questionValidationMessage,
+  formFieldErrors,
+  focusFormErrors:
+    focusQuestionFormErrors,
   beginSaving,
   saving: savingQuestion,
   finishSaving,
@@ -663,7 +685,10 @@ onMounted(async () => {
       width="46rem"
       @update:model-value="handleQuestionDrawerVisibility"
     >
-      <div class="teacher-stack teacher-question-drawer">
+      <div
+        ref="questionFormElement"
+        class="teacher-stack teacher-question-drawer"
+      >
         <UiAlert
           v-if="formError"
           variant="danger"
@@ -682,6 +707,8 @@ onMounted(async () => {
 
           <UiTextarea
             v-model="form.question"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'question')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'question')"
             label="Текст вопроса"
             maxlength="2000"
             required
@@ -690,13 +717,19 @@ onMounted(async () => {
           <div class="teacher-grid--3 teacher-grid">
             <UiSelect
               v-model="form.type"
+              :error="apiFieldError({ fieldErrors: formFieldErrors }, 'type')"
               label="Тип"
               :options="questionTypeOptions"
-              @update:model-value="handleQuestionTypeChange"
+              @update:model-value="(value) => {
+                clearFormFieldError(formFieldErrors, formError, 'type')
+                handleQuestionTypeChange(value)
+              }"
             />
 
             <UiInput
               v-model="form.points"
+            @update:model-value="clearFormFieldError(formFieldErrors, formError, 'points')"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'points')"
               label="Баллы"
               type="number"
               min="0"
@@ -705,6 +738,8 @@ onMounted(async () => {
 
             <UiInput
               v-model="form.ordinal"
+            @update:model-value="clearFormFieldError(formFieldErrors, formError, 'ordinal')"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'ordinal')"
               label="Порядок"
               type="number"
               min="1"
@@ -715,6 +750,8 @@ onMounted(async () => {
           <UiInput
             v-if="isTextType"
             v-model="form.correctAnswer"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'correctAnswer')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'correctAnswer')"
             label="Правильный ответ"
             hint="Можно указать несколько допустимых вариантов через символ | или с новой строки."
             maxlength="2000"
@@ -724,6 +761,7 @@ onMounted(async () => {
             v-if="isMatchingType"
             v-model="form.matchingPairs"
             :disabled="savingQuestion"
+            @update:model-value="clearFormFieldError(formFieldErrors, formError, 'matchingPairs')"
           />
 
           <UiCheckbox

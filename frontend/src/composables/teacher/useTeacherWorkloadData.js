@@ -2,11 +2,16 @@ import { ref, watch } from 'vue'
 import { getApiErrorMessage, groupsApi, teachingApi } from '@/api'
 import { listFromResponse } from '@/utils/apiData'
 import { createAbortableRequestGuard } from '@/utils/latestRequest'
+import {
+  getSharedLearningContextCache,
+  REFERENCE_TTL_MS,
+} from '@/utils/learningContextCache'
 
 /** Loads only the teacher's existing assignments for the selected period. */
 export function useTeacherWorkloadData({
   subjectMemberships,
   loadTeacherSubjects,
+  authStore = null,
 }) {
   const studyCourse = ref(1)
   const semester = ref(1)
@@ -114,11 +119,33 @@ export function useTeacherWorkloadData({
         ),
       ]
 
-      const groupResponses =
+      const cache =
+        getSharedLearningContextCache(
+          authStore
+        )
+
+      const groups =
         await Promise.all(
           groupIds.map(
-            (groupId) =>
-              groupsApi.getById(groupId, { signal })
+            async (groupId) => {
+              const loadGroup = async () =>
+                (
+                  await groupsApi.getById(
+                    groupId
+                  )
+                ).data
+
+              return cache
+                ? cache.load(
+                    `group:${groupId}`,
+                    loadGroup,
+                    {
+                      ttlMs:
+                        REFERENCE_TTL_MS,
+                    }
+                  )
+                : loadGroup()
+            }
           )
         )
 
@@ -131,8 +158,7 @@ export function useTeacherWorkloadData({
       }
 
       const groupsById = new Map(
-        groupResponses
-          .map((response) => response.data)
+        groups
           .filter(Boolean)
           .map((group) => [
             Number(group.id),

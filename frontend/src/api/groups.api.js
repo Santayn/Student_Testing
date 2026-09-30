@@ -1,8 +1,11 @@
 import http from './http'
 
 export const groupsApi = {
-  getAll(params = {}) {
-    return http.get('/groups', { params })
+  getAll(params = {}, config = {}) {
+    return http.get(
+      '/groups',
+      { ...config, params }
+    )
   },
 
   getById(groupId, config = {}) {

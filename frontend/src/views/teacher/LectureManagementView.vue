@@ -56,6 +56,10 @@ import {
   useLectureDelete,
 } from '@/composables/lectures/useLectureDelete'
 
+import {
+  clearFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
 const route = useRoute()
 
 const {
@@ -71,6 +75,8 @@ const {
 
 const initialized = ref(false)
 const formError = ref('')
+const formFieldErrors = ref({})
+const lectureEditorDrawer = ref(null)
 const notice = ref({
   type: 'info',
   message: '',
@@ -172,6 +178,11 @@ const {
   getApiErrorMessage,
 })
 
+async function focusLectureFormErrors() {
+  await lectureEditorDrawer.value
+    ?.focusFirstInvalidField?.()
+}
+
 const {
   partialCreatePending,
   resetPartialCreate,
@@ -179,6 +190,9 @@ const {
 } = useLectureSaveFlow({
   form,
   formError,
+  formFieldErrors,
+  focusFormErrors:
+    focusLectureFormErrors,
   lectureFormMode,
   selectedSubject,
   selectedMembership,
@@ -238,6 +252,7 @@ function clearLectureDrawerState() {
   resetPartialCreate()
   resetMaterials()
   formError.value = ''
+  formFieldErrors.value = {}
 }
 
 const {
@@ -534,12 +549,14 @@ onMounted(async () => {
     </UiCard>
 
     <LectureEditorDrawer
+      ref="lectureEditorDrawer"
       :open="lectureDrawerOpen"
       :title="drawerTitle"
       :form="form"
       :is-create="isCreate"
       :saving="saving"
       :form-error="formError"
+      :form-field-errors="formFieldErrors"
       :available-tests="availableTests"
       :materials="materials"
       :pending-files="pendingFiles"
@@ -548,6 +565,7 @@ onMounted(async () => {
       :deleting-material-id="deletingMaterialId"
       @update:open="handleLectureDrawerVisibility"
       @dismiss-error="formError = ''"
+      @field-change="clearFormFieldError(formFieldErrors, formError, $event)"
       @files-change="setPendingFiles"
       @remove-pending-file="removePendingFile"
       @download-material="downloadMaterial"

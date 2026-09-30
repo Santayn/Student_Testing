@@ -39,6 +39,7 @@ describe('auth/profile audit closure contracts', () => {
     expect(profile).toContain('Изменить пароль')
     expect(profile).toContain('useProfileContext({')
     expect(profileContext).toContain('authStore.refreshIdentity()')
+    expect(profileContext).not.toContain('authStore.loadCurrentUser()')
     expect(profile).toContain('var(--st-surface)')
 
     expect(profile).not.toContain('Person ID')

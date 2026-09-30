@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref } from 'vue'
 
 import {
   getApiErrorMessage,
@@ -10,7 +10,7 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 /**
@@ -24,7 +24,7 @@ export function useQuestionsList({
 }) {
   const questions = ref([])
   const loading = ref(false)
-  const questionsRequest = createLatestRequestGuard()
+  const questionsRequest = createAbortableRequestGuard()
 
   function resetQuestions() {
     questionsRequest.invalidate()
@@ -33,7 +33,7 @@ export function useQuestionsList({
   }
 
   async function loadQuestions() {
-    const requestId = questionsRequest.begin()
+    const { requestId, signal } = questionsRequest.begin()
     const topicId = Number(selectedTopicId.value || 0)
 
     questions.value = []
@@ -46,9 +46,12 @@ export function useQuestionsList({
     loading.value = true
 
     try {
-      const response = await questionsApi.getAll({
-        topicId,
-      })
+      const response = await questionsApi.getAll(
+        {
+          topicId,
+        },
+        { signal }
+      )
 
       if (!questionsRequest.isCurrent(requestId)) {
         return
@@ -76,6 +79,12 @@ export function useQuestionsList({
         loading.value = false
       }
     }
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      questionsRequest.invalidate()
+    })
   }
 
   return {

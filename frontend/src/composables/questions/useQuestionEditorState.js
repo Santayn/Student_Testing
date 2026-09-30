@@ -49,9 +49,9 @@ export function useQuestionEditorState({
       : 'Редактирование вопроса'
   })
 
-  function validationMessage() {
+  function validation() {
     if (!selectedMembership?.value || !selectedTopicId?.value) {
-      return 'Выберите предмет и тему.'
+      return { field: null, message: 'Выберите предмет и тему.' }
     }
 
     const question = String(overlay.form.question ?? '').trim()
@@ -59,19 +59,19 @@ export function useQuestionEditorState({
     const ordinal = Number(overlay.form.ordinal)
 
     if (!question) {
-      return 'Введите текст вопроса.'
+      return { field: 'question', message: 'Введите текст вопроса.' }
     }
 
     if (question.length > 2000) {
-      return 'Текст вопроса не может быть длиннее 2000 символов.'
+      return { field: 'question', message: 'Текст вопроса не может быть длиннее 2000 символов.' }
     }
 
     if (!Number.isFinite(points) || points < 0) {
-      return 'Количество баллов должно быть числом не меньше нуля.'
+      return { field: 'points', message: 'Количество баллов должно быть числом не меньше нуля.' }
     }
 
     if (!Number.isInteger(ordinal) || ordinal <= 0) {
-      return 'Порядковый номер должен быть целым числом больше нуля.'
+      return { field: 'ordinal', message: 'Порядковый номер должен быть целым числом больше нуля.' }
     }
 
     if (isMatchingType.value) {
@@ -80,11 +80,15 @@ export function useQuestionEditorState({
       )
 
       if (error) {
-        return error
+        return { field: 'matchingPairs', message: error }
       }
     }
 
-    return ''
+    return null
+  }
+
+  function validationMessage() {
+    return validation()?.message ?? ''
   }
 
   return {
@@ -94,6 +98,7 @@ export function useQuestionEditorState({
     isMatchingType,
     isTextType,
     drawerTitle,
+    validation,
     validationMessage,
   }
 }

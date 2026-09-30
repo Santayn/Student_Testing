@@ -35,6 +35,13 @@ import {
 } from '@/utils/apiErrorPresentation'
 
 import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
+import {
   useAdminFacultiesData,
 } from '@/composables/admin/faculties/useAdminFacultiesData'
 
@@ -58,6 +65,7 @@ const {
 
 const formError = ref('')
 const formFieldErrors = ref({})
+const facultyFormElement = ref(null)
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
@@ -155,23 +163,23 @@ function facultyFormValidationMessage() {
   ).trim()
 
   if (!name) {
-    return 'Введите название факультета.'
+    return { field: 'name', message: 'Введите название факультета.' }
   }
 
   if (name.length > 200) {
-    return 'Название факультета не может быть длиннее 200 символов.'
+    return { field: 'name', message: 'Название факультета не может быть длиннее 200 символов.' }
   }
 
   if (!code) {
-    return 'Введите код факультета.'
+    return { field: 'code', message: 'Введите код факультета.' }
   }
 
   if (code.length > 50) {
-    return 'Код факультета не может быть длиннее 50 символов.'
+    return { field: 'code', message: 'Код факультета не может быть длиннее 50 символов.' }
   }
 
   if (description.length > 1000) {
-    return 'Описание факультета не может быть длиннее 1000 символов.'
+    return { field: 'description', message: 'Описание факультета не может быть длиннее 1000 символов.' }
   }
 
   const normalizedCode = code.toLocaleLowerCase('ru-RU')
@@ -183,10 +191,10 @@ function facultyFormValidationMessage() {
   })
 
   if (duplicate) {
-    return `Факультет с кодом «${code}» уже существует.`
+    return { field: 'code', message: `Факультет с кодом «${code}» уже существует.` }
   }
 
-  return ''
+  return null
 }
 
 async function saveFaculty() {
@@ -194,10 +202,19 @@ async function saveFaculty() {
     return
   }
 
-  const validationMessage = facultyFormValidationMessage()
+  const validation = facultyFormValidationMessage()
 
-  if (validationMessage) {
-    formError.value = validationMessage
+  if (validation) {
+    setFormFieldError(
+      formFieldErrors,
+      formError,
+      validation.field,
+      validation.message
+    )
+
+    await focusFirstInvalidField(
+      facultyFormElement.value
+    )
     return
   }
 
@@ -250,9 +267,17 @@ async function saveFaculty() {
 
     formError.value =
       presentation.channel === 'field'
-        ? 'Проверьте выделенные поля.'
+        ? FORM_FIELD_ERROR_SUMMARY
         : presentation.message
     failSaving()
+
+    if (
+      presentation.channel === 'field'
+    ) {
+      await focusFirstInvalidField(
+        facultyFormElement.value
+      )
+    }
   }
 }
 
@@ -434,6 +459,7 @@ onMounted(loadFaculties)
       :dismissable-mask="false"
     >
       <form
+        ref="facultyFormElement"
         class="admin-faculty-form"
         @submit.prevent="saveFaculty"
       >
@@ -445,6 +471,7 @@ onMounted(loadFaculties)
 
         <UiInput
           v-model="form.name"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'name')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
           label="Название факультета"
           maxlength="200"
@@ -454,6 +481,7 @@ onMounted(loadFaculties)
 
         <UiInput
           v-model="form.code"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'code')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'code')"
           label="Код факультета"
           hint="Код должен быть уникальным. Например: fit."
@@ -464,6 +492,7 @@ onMounted(loadFaculties)
 
         <UiTextarea
           v-model="form.description"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'description')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
           label="Описание"
           maxlength="1000"

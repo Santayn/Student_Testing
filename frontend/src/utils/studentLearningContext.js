@@ -246,14 +246,29 @@ async function fetchStudentLearningContext({
 
   const subjectMemberships = uniqueEntitiesById(
     await Promise.all(
-      subjectMembershipIds.map(async (membershipId) => {
-        const response =
-          await membershipsApi.getSubjectMembership(
-            membershipId
-          )
+      subjectMembershipIds.map(
+        async (membershipId) => {
+          const fetchMembership =
+            async () =>
+              (
+                await membershipsApi
+                  .getSubjectMembership(
+                    membershipId
+                  )
+              ).data
 
-        return response.data
-      })
+          return cache
+            ? cache.load(
+                `subject-membership:${membershipId}`,
+                fetchMembership,
+                {
+                  ttlMs:
+                    REFERENCE_TTL_MS,
+                }
+              )
+            : fetchMembership()
+        }
+      )
     )
   )
 

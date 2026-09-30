@@ -2,8 +2,11 @@ import http from './http'
 import { API_TIMEOUTS } from './timeouts'
 
 export const questionsApi = {
-  getAll(params = {}) {
-    return http.get('/questions', { params })
+  getAll(params = {}, config = {}) {
+    return http.get(
+      '/questions',
+      { ...config, params }
+    )
   },
 
   create(data) {
@@ -18,12 +21,18 @@ export const questionsApi = {
     return http.put(`/questions/${questionId}/active`, data)
   },
 
-  getOptions(questionId) {
-    return http.get(`/questions/${questionId}/options`)
+  getOptions(questionId, config = {}) {
+    return http.get(
+      `/questions/${questionId}/options`,
+      config
+    )
   },
 
-  getOption(optionId) {
-    return http.get(`/questions/options/${optionId}`)
+  getOption(optionId, config = {}) {
+    return http.get(
+      `/questions/options/${optionId}`,
+      config
+    )
   },
 
   createOption(questionId, data) {

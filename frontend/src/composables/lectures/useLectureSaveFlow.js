@@ -1,5 +1,9 @@
 import { computed, ref } from 'vue'
 import { listFromResponse } from '@/utils/apiData'
+import {
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
 
 /**
  * Saves a lecture core first, then its test links and pending materials.
@@ -9,6 +13,8 @@ import { listFromResponse } from '@/utils/apiData'
 export function useLectureSaveFlow({
   form,
   formError,
+  formFieldErrors,
+  focusFormErrors = null,
   lectureFormMode,
   selectedSubject,
   selectedMembership,
@@ -29,6 +35,43 @@ export function useLectureSaveFlow({
 }) {
   const partialCreateState = ref(null)
 
+  function structuredFieldErrors(error) {
+    const details =
+      error?.response?.data?.details
+
+    if (!details) {
+      return {}
+    }
+
+    if (
+      details &&
+      typeof details === 'object' &&
+      !Array.isArray(details)
+    ) {
+      const result = {}
+
+      for (const [field, value] of Object.entries(details)) {
+        const messages = Array.isArray(value)
+          ? value
+          : value == null
+            ? []
+            : [value]
+
+        const normalized = messages
+          .map((item) => String(item ?? '').trim())
+          .filter(Boolean)
+
+        if (normalized.length) {
+          result[field] = normalized
+        }
+      }
+
+      return result
+    }
+
+    return {}
+  }
+
   const partialCreatePending = computed(() => Boolean(
     partialCreateState.value &&
     Number(partialCreateState.value.id) === Number(form.id)
@@ -38,27 +81,27 @@ export function useLectureSaveFlow({
     partialCreateState.value = null
   }
 
-  function lectureValidationMessage() {
+  function lectureValidation() {
     if (!selectedMembership.value || !selectedSubject.value) {
-      return 'Выберите предмет преподавателя.'
+      return { field: null, message: 'Выберите предмет преподавателя.' }
     }
 
     const title = String(form.title ?? '').trim()
     const description = String(form.description ?? '').trim()
 
     if (!title) {
-      return 'Введите название лекции.'
+      return { field: 'title', message: 'Введите название лекции.' }
     }
 
     if (title.length > 200) {
-      return 'Название лекции не может быть длиннее 200 символов.'
+      return { field: 'title', message: 'Название лекции не может быть длиннее 200 символов.' }
     }
 
     if (description.length > 2000) {
-      return 'Описание лекции не может быть длиннее 2000 символов.'
+      return { field: 'description', message: 'Описание лекции не может быть длиннее 2000 символов.' }
     }
 
-    return ''
+    return null
   }
 
   function nextOrdinal() {
@@ -154,10 +197,26 @@ export function useLectureSaveFlow({
       return false
     }
 
-    formError.value = lectureValidationMessage()
+    formFieldErrors.value = {}
+    formError.value = ''
 
-    if (formError.value) {
-      return
+    const validation =
+      lectureValidation()
+
+    if (validation) {
+      if (validation.field) {
+        setFormFieldError(
+          formFieldErrors,
+          formError,
+          validation.field,
+          validation.message
+        )
+        await focusFormErrors?.()
+      } else {
+        formError.value = validation.message
+      }
+
+      return false
     }
 
     const editingId = form.id ? Number(form.id) : null
@@ -252,16 +311,52 @@ export function useLectureSaveFlow({
       clearLectureDrawerState()
       await loadLectures()
     } catch (error) {
-      const createdLectureNeedsFollowUp = partialCreatePending.value
+      const createdLectureNeedsFollowUp =
+        partialCreatePending.value
 
-      formError.value = getApiErrorMessage(
-        error,
+      const fallback =
         createdLectureNeedsFollowUp
           ? 'Лекция уже создана, но не удалось сохранить связанные тесты или материалы. Повторите сохранение — новая лекция создана повторно не будет.'
           : editingId
             ? 'Не удалось обновить лекцию'
             : 'Не удалось создать лекцию'
-      )
+
+      const fieldErrors =
+        structuredFieldErrors(error)
+
+      if (
+        Object.keys(fieldErrors).length
+      ) {
+        formFieldErrors.value =
+          fieldErrors
+
+        formError.value =
+          FORM_FIELD_ERROR_SUMMARY
+
+        failSaving()
+        await focusFormErrors?.()
+        return
+      }
+
+      formFieldErrors.value = {}
+
+      /*
+       * Partial-create and authorization failures intentionally keep the
+       * workflow-specific fallback as the primary message. Raw transport /
+       * service messages such as "links unavailable" or "revoked" must not
+       * hide the recovery instruction or mutation context.
+       */
+      formError.value =
+        createdLectureNeedsFollowUp
+          ? fallback
+          : getApiErrorMessage(
+              {
+                ...error,
+                message: '',
+              },
+              fallback
+            )
+
       failSaving()
     }
   }

@@ -9,6 +9,11 @@ import {
   presentApiError,
 } from '@/utils/apiErrorPresentation'
 
+import {
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
 export function useTeacherTopicMutations({
   form,
   selectedMembership,
@@ -20,6 +25,7 @@ export function useTeacherTopicMutations({
   finishSaving,
   failSaving,
   loadTopics,
+  focusFormErrors = null,
 }) {
   const deleteTarget = ref(null)
   const deleteConfirmVisible = ref(false)
@@ -44,30 +50,30 @@ export function useTeacherTopicMutations({
     deleteError.value = ''
   }
 
-  function topicFormValidationMessage() {
+  function topicFormValidation() {
     const membership = selectedMembership.value
     const ordinal = Number(form.ordinal)
     const name = String(form.name ?? '').trim()
     const description = String(form.description ?? '').trim()
 
     if (!membership) {
-      return 'Выберите предмет преподавателя.'
+      return { field: null, message: 'Выберите предмет преподавателя.' }
     }
 
     if (!Number.isInteger(ordinal) || ordinal <= 0) {
-      return 'Порядковый номер темы должен быть целым числом больше нуля.'
+      return { field: 'ordinal', message: 'Порядковый номер темы должен быть целым числом больше нуля.' }
     }
 
     if (!name) {
-      return 'Введите название темы.'
+      return { field: 'name', message: 'Введите название темы.' }
     }
 
     if (name.length > 200) {
-      return 'Название темы не может быть длиннее 200 символов.'
+      return { field: 'name', message: 'Название темы не может быть длиннее 200 символов.' }
     }
 
     if (description.length > 2000) {
-      return 'Описание темы не может быть длиннее 2000 символов.'
+      return { field: 'description', message: 'Описание темы не может быть длиннее 2000 символов.' }
     }
 
     const duplicateOrdinal = topics.value.find(
@@ -77,10 +83,17 @@ export function useTeacherTopicMutations({
     )
 
     if (duplicateOrdinal) {
-      return 'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.'
+      return { field: 'ordinal', message: 'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.' }
     }
 
-    return ''
+    return null
+  }
+
+  function topicFormValidationMessage() {
+    return (
+      topicFormValidation()?.message ??
+      ''
+    )
   }
 
   async function saveTopic() {
@@ -89,10 +102,27 @@ export function useTeacherTopicMutations({
     }
 
     formFieldErrors.value = {}
-    formError.value = topicFormValidationMessage()
+    formError.value = ''
 
-    if (formError.value) {
-      return
+    const validation =
+      topicFormValidation()
+
+    if (validation) {
+      if (validation.field) {
+        setFormFieldError(
+          formFieldErrors,
+          formError,
+          validation.field,
+          validation.message
+        )
+
+        await focusFormErrors?.()
+      } else {
+        formError.value =
+          validation.message
+      }
+
+      return false
     }
 
     const membership = selectedMembership.value
@@ -138,10 +168,16 @@ export function useTeacherTopicMutations({
 
       formError.value =
         presentation.channel === 'field'
-          ? 'Проверьте выделенные поля.'
+          ? FORM_FIELD_ERROR_SUMMARY
           : presentation.message
 
       failSaving()
+
+      if (
+        presentation.channel === 'field'
+      ) {
+        await focusFormErrors?.()
+      }
     }
   }
 

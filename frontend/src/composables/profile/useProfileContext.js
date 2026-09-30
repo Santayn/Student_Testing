@@ -206,15 +206,21 @@ export function useProfileContext({
   async function loadProfile({ synchronizeIdentity = false } = {}) {
     const requestId = profileRequest.begin()
 
-    identityLoading.value = true
+    identityLoading.value =
+      Boolean(synchronizeIdentity)
     profileError.value = ''
     resetProfileContext()
 
     try {
+      /*
+       * Auth bootstrap already loaded the authoritative identity before a
+       * protected route can render. Reuse that store snapshot on ordinary
+       * Profile mount instead of paying another /auth/me round-trip.
+       *
+       * Explicit "Обновить данные" remains a forced server synchronization.
+       */
       if (synchronizeIdentity) {
         await authStore.refreshIdentity()
-      } else {
-        await authStore.loadCurrentUser()
       }
 
       if (!profileRequest.isCurrent(requestId)) {

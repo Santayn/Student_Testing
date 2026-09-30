@@ -378,3 +378,157 @@ TOPIC_HAS_DEPENDENCIES
 После реализации `BE-ERR-01` новые бизнес-коды добавляются только через
 централизованный registry/contract tests, а не локальными строковыми сравнениями
 в отдельных view/composable.
+
+
+---
+
+## FE-PERF-RQ-02 — Убрать frontend N+1 для связей `lecture → tests`
+
+**Приоритет:** 🔴 P1  
+**Статус:** FRONTEND READY / BACKEND BLOCKED  
+**Связано с:** `BE-PERF-03`
+
+### Текущее состояние
+
+Frontend сейчас вынужден строить граф:
+
+```text
+GET lectures
+↓
+GET lecture/{id1}/tests
+GET lecture/{id2}/tests
+GET lecture/{id3}/tests
+...
+```
+
+Запросы выполняются параллельно, но их количество растёт линейно с количеством
+лекций.
+
+### Что делать на frontend
+
+До появления нового backend contract frontend должен:
+
+- сохранять текущий parallel loading;
+- не превращать его в последовательный waterfall;
+- сохранять stale-response protection;
+- не делать повторные запросы для уже загруженных связей без необходимости;
+- переиспользовать результаты в рамках текущего view/session context;
+- не вводить агрессивный persistent cache для mutable lecture/test relations.
+
+После реализации `BE-PERF-03` frontend должен перейти на:
+
+```text
+один lecture list + embedded tests
+```
+
+или:
+
+```text
+lecture list
++
+один batch relation request
+```
+
+и удалить `Promise.all(lectures.map(...getTests...))`.
+
+### Acceptance condition
+
+Количество frontend API requests для lecture list больше не зависит линейно от
+числа лекций.
+
+---
+
+## FE-PERF-RQ-07 — Снизить fan-out в teacher workload
+
+**Приоритет:** 🟡 P2  
+**Статус:** FRONTEND OPTIMIZABLE / BACKEND OPTIONAL  
+**Связано с:** `BE-PERF-04`
+
+### Текущее состояние
+
+Frontend строит workload через:
+
+```text
+subject memberships
+↓
+assignments для memberships
+↓
+group references
+```
+
+Независимые запросы уже выполняются параллельно, а stale reads отменяются.
+
+### Что делать на frontend
+
+Request Lifecycle Stage 2 уже добавил shared cache для `group:<id>`, поэтому
+одинаковые group reference reads не повторяются в пределах TTL.
+
+Остаётся:
+
+
+- переиспользовать shared reference cache для `group:<id>`;
+- сохранять AbortController для view-owned reads;
+- не повторять одинаковые group reference requests в пределах TTL;
+- добавить request-count regression tests для workload;
+- измерить production Network до любых дополнительных архитектурных изменений.
+
+### Backend dependency
+
+Если после frontend cache/cancellation request count остаётся большим,
+использовать `BE-PERF-04`:
+
+```text
+teacher workload aggregate
+```
+
+или batch assignments/group-resolution contract.
+
+### Acceptance condition
+
+Сначала frontend устраняет повторные reference reads. Backend aggregate
+реализуется только если замеры показывают заметный оставшийся fan-out.
+
+
+---
+
+## FE-PERF-RQ-01 — Оптимизировать student learning context на frontend
+
+**Приоритет:** 🔴 P1  
+**Статус:** FRONTEND PARTIALLY DONE / BACKEND BLOCKED  
+**Связано с:** `BE-PERF-01`
+
+### Frontend-часть
+
+Frontend уже:
+
+- использует security-scoped memory cache;
+- использует single-flight;
+- кэширует `group:<id>`, `faculty:<id>`, `subject:<id>`;
+- после Request Lifecycle Stage 2 также кэширует
+  `subject-membership:<id>`;
+- не сохраняет authorization-dependent graph в persistent storage.
+
+### Ограничение
+
+Cold first-load всё ещё требует многоступенчатого graph resolution:
+
+```text
+memberships
+→ groups / assignments / enrollments
+→ faculties / missing assignments
+→ subject memberships
+→ subjects
+```
+
+Frontend не может безопасно убрать эту зависимость без нового backend read
+contract.
+
+### Следующий шаг
+
+После `BE-PERF-01` заменить graph construction на один aggregate read, сохранив
+текущий security-scoped TTL cache поверх aggregate response.
+
+### Acceptance condition
+
+Warm reads не повторяют reference requests, а cold read после backend
+изменения не строит N-level request graph на клиенте.

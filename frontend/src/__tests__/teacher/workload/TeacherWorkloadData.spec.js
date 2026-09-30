@@ -29,11 +29,27 @@ function setup(memberships = [
 ]) {
   const subjectMemberships = ref(memberships)
   const loadTeacherSubjects = vi.fn().mockResolvedValue(undefined)
+  const authStore = {
+    sessionEpoch: 1,
+    userId: 100,
+    personId: 200,
+    activeWorkspaceRole: 'TEACHER',
+    roles: ['TEACHER'],
+    permissions: [],
+  }
+
   const workload = useTeacherWorkloadData({
     subjectMemberships,
     loadTeacherSubjects,
+    authStore,
   })
-  return { ...workload, subjectMemberships, loadTeacherSubjects }
+
+  return {
+    ...workload,
+    subjectMemberships,
+    loadTeacherSubjects,
+    authStore,
+  }
 }
 
 beforeEach(() => {
@@ -80,12 +96,31 @@ describe('useTeacherWorkloadData', () => {
       )
       expect(groupsApi.getById).toHaveBeenCalledTimes(1)
       expect(groupsApi.getById).toHaveBeenCalledWith(
-        20,
-        expect.objectContaining({ signal: expect.any(AbortSignal) })
+        20
       )
       expect(workload.assignments.value.map((item) => item.subjectMembershipId)).toEqual([11, 12])
       expect(workload.assignments.value[0].groupName).toBe('КБ-23')
       expect(workload.loading.value).toBe(false)
+    } finally {
+      workload.dispose()
+    }
+  })
+
+  it('reuses the same group reference across period refreshes', async () => {
+    const workload = setup([{ id: 11, subjectId: 7 }])
+
+    try {
+      await workload.initialize()
+
+      expect(
+        groupsApi.getById
+      ).toHaveBeenCalledTimes(1)
+
+      await workload.refreshAssignments()
+
+      expect(
+        groupsApi.getById
+      ).toHaveBeenCalledTimes(1)
     } finally {
       workload.dispose()
     }
@@ -124,7 +159,7 @@ describe('useTeacherWorkloadData', () => {
       oldRead.resolve({ data: [{ id: 10, subjectMembershipId: 11, groupId: 20 }] })
       await pendingOld
       expect(workload.assignments.value.map((item) => item.id)).toEqual([30])
-      expect(groupsApi.getById).toHaveBeenCalledTimes(1)
+      expect(groupsApi.getById).toHaveBeenCalledTimes(0)
     } finally {
       workload.dispose()
     }

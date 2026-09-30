@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   ref,
   watch,
@@ -34,7 +35,7 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 const route = useRoute()
@@ -46,7 +47,7 @@ const loading = ref(false)
 const error = ref('')
 
 const lecturesRequest =
-  createLatestRequestGuard()
+  createAbortableRequestGuard()
 
 const subjectId = computed(() => {
   return Number(
@@ -114,8 +115,10 @@ function lectureRoute(lecture) {
 }
 
 async function loadLectures() {
-  const requestId =
-    lecturesRequest.begin()
+  const {
+    requestId,
+    signal,
+  } = lecturesRequest.begin()
 
   const requestedSubjectId =
     Number(subjectId.value)
@@ -145,12 +148,14 @@ async function loadLectures() {
       lecturesResponse,
     ] = await Promise.all([
       learningApi.getSubject(
-        requestedSubjectId
+        requestedSubjectId,
+        { signal }
       ),
 
       learningApi
         .getSubjectLectures(
-          requestedSubjectId
+          requestedSubjectId,
+          { signal }
         ),
     ])
 
@@ -196,6 +201,10 @@ async function loadLectures() {
     }
   }
 }
+
+onBeforeUnmount(() => {
+  lecturesRequest.invalidate()
+})
 
 watch(
   subjectId,

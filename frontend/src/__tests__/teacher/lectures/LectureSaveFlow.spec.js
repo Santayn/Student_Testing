@@ -17,6 +17,7 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
     testIds: [3, 3, '4', 0],
   })
   const formError = ref('')
+  const formFieldErrors = ref({})
   const lectureFormMode = ref(existingLecture ? 'edit' : 'create')
   const lectures = ref(existingLecture ? [existingLecture] : [])
   const lectureTestsById = ref(new Map())
@@ -41,6 +42,7 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
   const flow = useLectureSaveFlow({
     form,
     formError,
+    formFieldErrors,
     lectureFormMode,
     selectedSubject: ref({ id: 20 }),
     selectedMembership: ref({ id: 10 }),
@@ -64,6 +66,7 @@ function createHarness({ existingLecture = null, files = [] } = {}) {
     ...flow,
     form,
     formError,
+    formFieldErrors,
     lectureFormMode,
     lectures,
     lectureTestsById,

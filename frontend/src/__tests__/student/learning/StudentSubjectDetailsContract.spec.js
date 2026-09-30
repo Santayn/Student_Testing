@@ -99,7 +99,13 @@ describe('subject details API selection', () => {
     ).toHaveBeenCalledTimes(1)
     expect(
       learningApi.getSubject
-    ).toHaveBeenCalledWith(7)
+    ).toHaveBeenCalledWith(
+      7,
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(
       subjectsApi.getById
     ).not.toHaveBeenCalled()
@@ -144,7 +150,13 @@ describe('subject details API selection', () => {
     ).toHaveBeenCalledTimes(1)
     expect(
       subjectsApi.getById
-    ).toHaveBeenCalledWith(7)
+    ).toHaveBeenCalledWith(
+      7,
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(
       learningApi.getSubject
     ).not.toHaveBeenCalled()
@@ -170,7 +182,13 @@ describe('subject details API selection', () => {
 
     expect(
       learningApi.getSubject
-    ).toHaveBeenCalledWith(7)
+    ).toHaveBeenCalledWith(
+      7,
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(
       subjectsApi.getById
     ).not.toHaveBeenCalled()
@@ -196,7 +214,13 @@ describe('subject details API selection', () => {
 
     expect(
       subjectsApi.getById
-    ).toHaveBeenCalledWith(7)
+    ).toHaveBeenCalledWith(
+      7,
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(
       learningApi.getSubject
     ).not.toHaveBeenCalled()

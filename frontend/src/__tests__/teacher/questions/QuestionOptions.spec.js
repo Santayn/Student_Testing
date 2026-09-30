@@ -92,7 +92,11 @@ describe('question option editor', () => {
       .mockReturnValueOnce(second.promise)
 
     const firstLoad = state.loadOptions(11)
+    const firstSignal =
+      state.api.getOptions.mock.calls[0][1].signal
     const secondLoad = state.loadOptions(12)
+
+    expect(firstSignal.aborted).toBe(true)
 
     second.resolve({ data: [{ id: 12, ordinal: 1 }] })
     await secondLoad
@@ -119,7 +123,13 @@ describe('question option editor', () => {
       ordinal: 2,
       correct: true,
     })
-    expect(state.api.getOptions).toHaveBeenCalledWith(11)
+    expect(state.api.getOptions).toHaveBeenCalledWith(
+      11,
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(state.notice.value.message).toBe('Вариант ответа создан.')
   })
 

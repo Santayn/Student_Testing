@@ -124,7 +124,14 @@ describe('teacher topic mutations', () => {
 
     expect(create).not.toHaveBeenCalled()
     expect(ctx.ensureSelectedMembershipActive).not.toHaveBeenCalled()
-    expect(ctx.state.formError.value).toContain('порядковым номером')
+    expect(ctx.state.formError.value).toBe(
+      'Проверьте выделенные поля.'
+    )
+    expect(ctx.state.formFieldErrors.value).toEqual({
+      ordinal: [
+        'Тема с таким порядковым номером уже существует в выбранном назначении преподавателя.',
+      ],
+    })
   })
 
 

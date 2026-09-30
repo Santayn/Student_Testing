@@ -1,5 +1,6 @@
 <script setup>
 import {
+  onBeforeUnmount,
   onMounted,
   ref,
   watch,
@@ -33,6 +34,10 @@ import {
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import {
+  useAuthStore,
+} from '@/stores/auth'
+
+import {
   useTeacherSubjects,
 } from '@/composables/teacher/useTeacherSubjects'
 
@@ -53,10 +58,16 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
+import {
+  getSharedLearningContextCache,
+  REFERENCE_TTL_MS,
+} from '@/utils/learningContextCache'
+
 const route = useRoute()
+const authStore = useAuthStore()
 
 const {
   loadingSubjects,
@@ -79,8 +90,8 @@ const loadingQuestions = ref(false)
 const initialized = ref(false)
 const questionPreviewOpen = ref(false)
 
-const contextRequest = createLatestRequestGuard()
-const questionsRequest = createLatestRequestGuard()
+const contextRequest = createAbortableRequestGuard()
+const questionsRequest = createAbortableRequestGuard()
 
 const notice = ref({
   type: 'info',
@@ -142,17 +153,38 @@ async function buildGroupTargets(assignments) {
     return []
   }
 
-  const responses =
+  const cache =
+    getSharedLearningContextCache(
+      authStore
+    )
+
+  const groups =
     await Promise.all(
       groupIds.map(
-        (groupId) =>
-          groupsApi.getById(groupId)
+        async (groupId) => {
+          const loadGroup = async () =>
+            (
+              await groupsApi.getById(
+                groupId
+              )
+            ).data
+
+          return cache
+            ? cache.load(
+                `group:${groupId}`,
+                loadGroup,
+                {
+                  ttlMs:
+                    REFERENCE_TTL_MS,
+                }
+              )
+            : loadGroup()
+        }
       )
     )
 
   const groupsById = new Map(
-    responses
-      .map((response) => response.data)
+    groups
       .filter(Boolean)
       .map(
         (group) => [
@@ -202,8 +234,10 @@ async function buildGroupTargets(assignments) {
 }
 
 async function loadSubjectContext() {
-  const requestId =
-    contextRequest.begin()
+  const {
+    requestId,
+    signal,
+  } = contextRequest.begin()
 
   questionsRequest.invalidate()
   loadingQuestions.value = false
@@ -228,15 +262,21 @@ async function loadSubjectContext() {
   try {
     const [topicsResponse, assignmentsResponse] =
       await Promise.all([
-        topicsApi.getAll({
-          subjectMembershipId:
-            membershipId,
-        }),
-        teachingApi.getAssignments({
-          subjectMembershipId:
-            membershipId,
-          status: 1,
-        }),
+        topicsApi.getAll(
+          {
+            subjectMembershipId:
+              membershipId,
+          },
+          { signal }
+        ),
+        teachingApi.getAssignments(
+          {
+            subjectMembershipId:
+              membershipId,
+            status: 1,
+          },
+          { signal }
+        ),
       ])
 
     const nextTopics =
@@ -314,8 +354,10 @@ async function loadSubjectContext() {
 }
 
 async function loadQuestions() {
-  const requestId =
-    questionsRequest.begin()
+  const {
+    requestId,
+    signal,
+  } = questionsRequest.begin()
 
   questions.value = []
 
@@ -332,9 +374,12 @@ async function loadQuestions() {
 
   try {
     const response =
-      await questionsApi.getAll({
-        topicId,
-      })
+      await questionsApi.getAll(
+        {
+          topicId,
+        },
+        { signal }
+      )
 
     if (
       !questionsRequest.isCurrent(
@@ -409,6 +454,11 @@ watch(
     }
   }
 )
+
+onBeforeUnmount(() => {
+  contextRequest.invalidate()
+  questionsRequest.invalidate()
+})
 
 onMounted(async () => {
   setDefaultDates()
@@ -650,7 +700,11 @@ onMounted(async () => {
 
             <UiAlert
               :variant="validationError ? 'info' : 'success'"
-              :message="validationError || 'Все обязательные параметры заполнены. Тест готов к созданию.'"
+              :message="
+                validationError
+                  ? validationError
+                  : 'Все обязательные параметры заполнены. Тест готов к созданию.'
+              "
             />
 
             <UiButton
@@ -697,14 +751,14 @@ onMounted(async () => {
           />
 
           <div
-            v-show="questionPreviewOpen"
+            v-if="questionPreviewOpen"
             class="teacher-entity-list"
           >
             <article
               v-for="question in questions"
-            :key="question.id"
-            class="teacher-entity-card"
-          >
+              :key="question.id"
+              class="teacher-entity-card"
+            >
             <div class="teacher-entity-card__header">
               <div class="teacher-entity-card__heading">
                 <span class="teacher-entity-card__eyebrow">

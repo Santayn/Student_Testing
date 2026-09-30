@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 
 import {
   getApiErrorMessage,
@@ -6,7 +6,7 @@ import {
 } from '@/api'
 
 import { listFromResponse } from '@/utils/apiData'
-import { createLatestRequestGuard } from '@/utils/latestRequest'
+import { createAbortableRequestGuard } from '@/utils/latestRequest'
 
 function normalizedOptionDraft(value) {
   return JSON.stringify({
@@ -35,7 +35,7 @@ export function useQuestionOptions({
     correct: false,
   })
   const optionBaseline = ref('')
-  const request = createLatestRequestGuard()
+  const request = createAbortableRequestGuard()
 
   const optionDraftDirty = computed(() => {
     return normalizedOptionDraft(optionForm.value) !== optionBaseline.value
@@ -74,7 +74,7 @@ export function useQuestionOptions({
   }
 
   async function loadOptions(questionId) {
-    const requestId = request.begin()
+    const { requestId, signal } = request.begin()
 
     options.value = []
     resetOptionForm()
@@ -87,7 +87,7 @@ export function useQuestionOptions({
     loadingOptions.value = true
 
     try {
-      const response = await api.getOptions(questionId)
+      const response = await api.getOptions(questionId, { signal })
 
       if (!request.isCurrent(requestId)) {
         return
@@ -179,6 +179,12 @@ export function useQuestionOptions({
     } finally {
       savingOption.value = false
     }
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      request.invalidate()
+    })
   }
 
   return {

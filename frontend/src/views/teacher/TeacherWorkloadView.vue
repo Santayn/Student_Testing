@@ -14,11 +14,13 @@ import {
   UiStat,
 } from '@/components/ui'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useTeacherSubjects } from '@/composables/teacher/useTeacherSubjects'
 import { useTeacherWorkloadData } from '@/composables/teacher/useTeacherWorkloadData'
 import { useTeacherWorkloadPresentation } from '@/composables/teacher/useTeacherWorkloadPresentation'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const {
   subjectMemberships,
   subjects,
@@ -28,6 +30,7 @@ const {
 const workload = useTeacherWorkloadData({
   subjectMemberships,
   loadTeacherSubjects,
+  authStore,
 })
 const {
   studyCourse,

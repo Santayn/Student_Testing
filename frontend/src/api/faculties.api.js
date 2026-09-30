@@ -1,12 +1,12 @@
 import http from './http'
 
 export const facultiesApi = {
-  getAll() {
-    return http.get('/faculties')
+  getAll(config = {}) {
+    return http.get('/faculties', config)
   },
 
-  getById(facultyId) {
-    return http.get(`/faculties/${facultyId}`)
+  getById(facultyId, config = {}) {
+    return http.get(`/faculties/${facultyId}`, config)
   },
 
   create(data) {
@@ -21,8 +21,11 @@ export const facultiesApi = {
     return http.delete(`/faculties/${facultyId}`)
   },
 
-  getSubjects(facultyId) {
-    return http.get(`/faculties/${facultyId}/subjects`)
+  getSubjects(facultyId, config = {}) {
+    return http.get(
+      `/faculties/${facultyId}/subjects`,
+      config
+    )
   },
 
   addSubject(facultyId, subjectId) {

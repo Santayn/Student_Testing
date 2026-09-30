@@ -1198,3 +1198,169 @@ TOPIC_HAS_DEPENDENCIES
 
 Frontend может выбирать UX/message по `code`, не анализируя текст `message`.
 При отсутствии `code` старый status/message fallback продолжает работать.
+
+
+---
+
+## BE-PERF-03 / рекомендация 24 — Batch/aggregate contract для связей `lecture → tests`
+
+**Приоритет:** 🔴 P1  
+**Статус:** OPEN  
+**Связано с frontend:** `FE-PERF-RQ-02`
+
+Frontend-часть рекомендации зафиксирована отдельно в `frontend_recommendations.md`.
+
+### Проблема
+
+Текущий frontend получает список лекций, после чего для каждой лекции отдельно
+запрашивает связанные тесты:
+
+```text
+GET /lectures
+↓
+GET /lectures/{id1}/tests
+GET /lectures/{id2}/tests
+GET /lectures/{id3}/tests
+...
+```
+
+Это frontend N+1, но устранить его полностью без изменения backend contract
+нельзя, потому что связи нужны уже на уровне списка для фильтрации и summary.
+
+### Рекомендуемый контракт
+
+Предпочтительный вариант:
+
+```text
+GET /lectures?...&includeTests=true
+```
+
+где каждая лекция содержит минимальный список связанных тестов:
+
+```json
+{
+  "id": 10,
+  "title": "Лекция",
+  "tests": [
+    {
+      "id": 4,
+      "title": "Тест"
+    }
+  ]
+}
+```
+
+Допустимый вариант — batch endpoint:
+
+```text
+GET /lectures/tests?lectureIds=10,11,12
+```
+
+с ответом, сгруппированным по `lectureId`.
+
+### Acceptance condition
+
+Количество запросов для списка лекций не растёт линейно с количеством лекций.
+
+---
+
+## BE-PERF-04 / рекомендация 25 — Batch/aggregate teacher workload context
+
+**Приоритет:** 🟡 P2  
+**Статус:** OPEN / MEASURE AFTER FRONTEND CACHE  
+**Связано с frontend:** `FE-PERF-RQ-07`
+
+Frontend-часть рекомендации зафиксирована отдельно в `frontend_recommendations.md`.
+
+### Проблема
+
+Teacher workload сейчас требует:
+
+```text
+subject memberships
+↓
+assignments для каждого membership
+↓
+group references для уникальных groupId
+```
+
+Frontend уже выполняет независимые запросы параллельно и отменяет устаревший
+transport, поэтому дальнейшее существенное уменьшение first-load request count
+потребует более крупного backend read contract.
+
+### Рекомендация
+
+Не реализовывать вслепую. Сначала подтвердить проблему production Network
+замерами.
+
+Если fan-out заметен, рассмотреть:
+
+```text
+GET /teaching/workload?personId=...&studyCourse=...&semester=...&academicYear=...
+```
+
+или batch-вариант assignments, который принимает несколько
+`subjectMembershipId` за один запрос и возвращает необходимые group labels.
+
+### Acceptance condition
+
+Backend-изменение имеет смысл только если Network measurements показывают
+существенный выигрыш относительно текущего parallel + cached frontend path.
+
+
+---
+
+## BE-PERF-01 / рекомендация 26 — Aggregate endpoint для student learning context
+
+**Приоритет:** 🔴 P1  
+**Статус:** OPEN  
+**Связано с frontend:** `FE-PERF-RQ-01`
+
+Frontend-часть рекомендации зафиксирована отдельно в
+`frontend_recommendations.md`.
+
+### Проблема
+
+Student learning context сейчас собирается из нескольких зависимых слоёв:
+
+```text
+group memberships
+→ groups / assignments / enrollments
+→ faculties / missing assignments
+→ subject memberships
+→ subjects
+```
+
+Frontend уже применяет parallel loading, security-scoped single-flight и
+короткий TTL reference cache. Это уменьшает warm-navigation cost, но не может
+убрать cold first-load waterfall.
+
+### Рекомендуемый контракт
+
+Отдельный read endpoint, например:
+
+```text
+GET /api/v1/public/learning/context
+```
+
+или эквивалентный user-scoped route, который возвращает согласованный snapshot:
+
+```json
+{
+  "memberships": [],
+  "groups": [],
+  "faculties": [],
+  "assignments": [],
+  "enrollments": [],
+  "subjectMemberships": [],
+  "subjects": []
+}
+```
+
+Endpoint должен сам применять текущие authorization/status rules, чтобы
+frontend не реконструировал security semantics из нескольких API.
+
+### Acceptance condition
+
+Один backend read возвращает согласованный student learning snapshot.
+Frontend не выполняет многоступенчатый graph resolution на cold load.

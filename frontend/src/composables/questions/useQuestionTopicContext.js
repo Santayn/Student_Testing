@@ -1,5 +1,7 @@
 import {
   computed,
+  getCurrentScope,
+  onScopeDispose,
   ref,
 } from 'vue'
 
@@ -13,7 +15,7 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 /**
@@ -29,7 +31,7 @@ export function useQuestionTopicContext({
   const topics = ref([])
   const selectedTopicId = ref('')
   const selectedImportTopicId = ref('')
-  const topicsRequest = createLatestRequestGuard()
+  const topicsRequest = createAbortableRequestGuard()
 
   const topicOptions = computed(() => {
     return topics.value.map(
@@ -56,7 +58,7 @@ export function useQuestionTopicContext({
   }
 
   async function loadTopics() {
-    const requestId = topicsRequest.begin()
+    const { requestId, signal } = topicsRequest.begin()
     const membershipId = Number(
       selectedMembership.value?.id ?? 0
     )
@@ -70,9 +72,12 @@ export function useQuestionTopicContext({
     }
 
     try {
-      const response = await topicsApi.getAll({
-        subjectMembershipId: membershipId,
-      })
+      const response = await topicsApi.getAll(
+        {
+          subjectMembershipId: membershipId,
+        },
+        { signal }
+      )
 
       if (!topicsRequest.isCurrent(requestId)) {
         return
@@ -113,6 +118,12 @@ export function useQuestionTopicContext({
         ),
       }
     }
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      topicsRequest.invalidate()
+    })
   }
 
   return {

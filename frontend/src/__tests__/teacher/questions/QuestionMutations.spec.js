@@ -27,6 +27,7 @@ function setup({
     ...formOverrides,
   }
   const formError = ref('')
+  const formFieldErrors = ref({})
   const selectedTopicId = ref('11')
   const questions = ref([])
   const notice = ref({ type: 'info', message: '' })
@@ -42,6 +43,7 @@ function setup({
   const deps = {
     form,
     formError,
+    formFieldErrors,
     selectedTopicId,
     questions,
     notice,

@@ -92,9 +92,15 @@ describe('useQuestionTopicContext', () => {
 
     await state.loadTopics()
 
-    expect(getAll).toHaveBeenCalledWith({
-      subjectMembershipId: 10,
-    })
+    expect(getAll).toHaveBeenCalledWith(
+      {
+        subjectMembershipId: 10,
+      },
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(state.topics.value.map((topic) => topic.id))
       .toEqual([1, 2])
     expect(state.topicOptions.value).toEqual([
@@ -150,9 +156,13 @@ describe('useQuestionTopicContext', () => {
     const state = createState()
 
     const firstLoad = state.loadTopics()
+    const firstSignal =
+      getAll.mock.calls[0][1].signal
 
     state.selectedMembership.value = { id: 11 }
     const secondLoad = state.loadTopics()
+
+    expect(firstSignal.aborted).toBe(true)
 
     second.resolve({
       data: [

@@ -20,6 +20,11 @@ import {
 } from '@/utils/apiErrorPresentation'
 
 import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+} from '@/utils/formErrorLifecycle'
+
+import {
   UiActionMenu,
   UiAlert,
   UiButton,
@@ -63,6 +68,7 @@ const {
 } = useTeacherSubjects()
 
 const initialized = ref(false)
+const topicFormElement = ref(null)
 
 const {
   form,
@@ -165,6 +171,12 @@ const topicDialogTitle = computed(() =>
     : 'Редактирование темы'
 )
 
+async function focusTopicFormErrors() {
+  await focusFirstInvalidField(
+    topicFormElement.value
+  )
+}
+
 const {
   deleteTarget,
   deleteConfirmVisible,
@@ -187,6 +199,8 @@ const {
   finishSaving,
   failSaving,
   loadTopics,
+  focusFormErrors:
+    focusTopicFormErrors,
 })
 
 watch(
@@ -433,6 +447,7 @@ onMounted(async () => {
       :dismissable-mask="false"
     >
       <form
+        ref="topicFormElement"
         class="teacher-stack"
         @submit.prevent="saveTopic"
       >
@@ -454,6 +469,7 @@ onMounted(async () => {
         <div class="teacher-grid">
           <UiInput
             v-model="form.ordinal"
+            @update:model-value="clearFormFieldError(formFieldErrors, formError, 'ordinal')"
             :error="apiFieldError({ fieldErrors: formFieldErrors }, 'ordinal')"
             label="Порядок"
             type="number"
@@ -465,6 +481,7 @@ onMounted(async () => {
 
           <UiInput
             v-model="form.name"
+            @update:model-value="clearFormFieldError(formFieldErrors, formError, 'name')"
             :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
             label="Название темы"
             maxlength="200"
@@ -475,6 +492,7 @@ onMounted(async () => {
 
         <UiTextarea
           v-model="form.description"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'description')"
             :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
           label="Описание"
           maxlength="2000"

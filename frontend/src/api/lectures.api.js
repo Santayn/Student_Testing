@@ -26,8 +26,11 @@ export const lecturesApi = {
     return http.put(`/lectures/${lectureId}/tests`, data)
   },
 
-  getMaterials(lectureId) {
-    return http.get(`/lectures/${lectureId}/materials`)
+  getMaterials(lectureId, config = {}) {
+    return http.get(
+      `/lectures/${lectureId}/materials`,
+      config
+    )
   },
 
 

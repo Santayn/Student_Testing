@@ -75,9 +75,15 @@ describe('question list loader', () => {
     const state = setup('42')
     await state.loadQuestions()
 
-    expect(questionsApi.getAll).toHaveBeenCalledWith({
-      topicId: 42,
-    })
+    expect(questionsApi.getAll).toHaveBeenCalledWith(
+      {
+        topicId: 42,
+      },
+      {
+        signal:
+          expect.any(AbortSignal),
+      }
+    )
     expect(
       state.questions.value.map((item) => item.id)
     ).toEqual([1, 3, 2])
@@ -107,7 +113,12 @@ describe('question list loader', () => {
     const firstLoad = state.loadQuestions()
 
     state.selectedTopicId.value = '20'
+    const firstSignal =
+      questionsApi.getAll.mock.calls[0][1].signal
+
     const secondLoad = state.loadQuestions()
+
+    expect(firstSignal.aborted).toBe(true)
 
     second.resolve({
       data: [{ id: 20, ordinal: 1 }],

@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   ref,
   watch,
@@ -43,7 +44,7 @@ import {
 } from '@/utils/apiData'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 const route = useRoute()
@@ -57,7 +58,7 @@ const loading = ref(false)
 const error = ref('')
 
 const lectureRequest =
-  createLatestRequestGuard()
+  createAbortableRequestGuard()
 
 const downloadingMaterialId =
   ref(null)
@@ -516,8 +517,10 @@ async function downloadMaterial(
 }
 
 async function loadLecture() {
-  const requestId =
-    lectureRequest.begin()
+  const {
+    requestId,
+    signal,
+  } = lectureRequest.begin()
 
   const requestedLectureId =
     Number(lectureId.value)
@@ -549,16 +552,19 @@ async function loadLecture() {
       testsResponse,
     ] = await Promise.all([
       learningApi.getLecture(
-        requestedLectureId
+        requestedLectureId,
+        { signal }
       ),
 
       learningApi
         .getLectureMaterials(
-          requestedLectureId
+          requestedLectureId,
+          { signal }
         ),
 
       learningApi.getLectureTests(
-        requestedLectureId
+        requestedLectureId,
+        { signal }
       ),
     ])
 
@@ -619,6 +625,10 @@ async function loadLecture() {
     }
   }
 }
+
+onBeforeUnmount(() => {
+  lectureRequest.invalidate()
+})
 
 watch(
   lectureId,

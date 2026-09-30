@@ -1,8 +1,11 @@
 import http from './http'
 
 export const membershipsApi = {
-  getGroupMemberships(params = {}) {
-    return http.get('/memberships/groups', { params })
+  getGroupMemberships(params = {}, config = {}) {
+    return http.get(
+      '/memberships/groups',
+      { ...config, params }
+    )
   },
 
   addPersonToGroup(groupId, data) {
@@ -16,13 +19,17 @@ export const membershipsApi = {
     )
   },
 
-  getSubjectMemberships(params = {}) {
-    return http.get('/memberships/subjects', { params })
+  getSubjectMemberships(params = {}, config = {}) {
+    return http.get(
+      '/memberships/subjects',
+      { ...config, params }
+    )
   },
 
-  getSubjectMembership(membershipId) {
+  getSubjectMembership(membershipId, config = {}) {
     return http.get(
-      `/memberships/subjects/memberships/${membershipId}`
+      `/memberships/subjects/memberships/${membershipId}`,
+      config
     )
   },
 

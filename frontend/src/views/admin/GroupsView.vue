@@ -35,6 +35,13 @@ import {
 } from '@/utils/apiErrorPresentation'
 
 import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
+import {
   useAdminGroupsData,
 } from '@/composables/admin/groups/useAdminGroupsData'
 
@@ -100,6 +107,7 @@ const {
 
 const formError = ref('')
 const formFieldErrors = ref({})
+const groupFormElement = ref(null)
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
@@ -198,23 +206,23 @@ function groupFormValidationMessage() {
   const facultyId = Number(form.facultyId)
 
   if (!name) {
-    return 'Введите название группы.'
+    return { field: 'name', message: 'Введите название группы.' }
   }
 
   if (name.length > 200) {
-    return 'Название группы не может быть длиннее 200 символов.'
+    return { field: 'name', message: 'Название группы не может быть длиннее 200 символов.' }
   }
 
   if (!code) {
-    return 'Введите код группы.'
+    return { field: 'code', message: 'Введите код группы.' }
   }
 
   if (code.length > 50) {
-    return 'Код группы не может быть длиннее 50 символов.'
+    return { field: 'code', message: 'Код группы не может быть длиннее 50 символов.' }
   }
 
   if (!Number.isFinite(facultyId) || facultyId <= 0) {
-    return 'Выберите факультет.'
+    return { field: 'facultyId', message: 'Выберите факультет.' }
   }
 
   if (
@@ -222,7 +230,7 @@ function groupFormValidationMessage() {
       (faculty) => Number(faculty.id) === facultyId
     )
   ) {
-    return 'Выбранный факультет больше недоступен. Обновите страницу и выберите другой.'
+    return { field: 'facultyId', message: 'Выбранный факультет больше недоступен. Обновите страницу и выберите другой.' }
   }
 
   const normalizedCode = code.toLocaleLowerCase('ru-RU')
@@ -234,10 +242,10 @@ function groupFormValidationMessage() {
   })
 
   if (duplicate) {
-    return `Группа с кодом «${code}» уже существует.`
+    return { field: 'code', message: `Группа с кодом «${code}» уже существует.` }
   }
 
-  return ''
+  return null
 }
 
 async function saveGroup() {
@@ -245,10 +253,19 @@ async function saveGroup() {
     return
   }
 
-  const validationMessage = groupFormValidationMessage()
+  const validation = groupFormValidationMessage()
 
-  if (validationMessage) {
-    formError.value = validationMessage
+  if (validation) {
+    setFormFieldError(
+      formFieldErrors,
+      formError,
+      validation.field,
+      validation.message
+    )
+
+    await focusFirstInvalidField(
+      groupFormElement.value
+    )
     return
   }
 
@@ -300,9 +317,17 @@ async function saveGroup() {
 
     formError.value =
       presentation.channel === 'field'
-        ? 'Проверьте выделенные поля.'
+        ? FORM_FIELD_ERROR_SUMMARY
         : presentation.message
     failSaving()
+
+    if (
+      presentation.channel === 'field'
+    ) {
+      await focusFirstInvalidField(
+        groupFormElement.value
+      )
+    }
   }
 }
 
@@ -533,6 +558,7 @@ onMounted(loadData)
       :dismissable-mask="false"
     >
       <form
+        ref="groupFormElement"
         class="admin-group-form"
         @submit.prevent="saveGroup"
       >
@@ -544,6 +570,7 @@ onMounted(loadData)
 
         <UiInput
           v-model="form.name"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'name')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
           label="Название группы"
           maxlength="200"
@@ -553,6 +580,7 @@ onMounted(loadData)
 
         <UiInput
           v-model="form.code"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'code')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'code')"
           label="Код группы"
           maxlength="50"
@@ -562,6 +590,7 @@ onMounted(loadData)
 
         <UiSelect
           v-model="form.facultyId"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'facultyId', 'faculty')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'facultyId', 'faculty')"
           label="Факультет"
           :options="facultyOptions"

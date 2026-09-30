@@ -35,6 +35,13 @@ import {
 } from '@/utils/apiErrorPresentation'
 
 import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
+import {
   useAdminSubjectsData,
 } from '@/composables/admin/subjects/useAdminSubjectsData'
 
@@ -58,6 +65,7 @@ const {
 
 const formError = ref('')
 const formFieldErrors = ref({})
+const subjectFormElement = ref(null)
 
 const deleteTarget = ref(null)
 const deleteConfirmVisible = ref(false)
@@ -152,15 +160,15 @@ function subjectFormValidationMessage() {
   ).trim()
 
   if (!name) {
-    return 'Введите название предмета.'
+    return { field: 'name', message: 'Введите название предмета.' }
   }
 
   if (name.length > 200) {
-    return 'Название предмета не может быть длиннее 200 символов.'
+    return { field: 'name', message: 'Название предмета не может быть длиннее 200 символов.' }
   }
 
   if (description.length > 1000) {
-    return 'Описание предмета не может быть длиннее 1000 символов.'
+    return { field: 'description', message: 'Описание предмета не может быть длиннее 1000 символов.' }
   }
 
   const normalizedName = name.toLocaleLowerCase('ru-RU')
@@ -172,10 +180,10 @@ function subjectFormValidationMessage() {
   })
 
   if (duplicate) {
-    return `Предмет «${name}» уже существует.`
+    return { field: 'name', message: `Предмет «${name}» уже существует.` }
   }
 
-  return ''
+  return null
 }
 
 async function saveSubject() {
@@ -183,10 +191,19 @@ async function saveSubject() {
     return
   }
 
-  const validationMessage = subjectFormValidationMessage()
+  const validation = subjectFormValidationMessage()
 
-  if (validationMessage) {
-    formError.value = validationMessage
+  if (validation) {
+    setFormFieldError(
+      formFieldErrors,
+      formError,
+      validation.field,
+      validation.message
+    )
+
+    await focusFirstInvalidField(
+      subjectFormElement.value
+    )
     return
   }
 
@@ -238,9 +255,17 @@ async function saveSubject() {
 
     formError.value =
       presentation.channel === 'field'
-        ? 'Проверьте выделенные поля.'
+        ? FORM_FIELD_ERROR_SUMMARY
         : presentation.message
     failSaving()
+
+    if (
+      presentation.channel === 'field'
+    ) {
+      await focusFirstInvalidField(
+        subjectFormElement.value
+      )
+    }
   }
 }
 
@@ -422,6 +447,7 @@ onMounted(loadSubjects)
       :dismissable-mask="false"
     >
       <form
+        ref="subjectFormElement"
         class="admin-subject-form"
         @submit.prevent="saveSubject"
       >
@@ -433,6 +459,7 @@ onMounted(loadSubjects)
 
         <UiInput
           v-model="form.name"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'name')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
           label="Название предмета"
           maxlength="200"
@@ -442,6 +469,7 @@ onMounted(loadSubjects)
 
         <UiTextarea
           v-model="form.description"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'description')"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
           label="Описание"
           maxlength="1000"

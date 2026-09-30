@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   ref,
   watch,
@@ -37,7 +38,7 @@ import {
 } from '@/stores/auth'
 
 import {
-  createLatestRequestGuard,
+  createAbortableRequestGuard,
 } from '@/utils/latestRequest'
 
 const route = useRoute()
@@ -50,7 +51,7 @@ const error = ref('')
 const subject = ref(null)
 
 const subjectRequest =
-  createLatestRequestGuard()
+  createAbortableRequestGuard()
 
 const subjectId = computed(() => {
   return Number(
@@ -141,8 +142,10 @@ const teacherTopicsRoute =
   }))
 
 async function loadSubject() {
-  const requestId =
-    subjectRequest.begin()
+  const {
+    requestId,
+    signal,
+  } = subjectRequest.begin()
 
   const requestedSubjectId =
     Number(subjectId.value)
@@ -170,10 +173,12 @@ async function loadSubject() {
     const response =
       requestedStudentMode
         ? await learningApi.getSubject(
-            requestedSubjectId
+            requestedSubjectId,
+            { signal }
           )
         : await subjectsApi.getById(
-            requestedSubjectId
+            requestedSubjectId,
+            { signal }
           )
 
     if (
@@ -219,6 +224,10 @@ async function loadSubject() {
     }
   }
 }
+
+onBeforeUnmount(() => {
+  subjectRequest.invalidate()
+})
 
 watch(
   [

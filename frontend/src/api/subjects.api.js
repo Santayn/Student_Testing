@@ -5,8 +5,8 @@ export const subjectsApi = {
     return http.get('/subjects', config)
   },
 
-  getById(subjectId) {
-    return http.get(`/subjects/${subjectId}`)
+  getById(subjectId, config = {}) {
+    return http.get(`/subjects/${subjectId}`, config)
   },
 
   create(data) {

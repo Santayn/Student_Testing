@@ -72,7 +72,12 @@ describe('admin groups overlay workspace', () => {
     expect(groupsView).toContain('name.length > 200')
     expect(groupsView).toContain('code.length > 50')
     expect(groupsView).toContain('Группа с кодом «${code}» уже существует.')
-    expect(groupsView).toContain("return 'Выберите факультет.'")
+    expect(groupsView).toContain(
+      "field: 'facultyId', message: 'Выберите факультет.'"
+    )
+    expect(groupsView).toContain(
+      'setFormFieldError('
+    )
   })
 
   it('keeps workspace filters outside the CRUD lifecycle', () => {

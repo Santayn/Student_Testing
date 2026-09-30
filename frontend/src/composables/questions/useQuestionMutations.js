@@ -6,6 +6,15 @@ import {
 } from '@/api'
 
 import {
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
+
+import {
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
+import {
   questionToForm,
 } from '@/composables/questions/useQuestionEditorState'
 
@@ -19,7 +28,10 @@ export function useQuestionMutations({
   selectedTopicId,
   questions,
   notice,
+  questionValidation,
   questionValidationMessage,
+  formFieldErrors,
+  focusFormErrors = null,
   beginSaving,
   saving,
   finishSaving,
@@ -40,10 +52,36 @@ export function useQuestionMutations({
 
     const wasCreate = !form.id
 
-    formError.value = questionValidationMessage()
+    formFieldErrors.value = {}
+    formError.value = ''
 
-    if (formError.value) {
-      return
+    const validation =
+      questionValidation?.()
+
+    if (validation) {
+      if (validation.field) {
+        setFormFieldError(
+          formFieldErrors,
+          formError,
+          validation.field,
+          validation.message
+        )
+        await focusFormErrors?.()
+      } else {
+        formError.value = validation.message
+      }
+
+      return false
+    }
+
+    // Compatibility for isolated callers that still provide only the old
+    // string-based validator.
+    if (!questionValidation && questionValidationMessage) {
+      formError.value = questionValidationMessage()
+
+      if (formError.value) {
+        return false
+      }
     }
 
     const type = Number(form.type)
@@ -131,13 +169,32 @@ export function useQuestionMutations({
         clearOptions()
       }
     } catch (error) {
-      formError.value = getApiErrorMessage(
-        error,
-        form.id
-          ? 'Не удалось обновить вопрос'
-          : 'Не удалось создать вопрос'
-      )
+      const presentation =
+        presentApiError(
+          error,
+          {
+            context: 'form',
+            fallback: form.id
+              ? 'Не удалось обновить вопрос'
+              : 'Не удалось создать вопрос',
+          }
+        )
+
+      formFieldErrors.value =
+        presentation.fieldErrors
+
+      formError.value =
+        presentation.channel === 'field'
+          ? FORM_FIELD_ERROR_SUMMARY
+          : presentation.message
+
       failSaving()
+
+      if (
+        presentation.channel === 'field'
+      ) {
+        await focusFormErrors?.()
+      }
     }
   }
 

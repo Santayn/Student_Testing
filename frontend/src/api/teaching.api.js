@@ -5,8 +5,11 @@ export const teachingApi = {
     return http.get('/teaching/assignments', { ...config, params })
   },
 
-  getAssignment(assignmentId) {
-    return http.get(`/teaching/assignments/${assignmentId}`)
+  getAssignment(assignmentId, config = {}) {
+    return http.get(
+      `/teaching/assignments/${assignmentId}`,
+      config
+    )
   },
 
   createAssignment(data) {
@@ -17,12 +20,15 @@ export const teachingApi = {
     return http.put(`/teaching/assignments/${assignmentId}`, data)
   },
 
-  getEnrollments(params = {}) {
-    return http.get('/teaching/enrollments', { params })
+  getEnrollments(params = {}, config = {}) {
+    return http.get(
+      '/teaching/enrollments',
+      { ...config, params }
+    )
   },
 
-  getLoadTypes() {
-    return http.get('/teaching/load-types')
+  getLoadTypes(config = {}) {
+    return http.get('/teaching/load-types', config)
   },
 
   createLoadType(data) {
@@ -40,13 +46,19 @@ export const teachingApi = {
     )
   },
 
-  getSubjectLoadTypes(params = {}) {
-    return http.get('/teaching/subject-load-types', { params })
+  getSubjectLoadTypes(params = {}, config = {}) {
+    return http.get(
+      '/teaching/subject-load-types',
+      { ...config, params }
+    )
   },
 
 
-  getLectureAssignments(params = {}) {
-    return http.get('/teaching/lecture-assignments', { params })
+  getLectureAssignments(params = {}, config = {}) {
+    return http.get(
+      '/teaching/lecture-assignments',
+      { ...config, params }
+    )
   },
 
   createLectureAssignment(teachingAssignmentId, data) {

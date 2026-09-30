@@ -48,13 +48,19 @@ describe('stale context hardening', () => {
       const view = source(relativePath)
 
       expect(view)
-        .toContain('createLatestRequestGuard')
+        .toContain('createAbortableRequestGuard')
 
       expect(view)
         .toContain(`${guardName}.begin()`)
 
       expect(view)
         .toContain(`${guardName}.isCurrent(`)
+
+      expect(view)
+        .toContain('{ signal }')
+
+      expect(view)
+        .toContain(`${guardName}.invalidate()`)
 
       expect(view)
         .toContain(capturedContext)
@@ -119,7 +125,16 @@ describe('stale context hardening', () => {
       .toContain('const rawAssignments = responses')
 
     expect(loader)
-      .toContain('groupsApi.getById(groupId, { signal })')
+      .toContain('getSharedLearningContextCache')
+
+    expect(loader)
+      .toContain('`group:${groupId}`')
+
+    expect(loader)
+      .toContain('groupsApi.getById(\n                    groupId\n                  )')
+
+    expect(loader)
+      .not.toContain('groupsApi.getById(groupId, { signal })')
   })
 
   it('keeps teacher workload free from mutation requests', () => {

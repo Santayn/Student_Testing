@@ -6,33 +6,38 @@ import http from './http'
 import { API_TIMEOUTS } from './timeouts'
 
 export const learningApi = {
-  getSubject(subjectId) {
+  getSubject(subjectId, config = {}) {
     return http.get(
-      `/public/learning/subjects/${subjectId}`
+      `/public/learning/subjects/${subjectId}`,
+      config
     )
   },
 
-  getSubjectLectures(subjectId) {
+  getSubjectLectures(subjectId, config = {}) {
     return http.get(
-      `/public/learning/subjects/${subjectId}/lectures`
+      `/public/learning/subjects/${subjectId}/lectures`,
+      config
     )
   },
 
-  getLecture(lectureId) {
+  getLecture(lectureId, config = {}) {
     return http.get(
-      `/public/learning/lectures/${lectureId}`
+      `/public/learning/lectures/${lectureId}`,
+      config
     )
   },
 
-  getLectureMaterials(lectureId) {
+  getLectureMaterials(lectureId, config = {}) {
     return http.get(
-      `/public/learning/lectures/${lectureId}/materials`
+      `/public/learning/lectures/${lectureId}/materials`,
+      config
     )
   },
 
-  getLectureTests(lectureId) {
+  getLectureTests(lectureId, config = {}) {
     return http.get(
-      `/public/learning/lectures/${lectureId}/tests`
+      `/public/learning/lectures/${lectureId}/tests`,
+      config
     )
   },
 
