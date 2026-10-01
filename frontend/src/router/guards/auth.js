@@ -23,6 +23,20 @@ function requiredRoleGroups(to) {
     )
 }
 
+function requiredPermissionGroups(to) {
+  return matchedMeta(to)
+    .map(
+      (meta) =>
+        Array.isArray(meta.permissions)
+          ? meta.permissions
+          : []
+    )
+    .filter(
+      (permissions) =>
+        permissions.length > 0
+    )
+}
+
 function routeRequiresAuth(to) {
   const meta =
     matchedMeta(to)
@@ -32,7 +46,8 @@ function routeRequiresAuth(to) {
       (item) =>
         item.requiresAuth === true
     ) ||
-    requiredRoleGroups(to).length > 0
+    requiredRoleGroups(to).length > 0 ||
+    requiredPermissionGroups(to).length > 0
   )
 }
 
@@ -66,6 +81,18 @@ function hasRequiredRoles(
   )
 }
 
+function hasRequiredPermissions(
+  authStore,
+  permissionGroups
+) {
+  return permissionGroups.every(
+    (permissions) =>
+      authStore.hasAnyPermission(
+        ...permissions
+      )
+  )
+}
+
 export async function authGuard(to) {
   const authStore =
     useAuthStore()
@@ -82,6 +109,9 @@ export async function authGuard(to) {
 
   const roleGroups =
     requiredRoleGroups(to)
+
+  const permissionGroups =
+    requiredPermissionGroups(to)
 
   if (
     requiresAuth &&
@@ -111,6 +141,23 @@ export async function authGuard(to) {
     !hasRequiredRoles(
       authStore,
       roleGroups
+    )
+  ) {
+    return {
+      name: 'forbidden',
+
+      query: {
+        from:
+          to.fullPath,
+      },
+    }
+  }
+
+  if (
+    permissionGroups.length > 0 &&
+    !hasRequiredPermissions(
+      authStore,
+      permissionGroups
     )
   ) {
     return {

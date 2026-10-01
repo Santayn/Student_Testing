@@ -5,3 +5,4 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
       APP_DATA_LOADER_ENABLED: "true"
+      APP_AUTH_REFRESH_COOKIE_SECURE: "false"

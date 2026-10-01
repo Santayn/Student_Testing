@@ -2,6 +2,7 @@
 import {
   computed,
   nextTick,
+  onBeforeUnmount,
   onMounted,
   reactive,
   ref,
@@ -45,6 +46,8 @@ const questions = ref([])
 const attemptId = ref(null)
 const resultData = ref(null)
 
+let gradingPollTimer = null
+
 const singleAnswers =
   reactive({})
 
@@ -85,6 +88,20 @@ const assignmentId = computed(() => {
     : null
 })
 
+const routeAttemptId = computed(() => {
+  const value =
+    Number(
+      route.query.attemptId
+    )
+
+  return (
+    Number.isFinite(value) &&
+    value > 0
+  )
+    ? value
+    : null
+})
+
 const pageTitle = computed(() => {
   return (
     test.value?.title ||
@@ -103,8 +120,14 @@ const pageSubtitle = computed(() => {
     )
   }
 
+  const visibleQuestionCount =
+    questions.value.length ||
+    test.value.questionCount ||
+    resultData.value?.totalCount ||
+    0
+
   return (
-    `Вопросов: ${questions.value.length}, ` +
+    `Вопросов: ${visibleQuestionCount}, ` +
     `попыток: ${
       test.value.attemptsAllowed ??
       '—'
@@ -115,6 +138,85 @@ const pageSubtitle = computed(() => {
 const submitted = computed(() => {
   return resultData.value !== null
 })
+
+const gradingPending = computed(() => {
+  return resultData.value?.gradingStatus === 'PENDING'
+})
+
+const gradingFailed = computed(() => {
+  return resultData.value?.gradingStatus === 'FAILED'
+})
+
+function stopGradingPolling() {
+  if (gradingPollTimer !== null) {
+    clearTimeout(gradingPollTimer)
+    gradingPollTimer = null
+  }
+}
+
+function scheduleGradingPolling(delayMs = 2000) {
+  stopGradingPolling()
+
+  if (
+    !attemptId.value ||
+    !gradingPending.value
+  ) {
+    return
+  }
+
+  gradingPollTimer = setTimeout(
+    refreshGradingStatus,
+    delayMs
+  )
+}
+
+async function refreshGradingStatus() {
+  gradingPollTimer = null
+
+  if (
+    !attemptId.value ||
+    !gradingPending.value
+  ) {
+    return
+  }
+
+  try {
+    const response =
+      await learningApi.getAttemptStatus(
+        attemptId.value
+      )
+
+    const status = response.data ?? {}
+
+    if (resultData.value) {
+      resultData.value = {
+        ...resultData.value,
+        score:
+          status.score ??
+          resultData.value.score,
+        correctCount:
+          status.correctCount ??
+          resultData.value.correctCount,
+        totalCount:
+          status.totalCount ??
+          resultData.value.totalCount,
+        gradingStatus:
+          status.gradingStatus ??
+          resultData.value.gradingStatus,
+      }
+    }
+  } catch {
+    /*
+     * Кратковременная ошибка polling не должна
+     * превращать уже сохранённый результат в ошибку
+     * отправки. Следующая проверка повторится позже.
+     */
+  }
+
+  if (gradingPending.value) {
+    scheduleGradingPolling(3000)
+  }
+}
 
 function clearObject(object) {
   Object.keys(object).forEach(
@@ -425,7 +527,78 @@ function buildSubmission() {
   }
 }
 
+async function rememberAttemptInRoute(id) {
+  if (
+    !id ||
+    routeAttemptId.value === Number(id)
+  ) {
+    return
+  }
+
+  await router.replace({
+    query: {
+      ...route.query,
+      attemptId: String(id),
+    },
+  })
+}
+
+async function restoreRouteAttempt(id) {
+  const statusResponse =
+    await learningApi.getAttemptStatus(id)
+
+  const status = statusResponse.data ?? {}
+
+  if (
+    Number(status.assignmentId) !==
+    assignmentId.value
+  ) {
+    throw new Error(
+      'Сохранённая попытка относится к другому назначению теста.'
+    )
+  }
+
+  if (status.status === 'COMPLETED') {
+    const resultResponse =
+      await learningApi.getAttemptResult(id)
+
+    const payload = resultResponse.data ?? {}
+
+    if (
+      Number(payload.test?.id) !==
+      testId.value
+    ) {
+      throw new Error(
+        'Сохранённая попытка относится к другому тесту.'
+      )
+    }
+
+    attemptId.value = Number(id)
+    test.value = payload.test ?? null
+    questions.value = []
+    resultData.value = payload.result ?? {}
+
+    if (gradingPending.value) {
+      scheduleGradingPolling()
+    }
+
+    return 'COMPLETED'
+  }
+
+  if (status.status === 'IN_PROGRESS') {
+    return 'IN_PROGRESS'
+  }
+
+  throw new Error(
+    status.status === 'EXPIRED'
+      ? 'Сохранённая попытка уже истекла. Вернитесь к лекции и начните новую попытку вручную.'
+      : 'Сохранённая попытка больше недоступна. Вернитесь к лекции и выберите тест заново.'
+  )
+}
+
 async function loadTest() {
+  stopGradingPolling()
+
   if (!assignmentId.value) {
     error.value =
       'Не указано назначение теста. Откройте тест со страницы лекции.'
@@ -439,18 +612,63 @@ async function loadTest() {
   attemptId.value = null
 
   try {
-    const response =
+    let routeAttemptState = null
+
+    if (routeAttemptId.value) {
+      routeAttemptState =
+        await restoreRouteAttempt(
+          routeAttemptId.value
+        )
+
+      if (routeAttemptState === 'COMPLETED') {
+        return
+      }
+    }
+
+    let response =
       await learningApi
-        .startAttempt(
+        .getCurrentAttempt(
           assignmentId.value
         )
 
-    const data =
+    let data =
       response.data ?? {}
+
+    if (
+      routeAttemptState === 'IN_PROGRESS' &&
+      Number(data.attemptId) !== routeAttemptId.value
+    ) {
+      throw new Error(
+        'Текущая попытка изменилась. Вернитесь к лекции и откройте тест заново.'
+      )
+    }
+
+    if (!data.attemptId) {
+      if (routeAttemptState === 'IN_PROGRESS') {
+        throw new Error(
+          'Не удалось восстановить сохранённую попытку. Новая попытка автоматически не создавалась.'
+        )
+      }
+
+      response =
+        await learningApi
+          .startAttempt(
+            assignmentId.value
+          )
+
+      data =
+        response.data ?? {}
+    }
 
     attemptId.value =
       data.attemptId ??
       null
+
+    if (attemptId.value) {
+      await rememberAttemptInRoute(
+        attemptId.value
+      )
+    }
 
     test.value =
       data.test ??
@@ -505,6 +723,10 @@ async function submitTest() {
     resultData.value =
       response.data ?? {}
 
+    if (gradingPending.value) {
+      scheduleGradingPolling()
+    }
+
     await nextTick()
 
     document
@@ -539,6 +761,10 @@ watch(
 )
 
 onMounted(loadTest)
+
+onBeforeUnmount(() => {
+  stopGradingPolling()
+})
 </script>
 
 <template>
@@ -582,7 +808,8 @@ onMounted(loadTest)
     <UiEmptyState
       v-else-if="
         test &&
-        !questions.length
+        !questions.length &&
+        !resultData
       "
       description="В этом тесте пока нет вопросов."
     />
@@ -805,6 +1032,22 @@ onMounted(loadTest)
     >
       <UiCard title="Результат">
         <UiAlert
+          v-if="gradingPending"
+          variant="info"
+          :message="
+            `Ответы сохранены. Текстовые ответы проверяются асинхронно. ` +
+            `Текущий рассчитанный балл: ${resultData.score ?? 0}.`
+          "
+        />
+
+        <UiAlert
+          v-else-if="gradingFailed"
+          variant="warning"
+          message="Ответы сохранены, но автоматическая проверка части текстовых ответов не завершилась. Результат требует проверки преподавателем."
+        />
+
+        <UiAlert
+          v-else
           variant="success"
           :message="
             `Правильных ответов: ${resultData.correctCount ?? 0} ` +
@@ -837,21 +1080,6 @@ onMounted(loadTest)
                   `Вопрос ${index + 1}`
                 }}
               </strong>
-
-              <span
-                class="test-result-detail__status"
-                :class="
-                  detail.correct
-                    ? 'test-result-detail__status--success'
-                    : 'test-result-detail__status--danger'
-                "
-              >
-                {{
-                  detail.correct
-                    ? 'Верно'
-                    : 'Неверно'
-                }}
-              </span>
             </div>
 
             <dl class="test-result-detail__data">
@@ -866,16 +1094,6 @@ onMounted(loadTest)
                 </dd>
               </div>
 
-              <div>
-                <dt>Правильный ответ</dt>
-
-                <dd>
-                  {{
-                    detail.correctAnswer ||
-                    '—'
-                  }}
-                </dd>
-              </div>
             </dl>
           </article>
         </div>

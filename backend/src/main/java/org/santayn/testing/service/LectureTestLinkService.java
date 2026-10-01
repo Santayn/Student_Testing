@@ -3,12 +3,10 @@ package org.santayn.testing.service;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureTestLink;
-import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.test.TestAssignment;
 import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.LectureTestLinkRepository;
-import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.santayn.testing.repository.TestAssignmentRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.springframework.stereotype.Service;
@@ -16,23 +14,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class LectureTestLinkService {
 
-    private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
-
     private final LectureRepository lectureRepository;
     private final LectureTestLinkRepository lectureTestLinkRepository;
-    private final SubjectMembershipRepository subjectMembershipRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
     private final TestAssignmentRepository testAssignmentRepository;
     private final TestRepository testRepository;
 
@@ -41,10 +38,34 @@ public class LectureTestLinkService {
         requireLecture(lectureId);
         return lectureTestLinkRepository.findByCourseLectureIdOrderByIdAsc(lectureId)
                 .stream()
-                .map(LectureTestLink::getTestId)
-                .map(testRepository::findById)
-                .flatMap(Optional::stream)
+                .map(LectureTestLink::getTest)
+                .filter(Objects::nonNull)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Integer, List<Test>> findTestsByLectureIds(Collection<Integer> lectureIds) {
+        LinkedHashSet<Integer> requestedIds = (lectureIds == null ? List.<Integer>of() : lectureIds)
+                .stream()
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (requestedIds.isEmpty()) {
+            return Map.of();
+        }
+
+        LinkedHashMap<Integer, List<Test>> testsByLectureId = new LinkedHashMap<>();
+        requestedIds.forEach(id -> testsByLectureId.put(id, new ArrayList<>()));
+
+        lectureTestLinkRepository.findByCourseLectureIdInOrderByCourseLectureIdAscIdAsc(requestedIds)
+                .forEach(link -> {
+                    Test test = link.getTest();
+                    if (test != null) {
+                        testsByLectureId.computeIfAbsent(link.getCourseLectureId(), ignored -> new ArrayList<>())
+                                .add(test);
+                    }
+                });
+
+        return testsByLectureId;
     }
 
     @Transactional(readOnly = true)
@@ -167,16 +188,6 @@ public class LectureTestLinkService {
         if (lecture.getSubjectMembershipId() == null) {
             return;
         }
-        SubjectMembership membership = subjectMembershipRepository.findById(lecture.getSubjectMembershipId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Subject membership not found: " + lecture.getSubjectMembershipId()
-                ));
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null) {
-            throw new IllegalArgumentException(
-                    "Active teacher subject membership is required: " + lecture.getSubjectMembershipId()
-            );
-        }
+        activeTeacherSubjectMembershipService.requireActiveTeacher(lecture.getSubjectMembershipId());
     }
 }

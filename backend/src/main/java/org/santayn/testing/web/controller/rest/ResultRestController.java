@@ -26,7 +26,6 @@ import org.santayn.testing.repository.LectureAssignmentRepository;
 import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.PersonRepository;
 import org.santayn.testing.repository.QuestionOptionRepository;
-import org.santayn.testing.repository.QuestionRepository;
 import org.santayn.testing.repository.QuestionResponseRepository;
 import org.santayn.testing.repository.SelectedOptionRepository;
 import org.santayn.testing.repository.SubjectMembershipRepository;
@@ -35,10 +34,15 @@ import org.santayn.testing.repository.TeachingAssignmentRepository;
 import org.santayn.testing.repository.TestAssignmentRepository;
 import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.TestRepository;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.service.LectureTestLinkService;
 import org.santayn.testing.service.TestService;
+import org.santayn.testing.service.TextAnswerGradingQueueService;
 import org.santayn.testing.service.TextAnswerEvaluator;
 import org.santayn.testing.service.UserRegisterService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -48,6 +52,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -80,10 +85,10 @@ public class ResultRestController {
     private final PersonRepository personRepository;
     private final TestAttemptRepository testAttemptRepository;
     private final QuestionResponseRepository questionResponseRepository;
-    private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
     private final SelectedOptionRepository selectedOptionRepository;
     private final LectureTestLinkService lectureTestLinkService;
+    private final CurrentUserAccessService accessService;
     private final TestService testService;
     private final UserRegisterService userRegisterService;
 
@@ -101,10 +106,10 @@ public class ResultRestController {
                                 PersonRepository personRepository,
                                 TestAttemptRepository testAttemptRepository,
                                 QuestionResponseRepository questionResponseRepository,
-                                QuestionRepository questionRepository,
                                 QuestionOptionRepository questionOptionRepository,
                                 SelectedOptionRepository selectedOptionRepository,
                                 LectureTestLinkService lectureTestLinkService,
+                                CurrentUserAccessService accessService,
                                 TestService testService,
                                 UserRegisterService userRegisterService) {
         this.subjectMembershipRepository = subjectMembershipRepository;
@@ -121,10 +126,10 @@ public class ResultRestController {
         this.personRepository = personRepository;
         this.testAttemptRepository = testAttemptRepository;
         this.questionResponseRepository = questionResponseRepository;
-        this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
         this.selectedOptionRepository = selectedOptionRepository;
         this.lectureTestLinkService = lectureTestLinkService;
+        this.accessService = accessService;
         this.testService = testService;
         this.userRegisterService = userRegisterService;
     }
@@ -132,6 +137,16 @@ public class ResultRestController {
     @GetMapping("/teacher/subjects")
     @Transactional(readOnly = true)
     public List<ResultSubjectResponse> teacherSubjects(Authentication authentication) {
+        if (accessService.hasGlobalAcademicScope(authentication)) {
+            return subjectRepository.findAll().stream()
+                    .map(subject -> new ResultSubjectResponse(
+                            subject.getId(),
+                            subject.getName(),
+                            subject.getDescription(),
+                            null
+                    ))
+                    .toList();
+        }
         Integer personId = currentPersonId(authentication);
         return subjectMembershipRepository.findByPersonIdAndRemovedAtUtcIsNull(personId)
                 .stream()
@@ -161,7 +176,9 @@ public class ResultRestController {
     @GetMapping("/teacher/lectures")
     @Transactional(readOnly = true)
     public List<ResultLectureResponse> lectures(@RequestParam Integer subjectId, Authentication authentication) {
-        Integer teacherPersonId = currentPersonId(authentication);
+        Integer teacherPersonId = accessService.hasGlobalAcademicScope(authentication)
+                ? null
+                : currentPersonId(authentication);
         String subjectName = subjectRepository.findById(subjectId).map(Subject::getName).orElse("Предмет");
         return teacherLectures(subjectId, teacherPersonId)
                 .stream()
@@ -172,9 +189,10 @@ public class ResultRestController {
     @GetMapping("/teacher/tests")
     @Transactional(readOnly = true)
     public List<ResultTestResponse> tests(@RequestParam Integer lectureId, Authentication authentication) {
-        Integer teacherPersonId = currentPersonId(authentication);
+        boolean globalAcademicScope = accessService.hasGlobalAcademicScope(authentication);
+        Integer teacherPersonId = globalAcademicScope ? null : currentPersonId(authentication);
         Lecture lecture = lectureRepository.findById(lectureId).orElse(null);
-        if (lecture == null || !lectureOwnedByTeacher(lecture, teacherPersonId)) {
+        if (lecture == null || (!globalAcademicScope && !lectureOwnedByTeacher(lecture, teacherPersonId))) {
             return List.of();
         }
 
@@ -194,9 +212,9 @@ public class ResultRestController {
     @Transactional(readOnly = true)
     public List<ResultGroupResponse> groups(@RequestParam Integer testId, Authentication authentication) {
         UserRegisterService.CurrentUser user = currentUser(authentication);
-        boolean admin = hasRole(user, "ADMIN");
-        Integer teacherPersonId = admin ? null : requireCurrentPersonId(user);
-        if (!admin && !teacherTestIds(teacherPersonId).contains(testId)) {
+        boolean globalAcademicScope = accessService.hasGlobalAcademicScope(authentication);
+        Integer teacherPersonId = globalAcademicScope ? null : requireCurrentPersonId(user);
+        if (!globalAcademicScope && !teacherTestIds(teacherPersonId).contains(testId)) {
             throw new AccessDeniedException("Test does not belong to current teacher.");
         }
         Set<Integer> groupIds = new LinkedHashSet<>();
@@ -232,7 +250,7 @@ public class ResultRestController {
                             .map(GroupMembership::getGroupId)
                             .forEach(groupIds::add));
         }
-        if (!admin) {
+        if (!globalAcademicScope) {
             groupIds.retainAll(teacherGroupIds(teacherPersonId));
         }
         return groupIds.stream()
@@ -246,7 +264,8 @@ public class ResultRestController {
     @Transactional(readOnly = true)
     public List<ResultPersonResponse> students(@RequestParam Integer groupId, Authentication authentication) {
         UserRegisterService.CurrentUser user = currentUser(authentication);
-        if (!hasRole(user, "ADMIN") && !teacherGroupIds(requireCurrentPersonId(user)).contains(groupId)) {
+        if (!accessService.hasGlobalAcademicScope(authentication)
+                && !teacherGroupIds(requireCurrentPersonId(user)).contains(groupId)) {
             throw new AccessDeniedException("Group does not belong to current teacher.");
         }
         return groupMembershipRepository.findByGroupIdAndRemovedAtUtcIsNull(groupId)
@@ -271,12 +290,14 @@ public class ResultRestController {
                                    @RequestParam(required = false) Integer testId,
                                    @RequestParam(required = false) Integer groupId,
                                    @RequestParam(required = false) Integer studentId,
+                                   @RequestParam(required = false) Integer page,
+                                   @RequestParam(required = false) Integer size,
                                    Authentication authentication) {
         UserRegisterService.CurrentUser user = currentUser(authentication);
 
-        boolean admin = hasRole(user, "ADMIN");
-        Integer teacherPersonId = admin ? null : requireCurrentPersonId(user);
-        if (!admin) {
+        boolean globalAcademicScope = accessService.hasGlobalAcademicScope(authentication);
+        Integer teacherPersonId = globalAcademicScope ? null : requireCurrentPersonId(user);
+        if (!globalAcademicScope) {
             requireTeacherResultFilters(teacherPersonId, subjectId, lectureId, testId, groupId, studentId);
         }
         return buildResultData(
@@ -286,7 +307,9 @@ public class ResultRestController {
                 groupId,
                 studentId,
                 teacherPersonId,
-                true
+                true,
+                page,
+                size
         );
     }
 
@@ -294,6 +317,8 @@ public class ResultRestController {
     @Transactional(readOnly = true)
     public ResultDataResponse studentData(@RequestParam(required = false) Integer subjectId,
                                           @RequestParam(required = false) Integer testId,
+                                          @RequestParam(required = false) Integer page,
+                                          @RequestParam(required = false) Integer size,
                                           Authentication authentication) {
         Integer studentPersonId = currentPersonId(authentication);
         return buildResultData(
@@ -303,7 +328,9 @@ public class ResultRestController {
                 null,
                 studentPersonId,
                 null,
-                false
+                false,
+                page,
+                size
         );
     }
 
@@ -313,54 +340,117 @@ public class ResultRestController {
                                                Integer groupId,
                                                Integer studentId,
                                                Integer teacherPersonId,
-                                               boolean teacherMode) {
-        Set<Integer> allowedPersonIds = teacherMode
-                ? personIdsForFilter(groupId, studentId, teacherPersonId)
-                : personIdsForCurrentStudent(studentId);
-        Set<Integer> allowedTestIds = teacherMode
-                ? testIdsForFilters(subjectId, lectureId, testId, teacherPersonId)
-                : testIdsForCurrentStudent(subjectId, testId);
-        boolean filterByTestContext = teacherMode
-                ? teacherPersonId != null || subjectId != null || lectureId != null || testId != null
-                : subjectId != null || testId != null;
-        Map<Integer, TestAssignment> assignmentCache = new LinkedHashMap<>();
-        Map<Integer, String> testNameCache = new LinkedHashMap<>();
-        Map<Integer, String> personNameCache = new LinkedHashMap<>();
-        Map<Long, Question> questionCache = new LinkedHashMap<>();
-        List<ResultAttemptAggregate> attempts = new ArrayList<>();
+                                               boolean teacherMode,
+                                               Integer page,
+                                               Integer size) {
         boolean filterByPersonContext = !teacherMode
                 || teacherPersonId != null
                 || groupId != null
                 || studentId != null;
+        boolean filterByTestContext = teacherMode
+                ? teacherPersonId != null || subjectId != null || lectureId != null || testId != null
+                : subjectId != null || testId != null;
 
-        for (TestAttempt attempt : testAttemptRepository.findAll()) {
-            if (filterByPersonContext && !allowedPersonIds.contains(attempt.getPersonId())) {
-                continue;
-            }
-            if (attempt.getStatus() == TestService.ATTEMPT_STATUS_IN_PROGRESS
-                    || attempt.getStatus() == TestService.ATTEMPT_STATUS_INVALIDATED) {
-                continue;
-            }
+        Set<Integer> allowedPersonIds = filterByPersonContext
+                ? (teacherMode
+                    ? personIdsForFilter(groupId, studentId, teacherPersonId)
+                    : personIdsForCurrentStudent(studentId))
+                : Set.of();
+        Set<Integer> allowedTestIds = filterByTestContext
+                ? (teacherMode
+                    ? testIdsForFilters(subjectId, lectureId, testId, teacherPersonId)
+                    : testIdsForCurrentStudent(subjectId, testId))
+                : Set.of();
 
-            TestAssignment assignment = assignmentCache.computeIfAbsent(
-                    attempt.getTestAssignmentId(),
-                    id -> testAssignmentRepository.findById(id).orElse(null)
-            );
+        Pageable pageable = resultPageable(page, size);
+        Page<TestAttempt> attemptPage = testAttemptRepository.findResultAttempts(
+                List.of(TestService.ATTEMPT_STATUS_IN_PROGRESS, TestService.ATTEMPT_STATUS_INVALIDATED),
+                filterByPersonContext,
+                repositoryFilterValues(allowedPersonIds),
+                filterByTestContext,
+                repositoryFilterValues(allowedTestIds),
+                pageable
+        );
+        List<TestAttempt> candidateAttempts = attemptPage.getContent();
+        List<Integer> attemptIds = candidateAttempts.stream()
+                .map(TestAttempt::getId)
+                .toList();
+
+        List<QuestionResponse> responses = attemptIds.isEmpty()
+                ? List.of()
+                : questionResponseRepository.findByTestAttemptIdIn(attemptIds);
+        responses = responses.stream()
+                .sorted(Comparator
+                        .comparing(QuestionResponse::getTestAttemptId)
+                        .thenComparing(QuestionResponse::getId))
+                .toList();
+        Map<Integer, List<QuestionResponse>> responsesByAttempt = responses.stream()
+                .collect(Collectors.groupingBy(
+                        QuestionResponse::getTestAttemptId,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
+        List<Long> responseIds = responses.stream()
+                .map(QuestionResponse::getId)
+                .toList();
+        Map<Long, List<SelectedOption>> selectedOptionsByResponse = responseIds.isEmpty()
+                ? Map.of()
+                : selectedOptionRepository.findByQuestionResponseIdIn(responseIds)
+                    .stream()
+                    .collect(Collectors.groupingBy(
+                            SelectedOption::getQuestionResponseId,
+                            LinkedHashMap::new,
+                            Collectors.toList()
+                    ));
+
+        List<Long> questionIds = responses.stream()
+                .map(QuestionResponse::getTestQuestionId)
+                .distinct()
+                .toList();
+        Map<Long, List<QuestionOption>> optionsByQuestion = !teacherMode || questionIds.isEmpty()
+                ? Map.of()
+                : questionOptionRepository.findByTestQuestionIdInOrderByTestQuestionIdAscOrdinalAsc(questionIds)
+                    .stream()
+                    .collect(Collectors.groupingBy(
+                            QuestionOption::getTestQuestionId,
+                            LinkedHashMap::new,
+                            Collectors.toList()
+                    ));
+
+        Set<Integer> candidateTestIds = candidateAttempts.stream()
+                .map(TestAttempt::getTestAssignment)
+                .filter(Objects::nonNull)
+                .map(TestAssignment::getTestId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Integer, String> testNames = candidateTestIds.isEmpty()
+                ? Map.of()
+                : testRepository.findAllById(candidateTestIds)
+                    .stream()
+                    .collect(Collectors.toMap(
+                            Test::getId,
+                            test -> test.getTitle() == null || test.getTitle().isBlank()
+                                    ? "Тест #" + test.getId()
+                                    : test.getTitle(),
+                            (left, right) -> left,
+                            LinkedHashMap::new
+                    ));
+
+        List<ResultAttemptAggregate> attempts = new ArrayList<>();
+        for (TestAttempt attempt : candidateAttempts) {
+            TestAssignment assignment = attempt.getTestAssignment();
             if (assignment == null || assignment.getTestId() == null) {
-                continue;
-            }
-            if (filterByTestContext && !allowedTestIds.contains(assignment.getTestId())) {
                 continue;
             }
 
             List<ResultItemResponse> results = new ArrayList<>();
             int resultTotal = 0;
             long resultRight = 0;
-            for (QuestionResponse response : questionResponseRepository.findByTestAttemptIdOrderByIdAsc(attempt.getId())) {
-                Question question = questionCache.computeIfAbsent(
-                        response.getTestQuestionId(),
-                        id -> questionRepository.findById(id).orElse(null)
-                );
+            BigDecimal resultMaxScore = BigDecimal.ZERO;
+            BigDecimal fallbackScore = BigDecimal.ZERO;
+            for (QuestionResponse response : responsesByAttempt.getOrDefault(attempt.getId(), List.of())) {
+                Question question = response.getTestQuestion();
                 if (question == null) {
                     continue;
                 }
@@ -369,11 +459,13 @@ public class ResultRestController {
                 if (correct) {
                     resultRight++;
                 }
+                resultMaxScore = resultMaxScore.add(nonNegative(question.getPoints()));
+                fallbackScore = fallbackScore.add(nonNegative(response.getAwardedPoints()));
 
                 results.add(new ResultItemResponse(
                         question.getQuestion(),
-                        givenAnswerDisplay(response, question),
-                        teacherMode ? correctAnswerDisplay(question) : null,
+                        givenAnswerDisplay(response, question, selectedOptionsByResponse),
+                        teacherMode ? correctAnswerDisplay(question, optionsByQuestion) : null,
                         teacherMode ? correct : null,
                         teacherMode ? question.getPoints() : null,
                         teacherMode ? response.getAwardedPoints() : null,
@@ -382,20 +474,27 @@ public class ResultRestController {
                 ));
             }
 
-            String testName = testNameCache.computeIfAbsent(
+            String testName = testNames.getOrDefault(
                     assignment.getTestId(),
-                    id -> testRepository.findById(id)
-                            .map(test -> test.getTitle() == null || test.getTitle().isBlank() ? "Тест #" + id : test.getTitle())
-                            .orElse("Тест #" + id)
+                    "Тест #" + assignment.getTestId()
             );
-            String studentName = personNameCache.computeIfAbsent(
-                    attempt.getPersonId(),
-                    id -> personRepository.findById(id)
-                            .map(person -> {
-                                String name = fullName(person);
-                                return name.isBlank() ? "Студент #" + id : name;
-                            })
-                            .orElse("Студент #" + id)
+            Person person = attempt.getPerson();
+            String studentName;
+            if (person == null) {
+                studentName = "Студент #" + attempt.getPersonId();
+            } else {
+                String fullName = fullName(person);
+                studentName = fullName.isBlank() ? "Студент #" + attempt.getPersonId() : fullName;
+            }
+
+            BigDecimal attemptScore = attempt.getScore() == null
+                    ? fallbackScore
+                    : nonNegative(attempt.getScore());
+            ResultStatsResponse attemptStats = statsResponse(
+                    resultTotal,
+                    resultRight,
+                    attemptScore,
+                    resultMaxScore
             );
 
             attempts.add(new ResultAttemptAggregate(
@@ -406,32 +505,24 @@ public class ResultRestController {
                     studentName,
                     attempt.getOrdinal(),
                     attempt.getCompletedAt(),
-                    statsResponse(resultTotal, resultRight),
+                    attemptStats,
                     results
             ));
         }
 
-        attempts.sort((left, right) -> {
-            if (left.completedAt() == null && right.completedAt() == null) {
-                return Integer.compare(right.attemptId(), left.attemptId());
-            }
-            if (left.completedAt() == null) {
-                return 1;
-            }
-            if (right.completedAt() == null) {
-                return -1;
-            }
-            int completedAtCompare = right.completedAt().compareTo(left.completedAt());
-            return completedAtCompare != 0
-                    ? completedAtCompare
-                    : Integer.compare(right.attemptId(), left.attemptId());
-        });
-
         int total = attempts.stream().map(ResultAttemptAggregate::stats).mapToInt(ResultStatsResponse::total).sum();
         long right = attempts.stream().map(ResultAttemptAggregate::stats).mapToLong(ResultStatsResponse::right).sum();
+        BigDecimal score = attempts.stream()
+                .map(ResultAttemptAggregate::stats)
+                .map(ResultStatsResponse::score)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal maxScore = attempts.stream()
+                .map(ResultAttemptAggregate::stats)
+                .map(ResultStatsResponse::maxScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new ResultDataResponse(
-                statsResponse(total, right),
+                statsResponse(total, right, score, maxScore),
                 testId == null ? null : testRepository.findById(testId).map(Test::getTitle).orElse(null),
                 groupId == null ? null : groupRepository.findById(groupId).map(Group::getName).orElse(null),
                 studentId == null ? null : personRepository.findById(studentId).map(this::fullName).orElse(null),
@@ -445,25 +536,73 @@ public class ResultRestController {
                                 attempt.studentName(),
                                 attempt.attemptOrdinal(),
                                 attempt.completedAt(),
+                                attempt.stats().score(),
+                                attempt.stats().maxScore(),
+                                attempt.stats().scorePercent(),
                                 attempt.stats(),
                                 attempt.results()
                         ))
-                        .toList()
+                        .toList(),
+                pageable.isPaged() ? attemptPage.getNumber() : null,
+                pageable.isPaged() ? attemptPage.getSize() : null,
+                attemptPage.getTotalElements(),
+                pageable.isPaged() ? attemptPage.getTotalPages() : null
         );
     }
 
-    private ResultStatsResponse statsResponse(List<ResultItemResponse> results) {
-        return statsResponse(results.size(), results.stream().filter(item -> Boolean.TRUE.equals(item.correct())).count());
+    private Pageable resultPageable(Integer page, Integer size) {
+        if (page == null && size == null) {
+            return Pageable.unpaged();
+        }
+        int normalizedPage = page == null ? 0 : page;
+        int normalizedSize = size == null ? 100 : size;
+        if (normalizedPage < 0) {
+            throw new IllegalArgumentException("Result page must be greater than or equal to 0.");
+        }
+        if (normalizedSize < 1 || normalizedSize > 500) {
+            throw new IllegalArgumentException("Result page size must be between 1 and 500.");
+        }
+        return PageRequest.of(normalizedPage, normalizedSize);
     }
 
-    private ResultStatsResponse statsResponse(int total, long right) {
-        BigDecimal percent = total == 0
-                ? BigDecimal.ZERO
-                : BigDecimal.valueOf(right * 100.0 / total).setScale(2, RoundingMode.HALF_UP);
-        return new ResultStatsResponse(total, right, percent);
+    private List<Integer> repositoryFilterValues(Set<Integer> values) {
+        return values == null || values.isEmpty() ? List.of(-1) : new ArrayList<>(values);
+    }
+
+    private ResultStatsResponse statsResponse(int total,
+                                              long right,
+                                              BigDecimal score,
+                                              BigDecimal maxScore) {
+        BigDecimal safeScore = nonNegative(score);
+        BigDecimal safeMaxScore = nonNegative(maxScore);
+        BigDecimal scorePercent = safeMaxScore.signum() == 0
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : safeScore.multiply(BigDecimal.valueOf(100))
+                    .divide(safeMaxScore, 2, RoundingMode.HALF_UP);
+        return new ResultStatsResponse(
+                total,
+                right,
+                scorePercent,
+                safeScore,
+                safeMaxScore,
+                scorePercent
+        );
+    }
+
+    private BigDecimal nonNegative(BigDecimal value) {
+        if (value == null || value.signum() < 0) {
+            return BigDecimal.ZERO;
+        }
+        return value;
     }
 
     private String gradingStatus(QuestionResponse response, Question question) {
+        if (TextAnswerGradingQueueService.GRADING_PENDING.equals(response.getGradingStatus())) {
+            return "pending";
+        }
+        if (TextAnswerGradingQueueService.GRADING_FAILED.equals(response.getGradingStatus())) {
+            return "failed";
+        }
         if (Boolean.TRUE.equals(response.getCorrect())) {
             return "correct";
         }
@@ -474,6 +613,14 @@ public class ResultRestController {
     }
 
     private String gradingNote(QuestionResponse response, Question question) {
+        if (TextAnswerGradingQueueService.GRADING_PENDING.equals(response.getGradingStatus())) {
+            return "Text answer grading is pending.";
+        }
+        if (TextAnswerGradingQueueService.GRADING_FAILED.equals(response.getGradingStatus())) {
+            return (response.getGradingError() == null || response.getGradingError().isBlank())
+                    ? "Text answer grading failed and requires review."
+                    : response.getGradingError();
+        }
         if (!requiresTextAnswerTeacherReview(response, question)) {
             return null;
         }
@@ -551,16 +698,12 @@ public class ResultRestController {
     }
 
     private Set<Integer> testIdsForCurrentStudent(Integer subjectId, Integer testId) {
-        if (subjectId == null && testId == null) {
-            return Set.of();
+        if (subjectId == null) {
+            return testId == null ? Set.of() : Set.of(testId);
         }
-        Set<Integer> ids = subjectId == null
-                ? testRepository.findAll().stream()
-                    .map(Test::getId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new))
-                : testService.findAll(subjectId).stream()
-                    .map(Test::getId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Integer> ids = testService.findAll(subjectId).stream()
+                .map(Test::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         if (testId != null) {
             ids.retainAll(Set.of(testId));
         }
@@ -595,15 +738,13 @@ public class ResultRestController {
 
     private Set<Integer> testIdsForFilters(Integer subjectId, Integer lectureId, Integer testId, Integer teacherPersonId) {
         Set<Integer> testIds = teacherPersonId == null
-                ? testRepository.findAll().stream()
-                    .map(Test::getId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new))
-                : teacherTestIds(teacherPersonId);
+                ? null
+                : new LinkedHashSet<>(teacherTestIds(teacherPersonId));
         if (subjectId != null) {
             Set<Integer> subjectTestIds = testService.findAll(subjectId).stream()
                     .map(Test::getId)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
-            testIds.retainAll(subjectTestIds);
+            testIds = intersectResultFilter(testIds, subjectTestIds);
         }
         if (lectureId != null) {
             Set<Integer> lectureTestIds = new LinkedHashSet<>();
@@ -620,12 +761,20 @@ public class ResultRestController {
                     lectureTestIds.add(lecture.getLinkedTestId());
                 }
             }
-            testIds.retainAll(lectureTestIds);
+            testIds = intersectResultFilter(testIds, lectureTestIds);
         }
         if (testId != null) {
-            testIds.retainAll(Set.of(testId));
+            testIds = intersectResultFilter(testIds, Set.of(testId));
         }
-        return testIds;
+        return testIds == null ? Set.of() : testIds;
+    }
+
+    private Set<Integer> intersectResultFilter(Set<Integer> current, Set<Integer> constraint) {
+        if (current == null) {
+            return new LinkedHashSet<>(constraint);
+        }
+        current.retainAll(constraint);
+        return current;
     }
 
     private void requireTeacherResultFilters(Integer teacherPersonId,
@@ -672,8 +821,10 @@ public class ResultRestController {
                 .filter(membership -> membership.getRole() == SUBJECT_ROLE_TEACHER)
                 .map(SubjectMembership::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        return teachingAssignmentRepository.findAll().stream()
-                .filter(assignment -> membershipIds.contains(assignment.getSubjectMembershipId()))
+        if (membershipIds.isEmpty()) {
+            return Set.of();
+        }
+        return teachingAssignmentRepository.findBySubjectMembershipIdIn(membershipIds).stream()
                 .map(TeachingAssignment::getGroupId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -687,8 +838,7 @@ public class ResultRestController {
     }
 
     private Set<Integer> teacherTestIds(Integer teacherPersonId) {
-        Set<Integer> ids = testRepository.findAll().stream()
-                .filter(test -> teacherPersonId.equals(test.getAuthorPersonId()))
+        Set<Integer> ids = testRepository.findByAuthorPersonId(teacherPersonId).stream()
                 .map(Test::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         for (Integer subjectId : teacherSubjectIds(teacherPersonId)) {
@@ -799,35 +949,36 @@ public class ResultRestController {
         return new ResultTestResponse(test.getId(), test.getTitle(), test.getDescription(), test.getQuestionCount());
     }
 
-    private String givenAnswerDisplay(QuestionResponse response, Question question) {
+    private String givenAnswerDisplay(QuestionResponse response,
+                                      Question question,
+                                      Map<Long, List<SelectedOption>> selectedOptionsByResponse) {
         if (QuestionTypeSupport.isMatching(question.getType())) {
             return QuestionTypeSupport.displaySubmittedMatchingPairs(question.getCorrectAnswer(), response.getAnswerText());
         }
-        List<Long> selectedOptionIds = selectedOptionRepository.findByQuestionResponseId(response.getId())
+        List<QuestionOption> selectedOptions = selectedOptionsByResponse
+                .getOrDefault(response.getId(), List.of())
                 .stream()
-                .map(SelectedOption::getQuestionOptionId)
+                .map(SelectedOption::getQuestionOption)
+                .filter(Objects::nonNull)
+                .filter(option -> question.getId().equals(option.getTestQuestionId()))
                 .toList();
-        if (QuestionTypeSupport.usesSelectableOptions(question.getType()) && !selectedOptionIds.isEmpty()) {
-            Map<Long, QuestionOption> options = questionOptionRepository.findAllById(selectedOptionIds)
-                    .stream()
-                    .collect(Collectors.toMap(QuestionOption::getId, option -> option, (left, right) -> left, LinkedHashMap::new));
-            return selectedOptionIds.stream()
-                    .map(options::get)
-                    .filter(option -> option != null && question.getId().equals(option.getTestQuestionId()))
+        if (QuestionTypeSupport.usesSelectableOptions(question.getType()) && !selectedOptions.isEmpty()) {
+            return selectedOptions.stream()
                     .map(QuestionOption::getText)
                     .collect(Collectors.joining(", "));
         }
         return response.getAnswerText();
     }
 
-    private String correctAnswerDisplay(Question question) {
+    private String correctAnswerDisplay(Question question,
+                                        Map<Long, List<QuestionOption>> optionsByQuestion) {
         if (QuestionTypeSupport.isMatching(question.getType())) {
             return QuestionTypeSupport.displayMatchingPairs(question.getCorrectAnswer());
         }
         if (!QuestionTypeSupport.usesSelectableOptions(question.getType())) {
             return question.getCorrectAnswer();
         }
-        List<QuestionOption> options = questionOptionRepository.findByTestQuestionIdOrderByOrdinalAsc(question.getId())
+        List<QuestionOption> options = optionsByQuestion.getOrDefault(question.getId(), List.of())
                 .stream()
                 .filter(QuestionOption::isCorrect)
                 .toList();
@@ -855,17 +1006,6 @@ public class ResultRestController {
         return user.personId();
     }
 
-    private boolean hasRole(UserRegisterService.CurrentUser user, String roleName) {
-        if (user == null || user.roles() == null || roleName == null) {
-            return false;
-        }
-        String normalizedRoleName = roleName.trim().toUpperCase(java.util.Locale.ROOT);
-        return user.roles()
-                .stream()
-                .filter(role -> role != null && !role.isBlank())
-                .map(role -> role.trim().toUpperCase(java.util.Locale.ROOT))
-                .anyMatch(role -> role.equals(normalizedRoleName) || role.equals("ROLE_" + normalizedRoleName));
-    }
 
     private String fullName(Person person) {
         return java.util.stream.Stream.of(person.getLastName(), person.getFirstName())
@@ -894,10 +1034,19 @@ public class ResultRestController {
                                      String selectedGroupName,
                                      String selectedStudentName,
                                      int attemptCount,
-                                     List<ResultAttemptResponse> attempts) {
+                                     List<ResultAttemptResponse> attempts,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) Integer page,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) Integer pageSize,
+                                     long totalAttemptCount,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) Integer totalPages) {
     }
 
-    public record ResultStatsResponse(int total, long right, BigDecimal percent) {
+    public record ResultStatsResponse(int total,
+                                      long right,
+                                      BigDecimal percent,
+                                      BigDecimal score,
+                                      BigDecimal maxScore,
+                                      BigDecimal scorePercent) {
     }
 
     public record ResultAttemptResponse(Integer attemptId,
@@ -907,6 +1056,9 @@ public class ResultRestController {
                                         String studentName,
                                         int attemptOrdinal,
                                         java.time.Instant completedAt,
+                                        BigDecimal score,
+                                        BigDecimal maxScore,
+                                        BigDecimal scorePercent,
                                         ResultStatsResponse stats,
                                         List<ResultItemResponse> results) {
     }

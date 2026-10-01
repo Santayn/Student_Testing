@@ -14,6 +14,8 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
 
     List<GroupMembership> findByPersonIdAndRemovedAtUtcIsNull(Integer personId);
 
+    boolean existsByGroupId(Integer groupId);
+
     boolean existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(Integer groupId, Integer personId, int role);
 
     boolean existsByGroupIdAndRoleAndRemovedAtUtcIsNull(Integer groupId, int role);
@@ -21,6 +23,10 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
     Optional<GroupMembership> findFirstByPersonIdAndRoleAndStatusAndRemovedAtUtcIsNull(Integer personId,
                                                                                        int role,
                                                                                        int status);
+
+    Optional<GroupMembership> findFirstByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(Integer groupId,
+                                                                                           Integer personId,
+                                                                                           int role);
 
     @Query("""
             select membership

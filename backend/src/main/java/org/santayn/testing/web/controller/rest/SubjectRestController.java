@@ -3,10 +3,12 @@ package org.santayn.testing.web.controller.rest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.service.FacultySubjectService;
 import org.santayn.testing.service.SubjectService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,11 +19,14 @@ public class SubjectRestController {
 
     private final SubjectService subjectService;
     private final FacultySubjectService facultySubjectService;
+    private final CurrentUserAccessService accessService;
 
     public SubjectRestController(SubjectService subjectService,
-                                 FacultySubjectService facultySubjectService) {
+                                 FacultySubjectService facultySubjectService,
+                                 CurrentUserAccessService accessService) {
         this.subjectService = subjectService;
         this.facultySubjectService = facultySubjectService;
+        this.accessService = accessService;
     }
 
     @GetMapping
@@ -33,12 +38,14 @@ public class SubjectRestController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponses.SubjectResponse one(@PathVariable Integer id) {
+    public ApiResponses.SubjectResponse one(@PathVariable Integer id, Authentication authentication) {
+        accessService.requireSubjectOwner(authentication, id);
         return ApiResponses.subject(subjectService.get(id));
     }
 
     @GetMapping("/{id}/faculties")
-    public List<ApiResponses.FacultyResponse> faculties(@PathVariable Integer id) {
+    public List<ApiResponses.FacultyResponse> faculties(@PathVariable Integer id, Authentication authentication) {
+        accessService.requireSubjectOwner(authentication, id);
         return ApiResponses.list(facultySubjectService.findFacultiesBySubject(id), ApiResponses::faculty);
     }
 

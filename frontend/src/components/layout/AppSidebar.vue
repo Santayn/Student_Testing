@@ -12,30 +12,37 @@ const teacherItems = [
   {
     label: 'Вопросы',
     route: { name: 'teacher-questions' },
+    permission: 'questions.manage',
   },
   {
     label: 'Тесты',
     route: { name: 'teacher-tests' },
+    permission: 'tests.manage',
   },
   {
     label: 'Создать тест',
     route: { name: 'teacher-test-create' },
+    permission: 'tests.manage',
   },
   {
     label: 'Лекции',
     route: { name: 'teacher-lectures' },
+    permission: 'courses.manage',
   },
   {
     label: 'Темы предмета',
     route: { name: 'teacher-topics' },
+    permission: 'questions.manage',
   },
   {
     label: 'Шаблоны курса',
     route: { name: 'teacher-courses' },
+    permission: 'courses.manage',
   },
   {
     label: 'Нагрузка',
     route: { name: 'teacher-workload' },
+    permission: 'teaching.manage',
   },
 ]
 
@@ -43,51 +50,80 @@ const adminItems = [
   {
     label: 'Пользователи',
     route: { name: 'admin-users' },
+    permission: 'users.read',
   },
   {
     label: 'Факультеты',
     route: { name: 'admin-faculties' },
+    permission: 'academic.manage',
   },
   {
     label: 'Группы',
     route: { name: 'admin-groups' },
+    permission: 'academic.manage',
   },
   {
     label: 'Предметы',
     route: { name: 'admin-subjects' },
+    permission: 'academic.manage',
   },
   {
     label: 'Предметы факультета',
     route: { name: 'admin-faculty-subjects' },
+    permission: 'academic.manage',
   },
   {
     label: 'Предметы преподавателей',
     route: { name: 'admin-teacher-subjects' },
+    permission: 'academic.manage',
   },
   {
     label: 'Преподавательская нагрузка',
     route: { name: 'admin-teaching' },
+    permission: 'academic.manage',
   },
   {
     label: 'Резервные копии',
     route: { name: 'admin-database-backups' },
+    strictRole: 'ADMIN',
   },
 ]
 
 const sections = computed(() => {
   const result = []
 
-  if (authStore.isTeacher || authStore.isAdmin) {
+  const visibleTeacherItems =
+    teacherItems.filter(
+      (item) =>
+        authStore.hasPermission(
+          item.permission
+        )
+    )
+
+  if (visibleTeacherItems.length) {
     result.push({
       title: 'Преподаватель',
-      items: teacherItems,
+      items: visibleTeacherItems,
     })
   }
 
-  if (authStore.isAdmin) {
+  const visibleAdminItems =
+    adminItems.filter((item) => {
+      if (item.strictRole) {
+        return authStore.hasRole(
+          item.strictRole
+        )
+      }
+
+      return authStore.hasPermission(
+        item.permission
+      )
+    })
+
+  if (visibleAdminItems.length) {
     result.push({
       title: 'Администрирование',
-      items: adminItems,
+      items: visibleAdminItems,
     })
   }
 

@@ -4,26 +4,36 @@ import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.repository.CourseVersionRepository;
+import org.santayn.testing.repository.LectureAssignmentRepository;
+import org.santayn.testing.repository.LectureMaterialRepository;
 import org.santayn.testing.repository.LectureRepository;
-import org.santayn.testing.repository.SubjectMembershipRepository;
+import org.santayn.testing.repository.QuestionRepository;
+import org.santayn.testing.repository.TestAssignmentRepository;
+import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class LectureService {
 
-    private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
+    private static final Set<String> SUPPORTED_CONTENT_FORMATS = Set.of("markdown", "plain_text", "html", "json");
 
     private final LectureRepository lectureRepository;
     private final CourseVersionRepository courseVersionRepository;
-    private final SubjectMembershipRepository subjectMembershipRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
     private final TestRepository testRepository;
     private final LectureTestLinkService lectureTestLinkService;
+    private final LectureAssignmentRepository lectureAssignmentRepository;
+    private final LectureMaterialRepository lectureMaterialRepository;
+    private final TestAssignmentRepository testAssignmentRepository;
+    private final QuestionRepository questionRepository;
+    private final TestQuestionSelectionRuleRepository testQuestionSelectionRuleRepository;
 
     @Transactional(readOnly = true)
     public List<Lecture> findAll(Integer subjectId, Integer subjectMembershipId, Integer courseVersionId) {
@@ -55,6 +65,25 @@ public class LectureService {
                           String contentFolderKey,
                           Integer linkedTestId,
                           boolean publicVisible) {
+        return create(
+                subjectId, subjectMembershipId, courseVersionId, ordinal, title, description, contentFolderKey,
+                null, "markdown", 1, linkedTestId, publicVisible
+        );
+    }
+
+    @Transactional
+    public Lecture create(Integer subjectId,
+                          Integer subjectMembershipId,
+                          Integer courseVersionId,
+                          int ordinal,
+                          String title,
+                          String description,
+                          String contentFolderKey,
+                          String contentSource,
+                          String contentFormat,
+                          Integer contentSchemaVersion,
+                          Integer linkedTestId,
+                          boolean publicVisible) {
         LecturePlacement placement = resolvePlacement(subjectId, subjectMembershipId, courseVersionId);
         requireLinkedTest(linkedTestId);
         int normalizedOrdinal = Math.max(1, ordinal);
@@ -64,6 +93,7 @@ public class LectureService {
                 normalizedOrdinal,
                 null
         );
+        SemanticContent semanticContent = normalizeSemanticContent(contentSource, contentFormat, contentSchemaVersion);
 
         Lecture lecture = new Lecture();
         lecture.setSubjectId(placement.subjectId());
@@ -73,6 +103,9 @@ public class LectureService {
         lecture.setTitle(FacultyService.requireText(title, "Title"));
         lecture.setDescription(FacultyService.trimToNull(description));
         lecture.setContentFolderKey(FacultyService.requireText(contentFolderKey, "ContentFolderKey"));
+        lecture.setContentSource(semanticContent.source());
+        lecture.setContentFormat(semanticContent.format());
+        lecture.setContentSchemaVersion(semanticContent.schemaVersion());
         lecture.setLinkedTestId(linkedTestId);
         lecture.setPublicVisible(publicVisible);
         Lecture savedLecture = lectureRepository.save(lecture);
@@ -91,6 +124,28 @@ public class LectureService {
                           String contentFolderKey,
                           Integer linkedTestId,
                           boolean publicVisible) {
+        Lecture existing = get(lectureId);
+        return update(
+                lectureId, subjectId, subjectMembershipId, courseVersionId, ordinal, title, description,
+                contentFolderKey, existing.getContentSource(), existing.getContentFormat(), existing.getContentSchemaVersion(),
+                linkedTestId, publicVisible
+        );
+    }
+
+    @Transactional
+    public Lecture update(Integer lectureId,
+                          Integer subjectId,
+                          Integer subjectMembershipId,
+                          Integer courseVersionId,
+                          int ordinal,
+                          String title,
+                          String description,
+                          String contentFolderKey,
+                          String contentSource,
+                          String contentFormat,
+                          Integer contentSchemaVersion,
+                          Integer linkedTestId,
+                          boolean publicVisible) {
         Lecture lecture = get(lectureId);
         LecturePlacement placement = resolvePlacement(subjectId, subjectMembershipId, courseVersionId);
         requireLinkedTest(linkedTestId);
@@ -101,6 +156,7 @@ public class LectureService {
                 normalizedOrdinal,
                 lectureId
         );
+        SemanticContent semanticContent = normalizeSemanticContent(contentSource, contentFormat, contentSchemaVersion);
 
         lecture.setSubjectId(placement.subjectId());
         lecture.setSubjectMembershipId(placement.subjectMembershipId());
@@ -109,6 +165,9 @@ public class LectureService {
         lecture.setTitle(FacultyService.requireText(title, "Title"));
         lecture.setDescription(FacultyService.trimToNull(description));
         lecture.setContentFolderKey(FacultyService.requireText(contentFolderKey, "ContentFolderKey"));
+        lecture.setContentSource(semanticContent.source());
+        lecture.setContentFormat(semanticContent.format());
+        lecture.setContentSchemaVersion(semanticContent.schemaVersion());
         lecture.setLinkedTestId(linkedTestId);
         lecture.setPublicVisible(publicVisible);
         ensureLinkedTestAvailability(lecture);
@@ -127,14 +186,50 @@ public class LectureService {
     @Transactional
     public void delete(Integer id) {
         Lecture lecture = get(id);
+        boolean hasLectureAssignments = lectureAssignmentRepository.existsByCourseLectureId(id);
+        boolean hasTestAssignments = testAssignmentRepository.existsByCourseLectureId(id);
+        boolean hasMaterials = lectureMaterialRepository.existsByCourseLectureId(id);
+        boolean hasQuestions = questionRepository.existsByCourseLectureId(id);
+        boolean hasSelectionRules = testQuestionSelectionRuleRepository.existsByCourseLectureId(id);
+        if (hasLectureAssignments || hasTestAssignments || hasMaterials || hasQuestions || hasSelectionRules) {
+            throw new ResourceInUseException(
+                    "lecture",
+                    id,
+                    "Lecture cannot be deleted while assignments, materials, questions, or test rules reference it.",
+                    java.util.Map.of(
+                            "lectureAssignments", hasLectureAssignments,
+                            "testAssignments", hasTestAssignments,
+                            "materials", hasMaterials,
+                            "questions", hasQuestions,
+                            "testSelectionRules", hasSelectionRules
+                    )
+            );
+        }
         lectureRepository.delete(lecture);
+    }
+
+    private SemanticContent normalizeSemanticContent(String source, String format, Integer schemaVersion) {
+        String normalizedSource = FacultyService.trimToNull(source);
+        String normalizedFormat = format == null || format.isBlank()
+                ? "markdown"
+                : format.trim().toLowerCase(Locale.ROOT);
+        if (!SUPPORTED_CONTENT_FORMATS.contains(normalizedFormat)) {
+            throw new IllegalArgumentException(
+                    "ContentFormat must be one of: " + String.join(", ", SUPPORTED_CONTENT_FORMATS) + "."
+            );
+        }
+        int normalizedSchemaVersion = schemaVersion == null ? 1 : schemaVersion;
+        if (normalizedSchemaVersion < 1) {
+            throw new IllegalArgumentException("ContentSchemaVersion must be greater than or equal to 1.");
+        }
+        return new SemanticContent(normalizedSource, normalizedFormat, normalizedSchemaVersion);
     }
 
     private LecturePlacement resolvePlacement(Integer subjectId,
                                              Integer subjectMembershipId,
                                              Integer courseVersionId) {
         if (subjectMembershipId != null) {
-            SubjectMembership membership = requireActiveTeacherSubjectMembership(subjectMembershipId);
+            SubjectMembership membership = activeTeacherSubjectMembershipService.requireActiveTeacher(subjectMembershipId);
             if (subjectId != null && !subjectId.equals(membership.getSubjectId())) {
                 throw new IllegalArgumentException("Subject membership " + subjectMembershipId
                         + " does not belong to subject " + subjectId + ".");
@@ -155,19 +250,6 @@ public class LectureService {
                     + " does not belong to subject " + subjectId + ".");
         }
         return new LecturePlacement(resolvedSubjectId, null, courseVersionId);
-    }
-
-    private SubjectMembership requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
-        SubjectMembership membership = subjectMembershipRepository.findById(subjectMembershipId)
-                .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null) {
-            throw new IllegalArgumentException(
-                    "Active teacher subject membership is required: " + subjectMembershipId
-            );
-        }
-        return membership;
     }
 
     private void requireCourseVersionMatchesSubject(Integer courseVersionId, Integer subjectId) {
@@ -220,4 +302,8 @@ public class LectureService {
 
     private record LecturePlacement(Integer subjectId, Integer subjectMembershipId, Integer courseVersionId) {
     }
+
+    private record SemanticContent(String source, String format, int schemaVersion) {
+    }
+
 }

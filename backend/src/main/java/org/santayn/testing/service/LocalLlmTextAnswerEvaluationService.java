@@ -2,8 +2,6 @@ package org.santayn.testing.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
@@ -24,7 +22,6 @@ import java.util.Set;
 @ConditionalOnProperty(name = "app.text-answer-grading.local-llm.enabled", havingValue = "true")
 public class LocalLlmTextAnswerEvaluationService implements TextAnswerEvaluationService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LocalLlmTextAnswerEvaluationService.class);
     private static final String DEFAULT_ENDPOINT = "http://127.0.0.1:11434/api/generate";
     private static final String DEFAULT_MODEL = "qwen2.5:1.5b-instruct";
     private static final Set<String> LOCAL_HOSTS = Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1");
@@ -70,17 +67,18 @@ public class LocalLlmTextAnswerEvaluationService implements TextAnswerEvaluation
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                LOGGER.warn("Local LLM answer grading failed with status {}.", response.statusCode());
-                return fallbackEvaluation(expectedRaw, actualRaw);
+                throw new TextAnswerEvaluationUnavailableException(
+                        "Local LLM returned HTTP " + response.statusCode() + "."
+                );
             }
             return parseDecision(extractResponseText(response.body()));
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            LOGGER.warn("Local LLM answer grading was interrupted.");
-            return fallbackEvaluation(expectedRaw, actualRaw);
+            throw new TextAnswerEvaluationUnavailableException("Local LLM grading was interrupted.", error);
+        } catch (TextAnswerEvaluationUnavailableException error) {
+            throw error;
         } catch (Exception error) {
-            LOGGER.warn("Local LLM answer grading failed: {}", error.getMessage());
-            return fallbackEvaluation(expectedRaw, actualRaw);
+            throw new TextAnswerEvaluationUnavailableException("Local LLM grading failed.", error);
         }
     }
 
@@ -122,7 +120,7 @@ public class LocalLlmTextAnswerEvaluationService implements TextAnswerEvaluation
     private TextAnswerEvaluationResult parseDecision(String value) {
         String normalized = FacultyService.trimToNull(value);
         if (normalized == null) {
-            return TextAnswerEvaluationResult.INCORRECT;
+            throw new TextAnswerEvaluationUnavailableException("Local LLM returned an empty grading decision.");
         }
         normalized = normalized.toLowerCase(Locale.ROOT);
         if (normalized.startsWith("{")) {
@@ -135,7 +133,11 @@ public class LocalLlmTextAnswerEvaluationService implements TextAnswerEvaluation
         if (normalized.equals("partial") || normalized.startsWith("partial\n") || normalized.startsWith("partial ")) {
             return TextAnswerEvaluationResult.PARTIALLY_CORRECT;
         }
-        return TextAnswerEvaluationResult.INCORRECT;
+        if (normalized.equals("false") || normalized.startsWith("false\n") || normalized.startsWith("false ")
+                || normalized.equals("incorrect") || normalized.startsWith("incorrect\n") || normalized.startsWith("incorrect ")) {
+            return TextAnswerEvaluationResult.INCORRECT;
+        }
+        throw new TextAnswerEvaluationUnavailableException("Local LLM returned an unsupported grading decision.");
     }
 
     private TextAnswerEvaluationResult parseJsonDecision(String value) {
@@ -160,17 +162,12 @@ public class LocalLlmTextAnswerEvaluationService implements TextAnswerEvaluation
             if (correct.isBoolean()) {
                 return correct.asBoolean() ? TextAnswerEvaluationResult.CORRECT : TextAnswerEvaluationResult.INCORRECT;
             }
-            return TextAnswerEvaluationResult.INCORRECT;
-        } catch (Exception ignored) {
-            return TextAnswerEvaluationResult.INCORRECT;
+            throw new TextAnswerEvaluationUnavailableException("Local LLM returned unsupported grading JSON.");
+        } catch (TextAnswerEvaluationUnavailableException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new TextAnswerEvaluationUnavailableException("Local LLM returned invalid grading JSON.", error);
         }
-    }
-
-    private TextAnswerEvaluationResult fallbackEvaluation(String expectedRaw, String actualRaw) {
-        if (TextAnswerEvaluator.isPartiallyCorrect(expectedRaw, actualRaw)) {
-            return TextAnswerEvaluationResult.PARTIALLY_CORRECT;
-        }
-        return TextAnswerEvaluationResult.INCORRECT;
     }
 
     private static URI requireLocalEndpoint(String rawEndpoint) {

@@ -15,6 +15,7 @@ import lombok.Setter;
 import org.santayn.testing.models.test.TestAttempt;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -50,4 +51,16 @@ public class QuestionResponse {
 
     @Column(name = "`AwardedPoints`", precision = 8, scale = 2)
     private BigDecimal awardedPoints;
+
+    @Column(name = "`GradingStatus`", length = 20)
+    private String gradingStatus = "GRADED";
+
+    @Column(name = "`GradingVersion`", nullable = false)
+    private int gradingVersion;
+
+    @Column(name = "`GradingUpdatedAtUtc`")
+    private Instant gradingUpdatedAtUtc;
+
+    @Column(name = "`GradingError`", length = 1000)
+    private String gradingError;
 }

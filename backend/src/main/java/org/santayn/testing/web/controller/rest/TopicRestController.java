@@ -31,7 +31,7 @@ public class TopicRestController {
                                                 @RequestParam(required = false) Integer courseLectureId,
                                                 @RequestParam(required = false) Integer subjectMembershipId,
                                                 Authentication authentication) {
-        if (!accessService.isAdmin(authentication)) {
+        if (!accessService.hasGlobalAcademicScope(authentication)) {
             if (subjectMembershipId == null) {
                 throw new org.springframework.security.access.AccessDeniedException(
                         "Teacher topic queries require subjectMembershipId."

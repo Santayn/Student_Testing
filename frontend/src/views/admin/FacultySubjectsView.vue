@@ -186,14 +186,16 @@ async function addSubjects() {
   saving.value = true
 
   try {
-    await Promise.all(
-      ids.map(
-        (subjectId) =>
-          facultiesApi.addSubject(
-            Number(facultyId.value),
-            subjectId
-          )
-      )
+    const nextIds = uniqueNumbers([
+      ...assignedSubjects.value.map(
+        (subject) => subject.id
+      ),
+      ...ids,
+    ])
+
+    await facultiesApi.replaceSubjects(
+      Number(facultyId.value),
+      nextIds
     )
 
     showNotice(
@@ -230,14 +232,21 @@ async function removeSubjects() {
   saving.value = true
 
   try {
-    await Promise.all(
-      ids.map(
-        (subjectId) =>
-          facultiesApi.removeSubject(
-            Number(facultyId.value),
-            subjectId
-          )
-      )
+    const removalIds = new Set(ids)
+    const nextIds = uniqueNumbers(
+      assignedSubjects.value
+        .map((subject) => subject.id)
+        .filter(
+          (subjectId) =>
+            !removalIds.has(
+              Number(subjectId)
+            )
+        )
+    )
+
+    await facultiesApi.replaceSubjects(
+      Number(facultyId.value),
+      nextIds
     )
 
     showNotice(

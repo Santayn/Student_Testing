@@ -31,10 +31,10 @@ public class CourseRestController {
                                                                @RequestParam(required = false) Integer authorPersonId,
                                                                @RequestParam(defaultValue = "false") boolean publicOnly,
                                                                Authentication authentication) {
-        Integer effectiveAuthorId = accessService.isAdmin(authentication)
+        Integer effectiveAuthorId = accessService.hasGlobalAcademicScope(authentication)
                 ? authorPersonId
                 : accessService.currentPersonId(authentication);
-        if (!accessService.isAdmin(authentication) && subjectId != null) {
+        if (!accessService.hasGlobalAcademicScope(authentication) && subjectId != null) {
             accessService.requireSubjectOwner(authentication, subjectId);
         }
         return ApiResponses.list(courseService.findTemplates(subjectId, effectiveAuthorId, publicOnly), ApiResponses::courseTemplate);
@@ -64,7 +64,7 @@ public class CourseRestController {
                                                               Authentication authentication) {
         accessService.requireCourseTemplateOwner(authentication, templateId);
         accessService.requireSubjectOwner(authentication, request.subjectId());
-        Integer authorPersonId = accessService.isAdmin(authentication)
+        Integer authorPersonId = accessService.hasGlobalAcademicScope(authentication)
                 ? courseService.getTemplate(templateId).getAuthorPersonId()
                 : accessService.currentPersonId(authentication);
         return ApiResponses.courseTemplate(courseService.updateTemplate(

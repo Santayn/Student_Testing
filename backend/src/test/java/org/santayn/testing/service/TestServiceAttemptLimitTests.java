@@ -56,7 +56,7 @@ class TestServiceAttemptLimitTests {
     @Mock private LectureTestLinkRepository lectureTestLinkRepository;
     @Mock private TestQuestionSelectionRuleRepository selectionRuleRepository;
     @Mock private TopicRepository topicRepository;
-    @Mock private TextAnswerEvaluationService textAnswerEvaluationService;
+    @Mock private TextAnswerGradingQueueService textAnswerGradingQueueService;
 
     private TestService testService;
 
@@ -79,7 +79,7 @@ class TestServiceAttemptLimitTests {
                 lectureTestLinkRepository,
                 selectionRuleRepository,
                 topicRepository,
-                textAnswerEvaluationService,
+                textAnswerGradingQueueService,
                 null
         );
     }

@@ -5,13 +5,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface TeachingAssignmentEnrollmentRepository extends JpaRepository<TeachingAssignmentEnrollment, Integer> {
 
+    boolean existsByTeachingAssignmentId(Integer teachingAssignmentId);
+
     List<TeachingAssignmentEnrollment> findByTeachingAssignmentId(Integer teachingAssignmentId);
 
     List<TeachingAssignmentEnrollment> findByGroupMembershipId(Integer groupMembershipId);
+
+    List<TeachingAssignmentEnrollment> findByGroupMembershipIdIn(Collection<Integer> groupMembershipIds);
 
     @Query("""
             select enrollment

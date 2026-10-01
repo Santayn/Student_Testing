@@ -75,6 +75,27 @@ class LocalLlmTextAnswerEvaluationServiceTests {
     }
 
     @Test
+    void acceptsExplicitIncorrectVerdictAsAValidGradingResult() throws Exception {
+        try (LoopbackServer server = LoopbackServer.responding("{\"response\":\"incorrect\"}")) {
+            TextAnswerEvaluationService service = new LocalLlmTextAnswerEvaluationService(
+                    new ObjectMapper(),
+                    server.endpoint(),
+                    "test-model",
+                    3
+            );
+
+            TextAnswerEvaluationResult result = service.evaluate(
+                    "What is SQL?",
+                    "SQL is a declarative query language for relational databases",
+                    "A graphics rendering API"
+            );
+
+            assertThat(result).isEqualTo(TextAnswerEvaluationResult.INCORRECT);
+            assertThat(server.requestCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
     void rejectsNonLocalEndpoint() {
         assertThatThrownBy(() -> new LocalLlmTextAnswerEvaluationService(
                 new ObjectMapper(),

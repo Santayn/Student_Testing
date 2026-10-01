@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,7 +13,11 @@ public interface LectureRepository extends JpaRepository<Lecture, Integer> {
 
     List<Lecture> findBySubjectIdOrderByOrdinalAsc(Integer subjectId);
 
+    boolean existsBySubjectId(Integer subjectId);
+
     List<Lecture> findBySubjectMembershipIdOrderByOrdinalAsc(Integer subjectMembershipId);
+
+    List<Lecture> findBySubjectMembershipIdInOrderBySubjectMembershipIdAscOrdinalAsc(Collection<Integer> subjectMembershipIds);
 
     List<Lecture> findByCourseVersionIdOrderByOrdinalAsc(Integer courseVersionId);
 

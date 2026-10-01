@@ -9,3 +9,8 @@ spring:
 app:
   data-loader:
     enabled: true
+  openapi:
+    public-enabled: true
+  security:
+    refresh-cookie:
+      secure: false

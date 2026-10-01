@@ -1,6 +1,14 @@
 import http from './http'
 
 export const teachingApi = {
+  getProfileContext() {
+    return http.get('/teaching/profile-context')
+  },
+
+  getWorkload(params = {}) {
+    return http.get('/teaching/workload', { params })
+  },
+
   getAssignments(params = {}) {
     return http.get('/teaching/assignments', { params })
   },

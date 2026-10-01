@@ -87,10 +87,10 @@ async function bootstrap() {
   })
 
   /*
-   * Восстанавливаем persisted session:
-   *
-   * access жив -> /auth/me
-   * access истёк -> /auth/refresh -> /auth/me
+   * Access token намеренно не хранится между перезагрузками.
+   * Если persisted metadata говорит, что refresh-session ещё
+   * действительна, init() восстанавливает новый access token
+   * через HttpOnly cookie + CSRF handshake.
    */
   await authStore.init()
 

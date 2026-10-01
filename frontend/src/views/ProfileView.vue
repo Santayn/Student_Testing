@@ -10,16 +10,10 @@ import {
 } from '@/components/ui'
 
 import {
-  facultiesApi,
   getApiErrorMessage,
-  groupsApi,
-  membershipsApi,
-  subjectsApi,
+  learningApi,
   teachingApi,
 } from '@/api'
-
-const SUBJECT_ROLE_TEACHER = 1
-const GROUP_ROLE_STUDENT = 1
 
 const authStore = useAuthStore()
 
@@ -135,6 +129,12 @@ const rolesText = computed(() => {
     : '-'
 })
 
+const canViewTeacherProfile = computed(() => {
+  return authStore.hasPermission(
+    'teaching.manage'
+  )
+})
+
 const tabs = computed(() => {
   const items = [
     {
@@ -152,7 +152,7 @@ const tabs = computed(() => {
     })
   }
 
-  if (authStore.isTeacher || authStore.isAdmin) {
+  if (canViewTeacherProfile.value) {
     items.push({
       name: 'teacher',
       label: 'Преподаватель',
@@ -162,36 +162,6 @@ const tabs = computed(() => {
 
   return items
 })
-
-function arrayData(response) {
-  const data = response?.data
-
-  if (Array.isArray(data)) {
-    return data
-  }
-
-  if (Array.isArray(data?.content)) {
-    return data.content
-  }
-
-  if (Array.isArray(data?.items)) {
-    return data.items
-  }
-
-  return []
-}
-
-function unique(values) {
-  return [
-    ...new Set(
-      values.filter(
-        (value) =>
-          value !== null &&
-          value !== undefined
-      )
-    ),
-  ]
-}
 
 function subjectLabel(subject) {
   return (
@@ -226,156 +196,26 @@ async function loadStudentInfo() {
     return
   }
 
-  const membershipsResponse =
-    await membershipsApi.getGroupMemberships({
-      personId: personId.value,
-      activeOnly: true,
-    })
+  const response =
+    await learningApi.getSnapshot()
 
-  const memberships = arrayData(
-    membershipsResponse
-  )
-
-  const membership = memberships.find(
-    (item) =>
-      Number(item.role) === GROUP_ROLE_STUDENT
-  )
-
-  if (!membership) {
-    studentInfo.value = {
-      membership: null,
-      group: null,
-      faculty: null,
-      subjects: [],
-    }
-
-    return
-  }
-
-  const groupResponse =
-    await groupsApi.getById(
-      membership.groupId
-    )
-
-  const group = groupResponse.data ?? null
-
-  let faculty = null
-
-  if (group?.facultyId) {
-    const facultyResponse =
-      await facultiesApi.getById(
-        group.facultyId
-      )
-
-    faculty = facultyResponse.data ?? null
-  }
-
-  const [
-    enrollmentsResponse,
-    groupAssignmentsResponse,
-  ] = await Promise.all([
-    teachingApi.getEnrollments({
-      groupMembershipId: membership.id,
-    }),
-
-    teachingApi.getAssignments({
-      groupId: group?.id,
-    }),
-  ])
-
-  const enrollments = arrayData(
-    enrollmentsResponse
-  )
-
-  const groupAssignments = arrayData(
-    groupAssignmentsResponse
-  )
-
-  const enrolledAssignmentIds = unique(
-    enrollments.map(
-      (item) =>
-        item.teachingAssignmentId
-    )
-  )
-
-  const enrolledAssignments =
-    await Promise.all(
-      enrolledAssignmentIds.map(
-        async (assignmentId) => {
-          const response =
-            await teachingApi.getAssignment(
-              assignmentId
-            )
-
-          return response.data
-        }
-      )
-    )
-
-  const assignments = [
-    ...new Map(
-      [
-        ...groupAssignments,
-        ...enrolledAssignments,
-      ]
-        .filter(
-          (item) =>
-            item &&
-            item.id !== null &&
-            item.id !== undefined
-        )
-        .map(
-          (item) => [item.id, item]
-        )
-    ).values(),
-  ]
-
-  const subjectMembershipIds = unique(
-    assignments.map(
-      (item) =>
-        item.subjectMembershipId
-    )
-  )
-
-  const subjectMemberships =
-    await Promise.all(
-      subjectMembershipIds.map(
-        async (membershipId) => {
-          const response =
-            await membershipsApi
-              .getSubjectMembership(
-                membershipId
-              )
-
-          return response.data
-        }
-      )
-    )
-
-  const subjectIds = unique(
-    subjectMemberships.map(
-      (item) => item?.subjectId
-    )
-  )
-
-  const subjects = await Promise.all(
-    subjectIds.map(
-      async (subjectId) => {
-        const response =
-          await subjectsApi.getById(
-            subjectId
-          )
-
-        return response.data
-      }
-    )
-  )
+  const snapshot = response.data ?? {}
+  const group = snapshot.group ?? null
 
   studentInfo.value = {
-    membership,
+    membership: group?.membershipId
+      ? {
+          id: group.membershipId,
+          groupId: group.id,
+        }
+      : null,
     group,
-    faculty,
-    subjects,
+    faculty: snapshot.faculty ?? null,
+    subjects: Array.isArray(snapshot.subjects)
+      ? snapshot.subjects
+          .map((item) => item?.subject)
+          .filter(Boolean)
+      : [],
   }
 }
 
@@ -384,82 +224,18 @@ async function loadTeacherInfo() {
     return
   }
 
-  const membershipsResponse =
-    await membershipsApi
-      .getSubjectMemberships({
-        personId: personId.value,
-        activeOnly: true,
-      })
+  const response =
+    await teachingApi.getProfileContext()
 
-  const memberships = arrayData(
-    membershipsResponse
-  )
-
-  const teacherMemberships =
-    memberships.filter(
-      (item) =>
-        Number(item.role) ===
-        SUBJECT_ROLE_TEACHER
-    )
-
-  const subjectIds = unique(
-    teacherMemberships.map(
-      (item) => item.subjectId
-    )
-  )
-
-  const subjects = await Promise.all(
-    subjectIds.map(
-      async (subjectId) => {
-        const response =
-          await subjectsApi.getById(
-            subjectId
-          )
-
-        return response.data
-      }
-    )
-  )
-
-  const assignmentResponses =
-    await Promise.all(
-      teacherMemberships.map(
-        (membership) =>
-          teachingApi.getAssignments({
-            subjectMembershipId:
-              membership.id,
-          })
-      )
-    )
-
-  const assignments =
-    assignmentResponses.flatMap(
-      (response) =>
-        arrayData(response)
-    )
-
-  const groupIds = unique(
-    assignments.map(
-      (item) => item.groupId
-    )
-  )
-
-  const groups = await Promise.all(
-    groupIds.map(
-      async (groupId) => {
-        const response =
-          await groupsApi.getById(
-            groupId
-          )
-
-        return response.data
-      }
-    )
-  )
+  const context = response.data ?? {}
 
   teacherInfo.value = {
-    subjects,
-    groups,
+    subjects: Array.isArray(context.subjects)
+      ? context.subjects
+      : [],
+    groups: Array.isArray(context.groups)
+      ? context.groups
+      : [],
   }
 }
 
@@ -476,10 +252,7 @@ async function loadProfile() {
       jobs.push(loadStudentInfo())
     }
 
-    if (
-      authStore.isTeacher ||
-      authStore.isAdmin
-    ) {
+    if (canViewTeacherProfile.value) {
       jobs.push(loadTeacherInfo())
     }
 
@@ -749,8 +522,7 @@ onMounted(loadProfile)
         v-if="
           activeTab === 'teacher' &&
           (
-            authStore.isTeacher ||
-            authStore.isAdmin
+            canViewTeacherProfile
           )
         "
         class="profile-panel"

@@ -1,10 +1,12 @@
-import {
-  ADMIN_ROLES,
-} from '../roles'
-
-const adminMeta = {
+const permissionMeta = (permissions) => ({
   requiresAuth: true,
-  roles: ADMIN_ROLES,
+  permissions,
+  sidebar: true,
+})
+
+const strictAdminMeta = {
+  requiresAuth: true,
+  roles: ['ADMIN'],
   sidebar: true,
 }
 
@@ -18,7 +20,7 @@ export const adminRoutes = [
         '@/views/admin/UsersView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['users.read']),
   },
 
   {
@@ -30,7 +32,7 @@ export const adminRoutes = [
         '@/views/admin/FacultiesView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['academic.manage']),
   },
 
   {
@@ -42,7 +44,7 @@ export const adminRoutes = [
         '@/views/admin/GroupsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['academic.manage']),
   },
 
   {
@@ -54,7 +56,7 @@ export const adminRoutes = [
         '@/views/admin/SubjectsAdminView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['academic.manage']),
   },
 
   {
@@ -66,7 +68,7 @@ export const adminRoutes = [
         '@/views/admin/FacultySubjectsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['academic.manage']),
   },
 
   {
@@ -78,7 +80,7 @@ export const adminRoutes = [
         '@/views/admin/TeacherSubjectsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['academic.manage']),
   },
 
   {
@@ -90,7 +92,7 @@ export const adminRoutes = [
         '@/views/admin/TeachingTemplatesView.vue'
       ),
 
-    meta: adminMeta,
+    meta: permissionMeta(['academic.manage']),
   },
 
   {
@@ -102,6 +104,6 @@ export const adminRoutes = [
         '@/views/admin/DatabaseBackupsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: strictAdminMeta,
   },
 ]

@@ -1,5 +1,6 @@
 package org.santayn.testing.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.santayn.testing.models.role.Permission;
 import org.santayn.testing.models.role.Role;
 import org.santayn.testing.models.user.RefreshToken;
@@ -16,6 +17,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +34,8 @@ import java.util.TreeSet;
 @Service
 public class UserRegisterService implements UserDetailsService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserRegisterService.class);
+
     private static final int LOGIN_MAX_LENGTH = 100;
     private static final int PASSWORD_MIN_LENGTH = 6;
     private static final int PASSWORD_MAX_LENGTH = 200;
@@ -39,17 +44,20 @@ public class UserRegisterService implements UserDetailsService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final DotNetPasswordHasher passwordHasher;
     private final JwtService jwtService;
+    private final AuthenticationRateLimitService authenticationRateLimitService;
     private final boolean publicRegistrationEnabled;
 
     public UserRegisterService(UserRepository userRepository,
                                RefreshTokenRepository refreshTokenRepository,
                                DotNetPasswordHasher passwordHasher,
                                JwtService jwtService,
+                               AuthenticationRateLimitService authenticationRateLimitService,
                                @Value("${app.registration.public-enabled:false}") boolean publicRegistrationEnabled) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordHasher = passwordHasher;
         this.jwtService = jwtService;
+        this.authenticationRateLimitService = authenticationRateLimitService;
         this.publicRegistrationEnabled = publicRegistrationEnabled;
     }
 
@@ -60,18 +68,27 @@ public class UserRegisterService implements UserDetailsService {
                             String ipAddress,
                             String userAgent) {
         validatePassword(password, "Password");
-        User user = loadActiveUser(normalizeLogin(login));
+        String normalizedLogin = normalizeLogin(login);
+        authenticationRateLimitService.checkLoginAllowed(normalizedLogin, ipAddress);
 
-        DotNetPasswordHasher.VerificationResult result = passwordHasher.verify(user.getPasswordHash(), password);
-        if (!result.success()) {
-            throw new BadCredentialsException("Invalid login or password.");
+        try {
+            User user = loadActiveUser(normalizedLogin);
+            DotNetPasswordHasher.VerificationResult result = passwordHasher.verify(user.getPasswordHash(), password);
+            if (!result.success()) {
+                throw new BadCredentialsException("Invalid login or password.");
+            }
+
+            if (result.requiresRehash()) {
+                user.setPasswordHash(passwordHasher.hashPassword(password));
+            }
+
+            authenticationRateLimitService.recordLoginSuccess(normalizedLogin, ipAddress);
+            return issueTokenPair(user, jwtService.normalizeLifetimeKind(lifetimeKind), ipAddress, userAgent);
+        } catch (BadCredentialsException exception) {
+            authenticationRateLimitService.recordLoginFailure(normalizedLogin, ipAddress);
+            log.warn("Authentication login failure for login={} ip={}", normalizedLogin, normalizeIpAddress(ipAddress));
+            throw exception;
         }
-
-        if (result.requiresRehash()) {
-            user.setPasswordHash(passwordHasher.hashPassword(password));
-        }
-
-        return issueTokenPair(user, jwtService.normalizeLifetimeKind(lifetimeKind), ipAddress, userAgent);
     }
 
     @Transactional
@@ -104,51 +121,70 @@ public class UserRegisterService implements UserDetailsService {
 
     @Transactional
     public AuthTokens refresh(String refreshToken, String ipAddress, String userAgent) {
-        String tokenHash = jwtService.computeRefreshTokenHash(refreshToken);
+        authenticationRateLimitService.checkRefreshAllowed(ipAddress);
+        try {
+            String tokenHash = jwtService.computeRefreshTokenHash(refreshToken);
 
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BadCredentialsException("Refresh token was not found."));
+            RefreshToken storedToken = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
+                    .orElseThrow(() -> new BadCredentialsException("Refresh token was not found."));
 
-        Instant now = Instant.now();
-        if (storedToken.getRevokedAtUtc() != null) {
-            throw new BadCredentialsException("Refresh token has already been revoked.");
+            Instant now = Instant.now();
+            if (storedToken.getRevokedAtUtc() != null) {
+                throw new BadCredentialsException("Refresh token has already been revoked.");
+            }
+            if (!storedToken.getExpiresAtUtc().isAfter(now)) {
+                throw new BadCredentialsException("Refresh token has expired.");
+            }
+
+            User user = userRepository.findWithSecurityById(storedToken.getUserId())
+                    .orElseThrow(() -> new BadCredentialsException("User account was not found."));
+
+            if (!user.isActive()) {
+                throw new BadCredentialsException("User account is inactive.");
+            }
+
+            JwtService.GeneratedTokens generatedTokens = jwtService.generateTokens(user, storedToken.getLifetimeKind());
+
+            storedToken.setRevokedAtUtc(now);
+            storedToken.setRevokedByIp(normalizeIpAddress(ipAddress));
+            storedToken.setReplacedByTokenHash(generatedTokens.refreshTokenHash());
+
+            saveRefreshToken(user.getId(), generatedTokens, ipAddress, userAgent);
+            authenticationRateLimitService.recordRefreshSuccess(ipAddress);
+            return toAuthTokens(user, generatedTokens);
+        } catch (BadCredentialsException exception) {
+            authenticationRateLimitService.recordRefreshFailure(ipAddress);
+            log.warn("Authentication refresh failure for ip={}", normalizeIpAddress(ipAddress));
+            throw exception;
         }
-        if (!storedToken.getExpiresAtUtc().isAfter(now)) {
-            throw new BadCredentialsException("Refresh token has expired.");
-        }
-
-        User user = userRepository.findWithSecurityById(storedToken.getUserId())
-                .orElseThrow(() -> new BadCredentialsException("User account was not found."));
-
-        if (!user.isActive()) {
-            throw new BadCredentialsException("User account is inactive.");
-        }
-
-        JwtService.GeneratedTokens generatedTokens = jwtService.generateTokens(user, storedToken.getLifetimeKind());
-
-        storedToken.setRevokedAtUtc(now);
-        storedToken.setRevokedByIp(normalizeIpAddress(ipAddress));
-        storedToken.setReplacedByTokenHash(generatedTokens.refreshTokenHash());
-
-        saveRefreshToken(user.getId(), generatedTokens, ipAddress, userAgent);
-        return toAuthTokens(generatedTokens);
     }
 
     @Transactional
-    public void revoke(String refreshToken, String currentLogin, String ipAddress) {
-        User currentUser = loadActiveUser(normalizeLogin(currentLogin));
+    public void revoke(String refreshToken, String ipAddress) {
         String tokenHash = jwtService.computeRefreshTokenHash(refreshToken);
+        Instant revokedAtUtc = Instant.now();
+        String revokedByIp = normalizeIpAddress(ipAddress);
+        java.util.Set<String> visitedTokenHashes = new java.util.HashSet<>();
 
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new IllegalArgumentException("Refresh token was not found."));
+        String currentTokenHash = tokenHash;
+        boolean firstToken = true;
+        while (currentTokenHash != null && visitedTokenHashes.add(currentTokenHash)) {
+            RefreshToken storedToken = refreshTokenRepository.findByTokenHashForUpdate(currentTokenHash)
+                    .orElse(null);
+            if (storedToken == null) {
+                if (firstToken) {
+                    throw new IllegalArgumentException("Refresh token was not found.");
+                }
+                break;
+            }
 
-        if (!currentUser.getId().equals(storedToken.getUserId())) {
-            throw new IllegalArgumentException("Refresh token does not belong to the current user.");
-        }
+            if (storedToken.getRevokedAtUtc() == null) {
+                storedToken.setRevokedAtUtc(revokedAtUtc);
+                storedToken.setRevokedByIp(revokedByIp);
+            }
 
-        if (storedToken.getRevokedAtUtc() == null) {
-            storedToken.setRevokedAtUtc(Instant.now());
-            storedToken.setRevokedByIp(normalizeIpAddress(ipAddress));
+            firstToken = false;
+            currentTokenHash = storedToken.getReplacedByTokenHash();
         }
     }
 
@@ -172,6 +208,7 @@ public class UserRegisterService implements UserDetailsService {
         }
 
         user.setPasswordHash(passwordHasher.hashPassword(newPassword));
+        user.setSecurityVersion(Math.addExact(user.getSecurityVersion(), 1));
 
         Instant revokedAtUtc = Instant.now();
         String revokedByIp = normalizeIpAddress(ipAddress);
@@ -184,7 +221,76 @@ public class UserRegisterService implements UserDetailsService {
 
     @Transactional(readOnly = true)
     public CurrentUser currentUser(String login) {
+        return toCurrentUser(loadActiveUser(normalizeLogin(login)));
+    }
+
+    public PublicAuthConfiguration publicAuthConfiguration() {
+        return new PublicAuthConfiguration(publicRegistrationEnabled);
+    }
+
+    @Transactional(readOnly = true)
+    public User findUserByLogin(String login) {
+        return loadActiveUser(normalizeLogin(login));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String login) throws UsernameNotFoundException {
+        User user = userRepository.findWithSecurityByLogin(normalizeLogin(login))
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + login));
+        return toUserDetails(user);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthenticationContext authenticationContext(String login) {
         User user = loadActiveUser(normalizeLogin(login));
+        return new AuthenticationContext(toUserDetails(user), user.getSecurityVersion());
+    }
+
+    private UserDetails toUserDetails(User user) {
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getLogin())
+                .password(user.getPasswordHash())
+                .disabled(!user.isActive())
+                .authorities(buildAuthorities(user))
+                .build();
+    }
+
+    private AuthTokens issueTokenPair(User user, int lifetimeKind, String ipAddress, String userAgent) {
+        JwtService.GeneratedTokens generatedTokens = jwtService.generateTokens(user, lifetimeKind);
+        saveRefreshToken(user.getId(), generatedTokens, ipAddress, userAgent);
+        return toAuthTokens(user, generatedTokens);
+    }
+
+    private void saveRefreshToken(Integer userId,
+                                  JwtService.GeneratedTokens generatedTokens,
+                                  String ipAddress,
+                                  String userAgent) {
+        RefreshToken token = new RefreshToken();
+        token.setUserId(userId);
+        token.setTokenHash(generatedTokens.refreshTokenHash());
+        token.setLifetimeKind(generatedTokens.lifetimeKind());
+        token.setCreatedAtUtc(Instant.now());
+        token.setExpiresAtUtc(generatedTokens.refreshTokenExpiresAtUtc());
+        token.setCreatedByIp(normalizeIpAddress(ipAddress));
+        token.setCreatedByUserAgent(truncate(userAgent, 1024));
+
+        refreshTokenRepository.save(token);
+    }
+
+    private AuthTokens toAuthTokens(User user, JwtService.GeneratedTokens generatedTokens) {
+        return new AuthTokens(
+                "Bearer",
+                generatedTokens.accessToken(),
+                generatedTokens.accessTokenExpiresAtUtc(),
+                generatedTokens.refreshToken(),
+                generatedTokens.refreshTokenExpiresAtUtc(),
+                generatedTokens.lifetimeKind(),
+                toCurrentUser(user)
+        );
+    }
+
+    private CurrentUser toCurrentUser(User user) {
         org.santayn.testing.models.person.Person person = user.getPerson();
         String fullName = person == null
                 ? null
@@ -205,60 +311,23 @@ public class UserRegisterService implements UserDetailsService {
                         person.getPhone()
                 ),
                 roleNames(user),
-                permissionNames(user)
+                permissionNames(user),
+                accountState(user),
+                publicRegistrationEnabled
         );
     }
 
-    @Transactional(readOnly = true)
-    public User findUserByLogin(String login) {
-        return loadActiveUser(normalizeLogin(login));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String login) throws UsernameNotFoundException {
-        User user = userRepository.findWithSecurityByLogin(normalizeLogin(login))
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + login));
-
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getLogin())
-                .password(user.getPasswordHash())
-                .disabled(!user.isActive())
-                .authorities(buildAuthorities(user))
-                .build();
-    }
-
-    private AuthTokens issueTokenPair(User user, int lifetimeKind, String ipAddress, String userAgent) {
-        JwtService.GeneratedTokens generatedTokens = jwtService.generateTokens(user, lifetimeKind);
-        saveRefreshToken(user.getId(), generatedTokens, ipAddress, userAgent);
-        return toAuthTokens(generatedTokens);
-    }
-
-    private void saveRefreshToken(Integer userId,
-                                  JwtService.GeneratedTokens generatedTokens,
-                                  String ipAddress,
-                                  String userAgent) {
-        RefreshToken token = new RefreshToken();
-        token.setUserId(userId);
-        token.setTokenHash(generatedTokens.refreshTokenHash());
-        token.setLifetimeKind(generatedTokens.lifetimeKind());
-        token.setCreatedAtUtc(Instant.now());
-        token.setExpiresAtUtc(generatedTokens.refreshTokenExpiresAtUtc());
-        token.setCreatedByIp(normalizeIpAddress(ipAddress));
-        token.setCreatedByUserAgent(truncate(userAgent, 1024));
-
-        refreshTokenRepository.save(token);
-    }
-
-    private AuthTokens toAuthTokens(JwtService.GeneratedTokens generatedTokens) {
-        return new AuthTokens(
-                "Bearer",
-                generatedTokens.accessToken(),
-                generatedTokens.accessTokenExpiresAtUtc(),
-                generatedTokens.refreshToken(),
-                generatedTokens.refreshTokenExpiresAtUtc(),
-                generatedTokens.lifetimeKind()
-        );
+    private static AccountState accountState(User user) {
+        if (!user.isActive()) {
+            return AccountState.DISABLED;
+        }
+        if (user.getPersonId() == null) {
+            return AccountState.PENDING_PERSON;
+        }
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            return AccountState.PENDING_ROLE;
+        }
+        return AccountState.ACTIVE;
     }
 
     private User loadActiveUser(String normalizedLogin) {
@@ -361,14 +430,28 @@ public class UserRegisterService implements UserDetailsService {
         return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
     }
 
+    public record AuthenticationContext(UserDetails userDetails, int securityVersion) {
+    }
+
     public record AuthTokens(
             String tokenType,
             String accessToken,
             Instant accessTokenExpiresAtUtc,
-            String refreshToken,
+            @JsonIgnore String refreshToken,
             Instant refreshTokenExpiresAtUtc,
-            int lifetimeKind
+            int lifetimeKind,
+            CurrentUser user
     ) {
+    }
+
+    public enum AccountState {
+        DISABLED,
+        PENDING_PERSON,
+        PENDING_ROLE,
+        ACTIVE
+    }
+
+    public record PublicAuthConfiguration(boolean publicRegistrationEnabled) {
     }
 
     public record CurrentUser(
@@ -379,8 +462,33 @@ public class UserRegisterService implements UserDetailsService {
             String fullName,
             CurrentUserPerson person,
             Set<String> roles,
-            Set<String> permissions
+            Set<String> permissions,
+            AccountState accountState,
+            boolean publicRegistrationEnabled
     ) {
+        public CurrentUser(
+                Integer userId,
+                String login,
+                boolean isActive,
+                Integer personId,
+                String fullName,
+                CurrentUserPerson person,
+                Set<String> roles,
+                Set<String> permissions
+        ) {
+            this(
+                    userId,
+                    login,
+                    isActive,
+                    personId,
+                    fullName,
+                    person,
+                    roles,
+                    permissions,
+                    AccountState.ACTIVE,
+                    false
+            );
+        }
     }
 
     public record CurrentUserPerson(

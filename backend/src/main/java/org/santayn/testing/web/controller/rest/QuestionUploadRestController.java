@@ -33,7 +33,7 @@ public class QuestionUploadRestController {
     public List<ApiResponses.QuestionResponseDto> questions(@RequestParam(required = false) Integer testId,
                                                             @RequestParam(required = false) Integer topicId,
                                                             Authentication authentication) {
-        if (!accessService.isAdmin(authentication)) {
+        if (!accessService.hasGlobalAcademicScope(authentication)) {
             if (topicId != null) {
                 accessService.requireTopicOwner(authentication, topicId);
             } else if (testId != null) {
@@ -100,7 +100,7 @@ public class QuestionUploadRestController {
             accessService.requireActiveQuestionContextOwner(
                     authentication, request.topicId(), request.courseLectureId(), null
             );
-        } else if (!accessService.isAdmin(authentication)
+        } else if (!accessService.hasGlobalAcademicScope(authentication)
                 && questionService.get(questionId).getTestId() == null) {
             throw new AccessDeniedException("Teacher question cannot be detached from its owned topic or lecture.");
         }

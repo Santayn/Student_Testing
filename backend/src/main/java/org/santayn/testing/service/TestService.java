@@ -32,7 +32,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -72,7 +71,7 @@ public class TestService {
     private final LectureTestLinkRepository lectureTestLinkRepository;
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
-    private final TextAnswerEvaluationService textAnswerEvaluationService;
+    private final TextAnswerGradingQueueService textAnswerGradingQueueService;
     private final TestAttemptExpirationService testAttemptExpirationService;
 
     @Transactional(readOnly = true)
@@ -90,6 +89,11 @@ public class TestService {
     @Transactional(readOnly = true)
     public Test get(Integer id) {
         return testRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + id));
+    }
+
+    private Test getForUpdate(Integer id) {
+        return testRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + id));
     }
 
@@ -137,8 +141,50 @@ public class TestService {
     }
 
     @Transactional
+    public CreatedTestWithAssignments createWithAssignments(String title,
+                                                            String description,
+                                                            LocalTime duration,
+                                                            int attemptsAllowed,
+                                                            int questionCount,
+                                                            List<SelectionRuleInput> selectionRules,
+                                                            Integer authorPersonId,
+                                                            List<AssignmentInput> assignments) {
+        if (assignments == null || assignments.isEmpty()) {
+            throw new IllegalArgumentException("At least one test assignment is required.");
+        }
+
+        Test test = create(
+                title,
+                description,
+                duration,
+                attemptsAllowed,
+                questionCount,
+                selectionRules,
+                authorPersonId
+        );
+        List<TestAssignment> createdAssignments = new ArrayList<>();
+        for (AssignmentInput assignment : assignments) {
+            if (assignment == null) {
+                throw new IllegalArgumentException("Test assignment must not be null.");
+            }
+            createdAssignments.add(assign(
+                    test.getId(),
+                    assignment.scope(),
+                    assignment.courseVersionId(),
+                    assignment.courseLectureId(),
+                    assignment.teachingAssignmentId(),
+                    assignment.availableFromUtc(),
+                    assignment.availableUntilUtc(),
+                    assignment.status()
+            ));
+        }
+        return new CreatedTestWithAssignments(test, List.copyOf(createdAssignments));
+    }
+
+    @Transactional
     public Test update(Integer testId, String title, String description, LocalTime duration, int attemptsAllowed, int questionCount) {
-        Test test = get(testId);
+        Test test = getForUpdate(testId);
+        requireTestDefinitionMutable(testId);
         test.setTitle(FacultyService.requireText(title, "Title"));
         test.setDescription(FacultyService.trimToNull(description));
         test.setDuration(duration);
@@ -163,13 +209,22 @@ public class TestService {
 
     @Transactional
     public void delete(Integer testId) {
-        Test test = get(testId);
+        Test test = getForUpdate(testId);
 
         List<TestAssignment> assignments = testAssignmentRepository.findByTestId(testId);
         List<Integer> assignmentIds = assignments.stream()
                 .map(TestAssignment::getId)
                 .toList();
         if (!assignmentIds.isEmpty()) {
+            long attemptCount = testAttemptRepository.countByTestAssignmentIdIn(assignmentIds);
+            if (attemptCount > 0) {
+                throw new ResourceInUseException(
+                        "test",
+                        testId,
+                        "Test cannot be deleted after student attempts have been recorded. Invalidate individual attempts or archive the test instead.",
+                        java.util.Map.of("testAttempts", attemptCount)
+                );
+            }
             List<TestAttempt> attempts = testAttemptRepository.findByTestAssignmentIdIn(assignmentIds);
             List<Integer> attemptIds = attempts.stream()
                     .map(TestAttempt::getId)
@@ -214,7 +269,8 @@ public class TestService {
 
     @Transactional
     public List<TestQuestionSelectionRule> replaceSelectionRules(Integer testId, List<SelectionRuleInput> selectionRules) {
-        Test test = get(testId);
+        Test test = getForUpdate(testId);
+        requireTestDefinitionMutable(testId);
         List<TestQuestionSelectionRule> rules = replaceSelectionRules(test, selectionRules);
         if (rules.isEmpty()) {
             int activeDirectQuestions = questionRepository
@@ -223,6 +279,23 @@ public class TestService {
             test.setQuestionCount(Math.max(1, activeDirectQuestions));
         }
         return rules;
+    }
+
+    public void requireTestDefinitionMutable(Integer testId) {
+        if (testAttemptRepository.existsForTest(testId)) {
+            throw new ResourceInUseException(
+                    "test",
+                    testId,
+                    "Test definition cannot be changed after the first student attempt has been created. Create a new test/version for future students instead.",
+                    java.util.Map.of("testAttemptsExist", true)
+            );
+        }
+    }
+
+    @Transactional
+    public void lockTestDefinitionForMutation(Integer testId) {
+        getForUpdate(testId);
+        requireTestDefinitionMutable(testId);
     }
 
     @Transactional(readOnly = true)
@@ -261,9 +334,7 @@ public class TestService {
                                  Instant availableFromUtc,
                                  Instant availableUntilUtc,
                                  int status) {
-        if (!testRepository.existsById(testId)) {
-            throw new IllegalArgumentException("Test not found: " + testId);
-        }
+        getForUpdate(testId);
         requireAssignmentScope(scope, courseVersionId, courseLectureId, teachingAssignmentId);
         requireAssignmentTimeRange(availableFromUtc, availableUntilUtc);
         requireAssignmentUnique(testId, scope, courseVersionId, courseLectureId, teachingAssignmentId);
@@ -289,10 +360,25 @@ public class TestService {
                                            Instant availableFromUtc,
                                            Instant availableUntilUtc,
                                            int status) {
-        TestAssignment assignment = getAssignment(assignmentId);
+        TestAssignment snapshot = getAssignment(assignmentId);
+        getForUpdate(snapshot.getTestId());
+        TestAssignment assignment = testAssignmentRepository.findByIdForUpdate(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + assignmentId));
         requireAssignmentScope(scope, courseVersionId, courseLectureId, teachingAssignmentId);
         requireAssignmentTimeRange(availableFromUtc, availableUntilUtc);
         requireAssignmentUnique(assignment.getTestId(), scope, courseVersionId, courseLectureId, teachingAssignmentId, assignmentId);
+
+        if (assignmentTargetChanged(assignment, scope, courseVersionId, courseLectureId, teachingAssignmentId)) {
+            long attemptCount = testAttemptRepository.countByTestAssignmentId(assignmentId);
+            if (attemptCount > 0) {
+                throw new ResourceInUseException(
+                        "testAssignment",
+                        assignmentId,
+                        "Test assignment target cannot be changed after attempts have been recorded.",
+                        java.util.Map.of("testAttempts", attemptCount)
+                );
+            }
+        }
 
         assignment.setScope(scope);
         assignment.setCourseVersionId(courseVersionId);
@@ -306,7 +392,10 @@ public class TestService {
 
     @Transactional
     public TestAssignment updateAssignmentStatus(Integer assignmentId, int status) {
-        TestAssignment assignment = getAssignment(assignmentId);
+        TestAssignment snapshot = getAssignment(assignmentId);
+        getForUpdate(snapshot.getTestId());
+        TestAssignment assignment = testAssignmentRepository.findByIdForUpdate(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + assignmentId));
         assignment.setStatus(normalizeStatus(status, 1, 4, 1));
         return assignment;
     }
@@ -328,6 +417,12 @@ public class TestService {
     @Transactional(readOnly = true)
     public TestAttempt getAttempt(Integer id) {
         return testAttemptRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Test attempt not found: " + id));
+    }
+
+    @Transactional
+    public TestAttempt getAttemptForUpdate(Integer id) {
+        return testAttemptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Test attempt not found: " + id));
     }
 
@@ -356,10 +451,11 @@ public class TestService {
 
     @Transactional
     public TestAttempt startAttempt(Integer testAssignmentId, Integer personId, Integer teachingAssignmentEnrollmentId) {
+        TestAssignment snapshot = testAssignmentRepository.findById(testAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + testAssignmentId));
+        Test test = getForUpdate(snapshot.getTestId());
         TestAssignment assignment = testAssignmentRepository.findByIdForUpdate(testAssignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + testAssignmentId));
-        Test test = testRepository.findByIdForUpdate(assignment.getTestId())
-                .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + assignment.getTestId()));
         if (!personRepository.existsById(personId)) {
             throw new IllegalArgumentException("Person not found: " + personId);
         }
@@ -377,13 +473,14 @@ public class TestService {
     }
 
     @Transactional
-    public TestAttemptQuestionSet startOrResumeAttemptWithRandomQuestions(Integer testAssignmentId,
-                                                                          Integer personId,
-                                                                          Integer teachingAssignmentEnrollmentId) {
+    public TestAttemptQuestionSet startAttemptWithRandomQuestions(Integer testAssignmentId,
+                                                                  Integer personId,
+                                                                  Integer teachingAssignmentEnrollmentId) {
+        TestAssignment snapshot = testAssignmentRepository.findById(testAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + testAssignmentId));
+        Test test = getForUpdate(snapshot.getTestId());
         TestAssignment assignment = testAssignmentRepository.findByIdForUpdate(testAssignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test assignment not found: " + testAssignmentId));
-        Test test = testRepository.findByIdForUpdate(assignment.getTestId())
-                .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + assignment.getTestId()));
         if (!personRepository.existsById(personId)) {
             throw new IllegalArgumentException("Person not found: " + personId);
         }
@@ -398,29 +495,25 @@ public class TestService {
         }
         requireAssignmentAvailable(assignment);
 
-        TestAttempt existingAttempt = testAttemptRepository.findByTestAssignmentIdAndPersonId(assignment.getId(), personId)
-                .stream()
-                .filter(attempt -> attempt.getStatus() == ATTEMPT_STATUS_IN_PROGRESS)
-                .min(Comparator.comparing(TestAttempt::getStartedAt))
-                .orElse(null);
-        if (existingAttempt != null
-                && expireAttemptIfDeadlinePassed(existingAttempt, assignment, test, Instant.now())) {
-            existingAttempt = null;
-        }
-        if (existingAttempt != null) {
-            List<Question> existingQuestions = questionsForAttempt(existingAttempt.getId());
-            if (!existingQuestions.isEmpty()) {
-                return new TestAttemptQuestionSet(existingAttempt, existingQuestions);
-            }
-            List<Question> selectedQuestions = randomQuestionsForTest(assignment.getTestId());
-            createEmptyResponses(existingAttempt.getId(), selectedQuestions);
-            return new TestAttemptQuestionSet(existingAttempt, selectedQuestions);
-        }
-
         TestAttempt attempt = createAttemptWhileTestLocked(assignment, test, personId, enrollment);
+        lockQuestionBankTargetsForAttempt(assignment.getTestId());
         List<Question> selectedQuestions = randomQuestionsForTest(assignment.getTestId());
         createEmptyResponses(attempt.getId(), selectedQuestions);
         return new TestAttemptQuestionSet(attempt, selectedQuestions);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<TestAttemptQuestionSet> currentAttemptWithQuestions(Integer testAssignmentId,
+                                                                                  Integer personId) {
+        TestAssignment assignment = getAssignment(testAssignmentId);
+        Test test = get(assignment.getTestId());
+        Instant now = Instant.now();
+        return testAttemptRepository.findByTestAssignmentIdAndPersonId(assignment.getId(), personId)
+                .stream()
+                .filter(attempt -> attempt.getStatus() == ATTEMPT_STATUS_IN_PROGRESS)
+                .filter(attempt -> !isAttemptExpired(attempt, assignment, test, now))
+                .min(Comparator.comparing(TestAttempt::getStartedAt))
+                .map(attempt -> new TestAttemptQuestionSet(attempt, questionsForAttempt(attempt.getId())));
     }
 
     private TestAttempt createAttemptWhileTestLocked(TestAssignment assignment,
@@ -495,6 +588,9 @@ public class TestService {
         applyAutomaticScore(response, question, selectedOptionIds);
         response = questionResponseRepository.save(response);
         replaceSelectedOptions(response.getId(), question, selectedOptionIds);
+        if (QuestionTypeSupport.isText(question.getType())) {
+            textAnswerGradingQueueService.enqueue(response);
+        }
         return response;
     }
 
@@ -511,6 +607,7 @@ public class TestService {
         attempt.setStatus(ATTEMPT_STATUS_COMPLETED);
         attempt.setCompletedAt(Instant.now());
         attempt.setScore(calculateScore(testAttemptId));
+        textAnswerGradingQueueService.refreshAttemptState(testAttemptId);
         return attempt;
     }
 
@@ -547,6 +644,7 @@ public class TestService {
             if (questionOptions.isEmpty()) {
                 response.setCorrect(false);
                 response.setAwardedPoints(BigDecimal.ZERO);
+                markAutomaticallyGraded(response);
                 return;
             }
 
@@ -559,6 +657,7 @@ public class TestService {
             boolean automaticallyCorrect = !correctIds.isEmpty() && selectedIds.equals(correctIds);
             response.setCorrect(automaticallyCorrect);
             response.setAwardedPoints(automaticallyCorrect ? question.getPoints() : BigDecimal.ZERO);
+            markAutomaticallyGraded(response);
             return;
         }
 
@@ -566,14 +665,16 @@ public class TestService {
             boolean automaticallyCorrect = isMatchingAnswerCorrect(question.getCorrectAnswer(), response.getAnswerText());
             response.setCorrect(automaticallyCorrect);
             response.setAwardedPoints(automaticallyCorrect ? question.getPoints() : BigDecimal.ZERO);
+            markAutomaticallyGraded(response);
             return;
         }
 
-        TextAnswerEvaluationResult evaluation = evaluateTextAnswer(question, response.getAnswerText());
-        response.setCorrect(evaluation.correct());
-        response.setAwardedPoints(question.getPoints()
-                .multiply(evaluation.scoreRatio())
-                .setScale(2, RoundingMode.HALF_UP));
+        response.setCorrect(null);
+        response.setAwardedPoints(null);
+        response.setGradingStatus(TextAnswerGradingQueueService.GRADING_PENDING);
+        response.setGradingVersion(response.getGradingVersion() + 1);
+        response.setGradingError(null);
+        response.setGradingUpdatedAtUtc(Instant.now());
     }
 
     private void replaceSelectedOptions(Long questionResponseId, Question question, List<Long> selectedOptionIds) {
@@ -642,8 +743,10 @@ public class TestService {
         return true;
     }
 
-    private TextAnswerEvaluationResult evaluateTextAnswer(Question question, String actualRaw) {
-        return textAnswerEvaluationService.evaluate(question.getQuestion(), question.getCorrectAnswer(), actualRaw);
+    private void markAutomaticallyGraded(QuestionResponse response) {
+        response.setGradingStatus(TextAnswerGradingQueueService.GRADING_GRADED);
+        response.setGradingError(null);
+        response.setGradingUpdatedAtUtc(Instant.now());
     }
 
     private BigDecimal calculateScore(Integer testAttemptId) {
@@ -747,12 +850,29 @@ public class TestService {
     }
 
     private void createEmptyResponses(Integer attemptId, List<Question> questions) {
-        for (Question question : questions) {
+        List<Question> lockedQuestions = questions.stream()
+                .map(Question::getId)
+                .sorted()
+                .map(questionId -> questionRepository.findByIdForUpdate(questionId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Question not found: " + questionId)))
+                .toList();
+        for (Question question : lockedQuestions) {
             QuestionResponse response = new QuestionResponse();
             response.setTestAttemptId(attemptId);
             response.setTestQuestionId(question.getId());
             questionResponseRepository.save(response);
         }
+    }
+
+    private void lockQuestionBankTargetsForAttempt(Integer testId) {
+        selectionRuleRepository.findByTestIdOrderByOrdinalAsc(testId)
+                .stream()
+                .map(TestQuestionSelectionRule::getTopicId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(topicId -> topicRepository.findByIdForUpdate(topicId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Topic not found: " + topicId)));
     }
 
     private List<TestQuestionSelectionRule> replaceSelectionRules(Test test, List<SelectionRuleInput> selectionRules) {
@@ -969,10 +1089,22 @@ public class TestService {
             if (teachingAssignmentId == null || courseVersionId != null || courseLectureId != null) {
                 throw new IllegalArgumentException("Group test assignment requires TeachingAssignmentId only.");
             }
-            if (!teachingAssignmentRepository.existsById(teachingAssignmentId)) {
-                throw new IllegalArgumentException("Teaching assignment not found: " + teachingAssignmentId);
-            }
+            teachingAssignmentRepository.findByIdForUpdate(teachingAssignmentId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Teaching assignment not found: " + teachingAssignmentId
+                    ));
         }
+    }
+
+    private static boolean assignmentTargetChanged(TestAssignment assignment,
+                                                   int scope,
+                                                   Integer courseVersionId,
+                                                   Integer courseLectureId,
+                                                   Integer teachingAssignmentId) {
+        return assignment.getScope() != scope
+                || !Objects.equals(assignment.getCourseVersionId(), courseVersionId)
+                || !Objects.equals(assignment.getCourseLectureId(), courseLectureId)
+                || !Objects.equals(assignment.getTeachingAssignmentId(), teachingAssignmentId);
     }
 
     private void requireAssignmentUnique(Integer testId,
@@ -1190,6 +1322,18 @@ public class TestService {
                                      int multipleAnswerQuestionCount,
                                      int matchingQuestionCount,
                                      int ordinal) {
+    }
+
+    public record AssignmentInput(int scope,
+                                  Integer courseVersionId,
+                                  Integer courseLectureId,
+                                  Integer teachingAssignmentId,
+                                  Instant availableFromUtc,
+                                  Instant availableUntilUtc,
+                                  int status) {
+    }
+
+    public record CreatedTestWithAssignments(Test test, List<TestAssignment> assignments) {
     }
 
     private List<Question> questionsForRule(TestQuestionSelectionRule rule) {

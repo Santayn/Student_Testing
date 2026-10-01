@@ -190,6 +190,9 @@ public final class ApiResponses {
                 item.getTitle(),
                 item.getDescription(),
                 item.getContentFolderKey(),
+                item.getContentSource(),
+                item.getContentFormat(),
+                item.getContentSchemaVersion(),
                 item.getLinkedTestId(),
                 item.isPublicVisible()
         );
@@ -362,6 +365,8 @@ public final class ApiResponses {
                 item.getStartedAt(),
                 item.getCompletedAt(),
                 item.getScore(),
+                item.getGradingStatus(),
+                item.getGradingUpdatedAtUtc(),
                 item.getInvalidatedAtUtc(),
                 item.getInvalidatedByLogin(),
                 item.getInvalidationReason()
@@ -375,7 +380,9 @@ public final class ApiResponses {
                 item.getTestQuestionId(),
                 item.getAnswerText(),
                 item.getCorrect(),
-                item.getAwardedPoints()
+                item.getAwardedPoints(),
+                item.getGradingStatus(),
+                item.getGradingError()
         );
     }
 
@@ -466,6 +473,7 @@ public final class ApiResponses {
 
     public record LectureResponse(Integer id, Integer subjectId, Integer subjectMembershipId, Integer courseVersionId,
                                   int ordinal, String title, String description, String contentFolderKey,
+                                  String contentSource, String contentFormat, int contentSchemaVersion,
                                   Integer linkedTestId, boolean publicVisible) {
     }
 
@@ -538,12 +546,14 @@ public final class ApiResponses {
 
     public record TestAttemptResponse(Integer id, int ordinal, Integer testAssignmentId, Integer personId,
                                       Integer teachingAssignmentEnrollmentId, int status, Instant startedAt,
-                                      Instant completedAt, BigDecimal score, Instant invalidatedAtUtc,
+                                      Instant completedAt, BigDecimal score, String gradingStatus,
+                                      Instant gradingUpdatedAtUtc, Instant invalidatedAtUtc,
                                       String invalidatedByLogin, String invalidationReason) {
     }
 
     public record QuestionAnswerResponse(Long id, Integer testAttemptId, Long testQuestionId, String answerText,
-                                         Boolean correct, BigDecimal awardedPoints) {
+                                         Boolean correct, BigDecimal awardedPoints, String gradingStatus,
+                                         String gradingError) {
     }
 
     public record SelectedOptionResponse(Long id, Long questionResponseId, Long questionOptionId) {

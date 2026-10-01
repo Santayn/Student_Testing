@@ -79,16 +79,20 @@ public class MembershipService {
 
     @Transactional
     public GroupMembership addGroupMember(Integer groupId, Integer personId, int role, String notes) {
-        requirePerson(personId);
+        requireRole(role);
+        if (role == ROLE_STUDENT) {
+            requirePersonForUpdate(personId);
+        } else {
+            requirePerson(personId);
+        }
         if (!groupRepository.existsById(groupId)) {
             throw new IllegalArgumentException("Group not found: " + groupId);
         }
-        requireRole(role);
-        if (groupMembershipRepository.existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(groupId, personId, role)) {
-            throw new AuthConflictException("Active group membership already exists for this group, person and role.");
-        }
         if (role == ROLE_STUDENT) {
             requireNoOtherActiveStudentGroup(personId, null);
+        }
+        if (groupMembershipRepository.existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(groupId, personId, role)) {
+            throw new AuthConflictException("Active group membership already exists for this group, person and role.");
         }
         if (role == ROLE_GROUP_CURATOR && groupMembershipRepository.existsByGroupIdAndRoleAndRemovedAtUtcIsNull(groupId, role)) {
             throw new AuthConflictException("Active group curator already exists for this group.");
@@ -98,7 +102,47 @@ public class MembershipService {
         membership.setGroupId(groupId);
         membership.setPersonId(personId);
         membership.setRole(role);
-        membership.setStatus(1);
+        membership.setStatus(STATUS_ACTIVE);
+        membership.setAssignedAtUtc(Instant.now());
+        membership.setNotes(FacultyService.trimToNull(notes));
+        return groupMembershipRepository.save(membership);
+    }
+
+    @Transactional
+    public GroupMembership moveStudentToGroup(Integer targetGroupId, Integer personId, String notes) {
+        requirePersonForUpdate(personId);
+        if (!groupRepository.existsById(targetGroupId)) {
+            throw new IllegalArgumentException("Group not found: " + targetGroupId);
+        }
+
+        GroupMembership current = groupMembershipRepository
+                .findFirstByPersonIdAndRoleAndStatusAndRemovedAtUtcIsNull(personId, ROLE_STUDENT, STATUS_ACTIVE)
+                .orElse(null);
+        if (current != null && Objects.equals(current.getGroupId(), targetGroupId)) {
+            return current;
+        }
+
+        if (current != null) {
+            current.setStatus(3);
+            current.setRemovedAtUtc(Instant.now());
+            groupMembershipRepository.saveAndFlush(current);
+        }
+
+        GroupMembership target = groupMembershipRepository
+                .findFirstByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(targetGroupId, personId, ROLE_STUDENT)
+                .orElse(null);
+        if (target != null) {
+            target.setStatus(STATUS_ACTIVE);
+            target.setRemovedAtUtc(null);
+            target.setNotes(FacultyService.trimToNull(notes));
+            return groupMembershipRepository.save(target);
+        }
+
+        GroupMembership membership = new GroupMembership();
+        membership.setGroupId(targetGroupId);
+        membership.setPersonId(personId);
+        membership.setRole(ROLE_STUDENT);
+        membership.setStatus(STATUS_ACTIVE);
         membership.setAssignedAtUtc(Instant.now());
         membership.setNotes(FacultyService.trimToNull(notes));
         return groupMembershipRepository.save(membership);
@@ -118,19 +162,31 @@ public class MembershipService {
     @Transactional
     public SubjectMembership addSubjectMember(Integer subjectId, Integer personId, int role, String notes) {
         requirePerson(personId);
-        if (!subjectRepository.existsById(subjectId)) {
-            throw new IllegalArgumentException("Subject not found: " + subjectId);
-        }
+        subjectRepository.findByIdForUpdate(subjectId)
+                .orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
         requireRole(role);
-        if (subjectMembershipRepository.existsBySubjectIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(subjectId, personId, role)) {
-            throw new AuthConflictException("Active subject membership already exists for this subject, person and role.");
+
+        SubjectMembership existing = subjectMembershipRepository
+                .findFirstBySubjectIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(subjectId, personId, role)
+                .orElse(null);
+        if (existing != null) {
+            if (existing.getStatus() == STATUS_ACTIVE) {
+                return existing;
+            }
+            if (existing.getStatus() == 2) {
+                existing.setStatus(STATUS_ACTIVE);
+                existing.setRemovedAtUtc(null);
+                existing.setNotes(FacultyService.trimToNull(notes));
+                return subjectMembershipRepository.save(existing);
+            }
+            throw new AuthConflictException("Subject membership is in an inconsistent non-deleted state.");
         }
 
         SubjectMembership membership = new SubjectMembership();
         membership.setSubjectId(subjectId);
         membership.setPersonId(personId);
         membership.setRole(role);
-        membership.setStatus(1);
+        membership.setStatus(STATUS_ACTIVE);
         membership.setAssignedAtUtc(Instant.now());
         membership.setNotes(FacultyService.trimToNull(notes));
         return subjectMembershipRepository.save(membership);
@@ -155,6 +211,7 @@ public class MembershipService {
     public GroupMembership updateGroupMembershipStatus(Integer membershipId, int status) {
         GroupMembership membership = getGroupMembership(membershipId);
         if (membership.getRole() == ROLE_STUDENT && status == STATUS_ACTIVE) {
+            requirePersonForUpdate(membership.getPersonId());
             requireNoOtherActiveStudentGroup(membership.getPersonId(), membership.getId());
         }
         applyMembershipStatus(membership, status);
@@ -165,6 +222,7 @@ public class MembershipService {
     public GroupMembership updateGroupMembership(Integer membershipId, int status, String notes) {
         GroupMembership membership = getGroupMembership(membershipId);
         if (membership.getRole() == ROLE_STUDENT && status == STATUS_ACTIVE) {
+            requirePersonForUpdate(membership.getPersonId());
             requireNoOtherActiveStudentGroup(membership.getPersonId(), membership.getId());
         }
         applyMembershipStatus(membership, status);
@@ -193,6 +251,11 @@ public class MembershipService {
         }
     }
 
+    private void requirePersonForUpdate(Integer personId) {
+        personRepository.findByIdForUpdate(personId)
+                .orElseThrow(() -> new IllegalArgumentException("Person not found: " + personId));
+    }
+
     private static void requireRole(int role) {
         if (role < 1 || role > 4) {
             throw new IllegalArgumentException("Role must be between 1 and 4.");
@@ -210,9 +273,7 @@ public class MembershipService {
                 .findFirstByPersonIdAndRoleAndStatusAndRemovedAtUtcIsNull(personId, ROLE_STUDENT, STATUS_ACTIVE)
                 .filter(existing -> !Objects.equals(existing.getId(), currentMembershipId))
                 .ifPresent(existing -> {
-                    throw new AuthConflictException(
-                            "Student already has an active group membership: groupId=" + existing.getGroupId()
-                    );
+                    throw new ActiveStudentGroupConflictException(existing.getGroupId(), existing.getId());
                 });
     }
 

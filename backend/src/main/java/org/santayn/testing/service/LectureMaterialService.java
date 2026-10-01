@@ -3,18 +3,21 @@ package org.santayn.testing.service;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureMaterial;
-import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.repository.LectureMaterialRepository;
 import org.santayn.testing.repository.LectureRepository;
-import org.santayn.testing.repository.SubjectMembershipRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -28,12 +31,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LectureMaterialService {
 
-    private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
-
+    private static final Logger log = LoggerFactory.getLogger(LectureMaterialService.class);
     private final LectureRepository lectureRepository;
     private final LectureMaterialRepository lectureMaterialRepository;
-    private final SubjectMembershipRepository subjectMembershipRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
 
     @Value("${app.storage.lecture-materials-dir:uploads/lecture-materials}")
     private String lectureMaterialsDir;
@@ -56,30 +57,52 @@ public class LectureMaterialService {
         }
 
         Path lectureDir = lectureDirectory(lecture.getId());
-        List<LectureMaterial> saved = new ArrayList<>();
-        for (MultipartFile file : normalizedFiles) {
-            String originalName = normalizeOriginalFileName(file.getOriginalFilename());
-            String storedName = UUID.randomUUID() + "-" + originalName;
-            Path target = lectureDir.resolve(storedName).normalize();
-            if (!target.startsWith(lectureDir)) {
-                throw new IllegalArgumentException("Invalid file path.");
-            }
-            try (InputStream inputStream = file.getInputStream()) {
-                Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException error) {
-                throw new IllegalStateException("Failed to save lecture file: " + originalName, error);
-            }
+        List<Path> stagedPaths = new ArrayList<>();
+        List<Path> finalPaths = new ArrayList<>();
+        registerUploadTransactionCleanup(stagedPaths, finalPaths);
 
-            LectureMaterial material = new LectureMaterial();
-            material.setCourseLectureId(lecture.getId());
-            material.setFileName(originalName);
-            material.setStoredPath(materialsRoot().relativize(target).toString().replace('\\', '/'));
-            material.setContentType(StringUtils.hasText(file.getContentType()) ? file.getContentType() : null);
-            material.setSizeBytes(file.getSize());
-            material.setUploadedAtUtc(Instant.now());
-            saved.add(lectureMaterialRepository.save(material));
+        List<LectureMaterial> saved = new ArrayList<>();
+        try {
+            for (MultipartFile file : normalizedFiles) {
+                String originalName = normalizeOriginalFileName(file.getOriginalFilename());
+                String storedName = UUID.randomUUID() + "-" + originalName;
+                Path target = lectureDir.resolve(storedName).normalize();
+                if (!target.startsWith(lectureDir)) {
+                    throw new IllegalArgumentException("Invalid file path.");
+                }
+                Path staging = lectureDir.resolve("." + storedName + ".uploading-" + UUID.randomUUID()).normalize();
+                if (!staging.startsWith(lectureDir)) {
+                    throw new IllegalArgumentException("Invalid staging file path.");
+                }
+
+                stagedPaths.add(staging);
+                try (InputStream inputStream = file.getInputStream()) {
+                    Files.copy(inputStream, staging, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                LectureMaterial material = new LectureMaterial();
+                material.setCourseLectureId(lecture.getId());
+                material.setFileName(originalName);
+                material.setStoredPath(materialsRoot().relativize(target).toString().replace('\\', '/'));
+                material.setContentType(StringUtils.hasText(file.getContentType()) ? file.getContentType() : null);
+                material.setSizeBytes(file.getSize());
+                material.setUploadedAtUtc(Instant.now());
+                saved.add(lectureMaterialRepository.save(material));
+
+                moveAtomicallyIfPossible(staging, target);
+                stagedPaths.remove(staging);
+                finalPaths.add(target);
+            }
+            return saved;
+        } catch (IOException error) {
+            cleanupPaths(stagedPaths);
+            cleanupPaths(finalPaths);
+            throw new IllegalStateException("Failed to save lecture file.", error);
+        } catch (RuntimeException error) {
+            cleanupPaths(stagedPaths);
+            cleanupPaths(finalPaths);
+            throw error;
         }
-        return saved;
     }
 
     @Transactional
@@ -87,11 +110,27 @@ public class LectureMaterialService {
         requireActiveLectureContext(requireLecture(lectureId));
         LectureMaterial material = lectureMaterialRepository.findByIdAndCourseLectureId(materialId, lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture material not found: " + materialId));
-        lectureMaterialRepository.delete(material);
+        Path original = resolveMaterialPath(material);
+        Path quarantined = null;
+
+        if (Files.exists(original)) {
+            quarantined = original.resolveSibling("." + original.getFileName() + ".deleting-" + UUID.randomUUID());
+            try {
+                moveAtomicallyIfPossible(original, quarantined);
+            } catch (IOException error) {
+                throw new IllegalStateException("Failed to stage lecture file deletion: " + material.getFileName(), error);
+            }
+        }
+
+        boolean transactionCleanupRegistered = registerDeleteTransactionCleanup(original, quarantined);
         try {
-            Files.deleteIfExists(resolveMaterialPath(material));
-        } catch (IOException error) {
-            throw new IllegalStateException("Failed to delete lecture file: " + material.getFileName(), error);
+            lectureMaterialRepository.delete(material);
+            if (!transactionCleanupRegistered) {
+                cleanupPath(quarantined);
+            }
+        } catch (RuntimeException error) {
+            restoreQuarantinedFile(original, quarantined);
+            throw error;
         }
     }
 
@@ -116,17 +155,7 @@ public class LectureMaterialService {
         if (lecture.getSubjectMembershipId() == null) {
             return;
         }
-        SubjectMembership membership = subjectMembershipRepository.findById(lecture.getSubjectMembershipId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Subject membership not found: " + lecture.getSubjectMembershipId()
-                ));
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null) {
-            throw new IllegalArgumentException(
-                    "Active teacher subject membership is required: " + lecture.getSubjectMembershipId()
-            );
-        }
+        activeTeacherSubjectMembershipService.requireActiveTeacher(lecture.getSubjectMembershipId());
     }
 
     private Path materialsRoot() {
@@ -150,11 +179,80 @@ public class LectureMaterialService {
     }
 
     private Path resolveMaterialPath(LectureMaterial material) {
-        Path path = materialsRoot().resolve(material.getStoredPath()).normalize();
-        if (!path.startsWith(materialsRoot())) {
+        Path root = materialsRoot();
+        Path path = root.resolve(material.getStoredPath()).normalize();
+        if (!path.startsWith(root)) {
             throw new IllegalArgumentException("Invalid stored lecture material path.");
         }
         return path;
+    }
+
+    private void registerUploadTransactionCleanup(List<Path> stagedPaths, List<Path> finalPaths) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                cleanupPaths(stagedPaths);
+                if (status != STATUS_COMMITTED) {
+                    cleanupPaths(finalPaths);
+                }
+            }
+        });
+    }
+
+    private boolean registerDeleteTransactionCleanup(Path original, Path quarantined) {
+        if (quarantined == null || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return false;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_COMMITTED) {
+                    cleanupPath(quarantined);
+                } else {
+                    restoreQuarantinedFile(original, quarantined);
+                }
+            }
+        });
+        return true;
+    }
+
+    private static void moveAtomicallyIfPossible(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException ignored) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static void cleanupPaths(List<Path> paths) {
+        for (Path path : List.copyOf(paths)) {
+            cleanupPath(path);
+        }
+    }
+
+    private static void cleanupPath(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException error) {
+            log.warn("Failed to clean lecture material path {}", path, error);
+        }
+    }
+
+    private static void restoreQuarantinedFile(Path original, Path quarantined) {
+        if (original == null || quarantined == null || !Files.exists(quarantined)) {
+            return;
+        }
+        try {
+            moveAtomicallyIfPossible(quarantined, original);
+        } catch (IOException error) {
+            log.error("Failed to restore lecture material {} from transaction quarantine {}", original, quarantined, error);
+        }
     }
 
     private static String normalizeOriginalFileName(String originalFilename) {

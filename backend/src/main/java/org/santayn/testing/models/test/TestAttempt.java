@@ -66,6 +66,12 @@ public class TestAttempt {
     @Column(name = "`Score`", precision = 8, scale = 2)
     private BigDecimal score;
 
+    @Column(name = "`GradingStatus`", length = 20)
+    private String gradingStatus = "GRADED";
+
+    @Column(name = "`GradingUpdatedAtUtc`")
+    private Instant gradingUpdatedAtUtc;
+
     @Column(name = "`InvalidatedAtUtc`")
     private Instant invalidatedAtUtc;
 

@@ -29,3 +29,12 @@ http://localhost:8080/swagger-ui.html
 ```
 
 Docker Compose запускается из корня репозитория.
+## Production database migrations
+
+Production uses schema validation and does not execute `schema.sql` automatically. Before deploying a backend version with database changes, apply the pending PostgreSQL scripts in the canonical order documented here:
+
+```text
+backend/docs/sql/README.md
+```
+
+Do not enable development SQL initialization in production as a migration substitute.

@@ -66,44 +66,65 @@ const roleText = computed(() => {
     : 'Роль не указана'
 })
 
-const commonActions = computed(() => [
-  {
-    title: 'Профиль',
-    description: 'Личные данные и информация об учётной записи.',
-    route: { name: 'profile' },
-  },
-  {
-    title: 'Предметы',
-    description: 'Открыть доступные учебные предметы.',
-    route: { name: 'subjects' },
-  },
-  {
-    title: 'Результаты',
-    description: 'Просмотреть результаты тестирования.',
-    route: { name: 'results' },
-  },
-])
+const commonActions = computed(() => {
+  const items = [
+    {
+      title: 'Профиль',
+      description: 'Личные данные и информация об учётной записи.',
+      route: { name: 'profile' },
+      visible: true,
+    },
+    {
+      title: 'Предметы',
+      description: 'Открыть доступные учебные предметы.',
+      route: { name: 'subjects' },
+      visible: authStore.hasAnyPermission(
+        'lectures.read',
+        'courses.manage',
+        'teaching.manage',
+        'academic.manage'
+      ),
+    },
+    {
+      title: 'Результаты',
+      description: 'Просмотреть результаты тестирования.',
+      route: { name: 'results' },
+      visible: authStore.hasAnyPermission(
+        'lectures.read',
+        'tests.manage'
+      ),
+    },
+  ]
+
+  return items.filter(
+    (item) => item.visible
+  )
+})
 
 const teacherActions = [
   {
     title: 'Вопросы',
     description: 'Банк вопросов для тестов.',
     route: { name: 'teacher-questions' },
+    permission: 'questions.manage',
   },
   {
     title: 'Тесты',
     description: 'Создание, изменение и удаление тестов.',
     route: { name: 'teacher-tests' },
+    permission: 'tests.manage',
   },
   {
     title: 'Лекции',
     description: 'Управление лекциями и материалами.',
     route: { name: 'teacher-lectures' },
+    permission: 'courses.manage',
   },
   {
     title: 'Темы предмета',
     description: 'Группировка вопросов банка по разделам предмета.',
     route: { name: 'teacher-topics' },
+    permission: 'questions.manage',
   },
 ]
 
@@ -112,23 +133,45 @@ const adminActions = [
     title: 'Пользователи',
     description: 'Учётные записи, роли и доступ.',
     route: { name: 'admin-users' },
+    permission: 'users.read',
   },
   {
     title: 'Факультеты',
     description: 'Управление факультетами.',
     route: { name: 'admin-faculties' },
+    permission: 'academic.manage',
   },
   {
     title: 'Группы',
     description: 'Учебные группы и их состав.',
     route: { name: 'admin-groups' },
+    permission: 'academic.manage',
   },
   {
     title: 'Предметы',
     description: 'Администрирование учебных предметов.',
     route: { name: 'admin-subjects' },
+    permission: 'academic.manage',
   },
 ]
+
+const visibleTeacherActions = computed(() => {
+  return teacherActions.filter(
+    (item) =>
+      authStore.hasPermission(
+        item.permission
+      )
+  )
+})
+
+const visibleAdminActions = computed(() => {
+  return adminActions.filter(
+    (item) =>
+      authStore.hasPermission(
+        item.permission
+      )
+  )
+})
 
 async function refreshUser() {
   try {
@@ -223,7 +266,7 @@ async function refreshUser() {
     </section>
 
     <section
-      v-if="authStore.isTeacher || authStore.isAdmin"
+      v-if="visibleTeacherActions.length"
       class="home-section"
     >
       <div class="home-section__header">
@@ -238,7 +281,7 @@ async function refreshUser() {
 
       <div class="action-grid">
         <RouterLink
-          v-for="item in teacherActions"
+          v-for="item in visibleTeacherActions"
           :key="item.title"
           class="action-card"
           :to="item.route"
@@ -259,7 +302,7 @@ async function refreshUser() {
     </section>
 
     <section
-      v-if="authStore.isAdmin"
+      v-if="visibleAdminActions.length"
       class="home-section"
     >
       <div class="home-section__header">
@@ -274,7 +317,7 @@ async function refreshUser() {
 
       <div class="action-grid">
         <RouterLink
-          v-for="item in adminActions"
+          v-for="item in visibleAdminActions"
           :key="item.title"
           class="action-card"
           :to="item.route"

@@ -18,7 +18,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/teaching")
@@ -59,8 +62,8 @@ public class TeachingRestController {
             @RequestParam(required = false) Integer subjectMembershipId,
             @RequestParam(required = false) Integer teachingLoadTypeId,
             Authentication authentication) {
-        requireStaff(authentication);
-        if (!accessService.isAdmin(authentication)) {
+        requireTeachingRead(authentication);
+        if (!hasAcademicManage(authentication)) {
             if (subjectMembershipId == null) {
                 throw new AccessDeniedException("Teacher load-type queries require subjectMembershipId.");
             }
@@ -114,14 +117,16 @@ public class TeachingRestController {
                                                                      @RequestParam(required = false) Integer academicYear,
                                                                      @RequestParam(required = false) Integer status,
                                                                      Authentication authentication) {
-        if (!accessService.isAdmin(authentication)) {
-            if (subjectMembershipId != null && accessService.isTeacher(authentication)) {
+        if (!hasAcademicManage(authentication)) {
+            boolean canReadOwnedTeachingContext = accessService.hasPermission(authentication, "teaching.manage")
+                    || accessService.hasPermission(authentication, "tests.manage");
+            if (subjectMembershipId != null && canReadOwnedTeachingContext) {
                 accessService.requireSubjectMembershipOwner(authentication, subjectMembershipId);
-            } else if (groupId != null) {
+            } else if (groupId != null && canReadOwnedTeachingContext) {
                 accessService.requireGroupMember(authentication, groupId);
             } else {
                 throw new AccessDeniedException(
-                        "Assignment queries require an owned subjectMembershipId or current groupId."
+                        "Assignment queries require academic.manage or an owned teaching context."
                 );
             }
         }
@@ -139,6 +144,84 @@ public class TeachingRestController {
                 ),
                 ApiResponses::teachingAssignment
         );
+    }
+
+    @GetMapping("/profile-context")
+    public TeacherProfileContextResponse profileContext(Authentication authentication) {
+        TeachingService.TeacherProfileSnapshot snapshot = teachingService.teacherProfile(
+                accessService.currentPersonId(authentication)
+        );
+        return new TeacherProfileContextResponse(
+                ApiResponses.list(snapshot.memberships(), ApiResponses::subjectMembership),
+                ApiResponses.list(snapshot.subjects(), ApiResponses::subject),
+                ApiResponses.list(snapshot.groups(), ApiResponses::group)
+        );
+    }
+
+    @GetMapping("/workload")
+    public TeacherWorkloadResponse workload(@RequestParam(required = false) Integer studyCourse,
+                                            @RequestParam @Min(1) @Max(2) int semester,
+                                            @RequestParam @Min(2000) int academicYear,
+                                            Authentication authentication) {
+        TeachingService.TeacherWorkloadSnapshot snapshot = teachingService.teacherWorkload(
+                accessService.currentPersonId(authentication),
+                studyCourse,
+                semester,
+                academicYear
+        );
+
+        Map<Integer, org.santayn.testing.models.group.Group> groupsById = snapshot.groups().stream()
+                .collect(Collectors.toMap(
+                        org.santayn.testing.models.group.Group::getId,
+                        group -> group,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        Map<Integer, List<ApiResponses.LectureAssignmentResponse>> lectureAssignmentsByTeachingId =
+                snapshot.lectureAssignments().stream()
+                        .collect(Collectors.groupingBy(
+                                org.santayn.testing.models.lecture.LectureAssignment::getTeachingAssignmentId,
+                                LinkedHashMap::new,
+                                Collectors.mapping(ApiResponses::lectureAssignment, Collectors.toList())
+                        ));
+
+        List<TeacherWorkloadAssignmentResponse> assignments = snapshot.assignments().stream()
+                .map(assignment -> {
+                    org.santayn.testing.models.group.Group group = groupsById.get(assignment.getGroupId());
+                    return new TeacherWorkloadAssignmentResponse(
+                            ApiResponses.teachingAssignment(assignment),
+                            group == null ? null : group.getName(),
+                            group == null ? null : group.getCode(),
+                            List.copyOf(lectureAssignmentsByTeachingId.getOrDefault(assignment.getId(), List.of()))
+                    );
+                })
+                .toList();
+
+        Map<Integer, Integer> subjectIdByMembershipId = snapshot.memberships().stream()
+                .collect(Collectors.toMap(
+                        org.santayn.testing.models.subject.SubjectMembership::getId,
+                        org.santayn.testing.models.subject.SubjectMembership::getSubjectId,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        Map<Integer, List<ApiResponses.LectureResponse>> lecturesByMembershipId = snapshot.lectures().stream()
+                .filter(lecture -> lecture.getSubjectMembershipId() != null)
+                .collect(Collectors.groupingBy(
+                        org.santayn.testing.models.lecture.Lecture::getSubjectMembershipId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(ApiResponses::lecture, Collectors.toList())
+                ));
+
+        List<TeacherWorkloadSubjectResponse> subjects = snapshot.memberships().stream()
+                .map(membership -> new TeacherWorkloadSubjectResponse(
+                        subjectIdByMembershipId.get(membership.getId()),
+                        membership.getId(),
+                        List.copyOf(lecturesByMembershipId.getOrDefault(membership.getId(), List.of()))
+                ))
+                .filter(item -> item.subjectId() != null)
+                .toList();
+
+        return new TeacherWorkloadResponse(assignments, subjects);
     }
 
     @GetMapping("/assignments/{id}")
@@ -202,14 +285,14 @@ public class TeachingRestController {
             @RequestParam(required = false) Integer groupId,
             @RequestParam(required = false) Integer status,
             Authentication authentication) {
-        if (!accessService.isAdmin(authentication)) {
-            if (teachingAssignmentId != null && accessService.isTeacher(authentication)) {
+        if (!hasAcademicManage(authentication)) {
+            if (teachingAssignmentId != null && accessService.hasPermission(authentication, "teaching.manage")) {
                 accessService.requireTeachingAssignmentOwner(authentication, teachingAssignmentId);
-            } else if (groupMembershipId != null) {
+            } else if (groupMembershipId != null && accessService.hasPermission(authentication, "teaching.manage")) {
                 accessService.requireGroupMembershipOwner(authentication, groupMembershipId);
             } else {
                 throw new AccessDeniedException(
-                        "Enrollment queries require an owned teachingAssignmentId or groupMembershipId."
+                        "Enrollment queries require academic.manage or an owned teaching context."
                 );
             }
         }
@@ -241,8 +324,8 @@ public class TeachingRestController {
             @RequestParam(required = false) Integer teachingAssignmentId,
             @RequestParam(required = false) Integer courseLectureId,
             Authentication authentication) {
-        requireStaff(authentication);
-        if (!accessService.isAdmin(authentication)) {
+        requireTeachingRead(authentication);
+        if (!hasAcademicManage(authentication)) {
             if (teachingAssignmentId != null) {
                 accessService.requireTeachingAssignmentOwner(authentication, teachingAssignmentId);
             } else if (courseLectureId != null) {
@@ -308,8 +391,8 @@ public class TeachingRestController {
             @RequestParam(required = false) Integer lectureAssignmentId,
             @RequestParam(required = false) Integer teachingAssignmentEnrollmentId,
             Authentication authentication) {
-        requireStaff(authentication);
-        if (!accessService.isAdmin(authentication)) {
+        requireTeachingRead(authentication);
+        if (!hasAcademicManage(authentication)) {
             if (lectureAssignmentId != null) {
                 accessService.requireLectureAssignmentOwner(authentication, lectureAssignmentId);
             } else if (teachingAssignmentEnrollmentId != null) {
@@ -360,6 +443,34 @@ public class TeachingRestController {
     ) {
     }
 
+    public record TeacherProfileContextResponse(
+            List<ApiResponses.SubjectMembershipResponse> memberships,
+            List<ApiResponses.SubjectResponse> subjects,
+            List<ApiResponses.GroupResponse> groups
+    ) {
+    }
+
+    public record TeacherWorkloadResponse(
+            List<TeacherWorkloadAssignmentResponse> assignments,
+            List<TeacherWorkloadSubjectResponse> subjects
+    ) {
+    }
+
+    public record TeacherWorkloadAssignmentResponse(
+            ApiResponses.TeachingAssignmentResponse assignment,
+            String groupName,
+            String groupCode,
+            List<ApiResponses.LectureAssignmentResponse> lectureAssignments
+    ) {
+    }
+
+    public record TeacherWorkloadSubjectResponse(
+            Integer subjectId,
+            Integer subjectMembershipId,
+            List<ApiResponses.LectureResponse> lectures
+    ) {
+    }
+
     public record TeachingAssignmentRequest(
             @NotNull Integer subjectMembershipId,
             @NotNull Integer groupId,
@@ -406,9 +517,16 @@ public class TeachingRestController {
     ) {
     }
 
-    private void requireStaff(Authentication authentication) {
-        if (!accessService.isTeacherOrAdmin(authentication)) {
-            throw new AccessDeniedException("This teaching resource is available to staff only.");
+    private void requireTeachingRead(Authentication authentication) {
+        if (!accessService.hasPermission(authentication, "teaching.manage")
+                && !hasAcademicManage(authentication)) {
+            throw new AccessDeniedException(
+                    "This teaching resource requires teaching.manage or academic.manage permission."
+            );
         }
+    }
+
+    private boolean hasAcademicManage(Authentication authentication) {
+        return accessService.hasPermission(authentication, "academic.manage");
     }
 }

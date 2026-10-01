@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface StudentLectureProgressRepository extends JpaRepository<StudentLectureProgress, Integer> {
 
+    boolean existsByLectureAssignmentId(Integer lectureAssignmentId);
+
     List<StudentLectureProgress> findByTeachingAssignmentEnrollmentId(Integer teachingAssignmentEnrollmentId);
 
     List<StudentLectureProgress> findByLectureAssignmentId(Integer lectureAssignmentId);

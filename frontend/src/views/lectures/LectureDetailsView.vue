@@ -48,8 +48,10 @@ const downloadingMaterialId =
 
 const canTakeTests = computed(() => {
   return (
-    authStore.isStudent ||
-    authStore.isAdmin
+    authStore.isStudent &&
+    authStore.hasPermission(
+      'tests.take'
+    )
   )
 })
 
@@ -690,6 +692,14 @@ onMounted(loadLecture)
     </UiCard>
 
     <UiCard
+      v-if="lecture?.contentSource"
+      title="Содержание лекции"
+      :description="`Формат: ${lecture.contentFormat || 'markdown'}, схема: v${lecture.contentSchemaVersion || 1}`"
+    >
+      <pre class="lecture-content-source">{{ lecture.contentSource }}</pre>
+    </UiCard>
+
+    <UiCard
       title="Материалы лекции"
       :description="
         materials.length
@@ -833,6 +843,13 @@ onMounted(loadLecture)
 </template>
 
 <style scoped>
+.lecture-content-source {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
 .lecture-data {
   margin: 0;
 

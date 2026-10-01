@@ -21,6 +21,13 @@ export const lecturesApi = {
     return http.get(`/lectures/${lectureId}/tests`)
   },
 
+  getTestsBatch(lectureIds) {
+    return http.get('/lectures/tests', {
+      params: { lectureIds },
+      paramsSerializer: { indexes: null },
+    })
+  },
+
   setTests(lectureId, data) {
     return http.put(`/lectures/${lectureId}/tests`, data)
   },

@@ -27,6 +27,10 @@ public interface TestAssignmentRepository extends JpaRepository<TestAssignment, 
 
     List<TestAssignment> findByTeachingAssignmentId(Integer teachingAssignmentId);
 
+    boolean existsByTeachingAssignmentId(Integer teachingAssignmentId);
+
+    boolean existsByCourseLectureId(Integer courseLectureId);
+
     Optional<TestAssignment> findFirstByTestIdAndCourseLectureId(Integer testId, Integer courseLectureId);
 
     @Query("""

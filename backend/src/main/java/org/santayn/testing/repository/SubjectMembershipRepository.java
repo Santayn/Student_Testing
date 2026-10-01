@@ -6,14 +6,23 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SubjectMembershipRepository extends JpaRepository<SubjectMembership, Integer> {
 
     List<SubjectMembership> findBySubjectIdAndRemovedAtUtcIsNull(Integer subjectId);
 
+    boolean existsBySubjectId(Integer subjectId);
+
     List<SubjectMembership> findByPersonIdAndRemovedAtUtcIsNull(Integer personId);
 
     boolean existsBySubjectIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(Integer subjectId, Integer personId, int role);
+
+    Optional<SubjectMembership> findFirstBySubjectIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(
+            Integer subjectId,
+            Integer personId,
+            int role
+    );
 
     @Query("""
             select membership

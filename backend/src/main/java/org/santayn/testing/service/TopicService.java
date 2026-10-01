@@ -3,6 +3,8 @@ package org.santayn.testing.service;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.topic.Topic;
 import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.QuestionRepository;
+import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.santayn.testing.repository.SubjectRepository;
 import org.santayn.testing.repository.TopicRepository;
@@ -16,13 +18,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TopicService {
 
-    private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
-
     private final TopicRepository topicRepository;
     private final SubjectRepository subjectRepository;
     private final LectureRepository lectureRepository;
     private final SubjectMembershipRepository subjectMembershipRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
+    private final QuestionRepository questionRepository;
+    private final TestQuestionSelectionRuleRepository testQuestionSelectionRuleRepository;
 
     @Transactional(readOnly = true)
     public List<Topic> findAll(Integer subjectId, Integer courseLectureId, Integer subjectMembershipId) {
@@ -115,7 +117,21 @@ public class TopicService {
 
     @Transactional
     public void delete(Integer topicId) {
-        topicRepository.delete(get(topicId));
+        Topic topic = get(topicId);
+        boolean hasQuestions = questionRepository.existsByTopicId(topicId);
+        boolean hasSelectionRules = testQuestionSelectionRuleRepository.existsByTopicId(topicId);
+        if (hasQuestions || hasSelectionRules) {
+            throw new ResourceInUseException(
+                    "topic",
+                    topicId,
+                    "Topic cannot be deleted while questions or test selection rules reference it.",
+                    java.util.Map.of(
+                            "questions", hasQuestions,
+                            "testSelectionRules", hasSelectionRules
+                    )
+            );
+        }
+        topicRepository.delete(topic);
     }
 
     private TopicPlacement requireTopicPlacement(Integer subjectId,
@@ -124,7 +140,7 @@ public class TopicService {
         if (subjectMembershipId == null) {
             throw new IllegalArgumentException("SubjectMembershipId is required.");
         }
-        SubjectMembership membership = requireActiveTeacherSubjectMembership(subjectMembershipId);
+        SubjectMembership membership = activeTeacherSubjectMembershipService.requireActiveTeacher(subjectMembershipId);
 
         if (subjectId != null && !subjectId.equals(membership.getSubjectId())) {
             throw new IllegalArgumentException("Subject membership " + subjectMembershipId
@@ -151,18 +167,6 @@ public class TopicService {
     private SubjectMembership requireSubjectMembership(Integer subjectMembershipId) {
         return subjectMembershipRepository.findById(subjectMembershipId)
                 .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
-    }
-
-    private SubjectMembership requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
-        SubjectMembership membership = requireSubjectMembership(subjectMembershipId);
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null) {
-            throw new IllegalArgumentException(
-                    "Active teacher subject membership is required: " + subjectMembershipId
-            );
-        }
-        return membership;
     }
 
     private LecturePlacement requireLecturePlacement(Integer courseLectureId) {

@@ -1,22 +1,33 @@
-import {
-  APP_ROLES,
-  LEARNING_ROLES,
-  TEST_TAKER_ROLES,
-} from '../roles'
-
 const authenticatedMeta = {
   requiresAuth: true,
-  roles: APP_ROLES,
 }
 
-const learningMeta = {
+const subjectWorkspaceMeta = {
   requiresAuth: true,
-  roles: LEARNING_ROLES,
+  permissions: [
+    'lectures.read',
+    'courses.manage',
+    'teaching.manage',
+    'academic.manage',
+  ],
+}
+
+const studentLearningMeta = {
+  requiresAuth: true,
+  roles: ['STUDENT'],
 }
 
 const testTakingMeta = {
   requiresAuth: true,
-  roles: TEST_TAKER_ROLES,
+  roles: ['STUDENT'],
+}
+
+const resultsMeta = {
+  requiresAuth: true,
+  permissions: [
+    'lectures.read',
+    'tests.manage',
+  ],
 }
 
 export const studentRoutes = [
@@ -53,7 +64,7 @@ export const studentRoutes = [
         '@/views/subjects/SubjectsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: subjectWorkspaceMeta,
   },
 
   {
@@ -65,7 +76,7 @@ export const studentRoutes = [
         '@/views/subjects/SubjectDetailsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: subjectWorkspaceMeta,
   },
 
   {
@@ -77,7 +88,7 @@ export const studentRoutes = [
         '@/views/lectures/SubjectLecturesView.vue'
       ),
 
-    meta: learningMeta,
+    meta: studentLearningMeta,
   },
 
   {
@@ -89,7 +100,7 @@ export const studentRoutes = [
         '@/views/lectures/LectureDetailsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: studentLearningMeta,
   },
 
   {
@@ -113,6 +124,6 @@ export const studentRoutes = [
         '@/views/results/ResultsView.vue'
       ),
 
-    meta: learningMeta,
+    meta: resultsMeta,
   },
 ]

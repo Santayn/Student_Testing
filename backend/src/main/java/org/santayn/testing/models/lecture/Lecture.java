@@ -62,6 +62,15 @@ public class Lecture {
     @Column(name = "`ContentFolderKey`", nullable = false, length = 255)
     private String contentFolderKey;
 
+    @Column(name = "`ContentSource`", columnDefinition = "text")
+    private String contentSource;
+
+    @Column(name = "`ContentFormat`", nullable = false, length = 32)
+    private String contentFormat = "markdown";
+
+    @Column(name = "`ContentSchemaVersion`", nullable = false)
+    private int contentSchemaVersion = 1;
+
     @Column(name = "`LinkedTestId`")
     private Integer linkedTestId;
 

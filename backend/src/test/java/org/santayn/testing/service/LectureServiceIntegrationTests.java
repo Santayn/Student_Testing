@@ -52,6 +52,54 @@ class LectureServiceIntegrationTests {
     }
 
     @Test
+    void createPersistsVersionedSemanticContent() {
+        Subject subject = subject("semantic-lecture-subject");
+        SubjectMembership membership = subjectMembership(subject, 1, 1, null);
+
+        Lecture lecture = lectureService.create(
+                subject.getId(),
+                membership.getId(),
+                null,
+                1,
+                "Semantic lecture",
+                "Description",
+                "semantic-lecture-folder",
+                "# Heading\n\nLecture body",
+                "MARKDOWN",
+                2,
+                null,
+                true
+        );
+
+        assertThat(lecture.getContentSource()).isEqualTo("# Heading\n\nLecture body");
+        assertThat(lecture.getContentFormat()).isEqualTo("markdown");
+        assertThat(lecture.getContentSchemaVersion()).isEqualTo(2);
+    }
+
+    @Test
+    void createRejectsUnsupportedSemanticContentFormat() {
+        Subject subject = subject("semantic-format-subject");
+        SubjectMembership membership = subjectMembership(subject, 1, 1, null);
+
+        assertThatThrownBy(() -> lectureService.create(
+                subject.getId(),
+                membership.getId(),
+                null,
+                1,
+                "Unsupported semantic lecture",
+                null,
+                "unsupported-semantic-folder",
+                "body",
+                "binary",
+                1,
+                null,
+                false
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ContentFormat must be one of");
+    }
+
+    @Test
     void createRejectsInactiveTeacherMembership() {
         Subject subject = subject("inactive-lecture-subject");
         SubjectMembership membership = subjectMembership(subject, 1, 2, null);

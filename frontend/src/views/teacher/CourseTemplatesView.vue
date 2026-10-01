@@ -328,19 +328,9 @@ async function saveTemplate() {
     return
   }
 
-  const current =
-    templates.value.find(
-      (item) =>
-        Number(item.id) ===
-        Number(templateForm.value.id)
-    )
-
   const payload = {
     subjectId:
       Number(selectedSubjectId.value),
-    authorPersonId:
-      current?.authorPersonId ||
-      authStore.personId,
     name:
       templateForm.value.name.trim(),
     publicVisible:

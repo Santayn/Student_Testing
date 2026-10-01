@@ -61,6 +61,9 @@ public class LectureRestController {
                 request.title(),
                 request.description(),
                 request.contentFolderKey(),
+                request.contentSource(),
+                request.contentFormat(),
+                request.contentSchemaVersion(),
                 request.linkedTestId(),
                 request.publicVisible()
         ));
@@ -86,6 +89,9 @@ public class LectureRestController {
                 request.title(),
                 request.description(),
                 request.contentFolderKey(),
+                request.contentSource(),
+                request.contentFormat(),
+                request.contentSchemaVersion(),
                 request.linkedTestId(),
                 request.publicVisible()
         ));
@@ -117,6 +123,9 @@ public class LectureRestController {
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description,
             @NotBlank @Size(max = 255) String contentFolderKey,
+            @Size(max = 1000000) String contentSource,
+            @Size(max = 32) String contentFormat,
+            @Positive Integer contentSchemaVersion,
             Integer linkedTestId,
             boolean publicVisible
     ) {
@@ -146,7 +155,7 @@ public class LectureRestController {
                                        Integer subjectMembershipId,
                                        Integer courseVersionId,
                                        boolean requireActiveSubjectMembership) {
-        if (accessService.isAdmin(authentication)) {
+        if (accessService.hasGlobalAcademicScope(authentication)) {
             return;
         }
         boolean hasOwnedPlacement = false;

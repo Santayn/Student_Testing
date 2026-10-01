@@ -47,12 +47,13 @@ export const useAuthStore = defineStore(
       accessToken: null,
       accessTokenExpiresAtUtc: null,
 
-      refreshToken: null,
       refreshTokenExpiresAtUtc: null,
+      csrfToken: null,
 
       lifetimeKind: null,
 
       user: null,
+      publicRegistrationEnabled: null,
 
       loading: false,
       refreshing: false,
@@ -70,6 +71,17 @@ export const useAuthStore = defineStore(
 
       hasUser: (state) => {
         return state.user !== null
+      },
+
+      accountState: (state) => {
+        return (
+          state.user?.accountState ??
+          null
+        )
+      },
+
+      isAccountReady() {
+        return this.accountState === 'ACTIVE'
       },
 
       userId: (state) => {
@@ -240,7 +252,7 @@ export const useAuthStore = defineStore(
 
       canRefresh() {
         return Boolean(
-          this.refreshToken &&
+          this.refreshTokenExpiresAtUtc &&
           !this.isRefreshTokenExpired
         )
       },
@@ -260,10 +272,6 @@ export const useAuthStore = defineStore(
           data?.accessTokenExpiresAtUtc ||
           null
 
-        this.refreshToken =
-          data?.refreshToken ||
-          null
-
         this.refreshTokenExpiresAtUtc =
           data?.refreshTokenExpiresAtUtc ||
           null
@@ -272,12 +280,13 @@ export const useAuthStore = defineStore(
           data?.lifetimeKind ??
           null
 
-        if (
-          !this.accessToken ||
-          !this.refreshToken
-        ) {
+        if (data?.user) {
+          this.setUser(data.user)
+        }
+
+        if (!this.accessToken) {
           throw new Error(
-            'Backend не вернул полную пару access/refresh tokens'
+            'Backend не вернул access token'
           )
         }
       },
@@ -287,6 +296,19 @@ export const useAuthStore = defineStore(
           user || null
 
         this.error = null
+      },
+
+      async loadPublicAuthConfig() {
+        const response =
+          await authApi.config()
+
+        this.publicRegistrationEnabled =
+          Boolean(
+            response.data
+              ?.publicRegistrationEnabled
+          )
+
+        return this.publicRegistrationEnabled
       },
 
       async login(
@@ -309,7 +331,9 @@ export const useAuthStore = defineStore(
             response.data
           )
 
-          await this.loadCurrentUser()
+          if (!this.user) {
+            await this.loadCurrentUser()
+          }
 
           return {
             user: this.user,
@@ -345,7 +369,9 @@ export const useAuthStore = defineStore(
             response.data
           )
 
-          await this.loadCurrentUser()
+          if (!this.user) {
+            await this.loadCurrentUser()
+          }
 
           return {
             user: this.user,
@@ -382,53 +408,95 @@ export const useAuthStore = defineStore(
         return this.user
       },
 
+      async ensureCsrfToken(
+        forceRefresh = false
+      ) {
+        if (
+          this.csrfToken &&
+          !forceRefresh
+        ) {
+          return this.csrfToken
+        }
+
+        const response =
+          await authApi.csrf()
+
+        const csrfToken =
+          response.data?.csrfToken ??
+          null
+
+        if (!csrfToken) {
+          throw new Error(
+            'Backend не вернул CSRF token'
+          )
+        }
+
+        this.csrfToken = csrfToken
+        return csrfToken
+      },
+
       async refreshSession() {
         if (refreshPromise) {
           return refreshPromise
         }
 
-        if (!this.refreshToken) {
-          this.clearSession()
-
-          throw new Error(
-            'Refresh token отсутствует'
-          )
-        }
-
-        if (
-          this.isRefreshTokenExpired
-        ) {
-          this.clearSession()
-
-          throw new Error(
-            'Сессия истекла'
-          )
-        }
-
         /*
-         * Refresh token вращается.
-         * Сохраняем значение, которое было актуально
-         * на момент старта refresh-запроса.
+         * HttpOnly cookie является источником истины для refresh-session.
+         * JS может потерять persisted expiry metadata, хотя cookie всё ещё
+         * существует (очистка storage, новая вкладка, миграция клиента).
+         * Поэтому решение о валидности сессии принимает backend, а не store.
          */
-        const currentRefreshToken =
-          this.refreshToken
-
         this.refreshing = true
 
         refreshPromise = (async () => {
           try {
-            const response =
-              await authApi.refresh(
-                currentRefreshToken
-              )
+            let csrfToken =
+              await this.ensureCsrfToken()
+
+            let response
+
+            try {
+              response =
+                await authApi.refresh(
+                  csrfToken
+                )
+            } catch (error) {
+              /*
+               * CSRF cookie может быть очищен браузером
+               * независимо от in-memory token. Получаем
+               * свежую double-submit пару и повторяем
+               * refresh ровно один раз.
+               */
+              if (
+                error.response?.status !== 403
+              ) {
+                throw error
+              }
+
+              csrfToken =
+                await this.ensureCsrfToken(
+                  true
+                )
+
+              response =
+                await authApi.refresh(
+                  csrfToken
+                )
+            }
 
             /*
-             * Backend возвращает НОВУЮ пару.
-             * Заменяем и access, и refresh token.
+             * Refresh token вращается внутри
+             * HttpOnly cookie и никогда не попадает
+             * в JavaScript. В store сохраняется только
+             * новый access token и метаданные сессии.
              */
             this.setSessionTokens(
               response.data
             )
+
+            if (!this.user) {
+              await this.loadCurrentUser()
+            }
 
             return this.accessToken
           } catch (error) {
@@ -445,21 +513,13 @@ export const useAuthStore = defineStore(
 
       async ensureAccessToken() {
         if (!this.accessToken) {
-          return null
+          return this.refreshSession()
         }
 
         if (
           !this.isAccessTokenExpired
         ) {
           return this.accessToken
-        }
-
-        if (!this.canRefresh) {
-          this.clearSession()
-
-          throw new Error(
-            'Сессия истекла'
-          )
         }
 
         return this.refreshSession()
@@ -473,14 +533,6 @@ export const useAuthStore = defineStore(
         this.initialized = true
         this.error = null
 
-        if (
-          !this.accessToken &&
-          !this.refreshToken
-        ) {
-          this.user = null
-          return
-        }
-
         this.loading = true
 
         try {
@@ -488,10 +540,17 @@ export const useAuthStore = defineStore(
             !this.accessToken ||
             this.isAccessTokenExpired
           ) {
+            /*
+             * Даже без persisted metadata один раз пробуем cookie-session.
+             * Отсутствующая/истёкшая cookie штатно вернёт 401 и приведёт
+             * к чистому гостевому состоянию.
+             */
             await this.refreshSession()
           }
 
-          await this.loadCurrentUser()
+          if (!this.user) {
+            await this.loadCurrentUser()
+          }
         } catch (error) {
           this.clearSession()
 
@@ -531,6 +590,13 @@ export const useAuthStore = defineStore(
             currentPassword,
             newPassword,
           })
+
+          /*
+           * Backend повышает securityVersion и очищает
+           * refresh-cookie, поэтому текущая сессия после
+           * смены пароля должна завершиться и локально.
+           */
+          this.clearSession()
         } catch (error) {
           this.error =
             getApiErrorMessage(
@@ -566,45 +632,43 @@ export const useAuthStore = defineStore(
         this.accessTokenExpiresAtUtc =
           null
 
-        this.refreshToken = null
         this.refreshTokenExpiresAtUtc =
           null
+        this.csrfToken = null
 
         this.lifetimeKind = null
         this.user = null
       },
 
       async logout() {
-        const hasRefreshToken =
-          Boolean(this.refreshToken)
-
         try {
-          if (hasRefreshToken) {
-            /*
-             * revoke требует действующий Bearer.
-             *
-             * Если access token уже истёк,
-             * сначала refreshSession() получит новую
-             * пару, а revoke отправит уже НОВЫЙ
-             * refresh token.
-             */
-            if (
-              !this.accessToken ||
-              this.isAccessTokenExpired
-            ) {
-              if (this.canRefresh) {
-                await this.refreshSession()
-              }
-            }
+          /*
+           * HttpOnly refresh-cookie является источником истины.
+           * Даже полностью пустой JS store не доказывает, что
+           * серверной refresh-сессии нет (например, storage был
+           * очищен вручную или приложение открыто в новой вкладке).
+           * Поэтому logout всегда пытается восстановить access token
+           * через cookie и затем отозвать серверную сессию.
+           */
+          if (
+            !this.accessToken ||
+            this.isAccessTokenExpired
+          ) {
+            await this.refreshSession()
+          }
 
-            if (
-              this.accessToken &&
-              this.refreshToken
-            ) {
-              await authApi.revoke(
-                this.refreshToken
+          if (
+            this.accessToken &&
+            !this.isAccessTokenExpired
+          ) {
+            const csrfToken =
+              await this.ensureCsrfToken(
+                true
               )
-            }
+
+            await authApi.revoke(
+              csrfToken
+            )
           }
         } catch {
           /*
@@ -623,17 +687,17 @@ export const useAuthStore = defineStore(
     },
 
     persist: {
+      /*
+       * Access token остаётся только в памяти.
+       * Refresh token хранится только в HttpOnly cookie.
+       * Persisted state содержит лишь несекретные метаданные.
+       * Наличие refresh-session определяется только backend cookie,
+       * поэтому эти поля не используются как запрет на refresh.
+       */
       pick: [
         'tokenType',
-
-        'accessToken',
-        'accessTokenExpiresAtUtc',
-
-        'refreshToken',
         'refreshTokenExpiresAtUtc',
-
         'lifetimeKind',
-
         'user',
       ],
     },

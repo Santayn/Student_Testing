@@ -6,6 +6,7 @@ const clientConfig = {
       .VITE_API_BASE_URL ||
     '/api/v1',
   timeout: 15000,
+  withCredentials: true,
 
   headers: {
     Accept: 'application/json',

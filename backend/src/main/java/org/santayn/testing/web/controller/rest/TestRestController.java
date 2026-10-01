@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -35,15 +36,15 @@ public class TestRestController {
     @GetMapping
     public List<ApiResponses.TestResponse> all(@RequestParam(required = false) Integer subjectId,
                                                Authentication authentication) {
-        boolean admin = accessService.isAdmin(authentication);
-        if (!admin) {
+        boolean globalAcademicScope = accessService.hasGlobalAcademicScope(authentication);
+        if (!globalAcademicScope) {
             if (subjectId == null) {
                 throw new AccessDeniedException("Teacher test queries require subjectId.");
             }
             accessService.requireSubjectOwner(authentication, subjectId);
         }
         var tests = testService.findAll(subjectId);
-        if (!admin) {
+        if (!globalAcademicScope) {
             tests = tests.stream()
                     .filter(test -> accessService.canManageTest(authentication, test.getId()))
                     .toList();
@@ -60,7 +61,7 @@ public class TestRestController {
     @PostMapping
     public ApiResponses.TestResponse create(@Valid @RequestBody TestRequest request, Authentication authentication) {
         requireSelectionRuleOwners(request.selectionRules(), authentication);
-        Integer authorPersonId = accessService.isAdmin(authentication)
+        Integer authorPersonId = accessService.hasGlobalAcademicScope(authentication)
                 ? null
                 : accessService.currentPersonId(authentication);
         return ApiResponses.test(testService.create(
@@ -72,6 +73,33 @@ public class TestRestController {
                 selectionRuleInputs(request.selectionRules()),
                 authorPersonId
         ));
+    }
+
+    @PostMapping("/with-assignments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TestWithAssignmentsResponse createWithAssignments(
+            @Valid @RequestBody TestWithAssignmentsRequest request,
+            Authentication authentication) {
+        requireSelectionRuleOwners(request.selectionRules(), authentication);
+        request.assignments().forEach(assignment -> requireAssignmentTargetOwner(assignment, authentication));
+        Integer authorPersonId = accessService.hasGlobalAcademicScope(authentication)
+                ? null
+                : accessService.currentPersonId(authentication);
+
+        TestService.CreatedTestWithAssignments created = testService.createWithAssignments(
+                request.title(),
+                request.description(),
+                request.duration(),
+                request.attemptsAllowed(),
+                request.questionCount(),
+                selectionRuleInputs(request.selectionRules()),
+                authorPersonId,
+                assignmentInputs(request.assignments())
+        );
+        return new TestWithAssignmentsResponse(
+                ApiResponses.test(created.test()),
+                ApiResponses.list(created.assignments(), ApiResponses::testAssignment)
+        );
     }
 
     @PutMapping("/{id}")
@@ -122,7 +150,7 @@ public class TestRestController {
                                                                  @RequestParam(required = false) Integer courseLectureId,
                                                                  @RequestParam(required = false) Integer teachingAssignmentId,
                                                                  Authentication authentication) {
-        if (!accessService.isAdmin(authentication)) {
+        if (!accessService.hasGlobalAcademicScope(authentication)) {
             if (testId == null) {
                 throw new AccessDeniedException("Teacher assignment queries require testId.");
             }
@@ -251,6 +279,23 @@ public class TestRestController {
     ) {
     }
 
+    public record TestWithAssignmentsRequest(
+            @NotBlank @Size(max = 200) String title,
+            @Size(max = 4000) String description,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime duration,
+            @Positive int attemptsAllowed,
+            @Positive int questionCount,
+            List<@Valid SelectionRuleRequest> selectionRules,
+            @NotEmpty List<@Valid AssignmentRequest> assignments
+    ) {
+    }
+
+    public record TestWithAssignmentsResponse(
+            ApiResponses.TestResponse test,
+            List<ApiResponses.TestAssignmentResponse> assignments
+    ) {
+    }
+
     public record TestUpdateRequest(
             @NotBlank @Size(max = 200) String title,
             @Size(max = 4000) String description,
@@ -326,8 +371,22 @@ public class TestRestController {
                 .toList();
     }
 
+    private static List<TestService.AssignmentInput> assignmentInputs(List<AssignmentRequest> assignments) {
+        return assignments.stream()
+                .map(assignment -> new TestService.AssignmentInput(
+                        assignment.scope(),
+                        assignment.courseVersionId(),
+                        assignment.courseLectureId(),
+                        assignment.teachingAssignmentId(),
+                        assignment.availableFromUtc(),
+                        assignment.availableUntilUtc(),
+                        assignment.status()
+                ))
+                .toList();
+    }
+
     private void requireSelectionRuleOwners(List<SelectionRuleRequest> rules, Authentication authentication) {
-        if (rules == null || accessService.isAdmin(authentication)) {
+        if (rules == null || accessService.hasGlobalAcademicScope(authentication)) {
             return;
         }
         for (SelectionRuleRequest rule : rules) {
@@ -347,7 +406,7 @@ public class TestRestController {
     }
 
     private void requireAssignmentTargetOwner(AssignmentRequest request, Authentication authentication) {
-        if (accessService.isAdmin(authentication)) {
+        if (accessService.hasGlobalAcademicScope(authentication)) {
             return;
         }
         switch (request.scope()) {

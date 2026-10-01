@@ -28,9 +28,25 @@ app:
     enabled: ${APP_DATA_LOADER_ENABLED:false}
   registration:
     public-enabled: ${APP_PUBLIC_REGISTRATION_ENABLED:false}
+  openapi:
+    public-enabled: ${APP_OPENAPI_PUBLIC_ENABLED:false}
   security:
     jwt:
       secret: ${APP_JWT_SECRET}
+    refresh-cookie:
+      name: ${APP_AUTH_REFRESH_COOKIE_NAME:student_test_refresh}
+      csrf-cookie-name: ${APP_AUTH_CSRF_COOKIE_NAME:student_test_csrf}
+      secure: ${APP_AUTH_REFRESH_COOKIE_SECURE:true}
+      same-site: ${APP_AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
+    auth-rate-limit:
+      login:
+        max-failures: ${APP_AUTH_LOGIN_MAX_FAILURES:5}
+        window-seconds: ${APP_AUTH_LOGIN_WINDOW_SECONDS:300}
+        block-seconds: ${APP_AUTH_LOGIN_BLOCK_SECONDS:60}
+      refresh:
+        max-failures: ${APP_AUTH_REFRESH_MAX_FAILURES:10}
+        window-seconds: ${APP_AUTH_REFRESH_WINDOW_SECONDS:300}
+        block-seconds: ${APP_AUTH_REFRESH_BLOCK_SECONDS:60}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:[*],http://127.0.0.1:[*]}
   storage:
@@ -41,6 +57,13 @@ app:
     schema: ${APP_DATABASE_BACKUP_SCHEMA:}
     include-clean: ${APP_DATABASE_BACKUP_INCLUDE_CLEAN:true}
   text-answer-grading:
+    worker:
+      enabled: ${APP_TEXT_ANSWER_GRADING_WORKER_ENABLED:true}
+      poll-delay-ms: ${APP_TEXT_ANSWER_GRADING_POLL_DELAY_MS:1000}
+      batch-size: ${APP_TEXT_ANSWER_GRADING_BATCH_SIZE:5}
+      max-attempts: ${APP_TEXT_ANSWER_GRADING_MAX_ATTEMPTS:3}
+      retry-delay-seconds: ${APP_TEXT_ANSWER_GRADING_RETRY_DELAY_SECONDS:5}
+      claim-timeout-seconds: ${APP_TEXT_ANSWER_GRADING_CLAIM_TIMEOUT_SECONDS:60}
     local-llm:
       enabled: ${APP_TEXT_ANSWER_LOCAL_LLM_ENABLED:false}
       endpoint: ${APP_TEXT_ANSWER_LOCAL_LLM_ENDPOINT:http://127.0.0.1:11434/api/generate}

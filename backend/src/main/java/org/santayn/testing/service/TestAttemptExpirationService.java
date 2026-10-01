@@ -6,7 +6,6 @@ import org.santayn.testing.models.test.TestAttempt;
 import org.santayn.testing.repository.QuestionResponseRepository;
 import org.santayn.testing.repository.TestAttemptRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -19,9 +18,9 @@ public class TestAttemptExpirationService {
     private final TestAttemptRepository testAttemptRepository;
     private final QuestionResponseRepository questionResponseRepository;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void expireAttempt(Integer attemptId, Instant expiredAtUtc) {
-        TestAttempt attempt = testAttemptRepository.findById(attemptId)
+        TestAttempt attempt = testAttemptRepository.findByIdForUpdate(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test attempt not found: " + attemptId));
         if (attempt.getStatus() != TestService.ATTEMPT_STATUS_IN_PROGRESS) {
             return;

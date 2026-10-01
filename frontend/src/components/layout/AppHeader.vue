@@ -29,6 +29,22 @@ const userLabel = computed(() => {
   return 'Пользователь'
 })
 
+const canOpenSubjects = computed(() => {
+  return authStore.hasAnyPermission(
+    'lectures.read',
+    'courses.manage',
+    'teaching.manage',
+    'academic.manage'
+  )
+})
+
+const canOpenResults = computed(() => {
+  return authStore.hasAnyPermission(
+    'lectures.read',
+    'tests.manage'
+  )
+})
+
 const roleLabel = computed(() => {
   if (authStore.isAdmin) {
     return 'Администратор'
@@ -171,7 +187,7 @@ onBeforeUnmount(() => {
           </RouterLink>
 
           <RouterLink
-            v-if="authStore.isStudent || authStore.isTeacher"
+            v-if="canOpenSubjects"
             class="app-header__nav-link"
             :to="{ name: 'subjects' }"
           >
@@ -179,7 +195,7 @@ onBeforeUnmount(() => {
           </RouterLink>
 
           <RouterLink
-            v-if="authStore.isStudent || authStore.isTeacher"
+            v-if="canOpenResults"
             class="app-header__nav-link"
             :to="{ name: 'results' }"
           >

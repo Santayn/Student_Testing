@@ -1,3 +1,6 @@
+ALTER TABLE "Users"
+    ADD COLUMN IF NOT EXISTS "SecurityVersion" integer NOT NULL DEFAULT 0;
+
 CREATE EXTENSION IF NOT EXISTS citext;
 
 CREATE TABLE IF NOT EXISTS "FacultySubjects" (
@@ -201,6 +204,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IX_CourseLectures_CourseVersion_Ordinal"
     WHERE "CourseVersionId" IS NOT NULL;
 
 ALTER TABLE "CourseLectures"
+    ADD COLUMN IF NOT EXISTS "ContentSource" text;
+
+ALTER TABLE "CourseLectures"
+    ADD COLUMN IF NOT EXISTS "ContentFormat" varchar(32) NOT NULL DEFAULT 'markdown';
+
+ALTER TABLE "CourseLectures"
+    ADD COLUMN IF NOT EXISTS "ContentSchemaVersion" integer NOT NULL DEFAULT 1;
+
+ALTER TABLE "CourseLectures"
+DROP CONSTRAINT IF EXISTS "CK_CourseLectures_ContentSchemaVersion";
+
+ALTER TABLE "CourseLectures"
+    ADD CONSTRAINT "CK_CourseLectures_ContentSchemaVersion" CHECK ("ContentSchemaVersion" > 0);
+
+ALTER TABLE "CourseLectures"
     ADD COLUMN IF NOT EXISTS "LinkedTestId" integer REFERENCES "Tests" ("Id") ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS "LectureTestLinks" (
@@ -322,3 +340,50 @@ ALTER TABLE "Tests"
 
 CREATE INDEX IF NOT EXISTS "IX_Tests_AuthorPersonId"
     ON "Tests" ("AuthorPersonId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_SubjectMemberships_Subject_Person_Role_NotRemoved"
+    ON "SubjectMemberships" ("SubjectId", "PersonId", "Role")
+    WHERE "RemovedAtUtc" IS NULL;
+
+-- Asynchronous text-answer grading queue/state.
+ALTER TABLE "QuestionResponses"
+    ADD COLUMN IF NOT EXISTS "GradingStatus" varchar(20) DEFAULT 'GRADED';
+
+ALTER TABLE "QuestionResponses"
+    ADD COLUMN IF NOT EXISTS "GradingVersion" integer NOT NULL DEFAULT 0;
+
+ALTER TABLE "QuestionResponses"
+    ADD COLUMN IF NOT EXISTS "GradingUpdatedAtUtc" timestamp with time zone;
+
+ALTER TABLE "QuestionResponses"
+    ADD COLUMN IF NOT EXISTS "GradingError" varchar(1000);
+
+UPDATE "QuestionResponses"
+SET "GradingStatus" = 'GRADED'
+WHERE "GradingStatus" IS NULL;
+
+ALTER TABLE "TestAttempts"
+    ADD COLUMN IF NOT EXISTS "GradingStatus" varchar(20) DEFAULT 'GRADED';
+
+ALTER TABLE "TestAttempts"
+    ADD COLUMN IF NOT EXISTS "GradingUpdatedAtUtc" timestamp with time zone;
+
+UPDATE "TestAttempts"
+SET "GradingStatus" = 'GRADED'
+WHERE "GradingStatus" IS NULL;
+
+CREATE TABLE IF NOT EXISTS "TextAnswerGradingJobs" (
+    "Id" bigserial PRIMARY KEY,
+    "QuestionResponseId" bigint NOT NULL REFERENCES "QuestionResponses" ("Id") ON DELETE CASCADE,
+    "ResponseVersion" integer NOT NULL,
+    "Status" varchar(20) NOT NULL,
+    "Attempts" integer NOT NULL DEFAULT 0,
+    "NextAttemptAtUtc" timestamp with time zone,
+    "LastError" varchar(1000),
+    "ClaimToken" varchar(36),
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NOT NULL,
+    CONSTRAINT "UQ_TextAnswerGradingJobs_Response" UNIQUE ("QuestionResponseId")
+);
+
+CREATE INDEX IF NOT EXISTS "IX_TextAnswerGradingJobs_Claim"
+    ON "TextAnswerGradingJobs" ("Status", "NextAttemptAtUtc", "UpdatedAtUtc");

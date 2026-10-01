@@ -8,8 +8,6 @@ import {
 
 import {
   getApiErrorMessage,
-  groupsApi,
-  lecturesApi,
   teachingApi,
 } from '@/api'
 
@@ -537,88 +535,6 @@ function normalizeRows() {
   }
 }
 
-async function ensureLectureCatalog(
-  subjectId
-) {
-  const numericSubjectId =
-    Number(subjectId)
-
-  if (
-    !numericSubjectId ||
-    lectureCatalogBySubjectId.value.has(
-      numericSubjectId
-    )
-  ) {
-    return
-  }
-
-  const membership =
-    membershipBySubjectId.value.get(
-      numericSubjectId
-    )
-
-  if (!membership) {
-    return
-  }
-
-  const response =
-    await lecturesApi.getAll({
-      subjectMembershipId:
-        membership.id,
-    })
-
-  const next = new Map(
-    lectureCatalogBySubjectId.value
-  )
-
-  next.set(
-    numericSubjectId,
-    listFromResponse(response)
-      .sort(
-        (left, right) =>
-          Number(left.ordinal ?? 0) -
-            Number(right.ordinal ?? 0) ||
-          String(left.title ?? '')
-            .localeCompare(
-              String(right.title ?? ''),
-              'ru'
-            )
-      )
-  )
-
-  lectureCatalogBySubjectId.value = next
-}
-
-async function loadLectureAssignments() {
-  const pairs =
-    await Promise.all(
-      assignments.value.map(
-        async (assignment) => ({
-          teachingAssignmentId:
-            assignment.id,
-          response:
-            await teachingApi
-              .getLectureAssignments({
-                teachingAssignmentId:
-                  assignment.id,
-              }),
-        })
-      )
-    )
-
-  lectureAssignmentsByTeachingId.value =
-    new Map(
-      pairs.map((pair) => [
-        Number(
-          pair.teachingAssignmentId
-        ),
-        listFromResponse(
-          pair.response
-        ),
-      ])
-    )
-}
-
 async function refreshAssignments() {
   if (!initialized.value) {
     return
@@ -638,89 +554,82 @@ async function refreshAssignments() {
       return
     }
 
-    const responses =
-      await Promise.all(
-        subjectMemberships.value.map(
-          (membership) =>
-            teachingApi.getAssignments({
-              subjectMembershipId:
-                membership.id,
-              studyCourse:
-                Number(studyCourse.value),
-              semester:
-                Number(semester.value),
-              academicYear:
-                Number(academicYear.value),
-            })
-        )
-      )
+    const response =
+      await teachingApi.getWorkload({
+        studyCourse:
+          Number(studyCourse.value),
+        semester:
+          Number(semester.value),
+        academicYear:
+          Number(academicYear.value),
+      })
 
-    const rawAssignments =
-      responses
-        .flatMap(listFromResponse)
-        .filter(
-          (item, index, items) =>
-            items.findIndex(
-              (other) =>
-                Number(other.id) ===
-                Number(item.id)
-            ) === index
-        )
+    const snapshot =
+      response.data ?? {}
 
-    const groupIds = [
-      ...new Set(
-        rawAssignments
-          .map(
-            (item) =>
-              Number(item.groupId)
-          )
-          .filter(Boolean)
-      ),
-    ]
-
-    const groupResponses =
-      await Promise.all(
-        groupIds.map(
-          (groupId) =>
-            groupsApi.getById(groupId)
-        )
-      )
-
-    const groupsById = new Map(
-      groupResponses
-        .map((response) => response.data)
-        .filter(Boolean)
-        .map((group) => [
-          Number(group.id),
-          group,
-        ])
-    )
+    const workloadAssignments =
+      Array.isArray(snapshot.assignments)
+        ? snapshot.assignments
+        : []
 
     assignments.value =
-      rawAssignments.map(
-        (item) => ({
-          ...item,
+      workloadAssignments
+        .map((item) => ({
+          ...(item.assignment ?? {}),
           groupName:
-            groupsById.get(
-              Number(item.groupId)
-            )?.name ?? null,
+            item.groupName ?? null,
           groupCode:
-            groupsById.get(
-              Number(item.groupId)
-            )?.code ?? null,
-        })
-      )
+            item.groupCode ?? null,
+        }))
+        .filter((item) => item.id)
 
-    await loadLectureAssignments()
+    lectureAssignmentsByTeachingId.value =
+      new Map(
+        workloadAssignments
+          .filter((item) =>
+            item.assignment?.id
+          )
+          .map((item) => [
+            Number(item.assignment.id),
+            Array.isArray(
+              item.lectureAssignments
+            )
+              ? item.lectureAssignments
+              : [],
+          ])
+      )
 
     lectureCatalogBySubjectId.value =
-      new Map()
-
-    await Promise.all(
-      availableSubjectIds.value.map(
-        ensureLectureCatalog
+      new Map(
+        (Array.isArray(snapshot.subjects)
+          ? snapshot.subjects
+          : [])
+          .filter((item) =>
+            item.subjectId
+          )
+          .map((item) => [
+            Number(item.subjectId),
+            Array.isArray(item.lectures)
+              ? [...item.lectures].sort(
+                  (left, right) =>
+                    Number(
+                      left.ordinal ?? 0
+                    ) -
+                      Number(
+                        right.ordinal ?? 0
+                      ) ||
+                    String(
+                      left.title ?? ''
+                    ).localeCompare(
+                      String(
+                        right.title ?? ''
+                      ),
+                      'ru'
+                    )
+                )
+              : [],
+          ])
       )
-    )
 
     normalizeRows()
   } catch (error) {
@@ -747,11 +656,6 @@ async function changeRowSubject(
   row.lectureIds = []
   row.teachingAssignmentIds = []
 
-  if (row.subjectId) {
-    await ensureLectureCatalog(
-      row.subjectId
-    )
-  }
 }
 
 function addRow() {

@@ -17,6 +17,8 @@ public interface TestRepository extends JpaRepository<Test, Integer> {
     @Query("select test from Test test where test.id = :id")
     Optional<Test> findByIdForUpdate(@Param("id") Integer id);
 
+    List<Test> findByAuthorPersonId(Integer authorPersonId);
+
     @Query("""
             select distinct test
             from Test test

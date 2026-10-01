@@ -44,6 +44,9 @@ public class User {
     @Column(name = "`IsActive`", nullable = false)
     private boolean active = true;
 
+    @Column(name = "`SecurityVersion`", nullable = false)
+    private int securityVersion = 0;
+
     @Column(name = "`PersonId`", unique = true)
     private Integer personId;
 

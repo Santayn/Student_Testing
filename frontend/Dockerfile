@@ -17,7 +17,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY docker/nginx.conf.template /etc/nginx/conf.d/default.conf.template
 COPY docker/40-render-backend.sh /docker-entrypoint.d/40-render-backend.sh
 
-RUN chmod +x /docker-entrypoint.d/40-render-backend.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-render-backend.sh \
+    && chmod +x /docker-entrypoint.d/40-render-backend.sh
 
 EXPOSE 80
 

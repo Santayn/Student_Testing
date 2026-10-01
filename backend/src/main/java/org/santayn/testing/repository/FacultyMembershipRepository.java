@@ -11,6 +11,8 @@ public interface FacultyMembershipRepository extends JpaRepository<FacultyMember
 
     List<FacultyMembership> findByFacultyIdAndRemovedAtUtcIsNull(Integer facultyId);
 
+    boolean existsByFacultyId(Integer facultyId);
+
     List<FacultyMembership> findByPersonIdAndRemovedAtUtcIsNull(Integer personId);
 
     boolean existsByFacultyIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(Integer facultyId, Integer personId, int role);

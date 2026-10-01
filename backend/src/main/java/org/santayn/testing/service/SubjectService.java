@@ -2,6 +2,9 @@ package org.santayn.testing.service;
 
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.subject.Subject;
+import org.santayn.testing.repository.CourseTemplateRepository;
+import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.santayn.testing.repository.SubjectRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +16,9 @@ import java.util.List;
 public class SubjectService {
 
     private final SubjectRepository subjectRepository;
+    private final SubjectMembershipRepository subjectMembershipRepository;
+    private final CourseTemplateRepository courseTemplateRepository;
+    private final LectureRepository lectureRepository;
 
     @Transactional(readOnly = true)
     public List<Subject> findAll() {
@@ -55,6 +61,21 @@ public class SubjectService {
     @Transactional
     public void delete(Integer id) {
         Subject subject = get(id);
+        boolean hasMembershipHistory = subjectMembershipRepository.existsBySubjectId(id);
+        boolean hasCourseTemplates = courseTemplateRepository.existsBySubjectId(id);
+        boolean hasLectures = lectureRepository.existsBySubjectId(id);
+        if (hasMembershipHistory || hasCourseTemplates || hasLectures) {
+            throw new ResourceInUseException(
+                    "subject",
+                    id,
+                    "Subject cannot be deleted while learning content or membership history references it.",
+                    java.util.Map.of(
+                            "subjectMemberships", hasMembershipHistory,
+                            "courseTemplates", hasCourseTemplates,
+                            "lectures", hasLectures
+                    )
+            );
+        }
         subjectRepository.delete(subject);
     }
 }

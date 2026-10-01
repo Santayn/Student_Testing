@@ -3,7 +3,9 @@ package org.santayn.testing.service;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.repository.FacultyRepository;
+import org.santayn.testing.repository.GroupMembershipRepository;
 import org.santayn.testing.repository.GroupRepository;
+import org.santayn.testing.repository.TeachingAssignmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,8 @@ public class GroupService {
 
     private final GroupRepository groupRepository;
     private final FacultyRepository facultyRepository;
+    private final GroupMembershipRepository groupMembershipRepository;
+    private final TeachingAssignmentRepository teachingAssignmentRepository;
 
     @Transactional(readOnly = true)
     public List<Group> findAll(Integer facultyId) {
@@ -70,6 +74,19 @@ public class GroupService {
     @Transactional
     public void delete(Integer id) {
         Group group = get(id);
+        boolean hasMembershipHistory = groupMembershipRepository.existsByGroupId(id);
+        boolean hasTeachingAssignments = teachingAssignmentRepository.existsByGroupId(id);
+        if (hasMembershipHistory || hasTeachingAssignments) {
+            throw new ResourceInUseException(
+                    "group",
+                    id,
+                    "Group cannot be deleted while memberships or teaching assignments reference it.",
+                    java.util.Map.of(
+                            "groupMemberships", hasMembershipHistory,
+                            "teachingAssignments", hasTeachingAssignments
+                    )
+            );
+        }
         groupRepository.delete(group);
     }
 }

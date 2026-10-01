@@ -2,7 +2,9 @@ package org.santayn.testing.service;
 
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.faculty.Faculty;
+import org.santayn.testing.repository.FacultyMembershipRepository;
 import org.santayn.testing.repository.FacultyRepository;
+import org.santayn.testing.repository.GroupRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,8 @@ import java.util.Locale;
 public class FacultyService {
 
     private final FacultyRepository facultyRepository;
+    private final GroupRepository groupRepository;
+    private final FacultyMembershipRepository facultyMembershipRepository;
 
     @Transactional(readOnly = true)
     public List<Faculty> findAll() {
@@ -60,6 +64,19 @@ public class FacultyService {
     @Transactional
     public void delete(Integer id) {
         Faculty faculty = get(id);
+        boolean hasGroups = groupRepository.existsByFacultyId(id);
+        boolean hasMembershipHistory = facultyMembershipRepository.existsByFacultyId(id);
+        if (hasGroups || hasMembershipHistory) {
+            throw new ResourceInUseException(
+                    "faculty",
+                    id,
+                    "Faculty cannot be deleted while academic groups or membership history still reference it.",
+                    java.util.Map.of(
+                            "groups", hasGroups,
+                            "facultyMemberships", hasMembershipHistory
+                    )
+            );
+        }
         facultyRepository.delete(faculty);
     }
 

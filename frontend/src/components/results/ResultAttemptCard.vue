@@ -68,7 +68,36 @@ const stats = computed(() => {
       total: 0,
       right: 0,
       percent: 0,
+      score: 0,
+      maxScore: 0,
+      scorePercent: 0,
     }
+  )
+})
+
+
+const score = computed(() => {
+  return Number(
+    props.attempt.score ??
+    stats.value.score ??
+    0
+  )
+})
+
+const maxScore = computed(() => {
+  return Number(
+    props.attempt.maxScore ??
+    stats.value.maxScore ??
+    0
+  )
+})
+
+const scorePercent = computed(() => {
+  return Number(
+    props.attempt.scorePercent ??
+    stats.value.scorePercent ??
+    stats.value.percent ??
+    0
   )
 })
 
@@ -229,24 +258,18 @@ function pointsText(row) {
           class="result-attempt__badge"
           :class="{
             'result-attempt__badge--success':
-              Number(stats.right) > 0 &&
-              Number(stats.right) ===
-                Number(stats.total),
+              maxScore > 0 &&
+              score >= maxScore,
           }"
         >
-          {{
-            stats.right ?? 0
-          }}
+          {{ score }}
           из
-          {{
-            stats.total ?? 0
-          }}
+          {{ maxScore }}
+          баллов
         </span>
 
         <span class="result-attempt__badge">
-          {{
-            stats.percent ?? 0
-          }}%
+          {{ scorePercent }}%
         </span>
       </div>
     </summary>

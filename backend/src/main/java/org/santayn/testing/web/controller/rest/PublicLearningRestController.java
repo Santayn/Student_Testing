@@ -3,6 +3,8 @@ package org.santayn.testing.web.controller.rest;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.santayn.testing.models.course.CourseTemplate;
 import org.santayn.testing.models.course.CourseVersion;
+import org.santayn.testing.models.faculty.Faculty;
+import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.group.GroupMembership;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureAssignment;
@@ -126,6 +128,60 @@ public class PublicLearningRestController {
         this.userRegisterService = userRegisterService;
     }
 
+    @GetMapping("/snapshot")
+    @Transactional(readOnly = true)
+    public PublicLearningSnapshotResponse snapshot(Authentication authentication) {
+        StudentLearningContext context = studentLearningContext(authentication);
+        GroupMembership membership = context.groupMemberships().get(0);
+        Group group = membership.getGroup();
+        Faculty faculty = group == null ? null : group.getFaculty();
+
+        LinkedHashSet<Integer> subjectIds = context.assignments().stream()
+                .map(assignment -> subjectIdOf(context, assignment))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Integer, Subject> subjectsById = subjectRepository.findAllById(subjectIds).stream()
+                .collect(Collectors.toMap(
+                        Subject::getId,
+                        subject -> subject,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+
+        List<PublicLearningSubjectSnapshotResponse> subjects = subjectIds.stream()
+                .map(subjectId -> {
+                    Subject subject = subjectsById.get(subjectId);
+                    if (subject == null) {
+                        return null;
+                    }
+                    return new PublicLearningSubjectSnapshotResponse(
+                            new PublicSubjectResponse(subject.getId(), subject.getName(), subject.getDescription()),
+                            accessibleLecturesForSubject(context, subjectId)
+                    );
+                })
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(
+                        item -> item.subject().name(),
+                        String.CASE_INSENSITIVE_ORDER
+                ))
+                .toList();
+
+        return new PublicLearningSnapshotResponse(
+                context.personId(),
+                new PublicLearningGroupResponse(
+                        membership.getId(),
+                        membership.getGroupId(),
+                        group == null ? null : group.getName(),
+                        group == null ? null : group.getCode(),
+                        group == null ? null : group.getFacultyId()
+                ),
+                faculty == null
+                        ? null
+                        : new PublicLearningFacultyResponse(faculty.getId(), faculty.getName(), faculty.getCode()),
+                subjects
+        );
+    }
+
     @GetMapping("/subjects/{subjectId}")
     @Transactional(readOnly = true)
     public PublicSubjectResponse subject(@PathVariable Integer subjectId, Authentication authentication) {
@@ -153,17 +209,13 @@ public class PublicLearningRestController {
     }
 
     @GetMapping("/lectures/{lectureId}/tests")
-    @Transactional
+    @Transactional(readOnly = true)
     public List<PublicTestResponse> lectureTests(@PathVariable Integer lectureId, Authentication authentication) {
         StudentLearningContext context = studentLearningContext(authentication);
         Lecture lecture = requireAccessibleLecture(context, lectureId);
         LinkedHashMap<Integer, PublicTestResponse> responsesByTestId = new LinkedHashMap<>();
         for (Test test : linkedTestsForLecture(lecture)) {
             Optional<TestAssignment> assignment = accessibleAssignmentForLinkedTest(context, test.getId());
-            if (assignment.isEmpty()) {
-                lectureTestLinkService.ensureLectureTestAvailability(lecture.getId(), test.getId());
-                assignment = accessibleAssignmentForLinkedTest(context, test.getId());
-            }
             int attemptsRemaining = assignment
                     .map(value -> testService.attemptsRemaining(value.getId(), context.personId()))
                     .orElse(0);
@@ -241,6 +293,19 @@ public class PublicLearningRestController {
         );
     }
 
+    @GetMapping("/test-assignments/{assignmentId}/attempts/current")
+    @Transactional(readOnly = true)
+    public ResponseEntity<PublicTestAttemptLoadResponse> currentAttempt(@PathVariable Integer assignmentId,
+                                                                        Authentication authentication) {
+        StudentLearningContext context = studentLearningContext(authentication);
+        TestAssignment assignment = requireAccessibleTestAssignment(context, assignmentId);
+        Test test = testRepository.findById(assignment.getTestId())
+                .orElseThrow(() -> new IllegalArgumentException("Test not found: " + assignment.getTestId()));
+        return testService.currentAttemptWithQuestions(assignmentId, context.personId())
+                .map(questionSet -> ResponseEntity.ok(attemptLoadResponse(context, test, questionSet)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @PostMapping("/test-assignments/{assignmentId}/attempts/start")
     @Transactional
     public PublicTestAttemptLoadResponse startAttempt(@PathVariable Integer assignmentId, Authentication authentication) {
@@ -249,11 +314,17 @@ public class PublicLearningRestController {
         Test test = testRepository.findById(assignment.getTestId())
                 .orElseThrow(() -> new IllegalArgumentException("Test not found: " + assignment.getTestId()));
         Integer enrollmentId = findEnrollmentIdForTestAssignment(context, assignment).orElse(null);
-        TestService.TestAttemptQuestionSet questionSet = testService.startOrResumeAttemptWithRandomQuestions(
+        TestService.TestAttemptQuestionSet questionSet = testService.startAttemptWithRandomQuestions(
                 assignmentId,
                 context.personId(),
                 enrollmentId
         );
+        return attemptLoadResponse(context, test, questionSet);
+    }
+
+    private PublicTestAttemptLoadResponse attemptLoadResponse(StudentLearningContext context,
+                                                               Test test,
+                                                               TestService.TestAttemptQuestionSet questionSet) {
         Integer actualAssignmentId = questionSet.attempt().getTestAssignmentId();
         List<PublicQuestionResponse> questions = questionSet.questions()
                 .stream()
@@ -271,17 +342,99 @@ public class PublicLearningRestController {
         );
     }
 
+    @GetMapping("/attempts/{attemptId}/status")
+    @Transactional(readOnly = true)
+    public PublicAttemptStatusResponse attemptStatus(@PathVariable Integer attemptId,
+                                                     Authentication authentication) {
+        Integer personId = currentPersonId(authentication);
+        TestAttempt attempt = testService.getAttempt(attemptId);
+        if (!attempt.getPersonId().equals(personId)) {
+            throw new AccessDeniedException("Test attempt does not belong to current user.");
+        }
+
+        Instant effectiveDeadlineUtc = testService.effectiveDeadlineUtc(attempt);
+        boolean logicallyExpired = attempt.getStatus() == TestService.ATTEMPT_STATUS_IN_PROGRESS
+                && effectiveDeadlineUtc != null
+                && !Instant.now().isBefore(effectiveDeadlineUtc);
+        String status = logicallyExpired ? "EXPIRED" : switch (attempt.getStatus()) {
+            case TestService.ATTEMPT_STATUS_IN_PROGRESS -> "IN_PROGRESS";
+            case TestService.ATTEMPT_STATUS_COMPLETED -> "COMPLETED";
+            case TestService.ATTEMPT_STATUS_EXPIRED -> "EXPIRED";
+            case TestService.ATTEMPT_STATUS_INVALIDATED -> "INVALIDATED";
+            default -> "UNKNOWN";
+        };
+        Instant completedAtUtc = logicallyExpired && attempt.getCompletedAt() == null
+                ? effectiveDeadlineUtc
+                : attempt.getCompletedAt();
+
+        List<QuestionResponse> responses = testService.findResponses(attemptId);
+        int correctCount = (int) responses.stream()
+                .filter(response -> Boolean.TRUE.equals(response.getCorrect()))
+                .count();
+
+        return new PublicAttemptStatusResponse(
+                attempt.getId(),
+                attempt.getTestAssignmentId(),
+                status,
+                attempt.getStartedAt(),
+                completedAtUtc,
+                effectiveDeadlineUtc,
+                attempt.getScore(),
+                correctCount,
+                responses.size(),
+                gradingStatus(attempt)
+        );
+    }
+
+    @GetMapping("/attempts/{attemptId}/result")
+    @Transactional(readOnly = true)
+    public PublicAttemptResultResponse attemptResult(@PathVariable Integer attemptId,
+                                                      Authentication authentication) {
+        Integer personId = currentPersonId(authentication);
+        TestAttempt attempt = testService.getAttempt(attemptId);
+        if (!attempt.getPersonId().equals(personId)) {
+            throw new AccessDeniedException("Test attempt does not belong to current user.");
+        }
+        if (attempt.getStatus() != TestService.ATTEMPT_STATUS_COMPLETED) {
+            throw new IllegalArgumentException("Test attempt is not completed: " + attemptId);
+        }
+
+        TestAssignment assignment = testAssignmentRepository.findById(attempt.getTestAssignmentId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Test assignment not found: " + attempt.getTestAssignmentId()
+                ));
+        Test test = testRepository.findById(assignment.getTestId())
+                .orElseThrow(() -> new IllegalArgumentException("Test not found: " + assignment.getTestId()));
+        int attemptsRemaining = testService.attemptsRemaining(assignment.getId(), personId);
+        boolean canResume = testService.hasInProgressAttempt(assignment.getId(), personId);
+
+        return new PublicAttemptResultResponse(
+                testResponse(
+                        test,
+                        assignment.getId(),
+                        false,
+                        "Попытка завершена.",
+                        attemptsRemaining,
+                        canResume
+                ),
+                completedSubmitResponse(attempt)
+        );
+    }
+
     @PostMapping("/attempts/{attemptId}/submit")
     @Transactional
     public PublicSubmitResponse submitAttempt(@PathVariable Integer attemptId,
                                               @RequestBody PublicSubmitRequest request,
                                               Authentication authentication) {
         Integer personId = currentPersonId(authentication);
-        TestAttempt attempt = testService.getAttempt(attemptId);
+        TestAttempt attempt = testService.getAttemptForUpdate(attemptId);
         if (!attempt.getPersonId().equals(personId)) {
             throw new AccessDeniedException("Test attempt does not belong to current user.");
         }
-        if (attempt.getStatus() != 1) {
+        if (attempt.getStatus() == TestService.ATTEMPT_STATUS_COMPLETED) {
+            return completedSubmitResponse(attempt);
+        }
+        if (attempt.getStatus() != TestService.ATTEMPT_STATUS_IN_PROGRESS) {
             throw new IllegalArgumentException("Test attempt is not in progress: " + attemptId);
         }
 
@@ -334,14 +487,55 @@ public class PublicLearningRestController {
             }
             details.add(new PublicSubmitDetailResponse(
                     question.getQuestion(),
-                    givenAnswerDisplay(question, answer, selectedIds),
-                    null,
-                    null
+                    givenAnswerDisplay(question, answer, selectedIds)
             ));
         }
 
         TestAttempt completed = testService.completeAttempt(attempt.getId());
-        return new PublicSubmitResponse(attempt.getId(), completed.getScore(), correctCount, actualQuestionIds.size(), details);
+        return new PublicSubmitResponse(
+                attempt.getId(),
+                completed.getScore(),
+                correctCount,
+                actualQuestionIds.size(),
+                details,
+                gradingStatus(completed)
+        );
+    }
+
+    private PublicSubmitResponse completedSubmitResponse(TestAttempt attempt) {
+        List<QuestionResponse> responses = testService.findResponses(attempt.getId());
+        List<PublicSubmitDetailResponse> details = new ArrayList<>();
+        int correctCount = 0;
+        for (QuestionResponse response : responses) {
+            Question question = questionRepository.findById(response.getTestQuestionId()).orElse(null);
+            if (question == null) {
+                continue;
+            }
+            if (Boolean.TRUE.equals(response.getCorrect())) {
+                correctCount++;
+            }
+            List<Long> selectedIds = testService.findSelectedOptions(response.getId())
+                    .stream()
+                    .map(item -> item.getQuestionOptionId())
+                    .toList();
+            details.add(new PublicSubmitDetailResponse(
+                    question.getQuestion(),
+                    givenAnswerDisplay(question, response.getAnswerText(), selectedIds)
+            ));
+        }
+        return new PublicSubmitResponse(
+                attempt.getId(),
+                attempt.getScore(),
+                correctCount,
+                responses.size(),
+                details,
+                gradingStatus(attempt)
+        );
+    }
+
+    private String gradingStatus(TestAttempt attempt) {
+        String value = attempt.getGradingStatus();
+        return value == null || value.isBlank() ? "GRADED" : value;
     }
 
     private StudentLearningContext studentLearningContext(Authentication authentication) {
@@ -354,27 +548,35 @@ public class PublicLearningRestController {
             throw new IllegalArgumentException("Current user has no active student group.");
         }
 
+        List<Integer> groupIds = memberships.stream()
+                .map(GroupMembership::getGroupId)
+                .distinct()
+                .toList();
         LinkedHashMap<Integer, TeachingAssignment> assignmentsById = new LinkedHashMap<>();
-        for (GroupMembership membership : memberships) {
-            teachingAssignmentRepository.findByGroupId(membership.getGroupId())
+        teachingAssignmentRepository.findByGroupIdIn(groupIds)
+                .stream()
+                .filter(this::isActiveTeachingAssignment)
+                .forEach(assignment -> assignmentsById.put(assignment.getId(), assignment));
+
+        List<Integer> groupMembershipIds = memberships.stream()
+                .map(GroupMembership::getId)
+                .toList();
+        List<TeachingAssignmentEnrollment> enrollments = teachingAssignmentEnrollmentRepository
+                .findByGroupMembershipIdIn(groupMembershipIds)
+                .stream()
+                .filter(this::isActiveEnrollment)
+                .toList();
+
+        List<Integer> enrolledAssignmentIds = enrollments.stream()
+                .map(TeachingAssignmentEnrollment::getTeachingAssignmentId)
+                .filter(id -> !assignmentsById.containsKey(id))
+                .distinct()
+                .toList();
+        if (!enrolledAssignmentIds.isEmpty()) {
+            teachingAssignmentRepository.findAllById(enrolledAssignmentIds)
                     .stream()
                     .filter(this::isActiveTeachingAssignment)
                     .forEach(assignment -> assignmentsById.put(assignment.getId(), assignment));
-        }
-
-        List<TeachingAssignmentEnrollment> enrollments = new ArrayList<>();
-        for (GroupMembership membership : memberships) {
-            List<TeachingAssignmentEnrollment> membershipEnrollments = teachingAssignmentEnrollmentRepository
-                    .findByGroupMembershipId(membership.getId())
-                    .stream()
-                    .filter(this::isActiveEnrollment)
-                    .toList();
-            enrollments.addAll(membershipEnrollments);
-            for (TeachingAssignmentEnrollment enrollment : membershipEnrollments) {
-                teachingAssignmentRepository.findById(enrollment.getTeachingAssignmentId())
-                        .filter(this::isActiveTeachingAssignment)
-                        .ifPresent(assignment -> assignmentsById.put(assignment.getId(), assignment));
-            }
         }
 
         Map<Integer, SubjectMembership> subjectMembershipsById = subjectMembershipRepository.findAllById(
@@ -394,6 +596,7 @@ public class PublicLearningRestController {
 
         return new StudentLearningContext(
                 personId,
+                List.copyOf(memberships),
                 List.copyOf(assignmentsById.values()),
                 List.copyOf(enrollments),
                 Map.copyOf(assignmentsById),
@@ -700,7 +903,9 @@ public class PublicLearningRestController {
                     lecture.getOrdinal(),
                     lecture.getTitle(),
                     lecture.getDescription(),
-                    lecture.getContentFolderKey(),
+                    lecture.getContentSource(),
+                    lecture.getContentFormat(),
+                    lecture.getContentSchemaVersion(),
                     lecture.getContentFolderKey(),
                     lecture.isPublicVisible()
             );
@@ -722,7 +927,9 @@ public class PublicLearningRestController {
                 lecture.getOrdinal(),
                 lecture.getTitle(),
                 lecture.getDescription(),
-                lecture.getContentFolderKey(),
+                lecture.getContentSource(),
+                lecture.getContentFormat(),
+                lecture.getContentSchemaVersion(),
                 lecture.getContentFolderKey(),
                 lecture.isPublicVisible()
         );
@@ -828,10 +1035,37 @@ public class PublicLearningRestController {
     }
 
     private record StudentLearningContext(Integer personId,
+                                          List<GroupMembership> groupMemberships,
                                           List<TeachingAssignment> assignments,
                                           List<TeachingAssignmentEnrollment> enrollments,
                                           Map<Integer, TeachingAssignment> assignmentsById,
                                           Map<Integer, SubjectMembership> subjectMembershipsById) {
+    }
+
+    public record PublicLearningSnapshotResponse(
+            Integer personId,
+            PublicLearningGroupResponse group,
+            PublicLearningFacultyResponse faculty,
+            List<PublicLearningSubjectSnapshotResponse> subjects
+    ) {
+    }
+
+    public record PublicLearningGroupResponse(
+            Integer membershipId,
+            Integer id,
+            String name,
+            String code,
+            Integer facultyId
+    ) {
+    }
+
+    public record PublicLearningFacultyResponse(Integer id, String name, String code) {
+    }
+
+    public record PublicLearningSubjectSnapshotResponse(
+            PublicSubjectResponse subject,
+            List<PublicLectureResponse> lectures
+    ) {
     }
 
     public record PublicLectureResponse(Integer id,
@@ -845,7 +1079,9 @@ public class PublicLearningRestController {
                                         int ordinal,
                                         String title,
                                         String description,
-                                        String content,
+                                        String contentSource,
+                                        String contentFormat,
+                                        int contentSchemaVersion,
                                         String contentFolderKey,
                                         boolean publicVisible) {
     }
@@ -899,6 +1135,22 @@ public class PublicLearningRestController {
     public record PublicQuestionMatchingPromptResponse(int ordinal, String text) {
     }
 
+    public record PublicAttemptStatusResponse(Integer attemptId,
+                                              Integer assignmentId,
+                                              String status,
+                                              Instant startedAtUtc,
+                                              Instant completedAtUtc,
+                                              Instant effectiveDeadlineUtc,
+                                              BigDecimal score,
+                                              int correctCount,
+                                              int totalCount,
+                                              String gradingStatus) {
+    }
+
+    public record PublicAttemptResultResponse(PublicTestResponse test,
+                                              PublicSubmitResponse result) {
+    }
+
     public record PublicSubmitRequest(List<Long> questionIds,
                                       List<String> answers,
                                       List<List<Long>> selectedOptionIds) {
@@ -908,14 +1160,11 @@ public class PublicLearningRestController {
                                        BigDecimal score,
                                        int correctCount,
                                        int totalCount,
-                                       List<PublicSubmitDetailResponse> details) {
+                                       List<PublicSubmitDetailResponse> details,
+                                       String gradingStatus) {
     }
 
     public record PublicSubmitDetailResponse(String questionText,
-                                             String givenAnswer,
-                                             @JsonInclude(JsonInclude.Include.NON_NULL)
-                                             String correctAnswer,
-                                             @JsonInclude(JsonInclude.Include.NON_NULL)
-                                             Boolean correct) {
+                                             String givenAnswer) {
     }
 }

@@ -12,7 +12,6 @@ import {
 
 import {
   getApiErrorMessage,
-  groupsApi,
   questionsApi,
   teachingApi,
   testsApi,
@@ -49,6 +48,7 @@ const {
   selectedSubjectId,
   selectedMembership,
   membershipOptions,
+  teacherGroups,
   loadTeacherSubjects,
 } = useTeacherSubjects()
 
@@ -250,7 +250,7 @@ function routeQuery() {
   return query
 }
 
-async function loadGroups(assignments) {
+function loadGroups(assignments) {
   const activeAssignments =
     assignments.filter(
       (item) =>
@@ -274,17 +274,8 @@ async function loadGroups(assignments) {
     return
   }
 
-  const responses =
-    await Promise.all(
-      groupIds.map(
-        (groupId) =>
-          groupsApi.getById(groupId)
-      )
-    )
-
   const groupsById = new Map(
-    responses
-      .map((response) => response.data)
+    teacherGroups.value
       .filter(Boolean)
       .map(
         (group) => [
@@ -371,7 +362,7 @@ async function loadSubjectContext() {
             Number(right.ordinal ?? 0)
         )
 
-    await loadGroups(
+    loadGroups(
       listFromResponse(
         assignmentsResponse
       )

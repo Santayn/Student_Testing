@@ -9,6 +9,7 @@ import org.santayn.testing.models.group.GroupMembership;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.subject.SubjectMembership;
+import org.santayn.testing.models.teacher.TeachingAssignment;
 import org.santayn.testing.models.topic.Topic;
 import org.santayn.testing.repository.CourseTemplateRepository;
 import org.santayn.testing.repository.CourseVersionRepository;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -63,6 +65,7 @@ class CurrentUserAccessServiceTests {
         accessService = new CurrentUserAccessService(
                 userRegisterService,
                 subjectMembershipRepository,
+                new ActiveTeacherSubjectMembershipService(subjectMembershipRepository),
                 topicRepository,
                 questionRepository,
                 questionOptionRepository,
@@ -86,8 +89,153 @@ class CurrentUserAccessServiceTests {
                 "Current Teacher",
                 null,
                 Set.of("TEACHER"),
+                Set.of("teaching.manage")
+        );
+    }
+
+    @Test
+    void teachingPermissionIsIndependentFromGlobalTeacherRole() {
+        userRegisterService.currentUser = new UserRegisterService.CurrentUser(
+                1,
+                "custom-manager",
+                true,
+                10,
+                "Custom Manager",
+                null,
+                Set.of("CUSTOM"),
+                Set.of("teaching.manage")
+        );
+
+        assertThat(accessService.hasPermission(authentication, "TEACHING.MANAGE")).isTrue();
+    }
+
+    @Test
+    void permissionOnlyTeachingManagerUsesDomainOwnershipChecks() {
+        userRegisterService.currentUser = new UserRegisterService.CurrentUser(
+                1,
+                "custom-manager",
+                true,
+                10,
+                "Custom Manager",
+                null,
+                Set.of("CUSTOM"),
+                Set.of("teaching.manage")
+        );
+
+        TeachingAssignment assignment = new TeachingAssignment();
+        assignment.setId(88);
+        assignment.setSubjectMembershipId(44);
+        assignment.setGroupId(33);
+        when(teachingAssignmentRepository.findById(88)).thenReturn(Optional.of(assignment));
+
+        SubjectMembership ownedMembership = new SubjectMembership();
+        ownedMembership.setId(44);
+        ownedMembership.setPersonId(10);
+        ownedMembership.setRole(1);
+        ownedMembership.setStatus(1);
+        when(subjectMembershipRepository.findById(44)).thenReturn(Optional.of(ownedMembership));
+
+        accessService.requireTeachingAssignmentAccess(authentication, 88);
+    }
+
+    @Test
+    void teacherRoleWithoutTeachingPermissionDoesNotSelectStaffAuthorizationPath() {
+        userRegisterService.currentUser = new UserRegisterService.CurrentUser(
+                1,
+                "role-only-teacher",
+                true,
+                10,
+                "Role Only Teacher",
+                null,
+                Set.of("TEACHER"),
                 Set.of()
         );
+
+        TeachingAssignment assignment = new TeachingAssignment();
+        assignment.setId(88);
+        assignment.setSubjectMembershipId(44);
+        assignment.setGroupId(33);
+        when(teachingAssignmentRepository.findById(88)).thenReturn(Optional.of(assignment));
+        when(groupMembershipRepository.existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(33, 10, 1))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> accessService.requireTeachingAssignmentAccess(authentication, 88))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void teachingPermissionDoesNotBypassDomainOwnership() {
+        userRegisterService.currentUser = new UserRegisterService.CurrentUser(
+                1,
+                "custom-manager",
+                true,
+                10,
+                "Custom Manager",
+                null,
+                Set.of("CUSTOM"),
+                Set.of("teaching.manage")
+        );
+
+        TeachingAssignment assignment = new TeachingAssignment();
+        assignment.setId(88);
+        assignment.setSubjectMembershipId(44);
+        assignment.setGroupId(33);
+        when(teachingAssignmentRepository.findById(88)).thenReturn(Optional.of(assignment));
+
+        SubjectMembership foreignMembership = new SubjectMembership();
+        foreignMembership.setId(44);
+        foreignMembership.setPersonId(99);
+        foreignMembership.setRole(1);
+        foreignMembership.setStatus(1);
+        when(subjectMembershipRepository.findById(44)).thenReturn(Optional.of(foreignMembership));
+
+        assertThatThrownBy(() -> accessService.requireTeachingAssignmentAccess(authentication, 88))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void adminRoleAloneDoesNotCreateGlobalAcademicScope() {
+        userRegisterService.currentUser = new UserRegisterService.CurrentUser(
+                1,
+                "role-only-admin",
+                true,
+                10,
+                "Role Only Admin",
+                null,
+                Set.of("ADMIN"),
+                Set.of("tests.manage")
+        );
+
+        org.santayn.testing.models.test.Test foreignTest = new org.santayn.testing.models.test.Test();
+        foreignTest.setId(7);
+        foreignTest.setAuthorPersonId(99);
+        when(testRepository.findById(7)).thenReturn(Optional.of(foreignTest));
+
+        assertThat(accessService.hasGlobalAcademicScope(authentication)).isFalse();
+        assertThatThrownBy(() -> accessService.requireTestOwner(authentication, 7))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void academicManagePermissionProvidesGlobalScopeWithoutAdminRole() {
+        userRegisterService.currentUser = new UserRegisterService.CurrentUser(
+                1,
+                "academic-manager",
+                true,
+                10,
+                "Academic Manager",
+                null,
+                Set.of("CUSTOM"),
+                Set.of("tests.manage", "academic.manage")
+        );
+
+        org.santayn.testing.models.test.Test foreignTest = new org.santayn.testing.models.test.Test();
+        foreignTest.setId(7);
+        foreignTest.setAuthorPersonId(99);
+        when(testRepository.findById(7)).thenReturn(Optional.of(foreignTest));
+
+        assertThat(accessService.hasGlobalAcademicScope(authentication)).isTrue();
+        accessService.requireTestOwner(authentication, 7);
     }
 
     @Test
@@ -177,7 +325,7 @@ class CurrentUserAccessServiceTests {
         private UserRegisterService.CurrentUser currentUser;
 
         private StubUserRegisterService() {
-            super(null, null, null, null, false);
+            super(null, null, null, null, null, false);
         }
 
         @Override

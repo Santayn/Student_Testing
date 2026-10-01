@@ -42,11 +42,15 @@ class AdminAccountInvariantIntegrationTests {
         User admin = account("admin-self-disable", true, adminRole);
 
         mockMvc.perform(put("/api/v1/users/{id}/active", admin.getId())
-                        .with(user(admin.getLogin()).roles("ADMIN"))
+                        .with(user(admin.getLogin()).authorities(
+                                new SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new SimpleGrantedAuthority("ADMIN"),
+                                new SimpleGrantedAuthority("users.write")
+                        ))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(activeBody(false)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("conflict"));
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
 
         assertThat(reload(admin).isActive()).isTrue();
     }
@@ -62,7 +66,7 @@ class AdminAccountInvariantIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(activeBody(false)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("conflict"));
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
 
         assertThat(reload(admin).isActive()).isTrue();
     }
@@ -74,7 +78,11 @@ class AdminAccountInvariantIntegrationTests {
         User target = account("admin-disable-target", true, adminRole);
 
         mockMvc.perform(put("/api/v1/users/{id}/active", target.getId())
-                        .with(user(actor.getLogin()).roles("ADMIN"))
+                        .with(user(actor.getLogin()).authorities(
+                                new SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new SimpleGrantedAuthority("ADMIN"),
+                                new SimpleGrantedAuthority("users.write")
+                        ))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(activeBody(false)))
                 .andExpect(status().isOk())
@@ -91,11 +99,15 @@ class AdminAccountInvariantIntegrationTests {
         User target = account("admin-self-demote-target", true, adminRole);
 
         mockMvc.perform(put("/api/v1/users/{id}/roles", target.getId())
-                        .with(user(target.getLogin()).roles("ADMIN"))
+                        .with(user(target.getLogin()).authorities(
+                                new SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new SimpleGrantedAuthority("ADMIN"),
+                                new SimpleGrantedAuthority("roles.manage")
+                        ))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(roleIdsBody(teacherRole)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("conflict"));
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
 
         assertThat(roleNames(reload(target))).contains("ADMIN");
     }
@@ -112,7 +124,7 @@ class AdminAccountInvariantIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(roleIdsBody(teacherRole)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("conflict"));
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
 
         assertThat(roleNames(reload(admin))).contains("ADMIN");
     }
@@ -125,7 +137,11 @@ class AdminAccountInvariantIntegrationTests {
         User target = account("admin-demote-target", true, adminRole);
 
         mockMvc.perform(put("/api/v1/users/{id}/roles", target.getId())
-                        .with(user(actor.getLogin()).roles("ADMIN"))
+                        .with(user(actor.getLogin()).authorities(
+                                new SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new SimpleGrantedAuthority("ADMIN"),
+                                new SimpleGrantedAuthority("roles.manage")
+                        ))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(roleIdsBody(teacherRole)))
                 .andExpect(status().isOk());

@@ -18,7 +18,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/lectures")
@@ -34,6 +36,32 @@ public class LectureContentRestController {
         this.lectureTestLinkService = lectureTestLinkService;
         this.lectureMaterialService = lectureMaterialService;
         this.accessService = accessService;
+    }
+
+    @GetMapping("/tests")
+    public List<LectureTestsBatchResponse> linkedTestsBatch(@RequestParam List<Integer> lectureIds,
+                                                            Authentication authentication) {
+        LinkedHashSet<Integer> requestedIds = new LinkedHashSet<>(lectureIds == null ? List.of() : lectureIds);
+        if (requestedIds.isEmpty()) {
+            return List.of();
+        }
+        if (requestedIds.size() > 200) {
+            throw new IllegalArgumentException("At most 200 lectureIds can be requested at once.");
+        }
+        if (requestedIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new IllegalArgumentException("lectureIds must contain positive identifiers only.");
+        }
+
+        requestedIds.forEach(id -> accessService.requireLectureOwner(authentication, id));
+        Map<Integer, List<org.santayn.testing.models.test.Test>> testsByLectureId =
+                lectureTestLinkService.findTestsByLectureIds(requestedIds);
+
+        return requestedIds.stream()
+                .map(lectureId -> new LectureTestsBatchResponse(
+                        lectureId,
+                        ApiResponses.list(testsByLectureId.getOrDefault(lectureId, List.of()), ApiResponses::test)
+                ))
+                .toList();
     }
 
     @GetMapping("/{id}/tests")
@@ -98,6 +126,12 @@ public class LectureContentRestController {
                 .contentType(mediaType)
                 .contentLength(storedMaterial.material().getSizeBytes())
                 .body(resource);
+    }
+
+    public record LectureTestsBatchResponse(
+            Integer lectureId,
+            List<ApiResponses.TestResponse> tests
+    ) {
     }
 
     public record LectureTestsRequest(List<Integer> testIds) {

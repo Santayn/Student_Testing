@@ -1,9 +1,11 @@
 package org.santayn.testing.service;
 
 import org.junit.jupiter.api.Test;
+import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.person.Person;
 import org.santayn.testing.models.test.TestAssignment;
 import org.santayn.testing.models.test.TestAttempt;
+import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.PersonRepository;
 import org.santayn.testing.repository.TestAssignmentRepository;
 import org.santayn.testing.repository.TestAttemptRepository;
@@ -23,6 +25,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:student_test_concurrency;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS CITEXT AS VARCHAR"
@@ -36,6 +39,7 @@ class TestServiceConcurrencyIntegrationTests {
     @Autowired private TestRepository testRepository;
     @Autowired private TestAssignmentRepository testAssignmentRepository;
     @Autowired private TestAttemptRepository testAttemptRepository;
+    @Autowired private LectureRepository lectureRepository;
 
     @Test
     void parallelStartCannotExceedAttemptLimit() throws Exception {
@@ -78,6 +82,74 @@ class TestServiceConcurrencyIntegrationTests {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void deletingTestWithRecordedAttemptIsRejectedAndHistoryIsPreserved() {
+        Person person = persistedPerson("delete-history");
+        org.santayn.testing.models.test.Test test = persistedTest("Delete history test", 1);
+        TestAssignment assignment = activeAssignment(test.getId());
+
+        TestAttempt attempt = testService.startAttempt(assignment.getId(), person.getId(), null);
+
+        assertThatThrownBy(() -> testService.delete(test.getId()))
+                .isInstanceOf(ResourceInUseException.class)
+                .hasMessageContaining("cannot be deleted");
+
+        assertThat(testRepository.existsById(test.getId())).isTrue();
+        assertThat(testAssignmentRepository.existsById(assignment.getId())).isTrue();
+        assertThat(testAttemptRepository.existsById(attempt.getId())).isTrue();
+    }
+
+    @Test
+    void assignmentTargetCannotChangeAfterAttemptExists() {
+        Person person = persistedPerson("assignment-target");
+        org.santayn.testing.models.test.Test test = persistedTest("Immutable assignment target", 2);
+        TestAssignment assignment = activeAssignment(test.getId());
+        testService.startAttempt(assignment.getId(), person.getId(), null);
+
+        Lecture lecture = new Lecture();
+        lecture.setOrdinal(1);
+        lecture.setTitle("Target lecture");
+        lecture.setContentFolderKey("target-" + System.nanoTime());
+        lecture.setPublicVisible(true);
+        lecture = lectureRepository.saveAndFlush(lecture);
+        Integer lectureId = lecture.getId();
+
+        assertThatThrownBy(() -> testService.updateAssignment(
+                assignment.getId(),
+                3,
+                null,
+                lectureId,
+                null,
+                assignment.getAvailableFromUtc(),
+                assignment.getAvailableUntilUtc(),
+                assignment.getStatus()
+        ))
+                .isInstanceOf(ResourceInUseException.class)
+                .hasMessageContaining("target cannot be changed");
+
+        TestAssignment unchanged = testAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(unchanged.getScope()).isEqualTo(1);
+        assertThat(unchanged.getCourseLectureId()).isNull();
+    }
+
+    private Person persistedPerson(String prefix) {
+        Person person = new Person();
+        person.setFirstName("Integrity");
+        person.setLastName("Student");
+        person.setDateOfBirth(LocalDate.of(2000, 1, 1));
+        person.setEmail(prefix + "-" + System.nanoTime() + "@test.local");
+        person.setPhone("");
+        return personRepository.saveAndFlush(person);
+    }
+
+    private org.santayn.testing.models.test.Test persistedTest(String title, int attemptsAllowed) {
+        org.santayn.testing.models.test.Test test = new org.santayn.testing.models.test.Test();
+        test.setTitle(title);
+        test.setAttemptsAllowed(attemptsAllowed);
+        test.setQuestionCount(1);
+        return testRepository.saveAndFlush(test);
     }
 
     private TestAssignment activeAssignment(Integer testId) {

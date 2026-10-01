@@ -1,12 +1,8 @@
-import {
-  TEACHER_ROLES,
-} from '../roles'
-
-const teacherMeta = {
+const teacherMeta = (permissions) => ({
   requiresAuth: true,
-  roles: TEACHER_ROLES,
+  permissions,
   sidebar: true,
-}
+})
 
 export const teacherRoutes = [
   {
@@ -18,7 +14,7 @@ export const teacherRoutes = [
         '@/views/teacher/QuestionsView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['questions.manage']),
   },
 
   {
@@ -30,7 +26,7 @@ export const teacherRoutes = [
         '@/views/teacher/TestManagementView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['tests.manage']),
   },
 
   {
@@ -42,7 +38,7 @@ export const teacherRoutes = [
         '@/views/teacher/TestEditorView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['tests.manage']),
   },
 
   {
@@ -54,7 +50,7 @@ export const teacherRoutes = [
         '@/views/teacher/LectureManagementView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['courses.manage']),
   },
 
   {
@@ -66,7 +62,7 @@ export const teacherRoutes = [
         '@/views/teacher/TopicLibraryView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['questions.manage']),
   },
 
   {
@@ -78,7 +74,7 @@ export const teacherRoutes = [
         '@/views/teacher/CourseTemplatesView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['courses.manage']),
   },
 
   {
@@ -90,6 +86,6 @@ export const teacherRoutes = [
         '@/views/teacher/TeacherWorkloadView.vue'
       ),
 
-    meta: teacherMeta,
+    meta: teacherMeta(['teaching.manage']),
   },
 ]

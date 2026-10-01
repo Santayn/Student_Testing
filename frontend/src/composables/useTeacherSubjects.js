@@ -4,26 +4,16 @@ import {
 } from 'vue'
 
 import {
-  membershipsApi,
-  subjectsApi,
+  teachingApi,
 } from '@/api'
-
-import {
-  useAuthStore,
-} from '@/stores/auth'
-
-import {
-  listFromResponse,
-} from '@/utils/apiData'
 
 const TEACHER_ROLE = 1
 
 export function useTeacherSubjects() {
-  const authStore = useAuthStore()
-
   const loadingSubjects = ref(false)
   const subjectMemberships = ref([])
   const subjects = ref([])
+  const teacherGroups = ref([])
 
   /*
    * SubjectMembership — основной контекст преподавателя.
@@ -177,78 +167,55 @@ export function useTeacherSubjects() {
     loadingSubjects.value = true
 
     try {
-      const personId =
-        authStore.personId
+      const response =
+        await teachingApi
+          .getProfileContext()
 
-      if (!personId) {
-        throw new Error(
-          'Не удалось определить преподавателя по текущему профилю.'
-        )
-      }
-
-      const membershipsResponse =
-        await membershipsApi
-          .getSubjectMemberships({
-            personId,
-            activeOnly: true,
-          })
+      const payload =
+        response?.data ?? {}
 
       subjectMemberships.value =
-        listFromResponse(
-          membershipsResponse
+        Array.isArray(
+          payload.memberships
         )
-          .filter(
-            (item) =>
-              Number(item.role) ===
-              TEACHER_ROLE
-          )
-          .sort(
-            (left, right) =>
-              Number(left.id) -
-              Number(right.id)
-          )
-
-      const subjectIds = [
-        ...new Set(
-          subjectMemberships.value
-            .map(
-              (item) =>
-                Number(item.subjectId)
-            )
-            .filter(Boolean)
-        ),
-      ]
-
-      const subjectResponses =
-        await Promise.all(
-          subjectIds.map(
-            (subjectId) =>
-              subjectsApi.getById(
-                subjectId
+          ? payload.memberships
+              .filter(
+                (item) =>
+                  Number(item.role) ===
+                    TEACHER_ROLE &&
+                  Number(item.status) === 1
               )
-          )
-        )
+              .sort(
+                (left, right) =>
+                  Number(left.id) -
+                  Number(right.id)
+              )
+          : []
 
       subjects.value =
-        subjectResponses
-          .map(
-            (response) =>
-              response.data
-          )
-          .filter(Boolean)
-          .sort(
-            (left, right) =>
-              String(left.name ?? '')
-                .localeCompare(
-                  String(
-                    right.name ?? ''
-                  ),
-                  'ru',
-                  {
-                    sensitivity: 'base',
-                  }
-                )
-          )
+        Array.isArray(payload.subjects)
+          ? [...payload.subjects]
+              .filter(Boolean)
+              .sort(
+                (left, right) =>
+                  String(left.name ?? '')
+                    .localeCompare(
+                      String(
+                        right.name ?? ''
+                      ),
+                      'ru',
+                      {
+                        sensitivity: 'base',
+                      }
+                    )
+              )
+          : []
+
+      teacherGroups.value =
+        Array.isArray(payload.groups)
+          ? [...payload.groups]
+              .filter(Boolean)
+          : []
 
       const preferredMembership =
         preferredMembershipId
@@ -303,11 +270,6 @@ export function useTeacherSubjects() {
         subjects.value.length === 1 &&
         subjectMemberships.value.length
       ) {
-        /*
-         * Сохраняем старое удобство для экранов,
-         * где выбор идёт по предмету. TopicLibrary при наличии
-         * дубликатов всё равно показывает membershipOptions.
-         */
         selectedMembershipId.value =
           String(
             subjectMemberships.value[0]
@@ -327,6 +289,7 @@ export function useTeacherSubjects() {
     loadingSubjects,
     subjectMemberships,
     subjects,
+    teacherGroups,
     selectedMembershipId,
     selectedMembership,
     selectedSubjectId,

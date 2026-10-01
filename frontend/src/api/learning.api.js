@@ -1,6 +1,12 @@
 import http from './http'
 
 export const learningApi = {
+  getSnapshot() {
+    return http.get(
+      '/public/learning/snapshot'
+    )
+  },
+
   getSubject(subjectId) {
     return http.get(
       `/public/learning/subjects/${subjectId}`
@@ -31,6 +37,12 @@ export const learningApi = {
     )
   },
 
+  getCurrentAttempt(assignmentId) {
+    return http.get(
+      `/public/learning/test-assignments/${assignmentId}/attempts/current`
+    )
+  },
+
   startAttempt(
     assignmentId,
     data = undefined
@@ -38,6 +50,18 @@ export const learningApi = {
     return http.post(
       `/public/learning/test-assignments/${assignmentId}/attempts/start`,
       data
+    )
+  },
+
+  getAttemptStatus(attemptId) {
+    return http.get(
+      `/public/learning/attempts/${attemptId}/status`
+    )
+  },
+
+  getAttemptResult(attemptId) {
+    return http.get(
+      `/public/learning/attempts/${attemptId}/result`
     )
   },
 

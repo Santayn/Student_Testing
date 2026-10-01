@@ -12,5 +12,7 @@ public interface GroupRepository extends JpaRepository<Group, Integer> {
 
     boolean existsByCode(String code);
 
+    boolean existsByFacultyId(Integer facultyId);
+
     List<Group> findByFacultyId(Integer facultyId);
 }

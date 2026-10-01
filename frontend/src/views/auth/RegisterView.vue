@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onMounted,
   ref,
 } from 'vue'
 
@@ -32,14 +33,29 @@ const form = ref({
 })
 
 const localError = ref('')
+const registrationConfigLoading = ref(false)
 
 const canSubmit = computed(() => {
   return (
     form.value.login.trim() &&
     form.value.password &&
     form.value.confirmPassword &&
+    authStore.publicRegistrationEnabled !== false &&
+    !registrationConfigLoading.value &&
     !authStore.loading
   )
+})
+
+onMounted(async () => {
+  registrationConfigLoading.value = true
+
+  try {
+    await authStore.loadPublicAuthConfig()
+  } catch {
+    // Backend remains authoritative: failed config loading must not invent availability.
+  } finally {
+    registrationConfigLoading.value = false
+  }
 })
 
 async function submit() {
@@ -106,6 +122,12 @@ async function submit() {
       </p>
     </header>
 
+    <UiAlert
+      v-if="authStore.publicRegistrationEnabled === false"
+      variant="warning"
+      message="Публичная регистрация сейчас отключена. Обратитесь к администратору."
+    />
+
     <form
       class="auth-form"
       @submit.prevent="submit"
@@ -115,7 +137,7 @@ async function submit() {
         label="Логин"
         autocomplete="username"
         maxlength="100"
-        :disabled="authStore.loading"
+        :disabled="authStore.loading || registrationConfigLoading || authStore.publicRegistrationEnabled === false"
         required
         size="lg"
       />
@@ -127,7 +149,7 @@ async function submit() {
         minlength="6"
         maxlength="200"
         autocomplete="new-password"
-        :disabled="authStore.loading"
+        :disabled="authStore.loading || registrationConfigLoading || authStore.publicRegistrationEnabled === false"
         required
         size="lg"
       />
@@ -139,7 +161,7 @@ async function submit() {
         minlength="6"
         maxlength="200"
         autocomplete="new-password"
-        :disabled="authStore.loading"
+        :disabled="authStore.loading || registrationConfigLoading || authStore.publicRegistrationEnabled === false"
         required
         size="lg"
       />

@@ -4,12 +4,13 @@ import java.util.List;
 import java.util.Map;
 
 public record ErrorResponse(
+        int status,
         String code,
         String message,
         List<Map<String, Object>> details,
-        String traceId
+        String requestId
 ) {
-    public static ErrorResponse of(String code, String message, String traceId) {
-        return new ErrorResponse(code, message, List.of(), traceId);
+    public static ErrorResponse of(int status, String code, String message, String requestId) {
+        return new ErrorResponse(status, code, message, List.of(), requestId);
     }
 }

@@ -102,16 +102,22 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
+        return isTokenValid(token, userDetails, null);
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails, Integer expectedSecurityVersion) {
         try {
             Map<String, Object> claims = extractAllClaims(token);
             String login = extractLogin(token);
             String tokenIssuer = claims.get("iss") == null ? null : claims.get("iss").toString();
             String tokenAudience = claims.get("aud") == null ? null : claims.get("aud").toString();
+            int tokenSecurityVersion = integerClaim(claims.get("securityVersion"), 0);
 
             return login != null
                     && login.equals(userDetails.getUsername())
                     && issuer.equals(tokenIssuer)
                     && (audience == null || audience.isBlank() || audience.equals(tokenAudience))
+                    && (expectedSecurityVersion == null || tokenSecurityVersion == expectedSecurityVersion)
                     && !isExpired(claims)
                     && isSignatureValid(token);
         } catch (Exception ex) {
@@ -168,6 +174,7 @@ public class JwtService {
             payload.put("userId", user.getId());
             payload.put("personId", user.getPersonId());
             payload.put("person_id", user.getPersonId());
+            payload.put("securityVersion", user.getSecurityVersion());
             payload.put("roles", new ArrayList<>(roles));
             payload.put("permissions", new ArrayList<>(permissions));
             payload.put("role", new ArrayList<>(roles));
@@ -231,6 +238,20 @@ public class JwtService {
         } catch (Exception ex) {
             throw new IllegalArgumentException("Invalid JWT token.", ex);
         }
+    }
+
+    private static int integerClaim(Object value, int defaultValue) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 
     private boolean isExpired(Map<String, Object> claims) {

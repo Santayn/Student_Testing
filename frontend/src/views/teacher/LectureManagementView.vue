@@ -75,9 +75,18 @@ const form = ref({
   id: null,
   title: '',
   description: '',
+  contentSource: '',
+  contentFormat: 'markdown',
   publicVisible: true,
   testIds: [],
 })
+
+const contentFormatOptions = [
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'plain_text', label: 'Обычный текст' },
+  { value: 'html', label: 'HTML (исходник)' },
+  { value: 'json', label: 'JSON' },
+]
 
 const lectureColumns = [
   {
@@ -194,6 +203,8 @@ function resetForm() {
     id: null,
     title: '',
     description: '',
+    contentSource: '',
+    contentFormat: 'markdown',
     publicVisible: true,
     testIds: [],
   }
@@ -235,20 +246,19 @@ async function loadLectures() {
               )
         )
 
-    const [testsResponse, testLists] =
+    const [testsResponse, testLinksResponse] =
       await Promise.all([
         testsApi.getAll({
           subjectId:
             Number(selectedSubjectId.value),
         }),
-        Promise.all(
-          lectures.value.map(
-            (lecture) =>
-              lecturesApi.getTests(
-                lecture.id
+        lectures.value.length
+          ? lecturesApi.getTestsBatch(
+              lectures.value.map(
+                (lecture) => lecture.id
               )
-          )
-        ),
+            )
+          : Promise.resolve({ data: [] }),
       ])
 
     availableTests.value =
@@ -264,14 +274,14 @@ async function loadLectures() {
 
     lectureTestsById.value =
       new Map(
-        lectures.value.map(
-          (lecture, index) => [
-            Number(lecture.id),
-            listFromResponse(
-              testLists[index]
-            ),
-          ]
-        )
+        listFromResponse(
+          testLinksResponse
+        ).map((item) => [
+          Number(item.lectureId),
+          Array.isArray(item.tests)
+            ? item.tests
+            : [],
+        ])
       )
 
     const lectureId =
@@ -338,6 +348,10 @@ async function editLecture(lecture) {
     title: lecture.title || '',
     description:
       lecture.description || '',
+    contentSource:
+      lecture.contentSource || '',
+    contentFormat:
+      lecture.contentFormat || 'markdown',
     publicVisible:
       Boolean(lecture.publicVisible),
     testIds: lectureTests(lecture.id)
@@ -435,6 +449,17 @@ async function saveLecture() {
       buildLectureContentKey(
         form.value.title,
         editingLecture?.id || null
+      ),
+    contentSource:
+      form.value.contentSource.trim() ||
+      null,
+    contentFormat:
+      form.value.contentFormat ||
+      'markdown',
+    contentSchemaVersion:
+      Number(
+        editingLecture?.contentSchemaVersion ||
+        1
       ),
     linkedTestId: null,
     publicVisible:
@@ -726,6 +751,20 @@ onMounted(async () => {
               v-model="form.description"
               label="Описание"
               maxlength="2000"
+              :disabled="!canEdit"
+            />
+
+            <UiSelect
+              v-model="form.contentFormat"
+              label="Формат содержимого"
+              :options="contentFormatOptions"
+              :disabled="!canEdit"
+            />
+
+            <UiTextarea
+              v-model="form.contentSource"
+              label="Содержимое лекции"
+              hint="Версионируемый исходник лекции. Формат и версия схемы сохраняются вместе с содержимым."
               :disabled="!canEdit"
             />
 

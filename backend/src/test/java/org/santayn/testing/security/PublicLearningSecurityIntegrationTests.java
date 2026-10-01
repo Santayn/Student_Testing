@@ -5,6 +5,7 @@ import org.santayn.testing.models.faculty.Faculty;
 import org.santayn.testing.models.group.Group;
 import org.santayn.testing.models.group.GroupMembership;
 import org.santayn.testing.models.person.Person;
+import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionResponse;
 import org.santayn.testing.models.question.QuestionTypeSupport;
@@ -19,6 +20,7 @@ import org.santayn.testing.repository.FacultyRepository;
 import org.santayn.testing.repository.GroupMembershipRepository;
 import org.santayn.testing.repository.GroupRepository;
 import org.santayn.testing.repository.PersonRepository;
+import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.repository.QuestionRepository;
 import org.santayn.testing.repository.QuestionResponseRepository;
 import org.santayn.testing.repository.SubjectMembershipRepository;
@@ -36,6 +38,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -57,6 +60,7 @@ class PublicLearningSecurityIntegrationTests {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private PersonRepository personRepository;
+    @Autowired private LectureRepository lectureRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private FacultyRepository facultyRepository;
     @Autowired private GroupRepository groupRepository;
@@ -70,6 +74,42 @@ class PublicLearningSecurityIntegrationTests {
     @Autowired private TestAttemptRepository testAttemptRepository;
     @Autowired private QuestionRepository questionRepository;
     @Autowired private QuestionResponseRepository questionResponseRepository;
+
+    @Test
+    void studentLearningSnapshotReturnsAuthorizedGroupFacultySubjectsAndLectures() throws Exception {
+        String suffix = uniqueSuffix();
+        Person student = person("Snapshot", suffix);
+        saveUser("student-" + suffix, student);
+        TeachingAssignment teachingAssignment = teachingAssignmentFor(student, suffix);
+        SubjectMembership teacherMembership = subjectMembershipRepository
+                .findById(teachingAssignment.getSubjectMembershipId())
+                .orElseThrow();
+
+        Lecture lecture = new Lecture();
+        lecture.setSubjectId(teacherMembership.getSubjectId());
+        lecture.setSubjectMembershipId(teacherMembership.getId());
+        lecture.setOrdinal(1);
+        lecture.setTitle("Snapshot lecture " + suffix);
+        lecture.setContentFolderKey("snapshot-" + suffix);
+        lecture.setContentSource("# Student content");
+        lecture.setContentFormat("markdown");
+        lecture.setContentSchemaVersion(2);
+        lecture = lectureRepository.saveAndFlush(lecture);
+
+        mockMvc.perform(get("/api/v1/public/learning/snapshot")
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personId").value(student.getId()))
+                .andExpect(jsonPath("$.group.id").value(teachingAssignment.getGroupId()))
+                .andExpect(jsonPath("$.group.membershipId").exists())
+                .andExpect(jsonPath("$.faculty.id").exists())
+                .andExpect(jsonPath("$.subjects[0].subject.id").value(teacherMembership.getSubjectId()))
+                .andExpect(jsonPath("$.subjects[0].lectures[0].id").value(lecture.getId()))
+                .andExpect(jsonPath("$.subjects[0].lectures[0].title").value("Snapshot lecture " + suffix))
+                .andExpect(jsonPath("$.subjects[0].lectures[0].contentSource").value("# Student content"))
+                .andExpect(jsonPath("$.subjects[0].lectures[0].contentFormat").value("markdown"))
+                .andExpect(jsonPath("$.subjects[0].lectures[0].contentSchemaVersion").value(2));
+    }
 
     @Test
     void getTestMetadataDoesNotCreateOrResumeAttempt() throws Exception {
@@ -91,6 +131,198 @@ class PublicLearningSecurityIntegrationTests {
     }
 
     @Test
+    void lectureTestsReadDoesNotCreateMissingAssignment() throws Exception {
+        String suffix = uniqueSuffix();
+        Person student = person("ReadOnly", suffix);
+        saveUser("student-" + suffix, student);
+        TeachingAssignment teachingAssignment = teachingAssignmentFor(student, suffix);
+        SubjectMembership teacherMembership = subjectMembershipRepository
+                .findById(teachingAssignment.getSubjectMembershipId())
+                .orElseThrow();
+        org.santayn.testing.models.test.Test test = test(1, suffix);
+
+        Lecture lecture = new Lecture();
+        lecture.setSubjectId(teacherMembership.getSubjectId());
+        lecture.setSubjectMembershipId(teacherMembership.getId());
+        lecture.setOrdinal(1);
+        lecture.setTitle("Read only lecture " + suffix);
+        lecture.setContentFolderKey("read-only-" + suffix);
+        lecture.setLinkedTestId(test.getId());
+        lecture = lectureRepository.saveAndFlush(lecture);
+
+        long assignmentsBefore = testAssignmentRepository.count();
+
+        mockMvc.perform(get("/api/v1/public/learning/lectures/{lectureId}/tests", lecture.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(test.getId()))
+                .andExpect(jsonPath("$[0].assignmentId").doesNotExist())
+                .andExpect(jsonPath("$[0].available").value(false))
+                .andExpect(jsonPath("$[0].attemptsRemaining").value(0))
+                .andExpect(jsonPath("$[0].canResume").value(false));
+
+        assertThat(testAssignmentRepository.count()).isEqualTo(assignmentsBefore);
+    }
+
+    @Test
+    void publicSubmitDoesNotExposePerAnswerCorrectness() throws Exception {
+        String suffix = uniqueSuffix();
+        Person student = person("Submit", suffix);
+        saveUser("student-" + suffix, student);
+        TeachingAssignment teachingAssignment = teachingAssignmentFor(student, suffix);
+        org.santayn.testing.models.test.Test test = test(1, suffix);
+        TestAssignment assignment = assignment(test, teachingAssignment.getId());
+
+        Question question = new Question();
+        question.setTestId(test.getId());
+        question.setType(QuestionTypeSupport.TYPE_TEXT);
+        question.setQuestion("Hidden correctness question");
+        question.setCorrectAnswer("secret");
+        question.setPoints(BigDecimal.ONE);
+        question.setOrdinal(1);
+        question.setActive(true);
+        question = questionRepository.saveAndFlush(question);
+
+        MvcResult startResult = mockMvc.perform(post("/api/v1/public/learning/test-assignments/{assignmentId}/attempts/start", assignment.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andReturn();
+        String startJson = startResult.getResponse().getContentAsString();
+        int attemptId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(startJson).get("attemptId").asInt();
+
+        mockMvc.perform(post("/api/v1/public/learning/attempts/{attemptId}/submit", attemptId)
+                        .with(user("student-" + suffix).roles("STUDENT"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "questionIds": [%d],
+                                  "answers": ["wrong"],
+                                  "selectedOptionIds": [[]]
+                                }
+                                """.formatted(question.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details[0].questionText").value("Hidden correctness question"))
+                .andExpect(jsonPath("$.details[0].givenAnswer").value("wrong"))
+                .andExpect(jsonPath("$.details[0].correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.details[0].correct").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/public/learning/attempts/{attemptId}/status", attemptId)
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attemptId").value(attemptId))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.completedAtUtc").exists())
+                .andExpect(jsonPath("$.score").exists())
+                .andExpect(jsonPath("$.correctCount").isNumber())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.gradingStatus").exists());
+
+        mockMvc.perform(get("/api/v1/public/learning/attempts/{attemptId}/result", attemptId)
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.test.id").value(test.getId()))
+                .andExpect(jsonPath("$.test.assignmentId").value(assignment.getId()))
+                .andExpect(jsonPath("$.result.attemptId").value(attemptId))
+                .andExpect(jsonPath("$.result.totalCount").value(1))
+                .andExpect(jsonPath("$.result.details[0].questionText").value("Hidden correctness question"))
+                .andExpect(jsonPath("$.result.details[0].givenAnswer").value("wrong"))
+                .andExpect(jsonPath("$.result.details[0].correct").doesNotExist())
+                .andExpect(jsonPath("$.result.details[0].correctAnswer").doesNotExist());
+    }
+
+
+    @Test
+    void inProgressAttemptStatusDoesNotExposeCorrectnessOracle() throws Exception {
+        String suffix = uniqueSuffix();
+        Person student = person("Oracle", suffix);
+        saveUser("student-" + suffix, student);
+        TeachingAssignment teachingAssignment = teachingAssignmentFor(student, suffix);
+        org.santayn.testing.models.test.Test test = test(1, suffix);
+        TestAssignment assignment = assignment(test, teachingAssignment.getId());
+
+        Question question = new Question();
+        question.setTestId(test.getId());
+        question.setType(QuestionTypeSupport.TYPE_TEXT);
+        question.setQuestion("Do not leak correctness");
+        question.setCorrectAnswer("secret");
+        question.setPoints(BigDecimal.ONE);
+        question.setOrdinal(1);
+        question.setActive(true);
+        question = questionRepository.saveAndFlush(question);
+
+        TestAttempt attempt = new TestAttempt();
+        attempt.setTestAssignmentId(assignment.getId());
+        attempt.setPersonId(student.getId());
+        attempt.setOrdinal(1);
+        attempt.setStatus(TestService.ATTEMPT_STATUS_IN_PROGRESS);
+        attempt.setStartedAt(Instant.now());
+        attempt = testAttemptRepository.saveAndFlush(attempt);
+
+        QuestionResponse response = new QuestionResponse();
+        response.setTestAttemptId(attempt.getId());
+        response.setTestQuestionId(question.getId());
+        response.setCorrect(true);
+        response.setAwardedPoints(BigDecimal.ONE);
+        response.setGradingStatus("GRADED");
+        questionResponseRepository.saveAndFlush(response);
+
+        mockMvc.perform(get("/api/v1/public/learning/attempts/{attemptId}/status", attempt.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.correctCount").doesNotExist())
+                .andExpect(jsonPath("$.totalCount").value(1));
+    }
+
+    @Test
+    void currentAttemptIsReadOnlyAndStartRejectsSecondInProgressAttempt() throws Exception {
+        String suffix = uniqueSuffix();
+        Person student = person("Resume", suffix);
+        saveUser("student-" + suffix, student);
+        TeachingAssignment teachingAssignment = teachingAssignmentFor(student, suffix);
+        org.santayn.testing.models.test.Test test = test(2, suffix);
+        TestAssignment assignment = assignment(test, teachingAssignment.getId());
+
+        Question question = new Question();
+        question.setTestId(test.getId());
+        question.setType(QuestionTypeSupport.TYPE_TEXT);
+        question.setQuestion("Resume contract question");
+        question.setCorrectAnswer("answer");
+        question.setPoints(BigDecimal.ONE);
+        question.setOrdinal(1);
+        question.setActive(true);
+        questionRepository.saveAndFlush(question);
+
+        mockMvc.perform(get("/api/v1/public/learning/test-assignments/{assignmentId}/attempts/current", assignment.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isNoContent());
+
+        assertThat(testAttemptRepository.count()).isZero();
+
+        MvcResult startResult = mockMvc.perform(post("/api/v1/public/learning/test-assignments/{assignmentId}/attempts/start", assignment.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.questions[0].question").value("Resume contract question"))
+                .andReturn();
+        int attemptId = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(startResult.getResponse().getContentAsString())
+                .get("attemptId")
+                .asInt();
+
+        mockMvc.perform(get("/api/v1/public/learning/test-assignments/{assignmentId}/attempts/current", assignment.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attemptId").value(attemptId))
+                .andExpect(jsonPath("$.questions[0].question").value("Resume contract question"));
+
+        mockMvc.perform(post("/api/v1/public/learning/test-assignments/{assignmentId}/attempts/start", assignment.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
+                .andExpect(status().isConflict());
+
+        assertThat(testAttemptRepository.count()).isEqualTo(1);
+    }
+
+    @Test
     void studentCannotSubmitOrCompleteForeignAttempt() throws Exception {
         String suffix = uniqueSuffix();
         Person currentStudent = person("Current", suffix);
@@ -109,6 +341,10 @@ class PublicLearningSecurityIntegrationTests {
                         .with(user("student-" + suffix).roles("STUDENT"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/public/learning/attempts/{attemptId}/result", foreignAttempt.getId())
+                        .with(user("student-" + suffix).roles("STUDENT")))
                 .andExpect(status().isForbidden());
 
         assertThat(testAttemptRepository.findById(foreignAttempt.getId()).orElseThrow().getStatus())

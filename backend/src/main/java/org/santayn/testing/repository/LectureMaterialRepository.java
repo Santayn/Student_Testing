@@ -10,5 +10,7 @@ public interface LectureMaterialRepository extends JpaRepository<LectureMaterial
 
     List<LectureMaterial> findByCourseLectureIdOrderByIdAsc(Integer courseLectureId);
 
+    boolean existsByCourseLectureId(Integer courseLectureId);
+
     Optional<LectureMaterial> findByIdAndCourseLectureId(Integer id, Integer courseLectureId);
 }

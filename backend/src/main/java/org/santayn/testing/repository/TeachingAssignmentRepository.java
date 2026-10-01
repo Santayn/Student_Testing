@@ -1,17 +1,45 @@
 package org.santayn.testing.repository;
 
+import jakarta.persistence.LockModeType;
 import org.santayn.testing.models.teacher.TeachingAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface TeachingAssignmentRepository extends JpaRepository<TeachingAssignment, Integer> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select assignment from TeachingAssignment assignment where assignment.id = :id")
+    Optional<TeachingAssignment> findByIdForUpdate(@Param("id") Integer id);
+
     List<TeachingAssignment> findByGroupId(Integer groupId);
 
+    boolean existsByGroupId(Integer groupId);
+
+    List<TeachingAssignment> findByGroupIdIn(Collection<Integer> groupIds);
+
     List<TeachingAssignment> findBySubjectMembershipId(Integer subjectMembershipId);
+
+    List<TeachingAssignment> findBySubjectMembershipIdIn(Collection<Integer> subjectMembershipIds);
+
+    @Query("""
+            select assignment
+            from TeachingAssignment assignment
+            where assignment.subjectMembershipId in :subjectMembershipIds
+              and (:studyCourse is null or assignment.studyCourse = :studyCourse)
+              and assignment.semester = :semester
+              and assignment.academicYear = :academicYear
+            order by assignment.subjectMembershipId, assignment.groupId, assignment.id
+            """)
+    List<TeachingAssignment> findTeacherWorkload(@Param("subjectMembershipIds") Collection<Integer> subjectMembershipIds,
+                                                  @Param("studyCourse") Integer studyCourse,
+                                                  @Param("semester") int semester,
+                                                  @Param("academicYear") int academicYear);
 
     @Query("""
             select count(assignment) > 0

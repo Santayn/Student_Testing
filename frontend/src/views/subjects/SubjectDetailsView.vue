@@ -12,6 +12,7 @@ import {
 
 import {
   getApiErrorMessage,
+  learningApi,
   subjectsApi,
 } from '@/api'
 
@@ -54,11 +55,16 @@ const pageTitle = computed(() => {
   )
 })
 
+const canManageSubject = computed(() => {
+  return authStore.hasAnyPermission(
+    'courses.manage',
+    'teaching.manage',
+    'academic.manage'
+  )
+})
+
 const pageSubtitle = computed(() => {
-  if (
-    authStore.isTeacher ||
-    authStore.isAdmin
-  ) {
+  if (canManageSubject.value) {
     return (
       'Управление лекциями ' +
       'и тематикой предмета.'
@@ -149,10 +155,13 @@ async function loadSubject() {
   error.value = ''
 
   try {
-    const response =
-      await subjectsApi.getById(
-        subjectId.value
-      )
+    const response = authStore.isStudent
+      ? await learningApi.getSubject(
+          subjectId.value
+        )
+      : await subjectsApi.getById(
+          subjectId.value
+        )
 
     subject.value =
       response.data ?? null
@@ -238,10 +247,7 @@ onMounted(loadSubject)
       <template #footer>
         <div class="subject-actions">
           <template
-            v-if="
-              authStore.isTeacher ||
-              authStore.isAdmin
-            "
+            v-if="canManageSubject"
           >
             <UiButton
               variant="primary"

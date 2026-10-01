@@ -85,6 +85,16 @@ public class MembershipRestController {
         return ApiResponses.groupMembership(membershipService.addGroupMember(groupId, request.personId(), request.role(), request.notes()));
     }
 
+    @PostMapping("/groups/{targetGroupId}/students/{personId}/move")
+    public ApiResponses.GroupMembershipResponse moveStudent(@PathVariable Integer targetGroupId,
+                                                            @PathVariable Integer personId,
+                                                            @Valid @RequestBody(required = false) MoveStudentRequest request) {
+        String notes = request == null ? null : request.notes();
+        return ApiResponses.groupMembership(
+                membershipService.moveStudentToGroup(targetGroupId, personId, notes)
+        );
+    }
+
     @GetMapping("/groups/{groupId}")
     public List<ApiResponses.GroupMembershipResponse> groupMembers(@PathVariable Integer groupId,
                                                                    Authentication authentication) {
@@ -163,6 +173,11 @@ public class MembershipRestController {
     ) {
     }
 
+    public record MoveStudentRequest(
+            @Size(max = 1000) String notes
+    ) {
+    }
+
     public record MembershipStatusRequest(int status) {
     }
 
@@ -173,7 +188,7 @@ public class MembershipRestController {
     }
 
     private Integer scopedPersonId(Authentication authentication, Integer requestedPersonId) {
-        if (accessService.isAdmin(authentication)) {
+        if (accessService.hasPermission(authentication, "academic.manage")) {
             return requestedPersonId;
         }
         Integer currentPersonId = accessService.currentPersonId(authentication);
@@ -184,13 +199,13 @@ public class MembershipRestController {
     }
 
     private void requireStaff(Authentication authentication) {
-        if (!accessService.isAdmin(authentication)) {
-            throw new AccessDeniedException("This membership list is available to administrators only.");
+        if (!accessService.hasPermission(authentication, "academic.manage")) {
+            throw new AccessDeniedException("This membership list requires academic.manage permission.");
         }
     }
 
     private void requirePersonOrStaff(Authentication authentication, Integer personId) {
-        if (!accessService.isAdmin(authentication)
+        if (!accessService.hasPermission(authentication, "academic.manage")
                 && !accessService.currentPersonId(authentication).equals(personId)) {
             throw new AccessDeniedException("Membership belongs to another person.");
         }

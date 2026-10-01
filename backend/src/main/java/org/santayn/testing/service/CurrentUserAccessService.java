@@ -32,10 +32,10 @@ import java.util.Objects;
 public class CurrentUserAccessService {
 
     private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
 
     private final UserRegisterService userRegisterService;
     private final SubjectMembershipRepository subjectMembershipRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
     private final TopicRepository topicRepository;
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
@@ -57,17 +57,23 @@ public class CurrentUserAccessService {
         return userRegisterService.currentUser(authentication.getName());
     }
 
-    public boolean isAdmin(Authentication authentication) {
-        return hasRole(currentUser(authentication), "ADMIN");
+    public boolean hasGlobalAcademicScope(Authentication authentication) {
+        return hasPermission(authentication, "academic.manage");
     }
 
-    public boolean isTeacherOrAdmin(Authentication authentication) {
+    public boolean hasPermission(Authentication authentication, String permissionName) {
+        if (permissionName == null || permissionName.isBlank()) {
+            return false;
+        }
         UserRegisterService.CurrentUser user = currentUser(authentication);
-        return hasRole(user, "ADMIN") || hasRole(user, "TEACHER");
-    }
-
-    public boolean isTeacher(Authentication authentication) {
-        return hasRole(currentUser(authentication), "TEACHER");
+        if (user.permissions() == null) {
+            return false;
+        }
+        String expected = permissionName.trim().toLowerCase(Locale.ROOT);
+        return user.permissions().stream()
+                .filter(Objects::nonNull)
+                .map(permission -> permission.trim().toLowerCase(Locale.ROOT))
+                .anyMatch(expected::equals);
     }
 
     public Integer currentPersonId(Authentication authentication) {
@@ -79,7 +85,7 @@ public class CurrentUserAccessService {
     }
 
     public void requireSubjectMembershipOwner(Authentication authentication, Integer subjectMembershipId) {
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         if (subjectMembershipId == null) {
@@ -96,7 +102,7 @@ public class CurrentUserAccessService {
     }
 
     public void requireActiveSubjectMembershipOwner(Authentication authentication, Integer subjectMembershipId) {
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         if (subjectMembershipId == null) {
@@ -106,9 +112,7 @@ public class CurrentUserAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Subject membership not found: " + subjectMembershipId
                 ));
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null
+        if (!activeTeacherSubjectMembershipService.isActiveTeacher(membership)
                 || !Objects.equals(membership.getPersonId(), currentPersonId(authentication))) {
             throw new AccessDeniedException("Active teacher subject membership belongs to another user.");
         }
@@ -119,7 +123,7 @@ public class CurrentUserAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Subject membership not found: " + subjectMembershipId
                 ));
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         Integer personId = currentPersonId(authentication);
@@ -152,7 +156,7 @@ public class CurrentUserAccessService {
     }
 
     public void requireSubjectOwner(Authentication authentication, Integer subjectId) {
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         if (!subjectMembershipRepository.existsBySubjectIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(
@@ -165,7 +169,7 @@ public class CurrentUserAccessService {
     public void requireTestOwner(Authentication authentication, Integer testId) {
         var test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found: " + testId));
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         Integer personId = currentPersonId(authentication);
@@ -207,7 +211,7 @@ public class CurrentUserAccessService {
     public void requireCourseTemplateOwner(Authentication authentication, Integer templateId) {
         var template = courseTemplateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course template not found: " + templateId));
-        if (!isAdmin(authentication)
+        if (!hasGlobalAcademicScope(authentication)
                 && !Objects.equals(template.getAuthorPersonId(), currentPersonId(authentication))) {
             throw new AccessDeniedException("Course template belongs to another user.");
         }
@@ -221,7 +225,7 @@ public class CurrentUserAccessService {
     }
 
     public void requireGroupMember(Authentication authentication, Integer groupId) {
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         if (!groupMembershipRepository.existsByGroupIdAndPersonIdAndRoleAndRemovedAtUtcIsNull(
@@ -236,14 +240,14 @@ public class CurrentUserAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Group membership not found: " + groupMembershipId
                 ));
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         Integer personId = currentPersonId(authentication);
         if (Objects.equals(membership.getPersonId(), personId)) {
             return;
         }
-        if (isTeacher(authentication)) {
+        if (hasPermission(authentication, "teaching.manage")) {
             var ownedSubjectMembershipIds = subjectMembershipRepository
                     .findByPersonIdAndRemovedAtUtcIsNull(personId)
                     .stream()
@@ -267,7 +271,7 @@ public class CurrentUserAccessService {
     }
 
     public void requireTeachingAssignmentAccess(Authentication authentication, Integer assignmentId) {
-        if (isTeacherOrAdmin(authentication)) {
+        if (hasPermission(authentication, "teaching.manage")) {
             requireTeachingAssignmentOwner(authentication, assignmentId);
             return;
         }
@@ -281,7 +285,7 @@ public class CurrentUserAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Teaching assignment enrollment not found: " + enrollmentId
                 ));
-        if (isTeacherOrAdmin(authentication)) {
+        if (hasPermission(authentication, "teaching.manage")) {
             requireTeachingAssignmentOwner(authentication, enrollment.getTeachingAssignmentId());
         } else {
             requireGroupMembershipOwner(authentication, enrollment.getGroupMembershipId());
@@ -336,7 +340,7 @@ public class CurrentUserAccessService {
                                             Integer topicId,
                                             Integer courseLectureId,
                                             Integer testId) {
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         boolean hasContext = false;
@@ -363,7 +367,7 @@ public class CurrentUserAccessService {
                                                   Integer topicId,
                                                   Integer courseLectureId,
                                                   Integer testId) {
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         boolean hasContext = false;
@@ -389,7 +393,7 @@ public class CurrentUserAccessService {
     public void requireLectureOwner(Authentication authentication, Integer lectureId) {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course lecture not found: " + lectureId));
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         if (lecture.getSubjectMembershipId() != null) {
@@ -409,7 +413,7 @@ public class CurrentUserAccessService {
     public void requireActiveLectureOwner(Authentication authentication, Integer lectureId) {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course lecture not found: " + lectureId));
-        if (isAdmin(authentication)) {
+        if (hasGlobalAcademicScope(authentication)) {
             return;
         }
         if (lecture.getSubjectMembershipId() != null) {
@@ -426,14 +430,4 @@ public class CurrentUserAccessService {
         }
     }
 
-    private static boolean hasRole(UserRegisterService.CurrentUser user, String expectedRole) {
-        if (user.roles() == null) {
-            return false;
-        }
-        String expected = expectedRole.toUpperCase(Locale.ROOT);
-        return user.roles().stream()
-                .filter(Objects::nonNull)
-                .map(role -> role.trim().toUpperCase(Locale.ROOT))
-                .anyMatch(role -> role.equals(expected) || role.equals("ROLE_" + expected));
-    }
 }

@@ -23,6 +23,18 @@ function withOptionalLifetimeKind(
 }
 
 export const authApi = {
+  config() {
+    return authHttp.get(
+      '/auth/config'
+    )
+  },
+
+  csrf() {
+    return authHttp.get(
+      '/auth/csrf'
+    )
+  },
+
   login({
     login,
     password,
@@ -53,28 +65,26 @@ export const authApi = {
     )
   },
 
-  refresh(refreshToken) {
+  refresh(csrfToken) {
     return authHttp.post(
       '/auth/refresh',
+      undefined,
       {
-        refreshToken,
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
       }
     )
   },
 
-  revoke(refreshToken) {
-    return http.post(
+  revoke(csrfToken) {
+    return authHttp.post(
       '/auth/revoke',
+      undefined,
       {
-        refreshToken,
-      },
-      {
-        /*
-         * Нельзя делать response-refresh + retry:
-         * refresh rotation заменит refreshToken,
-         * а body исходного revoke содержит старое значение.
-         */
-        skipAuthRefresh: true,
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
       }
     )
   },

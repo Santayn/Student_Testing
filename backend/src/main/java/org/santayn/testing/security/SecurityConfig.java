@@ -35,53 +35,73 @@ import java.util.UUID;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String[] ADMIN_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "roles.manage", "ROLES.MANAGE"
-    };
-
     private static final String[] STRICT_ADMIN_AUTHORITIES = {
             "ROLE_ADMIN", "ADMIN"
     };
 
+    private static final String[] ROLE_MANAGEMENT_AUTHORITIES = {
+            "roles.manage", "ROLES.MANAGE"
+    };
+
     private static final String[] USER_READ_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "users.read", "USERS.READ"
+            "users.read", "USERS.READ"
     };
 
     private static final String[] USER_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "users.write", "USERS.WRITE"
+            "users.write", "USERS.WRITE"
     };
 
     private static final String[] PEOPLE_READ_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
-            "people.read", "PEOPLE.READ", "users.read", "USERS.READ"
+            "people.read", "PEOPLE.READ"
     };
 
     private static final String[] PEOPLE_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "people.write", "PEOPLE.WRITE", "users.write", "USERS.WRITE"
+            "people.write", "PEOPLE.WRITE"
+    };
+
+    private static final String[] SUBJECT_READ_AUTHORITIES = {
+            "courses.manage", "COURSES.MANAGE",
+            "teaching.manage", "TEACHING.MANAGE",
+            "academic.manage", "ACADEMIC.MANAGE"
     };
 
     private static final String[] ACADEMIC_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "academic.manage", "ACADEMIC.MANAGE"
+            "academic.manage", "ACADEMIC.MANAGE"
     };
 
     private static final String[] TEACHING_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
             "teaching.manage", "TEACHING.MANAGE"
     };
 
     private static final String[] COURSE_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
             "courses.manage", "COURSES.MANAGE"
     };
 
     private static final String[] TEST_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
             "tests.manage", "TESTS.MANAGE"
     };
 
     private static final String[] QUESTION_WRITE_AUTHORITIES = {
-            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
             "questions.manage", "QUESTIONS.MANAGE"
+    };
+
+    private static final String[] TEACHER_CONTEXT_AUTHORITIES = {
+            "questions.manage", "QUESTIONS.MANAGE",
+            "tests.manage", "TESTS.MANAGE",
+            "courses.manage", "COURSES.MANAGE",
+            "teaching.manage", "TEACHING.MANAGE",
+            "academic.manage", "ACADEMIC.MANAGE"
+    };
+
+    private static final String[] TEACHING_READ_AUTHORITIES = {
+            "teaching.manage", "TEACHING.MANAGE",
+            "academic.manage", "ACADEMIC.MANAGE"
+    };
+
+    private static final String[] TEACHING_ASSIGNMENT_READ_AUTHORITIES = {
+            "teaching.manage", "TEACHING.MANAGE",
+            "tests.manage", "TESTS.MANAGE",
+            "academic.manage", "ACADEMIC.MANAGE"
     };
 
     @Bean
@@ -106,7 +126,7 @@ public class SecurityConfig {
                                         request,
                                         objectMapper,
                                         HttpServletResponse.SC_UNAUTHORIZED,
-                                        "unauthorized",
+                                        "UNAUTHORIZED",
                                         "Authentication is required."
                                 )
                         )
@@ -116,7 +136,7 @@ public class SecurityConfig {
                                         request,
                                         objectMapper,
                                         HttpServletResponse.SC_FORBIDDEN,
-                                        "forbidden",
+                                        "FORBIDDEN",
                                         "Not enough permissions."
                                 )
                         )
@@ -128,6 +148,9 @@ public class SecurityConfig {
                                         "/api/v1/auth/login",
                                         "/api/v1/auth/register",
                                         "/api/v1/auth/refresh",
+                                        "/api/v1/auth/revoke",
+                                        "/api/v1/auth/csrf",
+                                        "/api/v1/auth/config",
                                         "/api/v1/status",
                                         "/api/v1/status/**"
                                 ).permitAll()
@@ -138,11 +161,11 @@ public class SecurityConfig {
                                         "/api/v1/admin/database-backups/restore"
                                 )
                                 .hasAnyAuthority(STRICT_ADMIN_AUTHORITIES)
-                                .requestMatchers("/api/v1/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers("/api/v1/roles/**").hasAnyAuthority(ROLE_MANAGEMENT_AUTHORITIES)
                                 .requestMatchers("/api/v1/tests/attempts/**", "/api/v1/tests/responses/**")
-                                .hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .hasAnyAuthority(STRICT_ADMIN_AUTHORITIES)
                                 .requestMatchers(HttpMethod.POST, "/api/v1/tests/assignments/*/attempts")
-                                .hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .hasAnyAuthority(STRICT_ADMIN_AUTHORITIES)
                                 .requestMatchers("/api/v1/questions/**").hasAnyAuthority(QUESTION_WRITE_AUTHORITIES)
                                 .requestMatchers("/api/v1/topics/**").hasAnyAuthority(QUESTION_WRITE_AUTHORITIES)
                                 .requestMatchers("/api/v1/tests/**").hasAnyAuthority(TEST_WRITE_AUTHORITIES)
@@ -150,32 +173,51 @@ public class SecurityConfig {
                                 .requestMatchers("/api/v1/lectures/**").hasAnyAuthority(COURSE_WRITE_AUTHORITIES)
                                 .requestMatchers("/api/v1/results/teacher/**").hasAnyAuthority(TEST_WRITE_AUTHORITIES)
                                 .requestMatchers("/api/v1/results/student/**").authenticated()
-                                .requestMatchers(HttpMethod.POST, "/api/v1/memberships/**").hasAnyAuthority(ADMIN_AUTHORITIES)
-                                .requestMatchers(HttpMethod.PUT, "/api/v1/memberships/**").hasAnyAuthority(ADMIN_AUTHORITIES)
-                                .requestMatchers(HttpMethod.DELETE, "/api/v1/memberships/**").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers(HttpMethod.POST, "/api/v1/memberships/**").hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/v1/memberships/**").hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.DELETE, "/api/v1/memberships/**").hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/v1/subjects", "/api/v1/subjects/**")
+                                .hasAnyAuthority(SUBJECT_READ_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/v1/faculties", "/api/v1/faculties/**", "/api/v1/groups", "/api/v1/groups/**")
+                                .hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.POST, "/api/v1/faculties/**", "/api/v1/groups/**", "/api/v1/subjects/**")
                                 .hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/faculties/**", "/api/v1/groups/**", "/api/v1/subjects/**")
                                 .hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.DELETE, "/api/v1/faculties/**", "/api/v1/groups/**", "/api/v1/subjects/**")
                                 .hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/v1/teaching/profile-context")
+                                .hasAnyAuthority(TEACHER_CONTEXT_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/v1/teaching/workload")
+                                .hasAnyAuthority(TEACHING_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.GET, "/api/v1/teaching/assignments", "/api/v1/teaching/assignments/*")
+                                .hasAnyAuthority(TEACHING_ASSIGNMENT_READ_AUTHORITIES)
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/v1/teaching/load-types",
+                                        "/api/v1/teaching/load-types/**",
+                                        "/api/v1/teaching/subject-load-types",
+                                        "/api/v1/teaching/enrollments",
+                                        "/api/v1/teaching/lecture-assignments",
+                                        "/api/v1/teaching/lecture-progress"
+                                ).hasAnyAuthority(TEACHING_READ_AUTHORITIES)
                                 .requestMatchers(
                                         HttpMethod.POST,
                                         "/api/v1/teaching/load-types",
                                         "/api/v1/teaching/load-types/**"
-                                ).hasAnyAuthority(ADMIN_AUTHORITIES)
+                                ).hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(
                                         HttpMethod.PUT,
                                         "/api/v1/teaching/load-types",
                                         "/api/v1/teaching/load-types/**"
-                                ).hasAnyAuthority(ADMIN_AUTHORITIES)
+                                ).hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.POST, "/api/v1/teaching/assignments")
-                                .hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(
                                         HttpMethod.PUT,
                                         "/api/v1/teaching/assignments/*",
                                         "/api/v1/teaching/assignments/*/status"
-                                ).hasAnyAuthority(ADMIN_AUTHORITIES)
+                                ).hasAnyAuthority(ACADEMIC_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.POST, "/api/v1/teaching/**").hasAnyAuthority(TEACHING_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/teaching/**").hasAnyAuthority(TEACHING_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.DELETE, "/api/v1/teaching/**").hasAnyAuthority(TEACHING_WRITE_AUTHORITIES)
@@ -183,9 +225,9 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_READ_AUTHORITIES)
                                 .requestMatchers(HttpMethod.POST, "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/people/**").hasAnyAuthority(PEOPLE_WRITE_AUTHORITIES)
-                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/person").hasAnyAuthority(ADMIN_AUTHORITIES)
-                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/roles").hasAnyAuthority(ADMIN_AUTHORITIES)
-                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/permissions").hasAnyAuthority(ADMIN_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/person").hasAnyAuthority(USER_WRITE_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/roles").hasAnyAuthority(ROLE_MANAGEMENT_AUTHORITIES)
+                                .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/permissions").hasAnyAuthority(ROLE_MANAGEMENT_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/active").hasAnyAuthority(USER_WRITE_AUTHORITIES)
                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAnyAuthority(USER_READ_AUTHORITIES)
                                 .anyRequest().authenticated()
@@ -196,21 +238,31 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain nonApiSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain nonApiSecurityFilterChain(
+            HttpSecurity http,
+            @Value("${app.openapi.public-enabled:false}") boolean openApiPublicEnabled
+    ) throws Exception {
         http
                 .securityMatcher("/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry ->
-                        authorizationManagerRequestMatcherRegistry
-                                .requestMatchers(
-                                        "/swagger-ui.html",
-                                        "/swagger-ui/**",
-                                        "/v3/api-docs/**",
-                                        "/error"
-                                ).permitAll()
-                                .anyRequest().denyAll()
-                );
+                .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> {
+                    authorizationManagerRequestMatcherRegistry.requestMatchers("/error").permitAll();
+                    if (openApiPublicEnabled) {
+                        authorizationManagerRequestMatcherRegistry.requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll();
+                    } else {
+                        authorizationManagerRequestMatcherRegistry.requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).denyAll();
+                    }
+                    authorizationManagerRequestMatcherRegistry.anyRequest().denyAll();
+                });
 
         return http.build();
     }
@@ -250,7 +302,7 @@ public class SecurityConfig {
                 "Content-Disposition",
                 "Content-Length"
         ));
-        corsConfiguration.setAllowCredentials(false);
+        corsConfiguration.setAllowCredentials(true);
         corsConfiguration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource = new UrlBasedCorsConfigurationSource();
@@ -268,11 +320,15 @@ public class SecurityConfig {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
+        String requestId = UUID.randomUUID().toString();
+        response.setHeader("X-Request-Id", requestId);
+
         org.santayn.testing.web.dto.common.ErrorResponse responseBody =
                 org.santayn.testing.web.dto.common.ErrorResponse.of(
+                        status,
                         error,
                         message,
-                        UUID.randomUUID().toString()
+                        requestId
                 );
 
         objectMapper.writeValue(response.getWriter(), responseBody);

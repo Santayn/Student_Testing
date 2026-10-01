@@ -25,6 +25,13 @@ export const facultiesApi = {
     return http.get(`/faculties/${facultyId}/subjects`)
   },
 
+  replaceSubjects(facultyId, subjectIds) {
+    return http.put(
+      `/faculties/${facultyId}/subjects`,
+      { subjectIds }
+    )
+  },
+
   addSubject(facultyId, subjectId, data = undefined) {
     return http.post(
       `/faculties/${facultyId}/subjects/${subjectId}`,

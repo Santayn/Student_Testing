@@ -5,14 +5,14 @@ import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
 import org.santayn.testing.models.question.QuestionTypeSupport;
-import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.topic.Topic;
 import org.santayn.testing.repository.QuestionOptionRepository;
 import org.santayn.testing.repository.QuestionRepository;
+import org.santayn.testing.repository.QuestionResponseRepository;
 import org.santayn.testing.repository.TestRepository;
+import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.LectureRepository;
-import org.santayn.testing.repository.SubjectMembershipRepository;
 import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.TopicRepository;
 import org.springframework.stereotype.Service;
@@ -28,17 +28,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class QuestionService {
 
-    private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
-
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository optionRepository;
+    private final QuestionResponseRepository questionResponseRepository;
+    private final TestAttemptRepository testAttemptRepository;
     private final TestRepository testRepository;
     private final LectureRepository lectureRepository;
-    private final SubjectMembershipRepository subjectMembershipRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
     private final QuestionDocxImportParser docxImportParser;
+    private final TestService testService;
 
     @Transactional(readOnly = true)
     public List<Question> findAll(Integer testId, Integer topicId) {
@@ -82,6 +82,7 @@ public class QuestionService {
                            String correctAnswer,
                            List<QuestionTypeSupport.MatchingPair> matchingPairs) {
         QuestionTarget target = resolveQuestionTarget(testId, courseLectureId, topicId);
+        lockQuestionContainerForMutation(target.testId(), topicId);
         QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
         requireQuestionType(type);
         BigDecimal normalizedPoints = points == null ? BigDecimal.ONE : points;
@@ -115,7 +116,7 @@ public class QuestionService {
                            String correctAnswer,
                            List<QuestionTypeSupport.MatchingPair> matchingPairs,
                            boolean active) {
-        Question question = get(questionId);
+        Question question = getMutableQuestionForUpdate(questionId);
         if (question.getTestId() != null && topicId != null) {
             throw new IllegalArgumentException("Test question cannot be moved into a topic question bank.");
         }
@@ -141,7 +142,7 @@ public class QuestionService {
 
     @Transactional
     public QuestionOption addOption(Long questionId, String text, int ordinal, boolean correct) {
-        Question question = get(questionId);
+        Question question = getMutableQuestionForUpdate(questionId);
         requireSelectableQuestion(question);
         requireSingleChoiceHasOnlyOneCorrectOption(question, null, correct);
         int normalizedOrdinal = Math.max(1, ordinal);
@@ -159,8 +160,10 @@ public class QuestionService {
 
     @Transactional
     public QuestionOption updateOption(Long optionId, String text, int ordinal, boolean correct) {
-        QuestionOption option = getOption(optionId);
-        Question question = get(option.getTestQuestionId());
+        QuestionOption optionSnapshot = getOption(optionId);
+        Question question = getMutableQuestionForUpdate(optionSnapshot.getTestQuestionId());
+        QuestionOption option = optionRepository.findByIdForUpdate(optionId)
+                .orElseThrow(() -> new IllegalArgumentException("Question option not found: " + optionId));
         requireSelectableQuestion(question);
         requireSingleChoiceHasOnlyOneCorrectOption(question, optionId, correct);
         int normalizedOrdinal = Math.max(1, ordinal);
@@ -176,7 +179,7 @@ public class QuestionService {
 
     @Transactional
     public Question setActive(Long questionId, boolean active) {
-        Question question = get(questionId);
+        Question question = getMutableQuestionForUpdate(questionId);
         question.setActive(active);
         return question;
     }
@@ -184,6 +187,7 @@ public class QuestionService {
     @Transactional
     public QuestionImportResult importDocx(Integer testId, Integer courseLectureId, Integer topicId, MultipartFile file) {
         QuestionTarget target = resolveQuestionTarget(testId, courseLectureId, topicId);
+        lockQuestionContainerForMutation(target.testId(), topicId);
         Test test = target.testId() == null
                 ? null
                 : testRepository.findById(target.testId())
@@ -245,6 +249,50 @@ public class QuestionService {
         }
     }
 
+    private Question getMutableQuestionForUpdate(Long questionId) {
+        Question snapshot = get(questionId);
+        lockQuestionContainerForMutation(snapshot.getTestId(), snapshot.getTopicId());
+        Question question = questionRepository.findByIdForUpdate(questionId)
+                .orElseThrow(() -> new IllegalArgumentException("Question not found: " + questionId));
+        if (questionResponseRepository.existsByTestQuestionId(question.getId())) {
+            throw new ResourceInUseException(
+                    "question",
+                    question.getId(),
+                    "Question cannot be changed after it has been included in a student attempt. Create a new question for future attempts instead.",
+                    java.util.Map.of("questionResponsesExist", true)
+            );
+        }
+        return question;
+    }
+
+    private void lockQuestionContainerForMutation(Integer testId, Integer topicId) {
+        if (testId != null) {
+            testService.lockTestDefinitionForMutation(testId);
+            return;
+        }
+        if (topicId != null) {
+            topicRepository.findByIdForUpdate(topicId)
+                    .orElseThrow(() -> new IllegalArgumentException("Topic not found: " + topicId));
+            requireTopicQuestionBankMutable(topicId);
+        }
+    }
+
+    private void requireTopicQuestionBankMutable(Integer topicId) {
+        List<Integer> referencingTestIds = selectionRuleRepository.findDistinctTestIdsByTopicId(topicId);
+        if (referencingTestIds.isEmpty() || !testAttemptRepository.existsForAnyTest(referencingTestIds)) {
+            return;
+        }
+        throw new ResourceInUseException(
+                "topicQuestionBank",
+                topicId,
+                "Topic question bank cannot be changed after a referencing test has started being used. Create a new topic/question-bank version for future attempts instead.",
+                java.util.Map.of(
+                        "historicalAttemptsExist", true,
+                        "referencingTestIds", List.copyOf(referencingTestIds)
+                )
+        );
+    }
+
     private void requireSingleChoiceHasOnlyOneCorrectOption(Question question, Long editedOptionId, boolean newCorrectValue) {
         if (!QuestionTypeSupport.isSingleChoice(question.getType()) || !newCorrectValue) {
             return;
@@ -269,9 +317,8 @@ public class QuestionService {
             return new QuestionTarget(testId);
         }
         if (topicId != null) {
-            QuestionContext context = resolveQuestionContext(courseLectureId, topicId);
-            if (context.topicId() == null) {
-                throw new IllegalArgumentException("TopicId is required for topic question bank.");
+            if (!topicRepository.existsById(topicId)) {
+                throw new IllegalArgumentException("Topic not found: " + topicId);
             }
             return new QuestionTarget(null);
         }
@@ -286,7 +333,7 @@ public class QuestionService {
 
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new IllegalArgumentException("Topic not found: " + topicId));
-        requireActiveTeacherSubjectMembership(topic.getSubjectMembershipId());
+        activeTeacherSubjectMembershipService.requireActiveTeacher(topic.getSubjectMembershipId());
         Integer resolvedLectureId = topic.getCourseLectureId();
         if (resolvedLectureId != null) {
             requireActiveLectureContext(resolvedLectureId);
@@ -306,22 +353,7 @@ public class QuestionService {
         Lecture lecture = lectureRepository.findById(courseLectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Course lecture not found: " + courseLectureId));
         if (lecture.getSubjectMembershipId() != null) {
-            requireActiveTeacherSubjectMembership(lecture.getSubjectMembershipId());
-        }
-    }
-
-    private void requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
-        if (subjectMembershipId == null) {
-            throw new IllegalArgumentException("Active teacher subject membership is required.");
-        }
-        SubjectMembership membership = subjectMembershipRepository.findById(subjectMembershipId)
-                .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null) {
-            throw new IllegalArgumentException(
-                    "Active teacher subject membership is required: " + subjectMembershipId
-            );
+            activeTeacherSubjectMembershipService.requireActiveTeacher(lecture.getSubjectMembershipId());
         }
     }
 

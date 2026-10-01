@@ -11,6 +11,8 @@ public interface CourseTemplateRepository extends JpaRepository<CourseTemplate, 
 
     List<CourseTemplate> findBySubjectId(Integer subjectId);
 
+    boolean existsBySubjectId(Integer subjectId);
+
     boolean existsBySubjectIdAndName(Integer subjectId, String name);
 
     boolean existsBySubjectIdAndNameAndIdNot(Integer subjectId, String name, Integer id);

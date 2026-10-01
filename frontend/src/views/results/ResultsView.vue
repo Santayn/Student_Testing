@@ -53,9 +53,8 @@ const studentId = ref('')
 const resultData = ref(null)
 
 const teacherMode = computed(() => {
-  return (
-    authStore.isTeacher ||
-    authStore.isAdmin
+  return authStore.hasPermission(
+    'tests.manage'
   )
 })
 

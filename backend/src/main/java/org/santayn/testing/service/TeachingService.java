@@ -6,6 +6,7 @@ import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureAssignment;
 import org.santayn.testing.models.lecture.StudentLectureProgress;
 import org.santayn.testing.models.group.Group;
+import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.subject.SubjectMembershipLoadType;
 import org.santayn.testing.models.teacher.TeachingAssignment;
@@ -21,28 +22,33 @@ import org.santayn.testing.repository.PersonRepository;
 import org.santayn.testing.repository.StudentLectureProgressRepository;
 import org.santayn.testing.repository.SubjectMembershipLoadTypeRepository;
 import org.santayn.testing.repository.SubjectMembershipRepository;
+import org.santayn.testing.repository.SubjectRepository;
 import org.santayn.testing.repository.TeachingAssignmentEnrollmentRepository;
 import org.santayn.testing.repository.TeachingAssignmentRepository;
 import org.santayn.testing.repository.TeachingLoadTypeRepository;
+import org.santayn.testing.repository.TestAssignmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class TeachingService {
 
-    private static final int SUBJECT_ROLE_TEACHER = 1;
-    private static final int ACTIVE_SUBJECT_MEMBERSHIP_STATUS = 1;
-
     private final TeachingLoadTypeRepository teachingLoadTypeRepository;
     private final SubjectMembershipLoadTypeRepository subjectMembershipLoadTypeRepository;
     private final SubjectMembershipRepository subjectMembershipRepository;
+    private final SubjectRepository subjectRepository;
+    private final ActiveTeacherSubjectMembershipService activeTeacherSubjectMembershipService;
     private final TeachingAssignmentRepository teachingAssignmentRepository;
     private final TeachingAssignmentEnrollmentRepository teachingAssignmentEnrollmentRepository;
+    private final TestAssignmentRepository testAssignmentRepository;
     private final FacultySubjectRepository facultySubjectRepository;
     private final GroupRepository groupRepository;
     private final GroupMembershipRepository groupMembershipRepository;
@@ -110,7 +116,7 @@ public class TeachingService {
     public SubjectMembershipLoadType addSubjectLoadType(Integer subjectMembershipId,
                                                         Integer teachingLoadTypeId,
                                                         String notes) {
-        requireActiveTeacherSubjectMembership(subjectMembershipId);
+        activeTeacherSubjectMembershipService.requireActiveTeacher(subjectMembershipId);
         requireLoadType(teachingLoadTypeId);
 
         return subjectMembershipLoadTypeRepository
@@ -176,6 +182,106 @@ public class TeachingService {
                 .orElseThrow(() -> new IllegalArgumentException("Teaching assignment not found: " + id));
     }
 
+    private TeachingAssignment getAssignmentForUpdate(Integer id) {
+        return teachingAssignmentRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Teaching assignment not found: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public TeacherProfileSnapshot teacherProfile(Integer personId) {
+        if (personId == null) {
+            throw new IllegalArgumentException("PersonId is required.");
+        }
+
+        List<SubjectMembership> memberships = subjectMembershipRepository
+                .findByPersonIdAndRemovedAtUtcIsNull(personId)
+                .stream()
+                .filter(item -> item.getRole() == 1 && item.getStatus() == 1)
+                .toList();
+        if (memberships.isEmpty()) {
+            return new TeacherProfileSnapshot(List.of(), List.of(), List.of());
+        }
+
+        List<Integer> membershipIds = memberships.stream()
+                .map(SubjectMembership::getId)
+                .toList();
+        Set<Integer> subjectIds = memberships.stream()
+                .map(SubjectMembership::getSubjectId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<Subject> subjects = subjectRepository.findAllById(subjectIds);
+
+        List<TeachingAssignment> assignments = teachingAssignmentRepository.findBySubjectMembershipIdIn(membershipIds)
+                .stream()
+                .filter(item -> item.getStatus() == 1)
+                .toList();
+        Set<Integer> groupIds = assignments.stream()
+                .map(TeachingAssignment::getGroupId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<Group> groups = groupIds.isEmpty()
+                ? List.of()
+                : groupRepository.findAllById(groupIds);
+
+        return new TeacherProfileSnapshot(
+                List.copyOf(memberships),
+                List.copyOf(subjects),
+                List.copyOf(groups)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public TeacherWorkloadSnapshot teacherWorkload(Integer personId,
+                                                    Integer studyCourse,
+                                                    int semester,
+                                                    int academicYear) {
+        if (personId == null) {
+            throw new IllegalArgumentException("PersonId is required.");
+        }
+        requireSemester(semester);
+        requireStudyCourse(studyCourse);
+        requireAcademicYear(academicYear);
+
+        List<SubjectMembership> memberships = subjectMembershipRepository
+                .findByPersonIdAndRemovedAtUtcIsNull(personId)
+                .stream()
+                .filter(item -> item.getRole() == 1 && item.getStatus() == 1)
+                .toList();
+        if (memberships.isEmpty()) {
+            return new TeacherWorkloadSnapshot(List.of(), List.of(), List.of(), List.of(), List.of());
+        }
+
+        List<Integer> membershipIds = memberships.stream()
+                .map(SubjectMembership::getId)
+                .toList();
+        List<TeachingAssignment> assignments = teachingAssignmentRepository.findTeacherWorkload(
+                membershipIds, studyCourse, semester, academicYear
+        );
+
+        Set<Integer> groupIds = assignments.stream()
+                .map(TeachingAssignment::getGroupId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<Group> groups = groupIds.isEmpty()
+                ? List.of()
+                : groupRepository.findAllById(groupIds);
+
+        List<Integer> assignmentIds = assignments.stream()
+                .map(TeachingAssignment::getId)
+                .toList();
+        List<LectureAssignment> lectureAssignments = assignmentIds.isEmpty()
+                ? List.of()
+                : lectureAssignmentRepository.findByTeachingAssignmentIdIn(assignmentIds);
+
+        List<Lecture> lectures = lectureRepository
+                .findBySubjectMembershipIdInOrderBySubjectMembershipIdAscOrdinalAsc(membershipIds);
+
+        return new TeacherWorkloadSnapshot(
+                List.copyOf(memberships),
+                List.copyOf(assignments),
+                List.copyOf(groups),
+                List.copyOf(lectureAssignments),
+                List.copyOf(lectures)
+        );
+    }
+
     @Transactional
     public TeachingAssignment createAssignment(Integer subjectMembershipId,
                                                Integer groupId,
@@ -187,7 +293,7 @@ public class TeachingService {
                                                BigDecimal hoursPerWeek,
                                                Integer status,
                                                String notes) {
-        SubjectMembership subjectMembership = requireActiveTeacherSubjectMembership(subjectMembershipId);
+        SubjectMembership subjectMembership = activeTeacherSubjectMembershipService.requireActiveTeacher(subjectMembershipId);
         Group group = requireGroup(groupId);
         requireLoadType(loadTypeId);
         requireSubjectAssignedToFaculty(group.getFacultyId(), subjectMembership.getSubjectId());
@@ -232,8 +338,8 @@ public class TeachingService {
                                                BigDecimal hoursPerWeek,
                                                Integer status,
                                                String notes) {
-        TeachingAssignment assignment = getAssignment(teachingAssignmentId);
-        SubjectMembership subjectMembership = requireActiveTeacherSubjectMembership(subjectMembershipId);
+        TeachingAssignment assignment = getAssignmentForUpdate(teachingAssignmentId);
+        SubjectMembership subjectMembership = activeTeacherSubjectMembershipService.requireActiveTeacher(subjectMembershipId);
         Group group = requireGroup(groupId);
         requireLoadType(loadTypeId);
         requireSubjectAssignedToFaculty(group.getFacultyId(), subjectMembership.getSubjectId());
@@ -253,6 +359,19 @@ public class TeachingService {
             throw new AuthConflictException("Teaching assignment already exists for this subject, group and term.");
         }
 
+        if (teachingAssignmentIdentityChanged(
+                assignment,
+                subjectMembershipId,
+                groupId,
+                loadTypeId,
+                courseVersionId,
+                semester,
+                studyCourse,
+                academicYear
+        )) {
+            requireTeachingAssignmentIdentityMutable(teachingAssignmentId);
+        }
+
         assignment.setSubjectMembershipId(subjectMembershipId);
         assignment.setGroupId(groupId);
         assignment.setLoadTypeId(loadTypeId);
@@ -268,7 +387,7 @@ public class TeachingService {
 
     @Transactional
     public TeachingAssignment updateAssignmentStatus(Integer teachingAssignmentId, int status) {
-        TeachingAssignment assignment = getAssignment(teachingAssignmentId);
+        TeachingAssignment assignment = getAssignmentForUpdate(teachingAssignmentId);
         assignment.setStatus(normalizeStatus(status, 1, 4, 1));
         return assignment;
     }
@@ -283,7 +402,7 @@ public class TeachingService {
 
     @Transactional
     public TeachingAssignmentEnrollment enroll(Integer teachingAssignmentId, Integer groupMembershipId, Integer status) {
-        TeachingAssignment assignment = getAssignment(teachingAssignmentId);
+        TeachingAssignment assignment = getAssignmentForUpdate(teachingAssignmentId);
         GroupMembership groupMembership = groupMembershipRepository.findById(groupMembershipId)
                 .orElseThrow(() -> new IllegalArgumentException("Group membership not found: " + groupMembershipId));
         if (!assignment.getGroupId().equals(groupMembership.getGroupId())) {
@@ -346,7 +465,7 @@ public class TeachingService {
                                            boolean required,
                                            int minProgressPercent,
                                            Integer status) {
-        TeachingAssignment assignment = getAssignment(teachingAssignmentId);
+        TeachingAssignment assignment = getAssignmentForUpdate(teachingAssignmentId);
         SubjectMembership subjectMembership = requireSubjectMembership(assignment.getSubjectMembershipId());
         Lecture lecture = lectureRepository.findById(courseLectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Course lecture not found: " + courseLectureId));
@@ -380,7 +499,7 @@ public class TeachingService {
 
     @Transactional
     public LectureAssignment updateLectureAssignmentStatus(Integer lectureAssignmentId, int status) {
-        LectureAssignment lectureAssignment = lectureAssignmentRepository.findById(lectureAssignmentId)
+        LectureAssignment lectureAssignment = lectureAssignmentRepository.findByIdForUpdate(lectureAssignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture assignment not found: " + lectureAssignmentId));
         int normalizedStatus = normalizeStatus(status, 1, 4, 1);
         lectureAssignment.setStatus(normalizedStatus);
@@ -399,7 +518,7 @@ public class TeachingService {
                                                      boolean required,
                                                      int minProgressPercent,
                                                      Integer status) {
-        LectureAssignment lectureAssignment = lectureAssignmentRepository.findById(lectureAssignmentId)
+        LectureAssignment lectureAssignment = lectureAssignmentRepository.findByIdForUpdate(lectureAssignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture assignment not found: " + lectureAssignmentId));
         TeachingAssignment assignment = getAssignment(lectureAssignment.getTeachingAssignmentId());
         SubjectMembership subjectMembership = requireSubjectMembership(assignment.getSubjectMembershipId());
@@ -414,6 +533,16 @@ public class TeachingService {
                 });
         requireTimeRange(availableFromUtc, dueToUtc, closedAtUtc);
         requirePercent(minProgressPercent, "MinProgressPercent");
+
+        if (!Objects.equals(lectureAssignment.getCourseLectureId(), courseLectureId)
+                && studentLectureProgressRepository.existsByLectureAssignmentId(lectureAssignmentId)) {
+            throw new ResourceInUseException(
+                    "lectureAssignment",
+                    lectureAssignmentId,
+                    "Lecture assignment target cannot be changed after student progress has been recorded. Create a new lecture assignment for the new lecture instead.",
+                    java.util.Map.of("studentProgressExists", true)
+            );
+        }
 
         lectureAssignment.setCourseLectureId(courseLectureId);
         lectureAssignment.setAvailableFromUtc(availableFromUtc);
@@ -458,7 +587,7 @@ public class TeachingService {
                                                  Integer completedByPersonId,
                                                  Long lastPositionSeconds,
                                                  Long timeSpentSeconds) {
-        LectureAssignment lectureAssignment = lectureAssignmentRepository.findById(lectureAssignmentId)
+        LectureAssignment lectureAssignment = lectureAssignmentRepository.findByIdForUpdate(lectureAssignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture assignment not found: " + lectureAssignmentId));
         TeachingAssignmentEnrollment enrollment = teachingAssignmentEnrollmentRepository.findById(teachingAssignmentEnrollmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Teaching assignment enrollment not found: " + teachingAssignmentEnrollmentId));
@@ -508,16 +637,39 @@ public class TeachingService {
                 .orElseThrow(() -> new IllegalArgumentException("Subject membership not found: " + subjectMembershipId));
     }
 
-    private SubjectMembership requireActiveTeacherSubjectMembership(Integer subjectMembershipId) {
-        SubjectMembership membership = requireSubjectMembership(subjectMembershipId);
-        if (membership.getRole() != SUBJECT_ROLE_TEACHER
-                || membership.getStatus() != ACTIVE_SUBJECT_MEMBERSHIP_STATUS
-                || membership.getRemovedAtUtc() != null) {
-            throw new IllegalArgumentException(
-                    "Active teacher subject membership is required: " + subjectMembershipId
+    private boolean teachingAssignmentIdentityChanged(TeachingAssignment assignment,
+                                                      Integer subjectMembershipId,
+                                                      Integer groupId,
+                                                      Integer loadTypeId,
+                                                      Integer courseVersionId,
+                                                      int semester,
+                                                      Integer studyCourse,
+                                                      int academicYear) {
+        return !Objects.equals(assignment.getSubjectMembershipId(), subjectMembershipId)
+                || !Objects.equals(assignment.getGroupId(), groupId)
+                || !Objects.equals(assignment.getLoadTypeId(), loadTypeId)
+                || !Objects.equals(assignment.getCourseVersionId(), courseVersionId)
+                || assignment.getSemester() != semester
+                || !Objects.equals(assignment.getStudyCourse(), studyCourse)
+                || assignment.getAcademicYear() != academicYear;
+    }
+
+    private void requireTeachingAssignmentIdentityMutable(Integer teachingAssignmentId) {
+        boolean enrollments = teachingAssignmentEnrollmentRepository.existsByTeachingAssignmentId(teachingAssignmentId);
+        boolean lectureAssignments = lectureAssignmentRepository.existsByTeachingAssignmentId(teachingAssignmentId);
+        boolean testAssignments = testAssignmentRepository.existsByTeachingAssignmentId(teachingAssignmentId);
+        if (enrollments || lectureAssignments || testAssignments) {
+            throw new ResourceInUseException(
+                    "teachingAssignment",
+                    teachingAssignmentId,
+                    "Teaching assignment identity cannot be changed after students, lectures, or tests have been attached. Create a new teaching assignment for the new scope instead.",
+                    java.util.Map.of(
+                            "enrollments", enrollments,
+                            "lectureAssignments", lectureAssignments,
+                            "testAssignments", testAssignments
+                    )
             );
         }
-        return membership;
     }
 
     private Group requireGroup(Integer groupId) {
@@ -649,4 +801,17 @@ public class TeachingService {
             throw new IllegalArgumentException("AvailableFromUtc must be before or equal to ClosedAtUtc.");
         }
     }
+
+    public record TeacherProfileSnapshot(List<SubjectMembership> memberships,
+                                         List<Subject> subjects,
+                                         List<Group> groups) {
+    }
+
+    public record TeacherWorkloadSnapshot(List<SubjectMembership> memberships,
+                                          List<TeachingAssignment> assignments,
+                                          List<Group> groups,
+                                          List<LectureAssignment> lectureAssignments,
+                                          List<Lecture> lectures) {
+    }
+
 }
