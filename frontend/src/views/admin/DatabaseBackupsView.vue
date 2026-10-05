@@ -1,248 +1,558 @@
 <script setup>
-import { computed, ref } from 'vue'
+import {
+  computed,
+  ref,
+} from 'vue'
 
-import AdminNotice from '@/components/admin/AdminNotice.vue'
 import AdminPageShell from '@/components/admin/AdminPageShell.vue'
 
 import {
+  UiAlert,
   UiButton,
   UiCard,
+  UiDialog,
   UiFileInput,
 } from '@/components/ui'
 
 import {
-  databaseBackupsApi,
-  getApiErrorMessage,
-} from '@/api'
+  useDatabaseBackupDownload,
+} from '@/composables/admin/database-backups/useDatabaseBackupDownload'
 
-const backupFile = ref(null)
-const creating = ref(false)
-const restoring = ref(false)
+import {
+  useDatabaseRestore,
+} from '@/composables/admin/database-backups/useDatabaseRestore'
 
-const notice = ref({
-  type: 'info',
-  message: '',
-})
+import {
+  DATABASE_BACKUP_FILE_ACCEPT,
+  formatDatabaseBackupBytes,
+  formatDatabaseRestoreTime,
+} from '@/utils/databaseBackup'
 
-const selectedFileName = computed(() => {
-  return backupFile.value?.name ?? ''
-})
+import {
+  focusFirstInvalidField,
+} from '@/utils/formErrorLifecycle'
 
-const canRestore = computed(() => {
-  return Boolean(backupFile.value) && !restoring.value
-})
+const backupFileAccept =
+  DATABASE_BACKUP_FILE_ACCEPT
 
-function showNotice(type, message) {
-  notice.value = {
-    type,
-    message,
+const restoreFormElement = ref(null)
+const restoreConfirmVisible = ref(false)
+
+const {
+  creating,
+  errorMessage: createErrorMessage,
+  lastFileName,
+  createBackup: createBackupFile,
+  clearFailure: clearCreateFailure,
+} = useDatabaseBackupDownload()
+
+const {
+  file: backupFile,
+  fileError,
+  restoring,
+  result: restoreResult,
+  selectedFileName,
+  selectedFileSizeBytes,
+  canRestore,
+  errorMessage: restoreErrorMessage,
+  setFiles,
+  restoreBackup: restoreBackupFile,
+  clearFailure: clearRestoreFailure,
+} = useDatabaseRestore()
+
+const selectedFileSize = computed(
+  () =>
+    formatDatabaseBackupBytes(
+      selectedFileSizeBytes.value
+    )
+)
+
+const restoredFileSize = computed(
+  () =>
+    formatDatabaseBackupBytes(
+      restoreResult.value?.sizeBytes
+    )
+)
+
+const restoredAt = computed(
+  () =>
+    formatDatabaseRestoreTime(
+      restoreResult.value?.restoredAtUtc
+    )
+)
+
+const operationsBusy = computed(
+  () =>
+    creating.value ||
+    restoring.value
+)
+
+async function handleFileChange(files) {
+  restoreConfirmVisible.value = false
+  clearRestoreFailure()
+
+  const validation =
+    setFiles(files)
+
+  if (!validation.valid) {
+    await focusFirstInvalidField(
+      restoreFormElement.value
+    )
   }
-}
-
-function clearNotice() {
-  notice.value.message = ''
-}
-
-function backupFileName(response) {
-  const disposition =
-    response.headers?.['content-disposition'] ??
-    response.headers?.['Content-Disposition'] ??
-    ''
-
-  const utf8Name = disposition.match(/filename\*=UTF-8''([^;]+)/i)
-  if (utf8Name?.[1]) {
-    return decodeURIComponent(utf8Name[1].replace(/"/g, ''))
-  }
-
-  const plainName = disposition.match(/filename="?([^";]+)"?/i)
-  if (plainName?.[1]) {
-    return plainName[1]
-  }
-
-  const stamp = new Date()
-    .toISOString()
-    .replace(/[:.]/g, '-')
-
-  return `student-test-database-backup-${stamp}.sql`
-}
-
-function downloadBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-async function backupErrorMessage(error, fallback) {
-  const data = error?.response?.data
-
-  if (data instanceof Blob) {
-    try {
-      const text = await data.text()
-      const payload = JSON.parse(text)
-      return (
-        payload?.message ||
-        payload?.detail ||
-        payload?.title ||
-        fallback
-      )
-    } catch {
-      return fallback
-    }
-  }
-
-  return getApiErrorMessage(error, fallback)
-}
-
-function handleFileChange(files) {
-  backupFile.value = files[0] ?? null
 }
 
 async function createBackup() {
-  creating.value = true
-  clearNotice()
-
-  try {
-    const response = await databaseBackupsApi.create()
-    downloadBlob(response.data, backupFileName(response))
-    showNotice('success', 'Резервная копия сформирована и скачана.')
-  } catch (error) {
-    showNotice(
-      'error',
-      await backupErrorMessage(
-        error,
-        'Не удалось создать резервную копию'
-      )
-    )
-  } finally {
-    creating.value = false
+  if (operationsBusy.value) {
+    return
   }
+
+  clearCreateFailure()
+  await createBackupFile()
 }
 
-async function restoreBackup() {
-  if (!backupFile.value) {
-    showNotice('warning', 'Выберите SQL-файл резервной копии.')
-    return
-  }
-
-  const confirmed = window.confirm(
-    'Восстановление заменит текущие данные базы. Продолжить?'
-  )
-
-  if (!confirmed) {
-    return
-  }
-
-  restoring.value = true
-  clearNotice()
-
-  try {
-    await databaseBackupsApi.restore(backupFile.value)
-    showNotice('success', 'Резервная копия загружена и восстановлена.')
-  } catch (error) {
-    showNotice(
-      'error',
-      await backupErrorMessage(
-        error,
-        'Не удалось восстановить базу из резервной копии'
-      )
+async function requestRestore() {
+  if (
+    operationsBusy.value ||
+    !backupFile.value ||
+    fileError.value
+  ) {
+    await focusFirstInvalidField(
+      restoreFormElement.value
     )
-  } finally {
-    restoring.value = false
+    return
   }
+
+  restoreConfirmVisible.value = true
+}
+
+function closeRestoreConfirmation() {
+  if (restoring.value) {
+    return
+  }
+
+  restoreConfirmVisible.value = false
+}
+
+async function confirmRestore() {
+  if (
+    restoring.value ||
+    !canRestore.value
+  ) {
+    return
+  }
+
+  clearRestoreFailure()
+
+  const result =
+    await restoreBackupFile()
+
+  if (!result) {
+    return
+  }
+
+  restoreConfirmVisible.value = false
+}
+
+function reloadApplication() {
+  globalThis.location?.reload?.()
 }
 </script>
 
 <template>
   <AdminPageShell
     title="Резервные копии"
-    description="Скачивание и загрузка полной SQL-копии базы данных."
+    description="Создавайте полную SQL-копию базы данных и восстанавливайте состояние системы из ранее сохранённого файла."
   >
-    <AdminNotice
-      :type="notice.type"
-      :message="notice.message"
-      @close="clearNotice"
-    />
+    <div class="database-backups-workspace">
+      <UiCard
+        title="Создание резервной копии"
+        description="Сформируйте полную SQL-копию схемы и данных. Файл будет скачан на это устройство."
+      >
+        <div class="database-backups-card">
+          <UiAlert
+            v-if="createErrorMessage"
+            variant="danger"
+            title="Не удалось создать резервную копию"
+            :message="createErrorMessage"
+            closable
+            @close="clearCreateFailure"
+          />
 
-    <section class="admin-grid admin-grid--2">
-      <UiCard>
-        <div class="admin-card__header">
-          <div>
-            <h2>Скачать копию</h2>
-            <p>
-              Файл содержит схему и данные приложения.
-            </p>
+          <UiAlert
+            v-else-if="lastFileName"
+            variant="success"
+            title="Резервная копия создана"
+            :message="`Файл «${lastFileName}» сформирован и передан браузеру для скачивания.`"
+          />
+
+          <div class="database-backups-info-grid">
+            <div class="database-backups-info">
+              <span>Формат</span>
+              <strong>SQL</strong>
+            </div>
+
+            <div class="database-backups-info">
+              <span>Содержимое</span>
+              <strong>Схема и данные</strong>
+            </div>
           </div>
-        </div>
 
-        <div class="backup-actions">
-          <UiButton
-            variant="primary"
-            type="button"
-            :loading="creating"
-            loading-text="Создание..."
-            @click="createBackup"
-          >
-            Скачать SQL-копию
-          </UiButton>
+          <div class="database-backups-actions">
+            <UiButton
+              variant="primary"
+              icon="pi pi-download"
+              label="Скачать резервную копию"
+              :loading="creating"
+              loading-text="Создание копии..."
+              :disabled="restoring"
+              @click="createBackup"
+            />
+          </div>
         </div>
       </UiCard>
 
-      <UiCard>
-        <div class="admin-card__header">
+      <section
+        class="database-backups-danger-zone"
+        aria-labelledby="database-restore-title"
+      >
+        <div class="database-backups-danger-zone__heading">
           <div>
-            <h2>Восстановить из копии</h2>
+            <p class="database-backups-danger-zone__eyebrow">
+              Опасная операция
+            </p>
+
+            <h2 id="database-restore-title">
+              Восстановление базы данных
+            </h2>
+
             <p>
-              Загрузите SQL-файл и подтвердите восстановление.
+              Восстановление заменяет текущее состояние базы данными из SQL-файла. После завершения текущие данные интерфейса могут стать устаревшими.
             </p>
           </div>
         </div>
 
+        <UiAlert
+          variant="warning"
+          title="Перед восстановлением"
+          message="Убедитесь, что выбран нужный файл. Во время восстановления не запускайте другие административные операции."
+        />
+
         <form
-          class="backup-form"
-          @submit.prevent="restoreBackup"
+          ref="restoreFormElement"
+          class="database-backups-restore-form"
+          @submit.prevent="requestRestore"
         >
           <UiFileInput
-            accept=".sql,application/sql,text/plain"
-            label="Файл резервной копии"
-            hint="Поддерживается SQL-файл из этого раздела."
-            :disabled="restoring"
+            id="database-backup-restore-file"
+            :accept="backupFileAccept"
+            label="SQL-файл резервной копии"
+            hint="Поддерживаются файлы .sql размером до 50 МБ."
+            :error="fileError"
+            :disabled="operationsBusy"
+            required
             @files-change="handleFileChange"
           />
 
           <div
             v-if="selectedFileName"
-            class="admin-muted"
+            class="database-backups-selected-file"
           >
-            Выбран файл: {{ selectedFileName }}
+            <div>
+              <span>Выбранный файл</span>
+              <strong>{{ selectedFileName }}</strong>
+            </div>
+
+            <span v-if="selectedFileSize">
+              {{ selectedFileSize }}
+            </span>
           </div>
 
-          <div class="admin-actions">
+          <UiAlert
+            v-if="restoreErrorMessage"
+            variant="danger"
+            title="Не удалось восстановить базу"
+            :message="restoreErrorMessage"
+            closable
+            @close="clearRestoreFailure"
+          />
+
+          <UiAlert
+            v-if="restoreResult"
+            variant="success"
+            title="База данных восстановлена"
+          >
+            <div class="database-backups-result">
+              <span>
+                Файл:
+                <strong>
+                  {{ restoreResult.fileName || selectedFileName }}
+                </strong>
+              </span>
+
+              <span v-if="restoredFileSize">
+                Размер:
+                <strong>{{ restoredFileSize }}</strong>
+              </span>
+
+              <span v-if="restoredAt">
+                Восстановлено:
+                <strong>{{ restoredAt }}</strong>
+              </span>
+
+              <p>
+                Данные приложения были заменены. Перезагрузите интерфейс, чтобы заново получить пользователя, роли и актуальные данные из восстановленной базы.
+              </p>
+            </div>
+          </UiAlert>
+
+          <div class="database-backups-actions database-backups-actions--restore">
             <UiButton
-              variant="danger"
+              v-if="restoreResult"
+              variant="primary"
+              icon="pi pi-refresh"
+              label="Перезагрузить приложение"
+              :disabled="operationsBusy"
+              @click="reloadApplication"
+            />
+
+            <UiButton
+              v-else
               type="submit"
-              :disabled="!canRestore"
+              variant="danger"
+              icon="pi pi-history"
+              label="Восстановить базу"
+              :disabled="!canRestore || creating"
               :loading="restoring"
               loading-text="Восстановление..."
-            >
-              Загрузить и восстановить
-            </UiButton>
+            />
           </div>
         </form>
-      </UiCard>
-    </section>
+      </section>
+    </div>
+
+    <UiDialog
+      v-model="restoreConfirmVisible"
+      title="Восстановить базу данных?"
+      width="34rem"
+      :closable="!restoring"
+      :close-on-escape="!restoring"
+      :dismissable-mask="false"
+    >
+      <div class="database-backups-confirm">
+        <UiAlert
+          variant="warning"
+          message="Текущее состояние базы будет заменено содержимым выбранной резервной копии."
+        />
+
+        <dl class="database-backups-confirm__details">
+          <div>
+            <dt>Файл</dt>
+            <dd>{{ selectedFileName }}</dd>
+          </div>
+
+          <div v-if="selectedFileSize">
+            <dt>Размер</dt>
+            <dd>{{ selectedFileSize }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <template #footer>
+        <div class="database-backups-dialog-actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="restoring"
+            @click="closeRestoreConfirmation"
+          />
+
+          <UiButton
+            variant="danger"
+            label="Восстановить базу"
+            :loading="restoring"
+            loading-text="Восстановление..."
+            @click="confirmRestore"
+          />
+        </div>
+      </template>
+    </UiDialog>
   </AdminPageShell>
 </template>
 
 <style scoped>
-.backup-actions,
-.backup-form {
-  display: flex;
-  flex-direction: column;
+.database-backups-workspace,
+.database-backups-card,
+.database-backups-restore-form,
+.database-backups-confirm,
+.database-backups-result {
+  display: grid;
   gap: 14px;
+}
+
+.database-backups-info-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.database-backups-info {
+  min-width: 0;
+  padding: 12px;
+
+  display: grid;
+  gap: 4px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+}
+
+.database-backups-info span,
+.database-backups-selected-file span,
+.database-backups-confirm dt {
+  color: var(--st-text-secondary);
+  font-size: 12px;
+}
+
+.database-backups-info strong,
+.database-backups-selected-file strong,
+.database-backups-confirm dd {
+  min-width: 0;
+  color: var(--st-text);
+  overflow-wrap: anywhere;
+}
+
+.database-backups-actions,
+.database-backups-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.database-backups-danger-zone {
+  min-width: 0;
+  padding: 18px;
+
+  display: grid;
+  gap: 16px;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--st-danger) 4%,
+      var(--st-surface)
+    );
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(--st-danger) 35%,
+      var(--st-border)
+    );
+  border-radius: 14px;
+}
+
+.database-backups-danger-zone__heading h2,
+.database-backups-danger-zone__heading p {
+  margin: 0;
+}
+
+.database-backups-danger-zone__heading h2 {
+  font-size: 20px;
+}
+
+.database-backups-danger-zone__heading > div {
+  display: grid;
+  gap: 7px;
+}
+
+.database-backups-danger-zone__heading p:last-child {
+  max-width: 820px;
+  color: var(--st-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.database-backups-danger-zone__eyebrow {
+  color: var(--st-danger);
+  font-size: 11px;
+  font-weight: var(--st-font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.database-backups-selected-file {
+  padding: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+}
+
+.database-backups-selected-file > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.database-backups-result span {
+  display: block;
+  color: var(--st-text-secondary);
+}
+
+.database-backups-result p {
+  margin: 2px 0 0;
+  line-height: 1.55;
+}
+
+.database-backups-confirm__details {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.database-backups-confirm__details > div {
+  padding: 10px 12px;
+
+  display: grid;
+  gap: 3px;
+
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 9px;
+}
+
+.database-backups-confirm dd {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .database-backups-danger-zone {
+    padding: 14px;
+  }
+
+  .database-backups-selected-file {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .database-backups-actions,
+  .database-backups-dialog-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .database-backups-actions > *,
+  .database-backups-dialog-actions > * {
+    width: 100%;
+  }
 }
 </style>

@@ -1,19 +1,31 @@
 import http from './http'
 
 export const databaseBackupsApi = {
-  create() {
-    return http.post('/admin/database-backups', null, {
-      responseType: 'blob',
-      timeout: 0,
-    })
+  create(config = {}) {
+    return http.post(
+      '/admin/database-backups',
+      null,
+      {
+        ...config,
+        responseType: 'blob',
+        timeout:
+          config.timeout ?? 0,
+      }
+    )
   },
 
-  restore(file) {
+  restore(file, config = {}) {
     const formData = new FormData()
     formData.append('file', file)
 
-    return http.post('/admin/database-backups/restore', formData, {
-      timeout: 0,
-    })
+    return http.post(
+      '/admin/database-backups/restore',
+      formData,
+      {
+        ...config,
+        timeout:
+          config.timeout ?? 0,
+      }
+    )
   },
 }

@@ -22,6 +22,12 @@ export const API_ERROR_CODES = Object.freeze({
 
   TOPIC_HAS_DEPENDENCIES:
     'TOPIC_HAS_DEPENDENCIES',
+
+  DATABASE_BACKUP_FAILED:
+    'database_backup_failed',
+
+  PAYLOAD_TOO_LARGE:
+    'payload_too_large',
 })
 
 export function apiErrorCodeMessage(

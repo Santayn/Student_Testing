@@ -153,6 +153,9 @@ export const adminRoutes = [
         '@/views/admin/DatabaseBackupsView.vue'
       ),
 
-    meta: adminMeta,
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_DATABASE_BACKUPS,
+      'admin-database-backups'
+    ),
   },
 ]

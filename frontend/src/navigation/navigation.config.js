@@ -19,6 +19,7 @@ export const NAV_KEYS = Object.freeze({
   ADMIN_FACULTY_SUBJECTS: 'admin-faculty-subjects',
   ADMIN_TEACHER_SUBJECTS: 'admin-teacher-subjects',
   ADMIN_TEACHING: 'admin-teaching',
+  ADMIN_DATABASE_BACKUPS: 'admin-database-backups',
 })
 
 export const NAVIGATION_DESTINATIONS = Object.freeze({
@@ -147,6 +148,13 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
     icon: 'pi pi-calendar',
     routeName: 'admin-teaching',
   },
+
+  [NAV_KEYS.ADMIN_DATABASE_BACKUPS]: {
+    key: NAV_KEYS.ADMIN_DATABASE_BACKUPS,
+    label: 'Резервные копии',
+    icon: 'pi pi-database',
+    routeName: 'admin-database-backups',
+  },
 })
 
 /*
@@ -261,6 +269,13 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       items: [
         NAV_KEYS.ADMIN_USERS,
         NAV_KEYS.ADMIN_ROLES,
+      ],
+    },
+    {
+      key: 'system',
+      label: 'Система',
+      items: [
+        NAV_KEYS.ADMIN_DATABASE_BACKUPS,
       ],
     },
     {
@@ -471,5 +486,9 @@ export const BREADCRUMB_CONFIG = Object.freeze({
 
   'admin-teaching': [
     { destination: NAV_KEYS.ADMIN_TEACHING },
+  ],
+
+  'admin-database-backups': [
+    { destination: NAV_KEYS.ADMIN_DATABASE_BACKUPS },
   ],
 })

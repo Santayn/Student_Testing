@@ -155,7 +155,22 @@ describe('workspace navigation config', () => {
       'Назначения и нагрузка',
       'Учебный контент',
       'Управление доступом',
+      'Система',
       'Аккаунт',
+    ])
+
+    const systemSection =
+      adminSections.find(
+        (section) =>
+          section.label === 'Система'
+      )
+
+    expect(
+      systemSection?.items.map(
+        (item) => item.key
+      )
+    ).toEqual([
+      NAV_KEYS.ADMIN_DATABASE_BACKUPS,
     ])
   })
 
@@ -240,6 +255,21 @@ describe('route navigation metadata', () => {
 
     expect(route?.meta.breadcrumbKey).toBe(
       'teacher-test-create'
+    )
+  })
+
+  it('gives the database backups route its own navigation identity', () => {
+    const route = adminRoutes.find(
+      (candidate) =>
+        candidate.name ===
+        'admin-database-backups'
+    )
+
+    expect(route?.meta.navKey).toBe(
+      NAV_KEYS.ADMIN_DATABASE_BACKUPS
+    )
+    expect(route?.meta.breadcrumbKey).toBe(
+      'admin-database-backups'
     )
   })
 

@@ -25,6 +25,7 @@ const PAGE_TITLES = Object.freeze({
   'admin-faculty-subjects': 'Предметы факультетов',
   'admin-teacher-subjects': 'Преподаватели и предметы',
   'admin-teaching': 'Учебная нагрузка',
+  'admin-database-backups': 'Резервные копии',
 
   about: 'О приложении',
   login: 'Вход',
