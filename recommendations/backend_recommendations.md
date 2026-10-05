@@ -1,0 +1,1366 @@
+# Актуальные рекомендации и аудит backend
+
+Дата проверки: **30.09.2026**.
+
+Файл актуализирован по фактическому состоянию backend после последнего объединения. Старые пункты не считаются выполненными только потому, что frontend содержит workaround. При проверке учитывались `SecurityConfig`, сервисы, REST-контроллеры, репозитории, `schema.sql`, Docker-конфигурация и текущие DTO.
+
+## Что было очищено при актуализации
+
+Полностью выполненных рекомендаций из предыдущей версии не обнаружено, поэтому целиком удалённых пунктов нет. Однако несколько пунктов были **частично реализованы**, и уже выполненные части из формулировок убраны:
+
+- для student API уже существует отдельный `POST /api/v1/public/learning/test-assignments/{assignmentId}/attempts/start`;
+- student API уже возвращает `attemptsRemaining` и `canResume`;
+- `TestAttempt` уже хранит итоговый `score`, а `PublicSubmitResponse` его возвращает;
+- правильный текст ответа в student submit-response уже не отдаётся (`correctAnswer = null`), но бинарное поле `correct` всё ещё раскрывается;
+- student UI использует `/api/v1/public/learning/**`, но общий backend `GET /subjects/{id}` всё ещё не ограничен по объектному доступу.
+
+То есть эти рекомендации ниже описывают только **оставшуюся часть проблемы**.
+
+## Сводка ревизии после merge
+
+| № рекомендации | Что уже реализовано | Что остаётся исправить |
+|---|---|---|
+| 2 | student question DTO не раскрывает правильные варианты; `correctAnswer` при submit передаётся как `null` | всё ещё раскрывается `correct=true/false`; student results также содержат детальную правильность |
+| 3 | student workflow использует отдельный `/api/v1/public/learning/subjects/{id}` | общий `GET /api/v1/subjects/{id}` всё ещё не имеет object-level ограничения для произвольного authenticated пользователя |
+| 4 | `/auth/me` / `/users/me` возвращают `personId`, roles и permissions | нет централизованного `accountState` и backend-флага состояния регистрации для UI |
+| 5 | есть `POST .../attempts/start`, `attemptsRemaining`, `canResume` | start фактически совмещён с resume; нет отдельного `GET .../attempts/current`; resume использует `testId`, а не assignment scope |
+| 13 | `TestAttempt.score` уже вычисляется и submit возвращает score | Result DTO и статистика всё ещё ориентируются на `correct/total`; отсутствуют `maxScore` и `scorePercent` |
+
+Полностью закрытых рекомендаций после merge не обнаружено. Пункты выше оставлены в реестре только в объёме незавершённой работы.
+
+---
+
+# Текущий аудит backend
+
+## 🔴 Критические проблемы
+
+### A1. Матрица прав TEACHER даёт административные полномочия
+
+В `DataLoader` роли `TEACHER` выдаются, среди прочего:
+
+```text
+people.write
+academic.manage
+courses.manage
+teaching.manage
+tests.manage
+questions.manage
+```
+
+При этом `SecurityConfig` допускает изменение людей через `people.write`, а изменение факультетов, групп и предметов — через `academic.manage`.
+
+Следствие: стандартный TEACHER может пройти URL-level проверку на операции, которые по смыслу должны быть административными.
+
+**Что исправить:**
+
+- убрать `people.write` и `academic.manage` из стандартного набора TEACHER, если это не является явным бизнес-требованием;
+- проверить остальные permission-наборы роли;
+- добавить security regression-тесты на TEACHER для изменения `Person`, `Faculty`, `Group`, `Subject`.
+
+**Приоритет: P0.**
+
+### A2. Авторизация одновременно завязана и на роли, и на permissions, а слои проверяют их по-разному
+
+Сейчас Spring Security получает в одном наборе `GrantedAuthority` и:
+
+```text
+ROLE_TEACHER
+TEACHER
+```
+
+и:
+
+```text
+tests.manage
+TESTS.MANAGE
+```
+
+Далее `SecurityConfig` для ряда функций разрешает **любой** из этих authorities. Например, доступ к тестам разрешается по `TEACHER` **или** `tests.manage`.
+
+Одновременно нижележащая бизнес-авторизация через `CurrentUserAccessService` использует проверки `isAdmin(...)`, `isTeacher(...)`, `isTeacherOrAdmin(...)`, которые опираются уже на реальные роли пользователя. В результате один и тот же запрос может пройти URL-level проверку по permission, но быть отклонён контроллером/сервисом из-за отсутствия роли `ADMIN` или `TEACHER`.
+
+Обратная проблема тоже существует: наличие роли может открыть endpoint даже после удаления отдельного permission, если `SecurityConfig` использует условие `role OR permission`.
+
+Следствие: система фактически смешивает три механизма:
+
+```text
+RBAC roles
++ granular permissions
++ domain ownership / memberships
+```
+
+но не определяет единый источник истины для каждого уровня доступа. Это делает custom roles/permissions частично недостоверными: пользователь может получить permission, который формально разрешает endpoint, но не получить реальный доступ в бизнес-логике, либо наоборот.
+
+**Рекомендуемая модель:**
+
+```text
+role -> шаблон/тип аккаунта и стандартный набор permissions
+permission -> разрешение выполнить функцию
+ownership/membership -> доступ к конкретному объекту/данным
+```
+
+Для mutating endpoints желательно перейти на permission-based функциональные проверки, а role-checks оставить только там, где роль действительно является частью бизнес-модели (например, роль участника SubjectMembership/GroupMembership). Проверки `SecurityConfig`, controller/service guards и frontend capability model должны использовать одну и ту же семантику.
+
+**Приоритет: P0 / архитектурный.**
+
+### A3. Docker по умолчанию запускает локальный seed-режим
+
+В `docker-compose.yml` по умолчанию используются:
+
+```text
+SPRING_PROFILES_ACTIVE=local
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_SQL_INIT_MODE=always
+APP_DATA_LOADER_ENABLED=true
+```
+
+`DataLoader` создаёт известные тестовые аккаунты, включая:
+
+```text
+admin / admin123
+teacher / teacher1
+student / student1
+```
+
+Такую конфигурацию нельзя использовать как production/default deployment.
+
+**Что исправить:**
+
+- production compose/profile должен по умолчанию использовать `validate`, `SQL_INIT_MODE=never`, `DATA_LOADER=false`;
+- local/demo профиль должен включаться явно;
+- seed-учётные записи не должны появляться в production БД.
+
+**Приоритет: P0 для внешнего deployment.**
+
+---
+
+## 🟠 Высокий приоритет
+
+### A4. Duration теста не контролируется backend
+
+`Test.duration` возвращается клиенту, однако `submitResponse()` и `completeAttempt()` проверяют только состояние попытки. Сервер не сравнивает текущее время с `startedAt + duration`.
+
+Следствие: клиентский таймер можно обойти прямыми API-запросами и продолжать сдавать тест после истечения времени.
+
+**Что исправить:** централизованная серверная проверка deadline при submit/complete и, желательно, автоматический перевод просроченной попытки в завершённое/expired состояние.
+
+Для корректного frontend countdown student start/resume DTO должен также возвращать серверную временную опору, минимум:
+
+```text
+startedAtUtc
+effectiveDeadlineUtc
+```
+
+`effectiveDeadlineUtc` должен вычисляться backend по фактическому бизнес-правилу (например, с учётом `duration` и `availableUntilUtc`), а не повторно вычисляться браузером. Без этого reload клиента сбрасывает локальную точку старта и frontend не может надёжно восстановить оставшееся время.
+
+**Приоритет: P1.**
+
+### A5. `availableUntilUtc` не проверяется при submit/complete
+
+Доступность `TestAssignment` проверяется при старте попытки, но после старта `submitResponse()` и `completeAttempt()` не вызывают повторную проверку assignment deadline.
+
+Следствие: попытку можно продолжить и отправить после закрытия назначения.
+
+Нужно явно определить бизнес-правило:
+
+- либо дедлайн запрещает любые дальнейшие ответы;
+- либо уже начатую попытку разрешено закончить в пределах `duration`;
+- либо использовать `min(availableUntilUtc, startedAt + duration)`.
+
+Это правило должно контролироваться backend.
+
+**Приоритет: P1.**
+
+### A6. Student API раскрывает `correct=true/false` по каждому вопросу
+
+Правильный текст ответа студенту уже скрыт, однако `PublicSubmitDetailResponse` всё ещё содержит:
+
+```text
+boolean correct
+```
+
+`ResultRestController` в student-mode также возвращает `correct`, `questionPoints`, `awardedPoints` и `gradingStatus` для каждого ответа.
+
+При нескольких попытках такая обратная связь позволяет подбирать правильные варианты.
+
+**Что исправить:** разделить teacher/admin и student DTO и выдавать детализацию правильности только когда это разрешено бизнес-правилом (например, после исчерпания попыток/закрытия периода теста).
+
+**Приоритет: P1.**
+
+### A7. Попытки смешиваются между разными TestAssignment одного Test
+
+База ограничивает незавершённую попытку по:
+
+```text
+TestAssignmentId + PersonId
+```
+
+но `TestService` для `attemptsRemaining`, `hasInProgressAttempt`, resume и лимита использует выборки по:
+
+```text
+TestId + PersonId
+```
+
+Из-за этого assignment B того же теста может:
+
+- увидеть попытки assignment A;
+- уменьшить `attemptsRemaining` из-за попыток другого назначения;
+- возобновить незавершённую попытку другого assignment;
+- вернуть `actualAssignmentId`, отличный от запрошенного.
+
+**Что исправить:** определить scope попыток. Если лимит относится к назначению, все операции должны использовать `testAssignmentId + personId`. Если лимит глобален для Test, тогда БД, API и документация должны отражать именно глобальную модель и не позволять cross-assignment resume без явного правила.
+
+**Приоритет: P1.**
+
+### A8. Race condition при rotation refresh-token
+
+`refresh()` сначала читает token обычным `findByTokenHash`, затем проверяет `revokedAtUtc`, генерирует новую пару и только после этого помечает старый token отозванным в транзакции.
+
+Два параллельных запроса с одним refresh-token потенциально могут оба увидеть его ещё действующим и выпустить две новые token-пары.
+
+**Что исправить:** pessimistic row lock (`SELECT ... FOR UPDATE`) либо атомарный conditional update/версионирование, после которого только один refresh может успешно ротировать токен.
+
+**Приоритет: P1.**
+
+---
+
+## 🟡 Средний приоритет
+
+### A9. Нет backend-защиты login от brute force
+
+В коде не обнаружено rate limit, backoff или временной блокировки после серии неверных паролей. Минимальная длина пароля — 6 символов.
+
+**Что исправить:** rate limiting на login/refresh, аудит неудачных входов и при необходимости временный lockout/backoff.
+
+### A10. Смена пароля не инвалидирует уже выданные access-token
+
+`changePassword()` отзывает активные refresh-token, но JWT access-token остаются валидными до собственного `exp` (по текущим настройкам 15 либо 120 минут).
+
+**Что исправить:** если требуется немедленная инвалидизация сессий, добавить security/session version в JWT или denylist/revocation strategy.
+
+### A11. Results API использует `findAll()` и фильтрацию в Java
+
+`ResultRestController` перебирает `testAttemptRepository.findAll()` и после этого фильтрует попытки в приложении. Для ответов выполняются дополнительные запросы, что создаёт плохой профиль масштабирования и потенциальный N+1.
+
+**Что исправить:** repository query по конкретному student/teacher scope, pagination и projection/DTO query.
+
+### A12. Файловое хранилище и БД не образуют атомарную операцию
+
+`LectureMaterialService.upload()` сначала пишет файл через `Files.copy`, затем сохраняет метаданные в БД. При rollback БД физический файл может остаться на диске.
+
+При delete порядок обратный: БД-запись удаляется перед удалением файла.
+
+**Что исправить:** компенсирующая очистка при исключении, staging/temp-файлы и after-commit обработка либо отдельный transactional storage workflow.
+
+### A13. Swagger/OpenAPI доступен без авторизации
+
+`/swagger-ui/**` и `/v3/api-docs/**` явно `permitAll()`.
+
+Для local/dev это допустимо, но для production стоит ограничить профилем или авторизацией.
+
+## 🟠 Дополнительный высокий приоритет
+
+### A14. Backend разрешает одному студенту одновременно состоять в нескольких активных группах
+
+`MembershipService.addGroupMember()` предотвращает только повторное активное назначение для одной и той же комбинации:
+
+```text
+groupId + personId + role
+```
+
+Проверки, запрещающей одному `personId` иметь несколько активных `GroupMembership` с ролью студента в разных группах, нет. Ограничения на уровне БД, обеспечивающего такую инварианту, также нет.
+
+Следствие: один студент может одновременно иметь, например:
+
+```text
+Студент A -> Группа 1 (active)
+Студент A -> Группа 2 (active)
+```
+
+Это влияет не только на административное отображение. `PublicLearningRestController.studentLearningContext()` получает **все** активные student-membership пользователя и агрегирует учебные назначения по каждой найденной группе. Аналогичная логика работы со множеством групп используется в результатах. Поэтому двойное активное членство способно реально расширить учебный контекст студента.
+
+Frontend может временно скрывать уже назначенного студента из списка доступных, но это не защищает инварианту: прямой API-вызов или другой клиент всё равно сможет создать второе активное членство.
+
+**Что исправить:**
+
+- явно зафиксировать бизнес-правило: если студент должен состоять только в одной активной учебной группе, обеспечить это на backend;
+- при `addGroupMember(... role=STUDENT ...)` проверять наличие другого активного student-membership этого `personId` независимо от `groupId`;
+- при конфликте возвращать `409 Conflict` с идентификатором/контекстом текущей группы, достаточным для административного UI;
+- желательно дополнительно обеспечить инварианту на уровне БД (например, partial unique index для активной student-membership, если выбранная СУБД и схема позволяют выразить условие);
+- если перенос между группами является штатной операцией, добавить отдельную атомарную backend-команду `move student`, которая в одной транзакции закрывает старое membership и создаёт/восстанавливает новое;
+- добавить regression-тест: второе активное student-membership в другой группе должно отклоняться, а перенос не должен оставлять студента одновременно активным в двух группах.
+
+Если же несколько активных групп для одного студента задуманы бизнес-моделью, это необходимо явно задокументировать и согласовать с логикой выдачи учебного контента; текущий UI и модель администрирования предполагают одну основную группу.
+
+**Приоритет: P1 / целостность данных и authorization scope.**
+
+### A15. Backend не защищает от self-lockout и потери последнего активного ADMIN
+
+Текущие административные операции позволяют менять активность пользователя и набор его ролей, но на backend не обнаружена централизованная инварианта, запрещающая:
+
+```text
+ADMIN -> отключить собственный аккаунт
+ADMIN -> снять у себя роль ADMIN
+последний активный ADMIN -> лишиться ADMIN/быть отключённым
+```
+
+Frontend может скрыть или заблокировать такие действия, но это не является защитой: тот же запрос можно выполнить напрямую через API или другим клиентом.
+
+Следствие: администратор способен случайно оставить систему без аккаунта, который может восстановить административный доступ.
+
+**Что исправить:**
+
+- перед изменением `active`/roles проверять, не является ли пользователь последним активным администратором;
+- запрещать операцию, после которой число активных пользователей с ролью `ADMIN` станет `0`;
+- отдельно определить политику self-management: либо запрещать self-disable/self-demote, либо разрешать только если существует другой активный ADMIN;
+- выполнять проверку и изменение в одной транзакции/с блокировкой, чтобы два параллельных запроса не смогли одновременно снять права у двух последних администраторов;
+- возвращать `409 Conflict` с понятным кодом причины;
+- добавить regression-тесты на self-disable, self-demote и конкурентную потерю последнего ADMIN.
+
+**Приоритет: P1 / availability и access recovery.**
+
+### A16. Нет административной операции для reset/invalidate отдельной попытки теста
+
+Admin API позволяет читать попытки и ответы, однако отдельного backend-контракта для административного сброса/аннулирования конкретного `TestAttempt` не обнаружено.
+
+Сейчас удалить связанные попытки можно только косвенно при удалении самого теста вместе с его зависимостями, что не подходит для штатного сценария исправления ошибочной или технически испорченной попытки одного студента.
+
+Frontend не должен имитировать такую функцию локально: источник истины по лимиту попыток, результатам и истории находится на backend.
+
+**Что исправить:**
+
+- определить бизнес-семантику операции: `invalidate`, `reset` или физическое удаление;
+- предпочтительно сохранять аудит и помечать попытку аннулированной, а не бесследно удалять историю;
+- пересчитывать `attemptsRemaining`, лучший результат и агрегированную статистику после операции;
+- запретить использование аннулированной попытки в student/teacher result read-model;
+- добавить admin-only endpoint, например:
+
+```text
+POST /api/v1/tests/attempts/{attemptId}/invalidate
+```
+
+или иной явно документированный command endpoint;
+- возвращать причину/метаданные аннулирования и actor-аудит, если это соответствует требованиям проекта;
+- покрыть regression-тестами влияние на лимит попыток и результаты.
+
+**Приоритет: P1 / административная корректность данных.**
+
+---
+
+# Открытые backend-рекомендации
+
+Статусы:
+
+- **OPEN** — backend-реализация отсутствует;
+- **PARTIAL** — часть рекомендации уже реализована, ниже оставлен только незакрытый остаток.
+
+## 1. Атомарное создание теста вместе с назначениями — OPEN
+
+Frontend по-прежнему вынужден оркестрировать создание Test и нескольких TestAssignment отдельными запросами. Единой backend-транзакции/command endpoint для этого не найдено.
+
+Нужно создать бизнес-операцию вида:
+
+```text
+POST /tests/with-assignments
+```
+
+или эквивалентный command DTO, выполняемый в одной `@Transactional` операции: либо Test и все assignments созданы, либо не создано ничего.
+
+**Приоритет: высокий.**
+
+---
+
+## 2. Не раскрывать студенту правильность каждого ответа — PARTIAL
+
+Уже выполнено:
+
+- student DTO вопроса не содержит правильные варианты;
+- `correctAnswer` в submit detail фактически передаётся как `null`.
+
+Осталось:
+
+- убрать/условно скрывать `correct` по каждому вопросу;
+- привести к тому же правилу `/api/v1/results/student/**`;
+- не раскрывать grading details раньше разрешённого бизнес-момента.
+
+**Связано с аудитом A6. Приоритет: высокий.**
+
+---
+
+## 3. Закрыть общий `GET /subjects/{id}` от произвольного authenticated STUDENT — PARTIAL
+
+Уже выполнено: student workflow использует `/api/v1/public/learning/subjects/{id}` и там проверяется учебный контекст.
+
+Не выполнено: общий `GET /api/v1/subjects/{id}` попадает под `.anyRequest().authenticated()` и сам `SubjectRestController` не выполняет object-level проверку.
+
+Нужно либо оставить общий endpoint только ADMIN/TEACHER, либо добавить проверку видимости предмета текущему пользователю.
+
+**Приоритет: высокий.**
+
+---
+
+## 4. Централизовать состояние готовности аккаунта — PARTIAL
+
+`/auth/me` и `/users/me` уже возвращают `personId`, roles и permissions.
+
+Осталось централизовать:
+
+- `accountState` (`PENDING_PERSON`, `PENDING_ROLE`, `ACTIVE`, `DISABLED` или аналог);
+- фактический backend-флаг `publicRegistrationEnabled`, если frontend должен отображать регистрацию;
+- единое правило готовности аккаунта вместо повторной логики на клиенте.
+
+**Приоритет: средний.**
+
+---
+
+## 5. Разделить старт и возобновление попытки — PARTIAL
+
+Уже выполнено:
+
+- есть отдельный `POST /public/learning/test-assignments/{assignmentId}/attempts/start`;
+- test DTO содержит `attemptsRemaining` и `canResume`.
+
+Осталось:
+
+- `POST start` внутри вызывает `startOrResumeAttemptWithRandomQuestions()` и не отличает новый старт от resume;
+- отдельного `GET .../attempts/current` нет;
+- resume сейчас ошибочно ищется по `testId + personId`, что создаёт cross-assignment проблему A7.
+
+Рекомендуемый контракт:
+
+```text
+GET  /test-assignments/{id}/attempts/current
+POST /test-assignments/{id}/attempts/start
+```
+
+`POST start` должен либо явно создавать новую попытку, либо возвращать конфликт/состояние, если есть незавершённая; resume должен быть отдельной явной операцией чтения.
+
+Frontend-аудит дополнительно показал необходимость явного read-only статуса попытки для восстановления после неоднозначного network timeout. Желательно иметь endpoint, по которому клиент может по `attemptId` определить:
+
+```text
+IN_PROGRESS / COMPLETED / EXPIRED
+completedAtUtc
+score/result summary при COMPLETED
+```
+
+Это особенно важно, если submit дошёл до backend, но HTTP-response не дошёл до браузера: клиент не должен слепо повторять неидемпотентный POST или автоматически создавать следующую попытку. Альтернатива/дополнение — idempotency key для финального submit.
+
+**Приоритет: высокий с учётом A7 и frontend submit-recovery.**
+
+---
+
+## 6. Агрегированные role-aware endpoints для сложных teacher/admin экранов — OPEN
+
+Frontend всё ещё собирает учебный контекст из SubjectMembership, TeachingAssignment, Subject, Group, Lecture и других сущностей отдельными запросами.
+
+Можно добавить специализированные read-model DTO для teacher/admin workspace. Это уменьшит количество запросов и риск смешивания `subjectMembershipId` разных преподавателей.
+
+**Приоритет: низкий / архитектурный.**
+
+---
+
+## 7. Явное делегированное авторство CourseTemplate для ADMIN — OPEN / зависит от требований
+
+`POST /courses/templates` по-прежнему назначает автором `currentPersonId(authentication)`. Request DTO не содержит `ownerPersonId`.
+
+Если ADMIN должен создавать шаблон **от имени преподавателя**, это должно быть отдельным backend-сценарием с проверкой активного teacher SubjectMembership и аудитом actor/owner.
+
+Если такого бизнес-требования нет, текущую безопасную модель менять не нужно, и этот пункт можно будет удалить после фиксации решения в требованиях.
+
+**Приоритет: средний / бизнес-зависимый.**
+
+---
+
+## 8. Проверять активность SubjectMembership при создании TeachingAssignment — OPEN
+
+`TeachingService.createAssignment()` получает SubjectMembership по ID, но не требует одновременно:
+
+```text
+role == TEACHER
+status == 1
+removedAtUtc == null
+```
+
+Frontend-фильтрация не заменяет backend-проверку.
+
+**Приоритет: высокий.**
+
+---
+
+## 9. Единый helper активного teacher SubjectMembership для mutation-операций — OPEN
+
+`CurrentUserAccessService.requireSubjectMembershipOwner()` проверяет роль membership и владельца, но не `status`/`removedAtUtc`.
+
+Нужен отдельный helper для **новых/изменяющих** операций, например:
+
+```java
+requireActiveTeacherSubjectMembership(...)
+```
+
+Read-only/history операции при этом должны уметь отображать закрытые исторические membership.
+
+**Приоритет: высокий.**
+
+---
+
+## 10. Идемпотентное повторное назначение преподавателя на предмет — OPEN
+
+`MembershipService.addSubjectMember()` сейчас возвращает conflict, если существует любая не удалённая запись для той же пары subject/person/role, в том числе приостановленная.
+
+Backend-операция «назначить преподавателя» должна:
+
+1. вернуть уже активную запись;
+2. реактивировать status=2, если запись не удалена;
+3. создать новую только после настоящего удаления;
+4. сохранить DB-защиту от параллельных дублей.
+
+**Приоритет: средний.**
+
+---
+
+## 11. Атомарные batch-операции для массовых административных изменений — OPEN
+
+Специализированных batch endpoints для массового назначения/снятия предметов и связей факультета не обнаружено.
+
+Если бизнес-операция должна быть all-or-nothing, backend должен валидировать весь набор и выполнять изменения одной транзакцией.
+
+**Приоритет: средний.**
+
+---
+
+## 12. Сделать student `GET /lectures/{lectureId}/tests` строго read-only — OPEN
+
+Проблема подтверждена текущим кодом: GET помечен обычным `@Transactional`, и при отсутствии assignment вызывает:
+
+```java
+lectureTestLinkService.ensureLectureTestAvailability(...)
+```
+
+То есть чтение может создавать/изменять состояние БД.
+
+Нужно:
+
+- сделать GET `@Transactional(readOnly = true)`;
+- удалить mutation из read path;
+- создание TestAssignment выполнять только явной teacher/admin операцией;
+- закрепить regression-тестом отсутствие DB changes после GET.
+
+**Приоритет: высокий (ранее был помечен критическим).**
+
+---
+
+## 13. Использовать серверный score в Result DTO и статистике — PARTIAL
+
+Уже выполнено:
+
+- `TestAttempt` имеет `score`;
+- `completeAttempt()` вычисляет `score`;
+- `PublicSubmitResponse` возвращает `score`.
+
+Осталось:
+
+- `ResultRestController` не использует `TestAttempt.score` в `ResultAttemptResponse`;
+- статистика всё ещё строится по `correct/total`;
+- partial grading с `awardedPoints` делает такую статистику неточной.
+
+Нужно отдавать минимум:
+
+```json
+{
+  "score": 7.5,
+  "maxScore": 10,
+  "scorePercent": 75.0
+}
+```
+
+и использовать эти значения как источник истины для результата/лучшей попытки.
+
+**Приоритет: высокий.**
+
+---
+
+## 14. Серверный effective workspace mode для multi-role аккаунтов — OPEN
+
+Backend по-прежнему принимает решения по полному набору ролей пользователя. Явного проверяемого effective mode (`STUDENT`/`TEACHER`/`ADMIN`) не обнаружено.
+
+Если продукт действительно поддерживает переключение рабочего режима одного multi-role аккаунта, backend должен валидировать выбранный режим и использовать его для scope выборок. Это не должно быть способом повысить реальные privileges.
+
+**Приоритет: средний / архитектурный.**
+
+---
+
+## 15. Асинхронный workflow LLM-проверки текстовых ответов — OPEN
+
+В backend присутствует `LocalLlmTextAnswerEvaluationService`, а оценка текстового ответа вызывается синхронно внутри `submitResponse()`.
+
+Для массового использования рекомендуется вынести inference из HTTP transaction path:
+
+```text
+Backend transaction
+  -> answer + grading=PENDING + outbox
+  -> Kafka grading.requested
+  -> AI Grading Service / Ollama
+  -> Kafka grading.completed
+  -> idempotent backend consumer
+  -> grading result + score update
+```
+
+Ошибка/timeout AI не должна автоматически означать неправильный ответ. Нужны retry/DLQ и состояния `PENDING/FAILED/GRADED` либо эквивалент.
+
+Frontend timeout-hardening уже выполнен: финальный `submitAttempt` больше не использует общий 15-секундный лимит, для него установлен отдельный увеличенный timeout, а frontend-Nginx согласован с ним. Это снижает частоту ложных timeout на LLM-проверке, но не решает фундаментальную проблему: при реальном обрыве соединения клиент всё ещё не может достоверно определить, завершился submit на backend или нет. Frontend блокирует слепой повтор в текущем экране, однако надёжная reconciliation/idempotency семантика остаётся обязанностью backend.
+
+Для финального submit также желательно предусмотреть idempotency/reconciliation semantics, чтобы повтор после неизвестного результата сети не создавал противоречивое состояние.
+
+**Приоритет: высокий / архитектурный при массовом использовании.**
+
+---
+
+## 16. Перевести refresh-сессию из JavaScript-accessible token в HttpOnly cookie — OPEN
+
+Текущий `/auth/login`, `/auth/register` и `/auth/refresh` возвращают refresh token в JSON, а `/auth/refresh` и `/auth/revoke` ожидают его обратно в request body. Поэтому frontend вынужден хранить refresh token в JavaScript-доступном состоянии.
+
+Frontend может уменьшить persistence (например, использовать только session storage), но не способен самостоятельно защитить refresh token от XSS через `HttpOnly`.
+
+Для более устойчивой браузерной модели рекомендуется отдельный web-contract:
+
+```text
+refresh token -> Secure; HttpOnly; SameSite cookie
+access token  -> короткоживущий, предпочтительно in-memory
+refresh/revoke -> работают с cookie-сессией
+```
+
+При cookie-based refresh необходимо отдельно определить CSRF-модель и CORS/credentials policy.
+
+Это не требуется для исправления текущих функциональных frontend-багов, поэтому до изменения backend-контракта frontend auth flow не перестраивать.
+
+**Приоритет: средний / security hardening.**
+
+## 17. Гарантировать единственную активную учебную группу студента — OPEN
+
+Текущий `addGroupMember()` запрещает дубликат только внутри конкретной группы, поэтому один `personId` может иметь несколько активных memberships с ролью `STUDENT` в разных группах. Student learning context затем агрегирует назначения по всем этим группам.
+
+Если бизнес-правило системы — одна активная учебная группа на студента, backend должен быть единственной точкой, которая гарантирует эту инварианту. Frontend-проверки недостаточны, поскольку их можно обойти прямым API-вызовом.
+
+Рекомендуемый контракт:
+
+```text
+POST /memberships/groups/{groupId}
+role = STUDENT
+
+если студент уже активен в другой группе -> 409 Conflict
+```
+
+Для штатного перевода студента между группами предпочтительна отдельная атомарная операция, например:
+
+```text
+POST /memberships/groups/{targetGroupId}/students/{personId}/move
+```
+
+которая в одной транзакции:
+
+1. проверяет текущую активную student-membership;
+2. закрывает/деактивирует прежнее membership;
+3. создаёт либо восстанавливает membership в целевой группе;
+4. гарантирует, что после commit остаётся ровно одна активная группа.
+
+Также рекомендуется закрепить ограничение на уровне БД и покрыть конкурентный сценарий двумя параллельными запросами назначения в разные группы.
+
+**Приоритет: высокий / data integrity.**
+
+---
+
+## 18. Унифицировать модель roles / permissions / domain authorization — OPEN
+
+Текущий `SecurityConfig` допускает часть операций по условию `role OR permission`, а `CurrentUserAccessService` и отдельные controller/service guards местами требуют именно `ADMIN`/`TEACHER`. Из-за этого custom permission может формально открыть URL, но не дать фактический доступ ниже по стеку, а роль способна обходить снятый permission.
+
+Нужно зафиксировать единый контракт:
+
+```text
+role
+  -> тип аккаунта / стандартный permission bundle
+
+permission
+  -> право использовать функцию
+
+domain membership / ownership
+  -> право работать с конкретным объектом
+```
+
+После выбора модели необходимо согласованно привести к ней:
+
+1. `SecurityConfig`;
+2. `CurrentUserAccessService`;
+3. controller/service guards;
+4. seed-наборы permissions ролей;
+5. DTO `/auth/me` / `/users/me`;
+6. frontend route/capability model.
+
+Role-check должен оставаться только там, где роль сама является бизнес-фактом, а не заменой permission. Например, `GroupMembership.role=STUDENT` и `SubjectMembership.role=TEACHER` относятся к доменной модели и не эквивалентны глобальной UI-роли аккаунта.
+
+Нужны матричные security-тесты для сценариев:
+
+```text
+role есть, permission нет
+permission есть, role нет
+несколько roles
+custom role с permission
+permission есть, ownership/membership нет
+```
+
+**Связано с аудитом A2. Приоритет: P0 / архитектурный.**
+
+---
+
+## 19. Защитить систему от потери последнего активного ADMIN — OPEN
+
+Backend должен гарантировать, что административными API нельзя привести систему к состоянию без активного администратора.
+
+Минимальная инварианта:
+
+```text
+active ADMIN count >= 1
+```
+
+при любых операциях изменения активности и ролей пользователя.
+
+Рекомендуется также определить явную политику для self-demote/self-disable и возвращать `409 Conflict`, если операция нарушает инварианту. Проверка должна быть транзакционно безопасной при конкурентных запросах.
+
+Frontend-блокировка может улучшать UX, но не считается защитой и не заменяет backend-инварианту.
+
+**Связано с аудитом A15. Приоритет: высокий.**
+
+---
+
+## 20. Добавить admin-only reset/invalidate для отдельной попытки теста — OPEN
+
+Отдельный `TestAttempt` сейчас можно читать, но нельзя штатно аннулировать/сбросить без удаления самого Test. Для административной поддержки этого недостаточно.
+
+Предпочтительный вариант — не физический DELETE, а аудируемая операция `invalidate/reset`, которая:
+
+1. помечает конкретную попытку недействительной;
+2. исключает её из результатов/лучшей попытки;
+3. корректно восстанавливает или пересчитывает доступное число попыток;
+4. сохраняет историю причины и времени операции;
+5. не затрагивает остальные попытки и сам тест.
+
+Пример контракта:
+
+```text
+POST /api/v1/tests/attempts/{attemptId}/invalidate
+```
+
+Точный URI и способ хранения статуса зависят от выбранной доменной модели.
+
+**Связано с аудитом A16. Приоритет: высокий.**
+
+---
+
+---
+
+## 21. BE-LECTURE-01 — Добавить versioned semantic content contract для тела лекции — OPEN
+
+**Приоритет:** P2 / product capability  
+**Статус:** OPEN  
+**Связанный frontend-пункт:** `FE-LECTURE-01`
+
+### Проблема
+
+Текущий lecture contract хранит метаданные лекции и файловый ключ, но отдельного полноценного versioned textual body для будущего редактора лекций нет.
+
+Существующие поля имеют другую семантику:
+
+```text
+title
+description
+ordinal
+publicVisible
+contentFolderKey
+```
+
+`description` не следует превращать в большой DSL-документ, а `contentFolderKey` относится к файловому/материальному контенту.
+
+Для будущего teacher lecture editor требуется отдельный канонический формат содержимого лекции.
+
+### Рекомендуемая модель хранения
+
+На первом этапе отдельная таблица не требуется. В `Lecture` рекомендуется добавить:
+
+```text
+content_source          TEXT
+content_format          VARCHAR(32)
+content_schema_version  INTEGER
+```
+
+Семантика:
+
+```text
+content_source
+  → канонический DSL source
+
+content_format
+  → STUDENT_TESTING_DSL
+
+content_schema_version
+  → 1
+```
+
+### Почему каноническим источником должен быть DSL, а не HTML
+
+Не рекомендуется хранить generated HTML как source of truth:
+
+```html
+<h2 class="lecture-content__section">...</h2>
+```
+
+Поскольку такой формат жёстко связывает данные БД с текущими frontend CSS-классами.
+
+Предпочтительно:
+
+```text
+[section]...[/section]
+```
+
+а представление генерировать на frontend по текущему semantic renderer.
+
+Это позволяет менять визуальные классы без миграции сохранённого контента.
+
+### API contract
+
+Рекомендуется расширить lecture request/response объектом:
+
+```json
+{
+  "content": {
+    "format": "STUDENT_TESTING_DSL",
+    "schemaVersion": 1,
+    "source": "[section]\\nЧто такое REST\\n[/section]"
+  }
+}
+```
+
+Предпочтительно не добавлять три несвязанных поля верхнего уровня JSON, а инкапсулировать их в `content`.
+
+### DTO
+
+Пример:
+
+```java
+public record LectureContentDto(
+    LectureContentFormat format,
+    Integer schemaVersion,
+    String source
+) {
+}
+```
+
+```java
+public enum LectureContentFormat {
+    STUDENT_TESTING_DSL
+}
+```
+
+`LectureRequest` и lecture response должны содержать:
+
+```java
+LectureContentDto content
+```
+
+### Backward compatibility
+
+`content` на первом этапе должен быть nullable.
+
+Старые lecture create/update request и существующие записи должны продолжать работать:
+
+```text
+content == null
+→ лекция без semantic body
+```
+
+Нельзя вводить обязательную миграцию всех существующих лекций одновременно.
+
+### Validation
+
+Backend должен валидировать как минимум:
+
+1. `format` входит в разрешённый enum;
+2. `schemaVersion` поддерживается;
+3. `source` имеет разумный максимальный размер;
+4. комбинация `format/schemaVersion/source` согласована;
+5. неизвестный `schemaVersion` не интерпретируется автоматически как актуальный;
+6. raw generated HTML не принимается как эквивалент DSL без отдельного явно определённого format.
+
+Backend не обязан рендерить HTML.
+
+### Student read-model
+
+Public/student lecture DTO должен возвращать тот же semantic content contract:
+
+```json
+{
+  "content": {
+    "format": "STUDENT_TESTING_DSL",
+    "schemaVersion": 1,
+    "source": "..."
+  }
+}
+```
+
+Только для лекций, к которым текущий пользователь имеет доступ по существующей learning authorization model.
+
+Нельзя добавлять отдельный публичный endpoint, позволяющий читать arbitrary lecture content без object-level access checks.
+
+### Security boundary
+
+Backend хранит DSL как data, а не как trusted executable markup.
+
+Рекомендуется:
+
+- не исполнять/не интерпретировать HTML/event handlers из source;
+- не доверять URL/material references без validation;
+- сохранить существующие authorization checks на create/update/read;
+- добавить максимальный размер `source` для защиты от неограниченного payload;
+- логировать/отклонять unsupported content format/version.
+
+Frontend обязан дополнительно выполнять controlled rendering/sanitization согласно `FE-LECTURE-01`.
+
+### Versioning
+
+`content_schema_version` является публичной частью persisted content contract.
+
+После появления сохранённых документов нельзя молча менять семантику существующих DSL tags.
+
+Breaking syntax/semantic change должен означать:
+
+```text
+schemaVersion = 2
+```
+
+и иметь отдельный parser/migration strategy.
+
+### Отдельная таблица / revisions — не сейчас
+
+На первом этапе не рекомендуется сразу вводить:
+
+```text
+lecture_content_revision
+```
+
+Отдельная revision table нужна только когда появятся реальные требования:
+
+```text
+draft/published
+history
+autosave revisions
+restore previous version
+collaborative editing
+```
+
+До этого три поля в `Lecture` проще и достаточны.
+
+### Тесты
+
+Добавить backend regression/contract tests:
+
+1. create lecture без `content` остаётся валидным;
+2. create/update с валидным DSL content сохраняет все три свойства;
+3. GET lecture возвращает content без изменений;
+4. student learning endpoint возвращает content только доступной лекции;
+5. unsupported `format` отклоняется;
+6. unsupported `schemaVersion` отклоняется;
+7. oversized source отклоняется;
+8. update lecture может установить/заменить/очистить content по явно определённому правилу;
+9. `description` и `contentFolderKey` не переиспользуются вместо semantic body;
+10. существующие material/test relations не меняют поведение.
+
+### Acceptance condition
+
+`BE-LECTURE-01` считается выполненным, когда:
+
+```text
+DB
++ Lecture entity
++ request/response DTO
++ service mapping
++ teacher CRUD
++ student read-model
++ validation/tests
+```
+
+поддерживают versioned `LectureContentDto`, при этом старые лекции без `content` остаются совместимыми.
+
+
+# Рекомендуемый порядок исправления
+
+1. **A1/A2 / рекомендация 18** — исправить матрицу TEACHER и унифицировать roles / permissions / domain authorization.
+2. **A3** — отделить local/demo Docker от безопасного deployment.
+3. **A15 / рекомендация 19** — защитить self-management и гарантировать наличие хотя бы одного активного ADMIN.
+4. **A4/A5** — серверный deadline теста и assignment.
+5. **A6 / рекомендация 2** — убрать преждевременную правильность из student DTO.
+6. **A7 / рекомендация 5** — исправить scope attempts и resume.
+7. **A14 / рекомендация 17** — запретить несколько активных учебных групп одного студента и определить атомарный перевод.
+8. **A16 / рекомендация 20** — добавить admin-only invalidate/reset отдельной попытки теста.
+9. **A8** — атомарная rotation refresh-token.
+10. **Рекомендации 8–10** — активность и lifecycle SubjectMembership.
+11. **Рекомендация 12** — убрать mutation из student GET.
+12. **Рекомендация 13** — score-based results.
+13. **BE-LECTURE-01 / рекомендация 21** — versioned semantic content contract для тела лекции.
+14. **BE-PERF-02 / рекомендация 22** — объединить refresh/session restore с актуальной identity и убрать обязательный второй `/auth/me` из startup path.
+
+
+---
+
+## BE-PERF-02 / рекомендация 22 — Убрать startup waterfall `refresh → /auth/me`
+
+**Приоритет:** 🟡 P2  
+**Статус:** OPEN  
+**Связано с frontend:** `FE-PERF-02`
+
+### Проблема
+
+Текущий authenticated cold-start при истёкшем access token требует два последовательных сетевых запроса:
+
+```text
+POST /api/v1/auth/refresh
+        ↓
+GET /api/v1/auth/me
+        ↓
+frontend router bootstrap
+```
+
+Frontend не может безопасно выполнить их параллельно, потому что `/auth/me` должен использовать access token, полученный после успешного refresh.
+
+На медленном соединении это добавляет целый дополнительный network round-trip к startup path.
+
+### Рекомендуемый контракт
+
+Предпочтительный вариант — successful refresh должен возвращать не только новую token pair, но и актуальную identity пользователя:
+
+```json
+{
+  "tokenType": "Bearer",
+  "accessToken": "...",
+  "accessTokenExpiresAtUtc": "...",
+  "refreshToken": "...",
+  "refreshTokenExpiresAtUtc": "...",
+  "lifetimeKind": "...",
+  "user": {
+    "userId": 1,
+    "personId": 10,
+    "login": "...",
+    "roles": [],
+    "permissions": []
+  }
+}
+```
+
+Допустимый альтернативный дизайн:
+
+```text
+POST /api/v1/auth/session/restore
+```
+
+который атомарно:
+
+1. проверяет refresh token;
+2. выполняет refresh-token rotation;
+3. выдаёт новую token pair;
+4. возвращает актуальную user identity / roles / permissions / person binding.
+
+### Важные требования безопасности
+
+Оптимизация не должна:
+
+- ослаблять refresh-token rotation;
+- возвращать identity из непроверенного client-side state;
+- расходиться по authorities между access token и `user`;
+- позволять устаревшему refresh response восстановить уже завершённую сессию;
+- менять существующую семантику revoke/logout;
+- превращать refresh endpoint в источник частично устаревшей identity.
+
+`user`, возвращаемый вместе с refreshed session, должен быть сформирован из того же актуального серверного security context, который используется для выпуска нового access token.
+
+### Backward compatibility
+
+На переходный период допустимо:
+
+```text
+user отсутствует в refresh response
+→ frontend делает старый /auth/me fallback
+```
+
+После миграции поле можно сделать обязательной частью нового versioned contract или отдельного restore endpoint.
+
+### Тесты
+
+Добавить backend regression/contract tests:
+
+1. successful refresh возвращает новую token pair и актуального пользователя;
+2. `roles`/`permissions` в identity соответствуют новому security context;
+3. изменение ролей между предыдущей сессией и refresh отражается в response;
+4. изменение/удаление Person binding отражается в response;
+5. revoked/expired refresh token не возвращает identity;
+6. refresh-token rotation остаётся атомарной;
+7. response старой/отозванной сессии не может восстановить новую сессию;
+8. logout/revoke semantics не меняются;
+9. при backend error не возвращается частичная token/identity структура.
+
+### Acceptance condition
+
+`BE-PERF-02` считается выполненным, когда один successful session restore request даёт frontend всё необходимое для безопасного продолжения authenticated bootstrap без обязательного второго `/auth/me`.
+
+Ожидаемая startup цепочка:
+
+```text
+сейчас:
+refresh → me → router
+
+после:
+refresh/restore + identity → router
+```
+
+
+---
+
+## BE-ERR-01 / рекомендация 23 — Единый structured error DTO с machine-readable `code`
+
+**Приоритет:** 🟠 P1  
+**Статус:** OPEN  
+**Связано с frontend:** `HTTP Error Stage 3`
+
+### Проблема
+
+Frontend уже умеет различать HTTP status и структурированные validation details,
+но один `409` или `422` не сообщает точную бизнес-причину ошибки. Определять её
+по свободному тексту `message` нельзя: текст предназначен для человека и может
+меняться без изменения API semantics.
+
+### Рекомендуемый DTO
+
+Все domain/API ошибки должны стремиться к единой форме:
+
+```json
+{
+  "status": 409,
+  "code": "GROUP_HAS_DEPENDENCIES",
+  "message": "Группа используется связанными данными.",
+  "details": [],
+  "requestId": "..."
+}
+```
+
+Для validation:
+
+```json
+{
+  "status": 422,
+  "code": "VALIDATION_ERROR",
+  "message": "Проверьте данные.",
+  "details": [
+    {
+      "field": "name",
+      "issue": "Название обязательно."
+    }
+  ],
+  "requestId": "..."
+}
+```
+
+### Начальный перечень кодов
+
+```text
+VALIDATION_ERROR
+ACCESS_DENIED
+RESOURCE_NOT_FOUND
+RATE_LIMITED
+
+GROUP_HAS_DEPENDENCIES
+FACULTY_HAS_DEPENDENCIES
+SUBJECT_HAS_DEPENDENCIES
+TOPIC_HAS_DEPENDENCIES
+```
+
+Коды являются частью API contract и не должны зависеть от локализации текста.
+
+### Требования
+
+- `status` соответствует фактическому HTTP status;
+- `code` стабилен и machine-readable;
+- `message` остаётся human-readable;
+- `details[]` используется для структурированных validation errors;
+- `field` должен совпадать с именем поля request DTO либо иметь документированное отображение;
+- `requestId` желательно возвращать для корреляции с backend logs;
+- неизвестная ошибка не должна маскироваться под известный domain code;
+- `401`/refresh semantics остаются без изменений;
+- `403` не означает автоматический logout;
+- `429` должен по возможности сопровождаться стандартным `Retry-After` header.
+
+### Acceptance condition
+
+Frontend может выбирать UX/message по `code`, не анализируя текст `message`.
+При отсутствии `code` старый status/message fallback продолжает работать.
+
+
+---
+
+## BE-PERF-03 / рекомендация 24 — Batch/aggregate contract для связей `lecture → tests`
+
+**Приоритет:** 🔴 P1  
+**Статус:** OPEN  
+**Связано с frontend:** `FE-PERF-RQ-02`
+
+Frontend-часть рекомендации зафиксирована отдельно в `frontend_recommendations.md`.
+
+### Проблема
+
+Текущий frontend получает список лекций, после чего для каждой лекции отдельно
+запрашивает связанные тесты:
+
+```text
+GET /lectures
+↓
+GET /lectures/{id1}/tests
+GET /lectures/{id2}/tests
+GET /lectures/{id3}/tests
+...
+```
+
+Это frontend N+1, но устранить его полностью без изменения backend contract
+нельзя, потому что связи нужны уже на уровне списка для фильтрации и summary.
+
+### Рекомендуемый контракт
+
+Предпочтительный вариант:
+
+```text
+GET /lectures?...&includeTests=true
+```
+
+где каждая лекция содержит минимальный список связанных тестов:
+
+```json
+{
+  "id": 10,
+  "title": "Лекция",
+  "tests": [
+    {
+      "id": 4,
+      "title": "Тест"
+    }
+  ]
+}
+```
+
+Допустимый вариант — batch endpoint:
+
+```text
+GET /lectures/tests?lectureIds=10,11,12
+```
+
+с ответом, сгруппированным по `lectureId`.
+
+### Acceptance condition
+
+Количество запросов для списка лекций не растёт линейно с количеством лекций.
+
+---
+
+## BE-PERF-04 / рекомендация 25 — Batch/aggregate teacher workload context
+
+**Приоритет:** 🟡 P2  
+**Статус:** OPEN / MEASURE AFTER FRONTEND CACHE  
+**Связано с frontend:** `FE-PERF-RQ-07`
+
+Frontend-часть рекомендации зафиксирована отдельно в `frontend_recommendations.md`.
+
+### Проблема
+
+Teacher workload сейчас требует:
+
+```text
+subject memberships
+↓
+assignments для каждого membership
+↓
+group references для уникальных groupId
+```
+
+Frontend уже выполняет независимые запросы параллельно и отменяет устаревший
+transport, поэтому дальнейшее существенное уменьшение first-load request count
+потребует более крупного backend read contract.
+
+### Рекомендация
+
+Не реализовывать вслепую. Сначала подтвердить проблему production Network
+замерами.
+
+Если fan-out заметен, рассмотреть:
+
+```text
+GET /teaching/workload?personId=...&studyCourse=...&semester=...&academicYear=...
+```
+
+или batch-вариант assignments, который принимает несколько
+`subjectMembershipId` за один запрос и возвращает необходимые group labels.
+
+### Acceptance condition
+
+Backend-изменение имеет смысл только если Network measurements показывают
+существенный выигрыш относительно текущего parallel + cached frontend path.
+
+
+---
+
+## BE-PERF-01 / рекомендация 26 — Aggregate endpoint для student learning context
+
+**Приоритет:** 🔴 P1  
+**Статус:** OPEN  
+**Связано с frontend:** `FE-PERF-RQ-01`
+
+Frontend-часть рекомендации зафиксирована отдельно в
+`frontend_recommendations.md`.
+
+### Проблема
+
+Student learning context сейчас собирается из нескольких зависимых слоёв:
+
+```text
+group memberships
+→ groups / assignments / enrollments
+→ faculties / missing assignments
+→ subject memberships
+→ subjects
+```
+
+Frontend уже применяет parallel loading, security-scoped single-flight и
+короткий TTL reference cache. Это уменьшает warm-navigation cost, но не может
+убрать cold first-load waterfall.
+
+### Рекомендуемый контракт
+
+Отдельный read endpoint, например:
+
+```text
+GET /api/v1/public/learning/context
+```
+
+или эквивалентный user-scoped route, который возвращает согласованный snapshot:
+
+```json
+{
+  "memberships": [],
+  "groups": [],
+  "faculties": [],
+  "assignments": [],
+  "enrollments": [],
+  "subjectMemberships": [],
+  "subjects": []
+}
+```
+
+Endpoint должен сам применять текущие authorization/status rules, чтобы
+frontend не реконструировал security semantics из нескольких API.
+
+### Acceptance condition
+
+Один backend read возвращает согласованный student learning snapshot.
+Frontend не выполняет многоступенчатый graph resolution на cold load.

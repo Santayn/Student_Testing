@@ -1,0 +1,23 @@
+import http from './http'
+
+export const subjectsApi = {
+  getAll(config = {}) {
+    return http.get('/subjects', config)
+  },
+
+  getById(subjectId, config = {}) {
+    return http.get(`/subjects/${subjectId}`, config)
+  },
+
+  create(data) {
+    return http.post('/subjects', data)
+  },
+
+  update(subjectId, data) {
+    return http.put(`/subjects/${subjectId}`, data)
+  },
+
+  remove(subjectId) {
+    return http.delete(`/subjects/${subjectId}`)
+  },
+}

@@ -1,0 +1,1778 @@
+@layer components {
+  /*
+   * Motion Stage 3 — bounded state reveal.
+   *
+   * Applies only to transient UI state: loading, validation and alerts.
+   * It is intentionally not a route/page/card entrance animation.
+   */
+  .st-motion-state-reveal {
+    animation:
+      st-motion-state-reveal
+      var(--st-motion-normal)
+      var(--st-ease-standard)
+      both;
+  }
+
+  @keyframes st-motion-state-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .st-ui-field {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    display: grid;
+    gap: 7px;
+  }
+
+  .st-ui-field__label {
+    color: var(--st-text);
+    font-size: var(--st-font-sm);
+    font-weight: var(--st-font-weight-semibold);
+    line-height: 1.35;
+  }
+
+  .st-ui-field__required {
+    color: var(--st-danger);
+  }
+
+  .st-ui-field__message {
+    margin: 0;
+    color: var(--st-text-secondary);
+    font-size: var(--st-font-xs);
+    line-height: 1.4;
+  }
+
+  .st-ui-field__message--error {
+    color: var(--st-danger);
+
+    animation:
+      st-motion-state-reveal
+      var(--st-motion-normal)
+      var(--st-ease-standard)
+      both;
+  }
+
+  .st-ui-control,
+  .st-ui-control.p-inputtext,
+  .st-ui-control.p-textarea,
+  .st-ui-control.p-select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: var(--st-control-height);
+    border-radius: var(--st-radius-control);
+    transition:
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-control--sm,
+  .st-ui-control--sm.p-inputtext,
+  .st-ui-control--sm.p-textarea,
+  .st-ui-control--sm.p-select {
+    min-height: var(--st-control-height-sm);
+    font-size: var(--st-font-sm);
+  }
+
+  .st-ui-control--lg,
+  .st-ui-control--lg.p-inputtext,
+  .st-ui-control--lg.p-textarea,
+  .st-ui-control--lg.p-select {
+    min-height: var(--st-control-height-lg);
+    font-size: var(--st-font-md);
+  }
+
+  .st-ui-control:focus,
+  .st-ui-control:focus-within,
+  .st-ui-control.p-focus {
+    border-color: var(--st-primary);
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-control--invalid,
+  .st-ui-control--invalid.p-inputtext,
+  .st-ui-control--invalid.p-textarea,
+  .st-ui-control--invalid.p-select {
+    border-color: var(--st-danger);
+  }
+
+  .st-ui-control.p-inputtext,
+  .st-ui-control.p-textarea {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+  }
+
+  .st-ui-control.p-inputtext::placeholder,
+  .st-ui-control.p-textarea::placeholder {
+    color: var(--st-text-muted);
+    opacity: 1;
+  }
+
+  .st-ui-control.p-inputtext:enabled:hover,
+  .st-ui-control.p-textarea:enabled:hover {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+  }
+
+  .st-ui-control.p-inputtext:disabled,
+  .st-ui-control.p-textarea:disabled,
+  .st-ui-control.p-select.p-disabled {
+    color: var(--st-text-muted);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+    opacity: 1;
+  }
+
+  .st-ui-control.p-textarea {
+    resize: vertical;
+  }
+
+  .st-ui-control.p-inputtext[readonly],
+  .st-ui-control.p-textarea[readonly] {
+    background: color-mix(in srgb, var(--st-surface-muted) 72%, var(--st-surface));
+  }
+
+  /*
+   * Select trigger + popup.
+   * PrimeVue mounts the popup under <body>, so popup styles must live in
+   * the global foundation layer rather than inside UiSelect.vue.
+   */
+  .st-ui-control.p-select {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+  }
+
+  .st-ui-control.p-select:not(.p-disabled):hover {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+  }
+
+  .st-ui-control.p-select .p-select-label {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--st-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .st-ui-control.p-select .p-select-label.p-placeholder {
+    color: var(--st-text-muted);
+  }
+
+  .st-ui-control.p-select .p-select-dropdown,
+  .st-ui-control.p-select .p-select-clear-icon {
+    color: var(--st-text-secondary);
+  }
+
+  .p-select-overlay {
+    max-width: calc(100vw - 1rem);
+    overflow: hidden;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-md);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .p-select-header {
+    padding: 8px;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-border);
+  }
+
+  .p-select-filter.p-inputtext {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+    border-radius: var(--st-radius-control);
+  }
+
+  .p-select-filter.p-inputtext:enabled:focus,
+  .p-select-filter.p-inputtext:focus {
+    border-color: var(--st-primary);
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .p-select-list-container {
+    scrollbar-color: var(--st-scrollbar-thumb) transparent;
+  }
+
+  .p-select-list {
+    padding: 5px;
+  }
+
+  .p-select-option {
+    min-width: 0;
+    min-height: 36px;
+    margin: 1px 0;
+    padding: 8px 10px;
+    color: var(--st-text);
+    background: transparent;
+    border-radius: var(--st-radius-control);
+    overflow-wrap: anywhere;
+    transition:
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .p-select-option:not(.p-disabled):hover,
+  .p-select-option.p-focus,
+  .p-select-option[data-p-focused='true'] {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .p-select-option.p-select-option-selected,
+  .p-select-option.p-selected,
+  .p-select-option[data-p-selected='true'] {
+    color: var(--st-primary-soft-text);
+    background: var(--st-primary-soft);
+    font-weight: var(--st-font-weight-semibold);
+  }
+
+  .p-select-option.p-select-option-selected:hover,
+  .p-select-option.p-selected.p-focus,
+  .p-select-option[data-p-selected='true'][data-p-focused='true'] {
+    background: color-mix(in srgb, var(--st-primary) 18%, var(--st-surface));
+  }
+
+  .p-select-option.p-disabled,
+  .p-select-option[data-p-disabled='true'] {
+    color: var(--st-text-muted);
+    opacity: 0.58;
+  }
+
+  .p-select-empty-message {
+    padding: 12px 10px;
+    color: var(--st-text-secondary);
+  }
+
+  .st-ui-search {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: var(--st-control-height);
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: stretch;
+    overflow: hidden;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-control);
+    transition:
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-search:hover:not(.st-ui-search--disabled) {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+  }
+
+  .st-ui-search:focus-within {
+    border-color: var(--st-primary);
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-search--invalid {
+    border-color: var(--st-danger);
+  }
+
+  .st-ui-search--disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+  }
+
+  .st-ui-search__icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    color: var(--st-text-muted);
+    transition: color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-search__icon::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 21%;
+    bottom: 21%;
+    width: 1px;
+    background: var(--st-border);
+  }
+
+  .st-ui-search:focus-within .st-ui-search__icon {
+    color: var(--st-primary);
+  }
+
+  .st-ui-search__input.p-inputtext {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: calc(var(--st-control-height) - 2px);
+    padding-inline: 12px;
+    color: var(--st-text);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .st-ui-search__input.p-inputtext:enabled:focus,
+  .st-ui-search__input.p-inputtext:focus {
+    border: 0;
+    box-shadow: none;
+    outline: 0;
+  }
+
+  .st-ui-button.p-button,
+  .st-ui-link-button {
+    min-height: var(--st-control-height);
+    padding: 0 14px;
+    border-radius: var(--st-radius-control);
+    font-size: var(--st-font-sm);
+    font-weight: var(--st-font-weight-semibold);
+    line-height: 1;
+  }
+
+  .st-ui-button--sm.p-button,
+  .st-ui-link-button--sm {
+    min-height: var(--st-control-height-sm);
+    padding-inline: 11px;
+    font-size: var(--st-font-xs);
+  }
+
+  .st-ui-button--lg.p-button,
+  .st-ui-link-button--lg {
+    min-height: var(--st-control-height-lg);
+    padding-inline: 17px;
+    font-size: var(--st-font-md);
+  }
+
+  .st-ui-button--block.p-button,
+  .st-ui-link-button--block {
+    width: 100%;
+  }
+
+  .st-ui-button.p-button {
+    transition:
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-button.p-button:focus-visible {
+    outline: 0;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-button--primary.p-button {
+    color: var(--st-on-primary);
+    background: var(--st-primary);
+    border-color: var(--st-primary);
+  }
+
+  .st-ui-button--primary.p-button:not(:disabled):hover {
+    color: var(--st-on-primary);
+    background: var(--st-primary-hover);
+    border-color: var(--st-primary-hover);
+  }
+
+  .st-ui-button--secondary.p-button {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+  }
+
+  .st-ui-button--secondary.p-button:not(:disabled):hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+  }
+
+  .st-ui-button--success.p-button {
+    color: var(--st-on-success);
+    background: var(--st-success);
+    border-color: var(--st-success);
+  }
+
+  .st-ui-button--success.p-button:not(:disabled):hover {
+    background: color-mix(in srgb, var(--st-success) 86%, var(--st-surface));
+    border-color: color-mix(in srgb, var(--st-success) 86%, var(--st-surface));
+  }
+
+  .st-ui-button--danger.p-button {
+    color: var(--st-on-danger);
+    background: var(--st-danger);
+    border-color: var(--st-danger);
+  }
+
+  .st-ui-button--danger.p-button:not(:disabled):hover {
+    background: color-mix(in srgb, var(--st-danger) 86%, var(--st-surface));
+    border-color: color-mix(in srgb, var(--st-danger) 86%, var(--st-surface));
+  }
+
+  .st-ui-button--ghost.p-button {
+    color: var(--st-text-secondary);
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .st-ui-button--ghost.p-button:not(:disabled):hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-button.p-button:disabled {
+    opacity: 0.52;
+  }
+
+  .st-ui-link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-link-button--primary {
+    color: var(--st-on-primary);
+    background: var(--st-primary);
+    border-color: var(--st-primary);
+  }
+
+  .st-ui-link-button--primary:hover {
+    background: var(--st-primary-hover);
+    border-color: var(--st-primary-hover);
+  }
+
+  .st-ui-link-button--secondary:hover {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-link-button--ghost {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .st-ui-link-button--success {
+    color: var(--st-on-success);
+    background: var(--st-success);
+    border-color: var(--st-success);
+  }
+
+  .st-ui-link-button--success:hover {
+    background: color-mix(in srgb, var(--st-success) 86%, var(--st-surface));
+    border-color: color-mix(in srgb, var(--st-success) 86%, var(--st-surface));
+  }
+
+  .st-ui-link-button--danger {
+    color: var(--st-on-danger);
+    background: var(--st-danger);
+    border-color: var(--st-danger);
+  }
+
+  .st-ui-link-button--danger:hover {
+    background: color-mix(in srgb, var(--st-danger) 86%, var(--st-surface));
+    border-color: color-mix(in srgb, var(--st-danger) 86%, var(--st-surface));
+  }
+
+  .st-ui-link-button--disabled {
+    opacity: 0.56;
+    pointer-events: none;
+  }
+
+  .st-ui-choice {
+    min-width: 0;
+    min-height: max(var(--st-control-height), 44px);
+    padding: 10px 12px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-control);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-radio {
+    width: 100%;
+  }
+
+  .st-ui-choice:has(.p-checkbox[data-p-checked='true']),
+  .st-ui-choice:has(.p-radiobutton[data-p-checked='true']),
+  .st-ui-choice:has(.p-checkbox[data-p-indeterminate='true']) {
+    border-color: color-mix(in srgb, var(--st-primary) 48%, var(--st-border));
+    background: color-mix(in srgb, var(--st-primary) 7%, var(--st-surface));
+  }
+
+  .st-ui-choice:hover:not(.st-ui-choice--disabled):not(.st-ui-choice--readonly) {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-choice:focus-within:not(.st-ui-choice--disabled) {
+    border-color: var(--st-primary);
+    background: var(--st-surface-muted);
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-choice--disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+  }
+
+  .st-ui-choice--readonly {
+    cursor: default;
+  }
+
+  .st-ui-choice--invalid {
+    border-color: color-mix(in srgb, var(--st-danger) 72%, var(--st-border));
+  }
+
+  .st-ui-choice--invalid:focus-within {
+    border-color: var(--st-danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-danger) 18%, transparent);
+  }
+
+  .st-ui-choice .p-checkbox-box,
+  .st-ui-choice .p-radiobutton-box {
+    background: var(--st-surface);
+    border-color: var(--st-border);
+    transition:
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-choice:hover:not(.st-ui-choice--disabled):not(.st-ui-choice--readonly) .p-checkbox-box,
+  .st-ui-choice:hover:not(.st-ui-choice--disabled):not(.st-ui-choice--readonly) .p-radiobutton-box {
+    border-color: color-mix(in srgb, var(--st-primary) 55%, var(--st-border));
+  }
+
+  .st-ui-choice .p-checkbox.p-checkbox-checked .p-checkbox-box,
+  .st-ui-choice .p-checkbox[data-p-checked='true'] .p-checkbox-box,
+  .st-ui-choice .p-radiobutton.p-radiobutton-checked .p-radiobutton-box,
+  .st-ui-choice .p-radiobutton[data-p-checked='true'] .p-radiobutton-box {
+    background: var(--st-primary);
+    border-color: var(--st-primary);
+  }
+
+  .st-ui-choice .p-checkbox[data-p-indeterminate='true'] .p-checkbox-box {
+    background: color-mix(in srgb, var(--st-primary) 76%, var(--st-surface));
+    border-color: var(--st-primary);
+  }
+
+  .st-ui-choice .p-checkbox .p-checkbox-icon {
+    color: var(--st-on-primary);
+  }
+
+  .st-ui-choice .p-radiobutton .p-radiobutton-icon {
+    background: var(--st-on-primary);
+  }
+
+  .st-ui-choice .p-checkbox.p-focus .p-checkbox-box,
+  .st-ui-choice .p-radiobutton.p-focus .p-radiobutton-box {
+    box-shadow: none;
+  }
+
+  .st-ui-choice__control {
+    margin-top: 1px;
+    flex: 0 0 auto;
+  }
+
+  .st-ui-choice__copy {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: grid;
+    gap: 2px;
+  }
+
+  .st-ui-choice__label {
+    font-size: var(--st-font-sm);
+    font-weight: var(--st-font-weight-semibold);
+    line-height: 1.35;
+  }
+
+  .st-ui-choice__description {
+    color: var(--st-text-secondary);
+    font-size: var(--st-font-xs);
+    line-height: 1.4;
+  }
+
+  .st-ui-card.p-card {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-card);
+    box-shadow: var(--st-shadow-card);
+  }
+
+  .st-ui-card.p-card .p-card-body {
+    padding: var(--st-space-card);
+  }
+
+  .st-ui-card--compact.p-card .p-card-body {
+    padding: 16px;
+  }
+
+  .st-ui-card.p-card .p-card-title {
+    color: var(--st-text);
+    font-size: 18px;
+    font-weight: var(--st-font-weight-bold);
+  }
+
+  .st-ui-card.p-card .p-card-subtitle {
+    margin-top: 5px;
+    color: var(--st-text-secondary);
+    font-size: var(--st-font-sm);
+    line-height: 1.5;
+  }
+
+  .st-ui-card__heading {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .st-ui-card__heading-copy {
+    min-width: 0;
+  }
+
+  .st-ui-card__heading-title,
+  .st-ui-card__heading-description {
+    margin: 0;
+  }
+
+  .st-ui-card__heading-title {
+    font-size: 18px;
+    font-weight: var(--st-font-weight-bold);
+  }
+
+  .st-ui-card__heading-description {
+    margin-top: 5px;
+    color: var(--st-text-secondary);
+    font-size: var(--st-font-sm);
+    line-height: 1.5;
+  }
+
+  .st-ui-card__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .st-ui-card.p-card .p-card-content,
+  .st-ui-card.p-card .p-card-footer {
+    color: var(--st-text);
+  }
+
+  .st-ui-alert.p-message {
+    border: 1px solid transparent;
+    border-radius: var(--st-radius-control);
+    box-shadow: none;
+
+    animation:
+      st-motion-state-reveal
+      var(--st-motion-normal)
+      var(--st-ease-standard)
+      both;
+  }
+
+  .st-ui-alert.p-message .p-message-icon,
+  .st-ui-alert.p-message .p-message-close-button {
+    color: currentColor;
+  }
+
+  .st-ui-alert--info.p-message {
+    color: var(--st-info-text);
+    background: var(--st-info-soft);
+    border-color: color-mix(in srgb, var(--st-info) 34%, var(--st-border));
+  }
+
+  .st-ui-alert--success.p-message {
+    color: var(--st-success-text);
+    background: var(--st-success-soft);
+    border-color: color-mix(in srgb, var(--st-success) 34%, var(--st-border));
+  }
+
+  .st-ui-alert--warning.p-message {
+    color: var(--st-warning-text);
+    background: var(--st-warning-soft);
+    border-color: color-mix(in srgb, var(--st-warning) 34%, var(--st-border));
+  }
+
+  .st-ui-alert--danger.p-message,
+  .st-ui-alert--error.p-message {
+    color: var(--st-danger-text);
+    background: var(--st-danger-soft);
+    border-color: color-mix(in srgb, var(--st-danger) 34%, var(--st-border));
+  }
+
+  .st-ui-alert.p-message .p-message-close-button:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .st-ui-tag.p-tag {
+    max-width: 100%;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: var(--st-font-weight-semibold);
+    line-height: 1;
+  }
+
+  .st-ui-tag--secondary.p-tag {
+    color: var(--st-text-secondary);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+  }
+
+  .st-ui-tag--info.p-tag {
+    color: var(--st-info-text);
+    background: var(--st-info-soft);
+    border-color: color-mix(in srgb, var(--st-info) 28%, var(--st-border));
+  }
+
+  .st-ui-tag--success.p-tag {
+    color: var(--st-success-text);
+    background: var(--st-success-soft);
+    border-color: color-mix(in srgb, var(--st-success) 28%, var(--st-border));
+  }
+
+  .st-ui-tag--warning.p-tag {
+    color: var(--st-warning-text);
+    background: var(--st-warning-soft);
+    border-color: color-mix(in srgb, var(--st-warning) 28%, var(--st-border));
+  }
+
+  .st-ui-tag--danger.p-tag {
+    color: var(--st-danger-text);
+    background: var(--st-danger-soft);
+    border-color: color-mix(in srgb, var(--st-danger) 28%, var(--st-border));
+  }
+
+  .st-ui-tag.p-tag .p-tag-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .st-ui-toolbar.p-toolbar {
+    min-height: 56px;
+    padding: 10px 12px;
+    gap: 12px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-card);
+    box-shadow: var(--st-shadow-card);
+  }
+
+  .st-ui-toolbar.p-toolbar .p-toolbar-start,
+  .st-ui-toolbar.p-toolbar .p-toolbar-center,
+  .st-ui-toolbar.p-toolbar .p-toolbar-end {
+    gap: 8px;
+  }
+
+
+  .st-ui-filter-bar {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-card);
+    box-shadow: var(--st-shadow-card);
+  }
+
+  .st-ui-filter-bar__controls {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .st-ui-filter-bar__search {
+    flex: 1 1 20rem;
+    min-width: min(18rem, 100%);
+  }
+
+  .st-ui-filter-bar__filters {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .st-ui-filter-bar__filters > * {
+    flex: 1 1 12rem;
+    min-width: 10rem;
+  }
+
+  .st-ui-filter-bar__reset,
+  .st-ui-filter-bar__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .st-ui-filter-bar__actions {
+    margin-inline-start: auto;
+  }
+
+  .st-ui-filter-bar__meta {
+    min-width: 0;
+    color: var(--st-text-secondary);
+    font-size: var(--st-font-sm);
+    line-height: 1.5;
+  }
+
+  .st-ui-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    background: var(--st-surface);
+    border-radius: var(--st-radius-card);
+    box-shadow: var(--st-shadow-card);
+    scrollbar-color: var(--st-scrollbar-thumb) transparent;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .st-ui-table-scroll:focus-visible {
+    outline: 0;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-table.p-datatable {
+    overflow: hidden;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-card);
+    box-shadow: none;
+  }
+
+  .st-ui-table.p-datatable .p-datatable-header {
+    padding: 12px 14px;
+    background: var(--st-surface);
+    border: 0;
+    border-bottom: 1px solid var(--st-border);
+  }
+
+  .st-ui-table.p-datatable .p-datatable-thead > tr > th {
+    height: 42px;
+    padding: 8px 12px;
+    color: var(--st-text-secondary);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+    font-size: var(--st-font-xs);
+    font-weight: var(--st-font-weight-bold);
+  }
+
+  .st-ui-table.p-datatable .p-datatable-tbody > tr {
+    color: var(--st-text);
+    background: var(--st-surface);
+  }
+
+  .st-ui-table.p-datatable .p-datatable-tbody > tr:hover {
+    background: color-mix(in srgb, var(--st-primary-soft) 32%, var(--st-surface));
+  }
+
+  .st-ui-table.p-datatable .p-datatable-tbody > tr > td {
+    min-height: var(--st-table-row-height);
+    padding: 9px 12px;
+    border-color: var(--st-border);
+    font-size: var(--st-font-sm);
+  }
+
+  .st-ui-table__sort-button {
+    width: 100%;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-weight: inherit;
+    cursor: pointer;
+  }
+
+  .st-ui-table__sort-button:hover,
+  .st-ui-table__sort-button--active {
+    color: var(--st-primary);
+  }
+
+  .st-ui-table__sort-icon {
+    width: 13px;
+    color: var(--st-primary);
+    font-size: 10px;
+  }
+
+  .st-ui-table__empty {
+    padding: 28px 16px;
+    color: var(--st-text-secondary);
+    text-align: center;
+  }
+
+  /*
+   * Dialog colors. PrimeVue portals the mask/dialog near <body>, so these
+   * rules must be global and use the same Student Testing theme tokens as
+   * the rest of the workspace.
+   */
+  .p-dialog-mask {
+    background: var(--st-overlay-backdrop);
+  }
+
+  .p-dialog {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .p-dialog .p-dialog-header,
+  .p-dialog .p-dialog-content,
+  .p-dialog .p-dialog-footer {
+    color: var(--st-text);
+    background: var(--st-surface);
+  }
+
+  .p-dialog .p-dialog-title {
+    color: var(--st-text);
+  }
+
+  .p-dialog .p-dialog-close-button {
+    color: var(--st-text-secondary);
+    background: transparent;
+  }
+
+  .p-dialog .p-dialog-close-button:not(:disabled):hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .p-dialog .p-dialog-close-button:focus-visible {
+    color: var(--st-primary);
+    outline: none;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-dialog.p-dialog {
+    overflow: hidden;
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-dialog);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .st-ui-dialog.p-dialog .p-dialog-header {
+    padding: 18px 20px 12px;
+  }
+
+  .st-ui-dialog.p-dialog .p-dialog-content {
+    padding: 8px 20px 20px;
+  }
+
+  .st-ui-dialog.p-dialog .p-dialog-footer {
+    padding: 0 20px 18px;
+  }
+
+
+  /*
+   * Drawer colors and geometry. PrimeVue portals drawers near <body>, so the
+   * wrapper class is styled globally just like UiDialog.
+   */
+  .p-drawer-mask {
+    background: var(--st-overlay-backdrop);
+  }
+
+  .st-ui-drawer.p-drawer {
+    color: var(--st-text);
+    background: var(--st-surface);
+    border-color: var(--st-border);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-header,
+  .st-ui-drawer.p-drawer .p-drawer-content,
+  .st-ui-drawer.p-drawer .p-drawer-footer {
+    color: var(--st-text);
+    background: var(--st-surface);
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--st-border);
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-title {
+    color: var(--st-text);
+    font-weight: var(--st-font-weight-bold);
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-content {
+    min-height: 0;
+    padding: 18px 20px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-footer {
+    padding: 14px 20px 18px;
+    border-top: 1px solid var(--st-border);
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-close-button {
+    color: var(--st-text-secondary);
+    background: transparent;
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-close-button:not(:disabled):hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-drawer.p-drawer .p-drawer-close-button:focus-visible {
+    color: var(--st-primary);
+    outline: none;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-action-trigger.p-button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--st-text-secondary);
+    border-radius: var(--st-radius-control);
+  }
+
+  .st-ui-action-trigger.p-button:hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-action-menu.p-menu {
+    min-width: 190px;
+    padding: 6px;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-md);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .st-ui-action-menu.p-menu .p-menu-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-content {
+    color: var(--st-text);
+    background: transparent;
+    border-radius: var(--st-radius-control);
+    transition:
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-link {
+    min-height: 36px;
+    padding: 8px 10px;
+    color: inherit;
+    border-radius: var(--st-radius-control);
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-icon {
+    color: var(--st-text-secondary);
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-content:hover,
+  .st-ui-action-menu.p-menu .p-menuitem-content.p-focus,
+  .st-ui-action-menu.p-menu .p-menuitem-content[data-p-focused='true'] {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-action-menu.p-menu .p-menu-separator {
+    margin: 5px 4px;
+    border-color: var(--st-border);
+  }
+
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-link,
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-icon,
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-label {
+    color: var(--st-danger);
+  }
+
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-content:hover,
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-content.p-focus,
+  .st-ui-action-menu .st-ui-action-menu__danger .p-menuitem-content[data-p-focused='true'] {
+    background: var(--st-danger-soft);
+  }
+
+
+  /*
+   * Composite UI palette layer.
+   * These rules keep nested PrimeVue parts on the same --st-* palette as
+   * the project wrappers instead of falling back to the preset surface scale.
+   */
+  .st-ui-toolbar.p-toolbar {
+    color: var(--st-text);
+  }
+
+  .st-ui-toolbar.p-toolbar .p-toolbar-start,
+  .st-ui-toolbar.p-toolbar .p-toolbar-center,
+  .st-ui-toolbar.p-toolbar .p-toolbar-end {
+    color: inherit;
+  }
+
+  .st-ui-table.p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+    background: color-mix(in srgb, var(--st-surface-muted) 46%, var(--st-surface));
+  }
+
+  .st-ui-table.p-datatable .p-datatable-tbody > tr:hover,
+  .st-ui-table.p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover {
+    background: color-mix(in srgb, var(--st-primary-soft) 38%, var(--st-surface));
+  }
+
+  .st-ui-table.p-datatable .p-datatable-loading-overlay {
+    color: var(--st-text-secondary);
+    background: color-mix(in srgb, var(--st-surface) 82%, transparent);
+    backdrop-filter: blur(2px);
+  }
+
+  .st-ui-table.p-datatable .p-datatable-loading-icon {
+    color: var(--st-primary);
+  }
+
+  .st-ui-table.p-datatable .p-paginator {
+    min-height: 48px;
+    color: var(--st-text-secondary);
+    background: var(--st-surface);
+    border: 0;
+    border-top: 1px solid var(--st-border);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-paginator-first,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-prev,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-page,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-next,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-last {
+    color: var(--st-text-secondary);
+    background: transparent;
+    border-color: transparent;
+    border-radius: var(--st-radius-control);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-paginator-first:not(.p-disabled):hover,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-prev:not(.p-disabled):hover,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-page:not(.p-disabled):hover,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-next:not(.p-disabled):hover,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-last:not(.p-disabled):hover {
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-paginator-page.p-paginator-page-selected,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-page.p-highlight,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-page[data-p-active='true'] {
+    color: var(--st-primary-soft-text);
+    background: var(--st-primary-soft);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-paginator-first:focus-visible,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-prev:focus-visible,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-page:focus-visible,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-next:focus-visible,
+  .st-ui-table.p-datatable .p-paginator .p-paginator-last:focus-visible {
+    outline: 0;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-disabled {
+    color: var(--st-text-muted);
+    opacity: 0.5;
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-select {
+    min-height: 32px;
+    color: var(--st-text);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+    border-radius: var(--st-radius-control);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-select:not(.p-disabled):hover {
+    border-color: color-mix(in srgb, var(--st-primary) 45%, var(--st-border));
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-select.p-focus {
+    border-color: var(--st-primary);
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-select-label {
+    color: var(--st-text);
+  }
+
+  .st-ui-table.p-datatable .p-paginator .p-select-dropdown {
+    color: var(--st-text-secondary);
+  }
+
+  .st-ui-dialog.p-dialog .p-dialog-header,
+  .st-ui-dialog.p-dialog .p-dialog-footer {
+    border-color: var(--st-border);
+  }
+
+  .st-ui-dialog.p-dialog .p-dialog-header {
+    border-bottom: 1px solid var(--st-border);
+  }
+
+  .st-ui-dialog.p-dialog .p-dialog-footer {
+    border-top: 1px solid var(--st-border);
+  }
+
+  .st-ui-action-trigger.p-button:focus-visible {
+    color: var(--st-primary);
+    background: var(--st-primary-soft);
+    outline: 0;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem-label {
+    color: inherit;
+  }
+
+  .st-ui-action-menu.p-menu .p-menuitem.p-disabled .p-menuitem-link,
+  .st-ui-action-menu.p-menu .p-menuitem[data-p-disabled='true'] .p-menuitem-link {
+    color: var(--st-text-muted);
+    opacity: 0.55;
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message {
+    overflow: hidden;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-card);
+    box-shadow: var(--st-shadow-elevated);
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-content {
+    color: inherit;
+    background: transparent;
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-summary {
+    color: currentColor;
+    font-weight: var(--st-font-weight-bold);
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-detail {
+    color: currentColor;
+    opacity: 0.88;
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-icon,
+  .st-ui-toast-host.p-toast .p-toast-close-icon {
+    color: currentColor;
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-close-button {
+    color: currentColor;
+    background: transparent;
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-close-button:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-close-button:focus-visible {
+    outline: 0;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-info {
+    color: var(--st-info-text);
+    background: var(--st-info-soft);
+    border-color: color-mix(in srgb, var(--st-info) 34%, var(--st-border));
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-success {
+    color: var(--st-success-text);
+    background: var(--st-success-soft);
+    border-color: color-mix(in srgb, var(--st-success) 34%, var(--st-border));
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-warn,
+  .st-ui-toast-host.p-toast .p-toast-message-warning {
+    color: var(--st-warning-text);
+    background: var(--st-warning-soft);
+    border-color: color-mix(in srgb, var(--st-warning) 34%, var(--st-border));
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-error,
+  .st-ui-toast-host.p-toast .p-toast-message-danger {
+    color: var(--st-danger-text);
+    background: var(--st-danger-soft);
+    border-color: color-mix(in srgb, var(--st-danger) 34%, var(--st-border));
+  }
+
+  .st-ui-toast-host.p-toast .p-toast-message-secondary {
+    color: var(--st-text-secondary);
+    background: var(--st-surface-muted);
+    border-color: var(--st-border);
+  }
+
+
+  /*
+   * Motion Stage 2 — PrimeVue overlay motion contract.
+   *
+   * PrimeVue 4.5.5 uses:
+   * - p-anchored-overlay for Select/Menu style anchored overlays;
+   * - p-dialog for Dialog;
+   * - p-drawer for Drawer;
+   * - p-toast-message for Toast message transitions.
+   *
+   * Keep movement deliberately small. Motion explains origin/state change
+   * without becoming a decorative layer.
+   */
+
+  .p-anchored-overlay-enter-active,
+  .p-anchored-overlay-leave-active {
+    transition:
+      opacity var(--st-motion-fast) var(--st-ease-standard),
+      transform var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .p-anchored-overlay-enter-from,
+  .p-anchored-overlay-leave-to {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  .p-dialog-enter-active,
+  .p-dialog-leave-active {
+    transition:
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      transform var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .p-dialog-enter-from,
+  .p-dialog-leave-to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  /*
+   * Drawer already owns direction-specific translate values in PrimeVue.
+   * Only normalize duration/easing so left/right/top/bottom drawers keep
+   * their native direction.
+   */
+  .p-drawer-enter-active,
+  .p-drawer-leave-active {
+    transition-duration: var(--st-motion-slow) !important;
+    transition-timing-function: var(--st-ease-standard) !important;
+  }
+
+  .p-toast-message-enter-active,
+  .p-toast-message-leave-active {
+    transition:
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      transform var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .p-toast-message-enter-from,
+  .p-toast-message-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  @media (max-width: 640px) {
+    /*
+     * Mobile form controls: keep native text inputs at 16px to avoid
+     * unwanted viewport zoom on iOS Safari and use a finger-friendly
+     * minimum touch height throughout the UI kit.
+     */
+    .st-ui-control,
+    .st-ui-control.p-inputtext,
+    .st-ui-control.p-textarea,
+    .st-ui-control.p-select,
+    .st-ui-control--sm,
+    .st-ui-control--sm.p-inputtext,
+    .st-ui-control--sm.p-textarea,
+    .st-ui-control--sm.p-select,
+    .st-ui-search__input.p-inputtext,
+    .p-select-filter.p-inputtext {
+      min-height: 44px;
+      font-size: 16px;
+    }
+
+    .st-ui-button.p-button,
+    .st-ui-link-button,
+    .st-ui-button--sm.p-button,
+    .st-ui-link-button--sm {
+      min-height: 44px;
+    }
+
+    .st-ui-button.p-button .p-button-label,
+    .st-ui-link-button {
+      min-width: 0;
+      white-space: normal;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .st-ui-alert.p-message .p-message-close-button,
+    .st-ui-toast-host.p-toast .p-toast-close-button,
+    .st-ui-dialog.p-dialog .p-dialog-close-button {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .p-select-overlay {
+      max-width: calc(100vw - 1rem);
+    }
+
+    .p-select-option {
+      min-height: 44px;
+      padding-block: 10px;
+    }
+
+
+    .st-ui-filter-bar {
+      padding: 10px;
+    }
+
+    .st-ui-filter-bar__controls,
+    .st-ui-filter-bar__filters {
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .st-ui-filter-bar__search,
+    .st-ui-filter-bar__filters,
+    .st-ui-filter-bar__filters > *,
+    .st-ui-filter-bar__reset,
+    .st-ui-filter-bar__actions {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .st-ui-filter-bar__reset,
+    .st-ui-filter-bar__actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      margin-inline-start: 0;
+    }
+
+    .st-ui-filter-bar__reset .st-ui-button.p-button,
+    .st-ui-filter-bar__actions .st-ui-button.p-button,
+    .st-ui-filter-bar__actions .st-ui-link-button {
+      width: 100%;
+    }
+
+    /* Toolbar slots stack instead of squeezing controls off-screen. */
+    .st-ui-toolbar.p-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 10px;
+    }
+
+    .st-ui-toolbar.p-toolbar .p-toolbar-start,
+    .st-ui-toolbar.p-toolbar .p-toolbar-center,
+    .st-ui-toolbar.p-toolbar .p-toolbar-end {
+      width: 100%;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    /*
+     * Tables keep their natural column width and scroll horizontally in
+     * their own focusable region instead of clipping or compressing data.
+     */
+    .st-ui-table-scroll {
+      border-radius: var(--st-radius-card);
+    }
+
+    .st-ui-table.p-datatable {
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .st-ui-table.p-datatable .p-datatable-table {
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .st-ui-table.p-datatable .p-datatable-thead > tr > th,
+    .st-ui-table.p-datatable .p-datatable-tbody > tr > td {
+      max-width: min(72vw, 28rem);
+      overflow-wrap: anywhere;
+    }
+
+    .st-ui-table.p-datatable .p-paginator {
+      min-height: 56px;
+      padding: 8px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .st-ui-table.p-datatable .p-paginator .p-paginator-first,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-prev,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-page,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-next,
+    .st-ui-table.p-datatable .p-paginator .p-paginator-last,
+    .st-ui-table.p-datatable .p-paginator .p-select {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    /* Dialog content scrolls inside the viewport, including with a keyboard open. */
+    .st-ui-dialog.p-dialog {
+      max-height: calc(100dvh - 1rem);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-header {
+      padding: 12px 12px 8px;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-content {
+      min-height: 0;
+      padding: 10px 12px 14px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-footer {
+      padding: 10px 12px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .st-ui-dialog.p-dialog .p-dialog-footer > .p-button,
+    .st-ui-dialog.p-dialog .p-dialog-footer > .st-ui-link-button {
+      flex: 1 1 100%;
+    }
+
+
+    /* Drawers become a full-screen editor on phones instead of a narrow rail. */
+    .st-ui-drawer--mobile-full.p-drawer {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      border-radius: 0;
+    }
+
+    .st-ui-drawer.p-drawer .p-drawer-header {
+      padding: 12px 12px 8px;
+    }
+
+    .st-ui-drawer.p-drawer .p-drawer-content {
+      padding: 12px 12px 16px;
+    }
+
+    .st-ui-drawer.p-drawer .p-drawer-footer {
+      padding: 10px 12px 12px;
+    }
+
+    .st-ui-drawer.p-drawer .p-drawer-close-button {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    /* Context actions remain comfortably tappable on touch screens. */
+    .st-ui-action-trigger.p-button {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .st-ui-action-menu.p-menu {
+      width: min(19rem, calc(100vw - 1rem));
+      max-width: calc(100vw - 1rem);
+    }
+
+    .st-ui-action-menu.p-menu .p-menuitem-link {
+      min-height: 44px;
+      white-space: normal;
+    }
+
+    .st-ui-action-menu.p-menu .p-menuitem-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    /* Toasts always remain inside the visual viewport on narrow devices. */
+    .st-ui-toast-host.p-toast {
+      width: min(
+        25rem,
+        calc(
+          100vw - 2.5rem -
+          env(safe-area-inset-left) -
+          env(safe-area-inset-right)
+        )
+      ) !important;
+      max-width: calc(
+        100vw - 2.5rem -
+        env(safe-area-inset-left) -
+        env(safe-area-inset-right)
+      );
+    }
+
+    .st-ui-toast-host.p-toast .p-toast-message-content {
+      min-width: 0;
+      padding: 12px;
+    }
+
+    .st-ui-toast-host.p-toast .p-toast-message-text {
+      min-width: 0;
+    }
+
+    .st-ui-toast-host.p-toast .p-toast-summary,
+    .st-ui-toast-host.p-toast .p-toast-detail {
+      overflow-wrap: anywhere;
+    }
+
+    .st-ui-card__heading {
+      flex-direction: column;
+    }
+
+    .st-ui-card__actions {
+      width: 100%;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .st-ui-tag.p-tag {
+      white-space: normal;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .st-ui-control,
+    .st-ui-search,
+    .st-ui-search__icon,
+    .st-ui-button.p-button,
+    .st-ui-link-button,
+    .st-ui-choice,
+    .p-select-option,
+    .st-ui-action-menu.p-menu .p-menuitem-content,
+    .st-ui-dialog.p-dialog,
+    .st-ui-drawer.p-drawer,
+    .st-ui-toast-host.p-toast,
+    .st-motion-state-reveal,
+    .st-ui-field__message--error,
+    .st-ui-alert.p-message,
+    .p-anchored-overlay-enter-active,
+    .p-anchored-overlay-leave-active,
+    .p-dialog-enter-active,
+    .p-dialog-leave-active,
+    .p-drawer-enter-active,
+    .p-drawer-leave-active,
+    .p-toast-message-enter-active,
+    .p-toast-message-leave-active {
+      transition: none !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
+
+
+/* Internal PrimeVue / table scroll regions share the application scrollbar contract. */
+.p-select-list-container,
+.st-ui-table-scroll,
+.st-ui-drawer.p-drawer .p-drawer-content,
+.st-ui-dialog.p-dialog .p-dialog-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--st-scrollbar-thumb) transparent;
+}
+
+.p-select-list-container::-webkit-scrollbar,
+.st-ui-table-scroll::-webkit-scrollbar,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar {
+  width: var(--st-scrollbar-size);
+  height: var(--st-scrollbar-size);
+}
+
+.p-select-list-container::-webkit-scrollbar-track,
+.st-ui-table-scroll::-webkit-scrollbar-track,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar-track,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.p-select-list-container::-webkit-scrollbar-thumb,
+.st-ui-table-scroll::-webkit-scrollbar-thumb,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar-thumb,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar-thumb {
+  background: var(--st-scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.p-select-list-container::-webkit-scrollbar-thumb:hover,
+.st-ui-table-scroll::-webkit-scrollbar-thumb:hover,
+.st-ui-drawer.p-drawer .p-drawer-content::-webkit-scrollbar-thumb:hover,
+.st-ui-dialog.p-dialog .p-dialog-content::-webkit-scrollbar-thumb:hover {
+  background: var(--st-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}

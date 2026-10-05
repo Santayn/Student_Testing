@@ -1,0 +1,276 @@
+import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import {
+  mount,
+} from '@vue/test-utils'
+
+let currentRoute
+
+vi.mock('vue-router', () => ({
+  useRoute: () => currentRoute,
+}))
+
+import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
+
+import {
+  BREADCRUMB_CONTEXT_KEY,
+  createBreadcrumbContextStore,
+} from '@/navigation'
+
+function mountBreadcrumb(breadcrumbContext = null) {
+  return mount(AppBreadcrumb, {
+    global: {
+      ...(breadcrumbContext
+        ? {
+            provide: {
+              [BREADCRUMB_CONTEXT_KEY]:
+                breadcrumbContext,
+            },
+          }
+        : {}),
+      stubs: {
+        RouterLink: {
+          name: 'RouterLink',
+          props: {
+            to: {
+              type: [String, Object],
+              required: true,
+            },
+          },
+          template:
+            '<a class="router-link-stub"><slot /></a>',
+        },
+      },
+    },
+  })
+}
+
+describe('AppBreadcrumb', () => {
+  beforeEach(() => {
+    currentRoute = {
+      name: 'home',
+      params: {},
+      query: {},
+      meta: {
+        breadcrumbKey: 'home',
+      },
+    }
+  })
+
+  it('does not duplicate a top-level page title with a one-item breadcrumb', () => {
+    const wrapper = mountBreadcrumb()
+
+    expect(
+      wrapper.find('.app-breadcrumb').exists()
+    ).toBe(false)
+  })
+
+  it('renders a deep route as links followed by one current item', () => {
+    currentRoute = {
+      name: 'lecture-details',
+      params: {
+        lectureId: '9',
+      },
+      query: {
+        subjectId: '42',
+        facultyId: '3',
+      },
+      meta: {
+        breadcrumbKey:
+          'lecture-details',
+      },
+    }
+
+    const wrapper = mountBreadcrumb()
+
+    expect(
+      wrapper.find('.app-breadcrumb').exists()
+    ).toBe(true)
+
+    expect(wrapper.text()).toContain('Предметы')
+    expect(wrapper.text()).toContain('Предмет')
+    expect(wrapper.text()).toContain('Лекции')
+    expect(wrapper.text()).toContain('Лекция')
+
+    const links = wrapper.findAllComponents({
+      name: 'RouterLink',
+    })
+
+    expect(links).toHaveLength(4)
+    expect(links[1].props('to')).toEqual({
+      name: 'subjects',
+      query: {
+        facultyId: '3',
+      },
+    })
+
+    expect(
+      wrapper
+        .find('[aria-current="page"]')
+        .text()
+    ).toBe('Лекция')
+  })
+
+  it('builds the full test hierarchy when navigation carries subject and lecture ids', () => {
+    currentRoute = {
+      name: 'test',
+      params: {
+        testId: '17',
+      },
+      query: {
+        assignmentId: '5',
+        subjectId: '42',
+        lectureId: '9',
+      },
+      meta: {
+        breadcrumbKey: 'test',
+      },
+    }
+
+    const wrapper = mountBreadcrumb()
+
+    expect(
+      wrapper
+        .findAll('.app-breadcrumb__item')
+        .map((item) => item.text())
+    ).toEqual([
+      'Предметы',
+      'Предмет',
+      'Лекции',
+      'Лекция',
+      'Тест',
+    ])
+  })
+
+  it('uses loaded entity names from the shared breadcrumb context', () => {
+    currentRoute = {
+      name: 'lecture-details',
+      params: {
+        lectureId: '9',
+      },
+      query: {
+        subjectId: '42',
+      },
+      meta: {
+        breadcrumbKey:
+          'lecture-details',
+      },
+    }
+
+    const breadcrumbContext =
+      createBreadcrumbContextStore()
+
+    breadcrumbContext.remember({
+      subjectId: 42,
+      subjectName: 'Программирование',
+      lectureId: 9,
+      lectureTitle: 'ООП',
+    })
+
+    const wrapper = mountBreadcrumb(
+      breadcrumbContext
+    )
+
+    expect(
+      wrapper
+        .findAll('.app-breadcrumb__item')
+        .map((item) => item.text())
+    ).toEqual([
+      'Предметы',
+      'Программирование',
+      'Лекции',
+      'ООП',
+    ])
+  })
+
+  it('keeps remembered parent names when the test page adds its own title', () => {
+    currentRoute = {
+      name: 'test',
+      params: {
+        testId: '17',
+      },
+      query: {
+        subjectId: '42',
+        lectureId: '9',
+      },
+      meta: {
+        breadcrumbKey: 'test',
+      },
+    }
+
+    const breadcrumbContext =
+      createBreadcrumbContextStore()
+
+    breadcrumbContext.remember({
+      subjectId: 42,
+      subjectName: 'Программирование',
+      lectureId: 9,
+      lectureTitle: 'ООП',
+    })
+
+    breadcrumbContext.remember({
+      subjectId: 42,
+      lectureId: 9,
+      testId: 17,
+      testTitle: 'Наследование',
+    })
+
+    const wrapper = mountBreadcrumb(
+      breadcrumbContext
+    )
+
+    expect(
+      wrapper
+        .findAll('.app-breadcrumb__item')
+        .map((item) => item.text())
+    ).toEqual([
+      'Предметы',
+      'Программирование',
+      'Лекции',
+      'ООП',
+      'Наследование',
+    ])
+  })
+
+  it('renders a deterministic desktop back control to the parent breadcrumb route', () => {
+    currentRoute = {
+      name: 'lecture-details',
+      params: {
+        lectureId: '9',
+      },
+      query: {
+        subjectId: '42',
+        facultyId: '3',
+      },
+      meta: {
+        breadcrumbKey: 'lecture-details',
+      },
+    }
+
+    const wrapper = mountBreadcrumb()
+    const back = wrapper.find('.app-breadcrumb__back')
+
+    expect(back.exists()).toBe(true)
+    expect(back.attributes('aria-label')).toBe('Назад: Лекции')
+
+    const links = wrapper.findAllComponents({
+      name: 'RouterLink',
+    })
+
+    expect(links[0].props('to')).toEqual({
+      name: 'subject-lectures',
+      params: {
+        subjectId: '42',
+      },
+      query: {
+        facultyId: '3',
+      },
+    })
+  })
+
+})

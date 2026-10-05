@@ -1,0 +1,13 @@
+/*
+ * Student Testing local font sources.
+ *
+ * The Manrope variable font file is stored in public/fonts so Vite serves it
+ * from /fonts/... without bundling or rewriting the URL.
+ */
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/Manrope-VariableFont_wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}

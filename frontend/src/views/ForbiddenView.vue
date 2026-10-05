@@ -1,0 +1,245 @@
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+import {
+  UiButton,
+  UiCard,
+} from '@/components/ui'
+
+const route = useRoute()
+const authStore = useAuthStore()
+
+const attemptedPath = computed(() => {
+  return typeof route.query.from === 'string'
+    ? route.query.from
+    : ''
+})
+
+const roleLabels = {
+  ADMIN: 'Администратор',
+  TEACHER: 'Преподаватель',
+  STUDENT: 'Студент',
+}
+
+const currentRoles = computed(() => {
+  return authStore.roles
+    .map((role) => {
+      if (typeof role === 'string') {
+        return roleLabels[role] ?? role
+      }
+
+      const value =
+        role?.name ??
+        role?.code ??
+        role?.authority ??
+        ''
+
+      return roleLabels[value] ?? value
+    })
+    .filter(Boolean)
+})
+</script>
+
+<template>
+  <section class="error-page">
+    <UiCard class="error-card">
+      <div class="error-code error-code--forbidden">
+        403
+      </div>
+
+      <h1 class="error-title">
+        Доступ запрещён
+      </h1>
+
+      <p class="error-description">
+        У вашей учётной записи недостаточно прав
+        для просмотра этой страницы.
+      </p>
+
+      <div
+        v-if="currentRoles.length"
+        class="error-meta"
+      >
+        <span class="error-meta__label">
+          Ваши роли:
+        </span>
+
+        <span class="error-meta__value">
+          {{ currentRoles.join(', ') }}
+        </span>
+      </div>
+
+      <div
+        v-if="attemptedPath"
+        class="error-meta"
+      >
+        <span class="error-meta__label">
+          Запрошенный адрес:
+        </span>
+
+        <code class="error-meta__value">
+          {{ attemptedPath }}
+        </code>
+      </div>
+
+      <div class="error-actions">
+        <UiButton
+          variant="primary"
+          :to="{ name: 'home' }"
+        >
+          На главную
+        </UiButton>
+
+        <UiButton
+          :to="{ name: 'profile' }"
+        >
+          Профиль
+        </UiButton>
+      </div>
+    </UiCard>
+  </section>
+</template>
+
+<style scoped>
+.error-page {
+  min-height: calc(100vh - 160px);
+
+  display: grid;
+  place-items: center;
+
+  padding: 32px 20px;
+}
+
+.error-card {
+  width: min(100%, 600px);
+
+  padding: 36px;
+
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+
+  text-align: center;
+
+  color:
+    var(--st-text);
+
+  background:
+    var(--st-surface);
+
+  border: 1px solid
+    var(--st-border);
+
+  border-radius: 16px;
+
+  box-shadow:
+    var(--st-shadow-elevated);
+}
+
+.error-card :deep(.ui-card__content) {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+
+  text-align: center;
+}
+
+.error-code {
+  font-size: clamp(64px, 14vw, 110px);
+  font-weight: var(--st-font-weight-bold);
+  line-height: 0.9;
+
+  letter-spacing: -0.05em;
+}
+
+.error-code--forbidden {
+  color:
+    var(--st-danger);
+}
+
+.error-title {
+  margin: 0;
+
+  font-size: clamp(24px, 5vw, 34px);
+  line-height: 1.15;
+}
+
+.error-description {
+  max-width: 450px;
+
+  margin: 0;
+
+  color:
+    var(--st-text-secondary);
+
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.error-meta {
+  width: 100%;
+
+  padding: 10px 12px;
+
+  display: grid;
+  gap: 4px;
+
+  text-align: left;
+
+  background:
+    var(--st-surface-muted);
+
+  border: 1px solid
+    var(--st-border);
+
+  border-radius: 9px;
+}
+
+.error-meta__label {
+  color:
+    var(--st-text-secondary);
+
+  font-size: 12px;
+}
+
+.error-meta__value {
+  color:
+    var(--st-text);
+
+  font-size: 13px;
+  font-weight: var(--st-font-weight-semibold);
+
+  overflow-wrap: anywhere;
+}
+
+.error-actions {
+  margin-top: 4px;
+
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+
+@media (max-width: 520px) {
+  .error-page {
+    min-height: calc(100vh - 140px);
+    padding: 20px 14px;
+  }
+
+  .error-card {
+    padding: 28px 20px;
+  }
+
+  .error-actions {
+    width: 100%;
+  }
+
+  .error-actions :deep(.ui-button) {
+    width: 100%;
+  }
+}
+</style>

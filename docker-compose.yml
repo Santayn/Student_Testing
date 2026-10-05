@@ -5,13 +5,11 @@ services:
     image: postgres:16-alpine
     container_name: student-test-postgres
     environment:
-      POSTGRES_DB: student_test
-      POSTGRES_USER: student_test
-      POSTGRES_PASSWORD: student_test_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-student_test}
+      POSTGRES_USER: ${POSTGRES_USER:-student_test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U student_test -d student_test"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-student_test} -d ${POSTGRES_DB:-student_test}"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -20,29 +18,56 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    image: student-test-app:latest
-    container_name: student-test-app
+    image: student-test-backend:latest
+    container_name: student-test-backend
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/student_test
-      SPRING_DATASOURCE_USERNAME: student_test
-      SPRING_DATASOURCE_PASSWORD: student_test_password
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-student_test}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-student_test}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
-      SPRING_SQL_INIT_MODE: always
-      APP_DATA_LOADER_ENABLED: "true"
-      SERVER_PORT: 8081
+      SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
+      APP_DATA_LOADER_ENABLED: ${APP_DATA_LOADER_ENABLED:-true}
+      APP_PUBLIC_REGISTRATION_ENABLED: ${APP_PUBLIC_REGISTRATION_ENABLED:-false}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?Set APP_JWT_SECRET in .env (at least 32 characters)}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:[*],http://127.0.0.1:[*]}
+      SERVER_PORT: 8080
       APP_STORAGE_LECTURE_MATERIALS_DIR: /app/uploads/lecture-materials
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "8081:8081"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     volumes:
       - lecture-uploads:/app/uploads/lecture-materials
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_PUBLIC_REGISTRATION_ENABLED: ${APP_PUBLIC_REGISTRATION_ENABLED:-false}
+        VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-15000}
+        VITE_SUBMIT_TIMEOUT_MS: ${VITE_SUBMIT_TIMEOUT_MS:-180000}
+        VITE_FILE_TRANSFER_TIMEOUT_MS: ${VITE_FILE_TRANSFER_TIMEOUT_MS:-0}
+    image: student-test-frontend:latest
+    container_name: student-test-frontend
+    environment:
+      BACKEND_HOST: backend
+      BACKEND_PORT: "8080"
+      PROXY_SEND_TIMEOUT: ${FRONTEND_PROXY_SEND_TIMEOUT:-300s}
+      PROXY_READ_TIMEOUT: ${FRONTEND_PROXY_READ_TIMEOUT:-300s}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
     restart: unless-stopped
 
 volumes:

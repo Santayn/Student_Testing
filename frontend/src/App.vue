@@ -1,0 +1,210 @@
+<script setup>
+import {
+  computed,
+  nextTick,
+  ref,
+  watch,
+} from 'vue'
+import { useRoute } from 'vue-router'
+
+import AppHeader from '@/components/layout/AppHeader.vue'
+import AppSidebar from '@/components/layout/AppSidebar.vue'
+import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
+import AppFooter from '@/components/layout/AppFooter.vue'
+
+import {
+  provideBreadcrumbContext,
+} from '@/navigation'
+import {
+  getDocumentTitle,
+} from '@/router/pageMetadata'
+import {
+  focusRouteContent,
+} from '@/utils/focusRouteContent'
+
+const route = useRoute()
+const appMain = ref(null)
+
+provideBreadcrumbContext()
+
+const showSidebar = computed(() => {
+  return Boolean(route.meta.navKey)
+})
+
+const routeContentKey = computed(() => {
+  return String(
+    route.name ??
+    route.path ??
+    'route-content'
+  )
+})
+
+watch(
+  () => route.name,
+  (routeName) => {
+    document.title =
+      getDocumentTitle(routeName)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => route.fullPath,
+  async (currentPath, previousPath) => {
+    if (
+      !previousPath ||
+      currentPath === previousPath
+    ) {
+      return
+    }
+
+    await nextTick()
+
+    focusRouteContent(
+      appMain.value
+    )
+  },
+  { flush: 'post' }
+)
+</script>
+
+<template>
+  <div class="app-shell">
+    <AppHeader />
+
+    <div
+      class="app-body"
+      :class="{
+        'app-body--with-sidebar': showSidebar,
+      }"
+    >
+      <AppSidebar v-if="showSidebar" />
+
+      <main
+        ref="appMain"
+        class="app-main"
+        tabindex="-1"
+      >
+        <AppBreadcrumb />
+
+        <div
+          :key="routeContentKey"
+          class="app-route-content"
+        >
+          <RouterView />
+        </div>
+      </main>
+    </div>
+
+    <AppFooter />
+  </div>
+</template>
+
+<style>
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+
+  background:
+    var(--st-page-bg);
+
+  color:
+    var(--st-text);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.app-shell {
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  color: var(--st-text);
+  background: var(--st-page-bg);
+}
+
+.app-body {
+  width: min(100%, 1180px);
+
+  margin: 0 auto;
+  padding: 20px;
+
+  flex: 1;
+
+  display: block;
+}
+
+.app-body--with-sidebar {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.app-main {
+  min-width: 0;
+  width: 100%;
+  flex: 1;
+
+  color: var(--st-text);
+  background: transparent;
+}
+
+.app-route-content {
+  animation:
+    app-route-content-reveal
+    var(--st-motion-normal)
+    var(--st-ease-standard)
+    both;
+}
+
+@keyframes app-route-content-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-main:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-route-content {
+    animation: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .app-body,
+  .app-body--with-sidebar {
+    width: 100%;
+
+    padding: 0;
+
+    display: block;
+  }
+
+  .app-main {
+    padding: 16px;
+  }
+}
+</style>

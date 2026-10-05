@@ -1,0 +1,53 @@
+import http from './http'
+
+export const membershipsApi = {
+  getGroupMemberships(params = {}, config = {}) {
+    return http.get(
+      '/memberships/groups',
+      { ...config, params }
+    )
+  },
+
+  addPersonToGroup(groupId, data) {
+    return http.post(`/memberships/groups/${groupId}`, data)
+  },
+
+  updateGroupMembershipStatus(membershipId, data) {
+    return http.put(
+      `/memberships/groups/memberships/${membershipId}/status`,
+      data
+    )
+  },
+
+  getSubjectMemberships(params = {}, config = {}) {
+    return http.get(
+      '/memberships/subjects',
+      { ...config, params }
+    )
+  },
+
+  getSubjectMembership(membershipId, config = {}) {
+    return http.get(
+      `/memberships/subjects/memberships/${membershipId}`,
+      config
+    )
+  },
+
+  addPersonToSubject(subjectId, data) {
+    return http.post(`/memberships/subjects/${subjectId}`, data)
+  },
+
+  updateSubjectMembershipStatus(membershipId, data) {
+    return http.put(
+      `/memberships/subjects/memberships/${membershipId}/status`,
+      data
+    )
+  },
+
+  updateSubjectMembership(membershipId, data) {
+    return http.put(
+      `/memberships/subjects/memberships/${membershipId}`,
+      data
+    )
+  },
+}

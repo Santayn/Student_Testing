@@ -1,0 +1,664 @@
+<script setup>
+import {
+  computed,
+  onMounted,
+  ref,
+} from 'vue'
+
+import AdminNotice from '@/components/admin/AdminNotice.vue'
+import AdminPageShell from '@/components/admin/AdminPageShell.vue'
+
+import {
+  UiActionMenu,
+  UiAlert,
+  UiButton,
+  UiCard,
+  UiDialog,
+  UiEmptyState,
+  UiLoadingState,
+  UiFilterBar,
+  UiInput,
+  UiSelect,
+  UiTextarea,
+  UiUnsavedChangesConfirm,
+  useOverlayForm,
+} from '@/components/ui'
+
+import {
+  API_ERROR_CODES,
+  subjectsApi,
+} from '@/api'
+
+import {
+  apiFieldError,
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
+
+import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
+import {
+  useAdminSubjectsData,
+} from '@/composables/admin/subjects/useAdminSubjectsData'
+
+const {
+  descriptionOptions,
+  sortOptions,
+  subjects,
+  loading,
+  notice,
+  searchQuery,
+  descriptionFilter,
+  sortMode,
+  hasActiveFilters,
+  filteredSubjects,
+  filterResultText,
+  showNotice,
+  clearNotice,
+  resetFilters,
+  loadSubjects,
+} = useAdminSubjectsData()
+
+const formError = ref('')
+const formFieldErrors = ref({})
+const subjectFormElement = ref(null)
+
+const deleteTarget = ref(null)
+const deleteConfirmVisible = ref(false)
+const deletingId = ref(null)
+const deleteError = ref('')
+
+const {
+  form,
+  model: subjectDialogModel,
+  isCreate,
+  saving,
+  confirmCloseVisible,
+  openCreate,
+  openEdit,
+  requestClose,
+  discardAndClose,
+  continueEditing,
+  beginSaving,
+  finishSaving,
+  failSaving,
+} = useOverlayForm({
+  createDefault: () => ({
+    id: null,
+    name: '',
+    description: '',
+  }),
+  mapEntity: (subject) => ({
+    id: subject?.id ?? null,
+    name: subject?.name ?? '',
+    description: subject?.description ?? '',
+  }),
+})
+
+const subjectDialogTitle = computed(() => {
+  return isCreate.value
+    ? 'Новый предмет'
+    : 'Редактирование предмета'
+})
+
+const canSubmit = computed(() => {
+  return !subjectFormValidationMessage() && !saving.value
+})
+
+function subjectActionItems(subject) {
+  return [
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => openEditSubject(subject),
+    },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => requestDeleteSubject(subject),
+    },
+  ]
+}
+
+function openCreateSubject() {
+  formError.value = ''
+  formFieldErrors.value = {}
+  openCreate()
+}
+
+function openEditSubject(subject) {
+  formError.value = ''
+  formFieldErrors.value = {}
+  openEdit(subject)
+}
+
+function requestDeleteSubject(subject) {
+  deleteTarget.value = subject
+  deleteError.value = ''
+  deleteConfirmVisible.value = true
+}
+
+function closeDeleteDialog() {
+  if (deletingId.value !== null) {
+    return
+  }
+
+  deleteConfirmVisible.value = false
+  deleteTarget.value = null
+  deleteError.value = ''
+}
+
+function subjectFormValidationMessage() {
+  const name = String(form.name ?? '').trim()
+  const description = String(
+    form.description ?? ''
+  ).trim()
+
+  if (!name) {
+    return { field: 'name', message: 'Введите название предмета.' }
+  }
+
+  if (name.length > 200) {
+    return { field: 'name', message: 'Название предмета не может быть длиннее 200 символов.' }
+  }
+
+  if (description.length > 1000) {
+    return { field: 'description', message: 'Описание предмета не может быть длиннее 1000 символов.' }
+  }
+
+  const normalizedName = name.toLocaleLowerCase('ru-RU')
+  const duplicate = subjects.value.find((subject) => {
+    return String(subject.name ?? '')
+      .trim()
+      .toLocaleLowerCase('ru-RU') === normalizedName &&
+      String(subject.id) !== String(form.id ?? '')
+  })
+
+  if (duplicate) {
+    return { field: 'name', message: `Предмет «${name}» уже существует.` }
+  }
+
+  return null
+}
+
+async function saveSubject() {
+  if (saving.value) {
+    return
+  }
+
+  const validation = subjectFormValidationMessage()
+
+  if (validation) {
+    setFormFieldError(
+      formFieldErrors,
+      formError,
+      validation.field,
+      validation.message
+    )
+
+    await focusFirstInvalidField(
+      subjectFormElement.value
+    )
+    return
+  }
+
+  beginSaving()
+  formError.value = ''
+  formFieldErrors.value = {}
+  clearNotice()
+
+  const payload = {
+    name: String(form.name).trim(),
+    description:
+      String(form.description ?? '').trim() || null,
+  }
+
+  try {
+    const editingId = form.id
+
+    if (editingId) {
+      await subjectsApi.update(
+        editingId,
+        payload
+      )
+    } else {
+      await subjectsApi.create(payload)
+    }
+
+    await loadSubjects()
+    finishSaving({ close: true })
+
+    showNotice(
+      'success',
+      editingId
+        ? 'Предмет обновлён.'
+        : 'Предмет создан.'
+    )
+  } catch (error) {
+    const presentation = presentApiError(
+      error,
+      {
+        context: 'form',
+        fallback: 'Не удалось сохранить предмет',
+        forbiddenMessage:
+          'Недостаточно прав для сохранения изменений.',
+      }
+    )
+
+    formFieldErrors.value =
+      presentation.fieldErrors
+
+    formError.value =
+      presentation.channel === 'field'
+        ? FORM_FIELD_ERROR_SUMMARY
+        : presentation.message
+    failSaving()
+
+    if (
+      presentation.channel === 'field'
+    ) {
+      await focusFirstInvalidField(
+        subjectFormElement.value
+      )
+    }
+  }
+}
+
+async function deleteSubject() {
+  const subject = deleteTarget.value
+
+  if (!subject || deletingId.value !== null) {
+    return
+  }
+
+  deletingId.value = subject.id
+  deleteError.value = ''
+  clearNotice()
+
+  try {
+    await subjectsApi.remove(subject.id)
+    await loadSubjects()
+
+    deleteConfirmVisible.value = false
+    deleteTarget.value = null
+
+    showNotice(
+      'success',
+      'Предмет удалён.'
+    )
+  } catch (error) {
+    deleteError.value = presentApiError(
+      error,
+      {
+        context: 'delete',
+        fallback: 'Не удалось удалить предмет',
+        codeMessages: {
+          [API_ERROR_CODES.SUBJECT_HAS_DEPENDENCIES]:
+            'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.',
+        },
+        conflictMessage:
+          'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.',
+        forbiddenMessage:
+          'Недостаточно прав для удаления предмета.',
+        notFoundMessage:
+          'Предмет уже удалён или больше недоступен.',
+      }
+    ).message
+  } finally {
+    deletingId.value = null
+  }
+}
+
+onMounted(loadSubjects)
+</script>
+
+<template>
+  <AdminPageShell
+    title="Предметы"
+    description="Управляйте справочником предметов и их описаниями."
+  >
+    <template #actions>
+      <UiButton
+        variant="secondary"
+        size="sm"
+        icon="pi pi-refresh"
+        label="Обновить"
+        :loading="loading"
+        loading-text="Обновление..."
+        @click="loadSubjects"
+      />
+    </template>
+
+    <AdminNotice
+      :type="notice.type"
+      :message="notice.message"
+      @close="clearNotice"
+    />
+
+    <UiCard
+      title="Справочник предметов"
+      description="Поиск выполняется по названию и описанию. Привязка предметов к факультетам управляется в отдельном разделе."
+    >
+      <div class="admin-subjects-workspace">
+        <UiFilterBar
+          v-model="searchQuery"
+          search-placeholder="Название или описание"
+          :result-text="filterResultText"
+          :reset-disabled="!hasActiveFilters"
+          @reset="resetFilters"
+        >
+          <template #filters>
+            <UiSelect
+              v-model="descriptionFilter"
+              label="Описание"
+              :options="descriptionOptions"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="sortMode"
+              label="Сортировка"
+              :options="sortOptions"
+              size="sm"
+            />
+          </template>
+
+          <template #actions>
+            <UiButton
+              variant="primary"
+              size="sm"
+              icon="pi pi-plus"
+              label="Добавить предмет"
+              @click="openCreateSubject"
+            />
+          </template>
+        </UiFilterBar>
+
+        <UiLoadingState
+          v-if="loading"
+          compact
+          label="Загрузка предметов..."
+        />
+
+        <UiEmptyState
+          v-else-if="!subjects.length"
+          description="Предметы ещё не созданы. Добавьте первый предмет кнопкой выше."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!filteredSubjects.length"
+          description="По текущему поиску и фильтрам предметы не найдены."
+          compact
+        >
+          <template #actions>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              label="Сбросить фильтры"
+              @click="resetFilters"
+            />
+          </template>
+        </UiEmptyState>
+
+        <div
+          v-else
+          class="admin-subject-grid"
+        >
+          <article
+            v-for="subject in filteredSubjects"
+            :key="subject.id"
+            class="admin-subject-card"
+          >
+            <div class="admin-subject-card__heading">
+              <span class="admin-subject-card__eyebrow">
+                Учебный предмет
+              </span>
+
+              <h2 class="admin-subject-card__title">
+                {{ subject.name }}
+              </h2>
+            </div>
+
+            <p class="admin-subject-card__description">
+              {{ subject.description || 'Описание пока не добавлено.' }}
+            </p>
+
+            <div class="admin-subject-card__actions">
+              <UiActionMenu
+                :items="subjectActionItems(subject)"
+                :aria-label="`Действия: ${subject.name}`"
+              />
+            </div>
+          </article>
+        </div>
+      </div>
+    </UiCard>
+
+    <UiDialog
+      v-model="subjectDialogModel"
+      :title="subjectDialogTitle"
+      width="38rem"
+      :dismissable-mask="false"
+    >
+      <form
+        ref="subjectFormElement"
+        class="admin-subject-form"
+        @submit.prevent="saveSubject"
+      >
+        <UiAlert
+          v-if="formError"
+          variant="danger"
+          :message="formError"
+        />
+
+        <UiInput
+          v-model="form.name"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'name')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
+          label="Название предмета"
+          maxlength="200"
+          :disabled="saving"
+          required
+        />
+
+        <UiTextarea
+          v-model="form.description"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'description')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
+          label="Описание"
+          maxlength="1000"
+          :rows="6"
+          auto-resize
+          :disabled="saving"
+        />
+
+        <div class="admin-subject-form__actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="saving"
+            @click="requestClose"
+          />
+
+          <UiButton
+            type="submit"
+            variant="primary"
+            :label="isCreate ? 'Создать предмет' : 'Сохранить изменения'"
+            :loading="saving"
+            loading-text="Сохранение..."
+            :disabled="!canSubmit"
+          />
+        </div>
+      </form>
+    </UiDialog>
+
+    <UiUnsavedChangesConfirm
+      v-model="confirmCloseVisible"
+      :busy="saving"
+      @continue="continueEditing"
+      @discard="discardAndClose"
+    />
+
+    <UiDialog
+      v-model="deleteConfirmVisible"
+      title="Удалить предмет?"
+      width="31rem"
+      :closable="deletingId === null"
+      :close-on-escape="deletingId === null"
+      :dismissable-mask="false"
+    >
+      <div class="admin-subject-delete">
+        <UiAlert
+          v-if="deleteError"
+          variant="danger"
+          :message="deleteError"
+        />
+
+        <p>
+          Предмет
+          <strong>«{{ deleteTarget?.name }}»</strong>
+          будет удалён. Если удалить его нельзя из-за связанных факультетов, преподавателей, лекций, тестов или других данных, причина останется в этом окне.
+        </p>
+      </div>
+
+      <template #footer>
+        <div class="admin-subject-delete__actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="deletingId !== null"
+            @click="closeDeleteDialog"
+          />
+
+          <UiButton
+            variant="danger"
+            label="Удалить предмет"
+            :loading="deletingId !== null"
+            loading-text="Удаление..."
+            @click="deleteSubject"
+          />
+        </div>
+      </template>
+    </UiDialog>
+  </AdminPageShell>
+</template>
+
+<style scoped>
+.admin-subjects-workspace,
+.admin-subject-form,
+.admin-subject-delete {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-subject-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+
+.admin-subject-card {
+  min-width: 0;
+  padding: 15px;
+
+  display: grid;
+  align-content: start;
+  gap: 13px;
+
+  color: var(--st-text);
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+}
+
+.admin-subject-card__heading {
+  min-width: 0;
+
+  display: grid;
+  gap: 6px;
+}
+
+.admin-subject-card__eyebrow {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+
+  color: var(--st-primary);
+  background: var(--st-primary-soft);
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: var(--st-font-weight-bold);
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+}
+
+.admin-subject-card__title {
+  margin: 0;
+
+  font-size: 18px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.admin-subject-card__description {
+  margin: 0;
+
+  color: var(--st-text-secondary);
+
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.admin-subject-card__actions,
+.admin-subject-form__actions,
+.admin-subject-delete__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-subject-card__actions {
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+.admin-subject-delete p {
+  margin: 0;
+
+  color: var(--st-text-secondary);
+
+  font-size: 14px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.admin-subject-delete strong {
+  color: var(--st-text);
+}
+
+@media (max-width: 640px) {
+  .admin-subject-card__actions,
+  .admin-subject-form__actions,
+  .admin-subject-delete__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-subject-card__actions > *,
+  .admin-subject-form__actions > *,
+  .admin-subject-delete__actions > * {
+    width: 100%;
+  }
+}
+</style>

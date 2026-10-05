@@ -1,0 +1,148 @@
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+import PrimeVue from 'primevue/config'
+import ToastService from 'primevue/toastservice'
+
+import StudentTestingPreset from '@/theme/studentTestingPreset'
+
+import AppRoot from './AppRoot.vue'
+import '@/assets/tailwind.css'
+import '@/theme/fonts.css'
+import '@/theme/tokens.css'
+import '@/theme/base.css'
+import '@/theme/foundation.css'
+import '@/theme/lecture-content.css'
+import 'primeicons/primeicons.css'
+
+import router from './router'
+
+import {
+  configureHttpAuth,
+} from '@/api'
+
+import {
+  useAuthStore,
+} from '@/stores/auth'
+
+import {
+  useThemeStore,
+} from '@/stores/theme'
+
+import {
+  renderBootstrapFailure,
+} from '@/utils/bootstrapFailure'
+
+async function bootstrap() {
+  const app = createApp(AppRoot)
+
+  const pinia = createPinia()
+
+  pinia.use(
+    piniaPluginPersistedstate
+  )
+
+  app.use(pinia)
+
+  app.use(PrimeVue, {
+    ripple: true,
+
+    theme: {
+      preset:
+        StudentTestingPreset,
+
+      options: {
+        darkModeSelector:
+          '.app-dark',
+
+        cssLayer: {
+          name: 'primevue',
+          order:
+            'theme, primevue, utilities',
+        },
+      },
+    },
+  })
+
+  app.use(ToastService)
+
+  const themeStore =
+    useThemeStore()
+
+  themeStore.init()
+
+  const authStore =
+    useAuthStore()
+
+  let routerReady = false
+
+  configureHttpAuth({
+    getAccessToken:
+      () =>
+        authStore.accessToken,
+
+    getSessionEpoch:
+      () =>
+        authStore.sessionEpoch,
+
+    ensureAccessToken:
+      () =>
+        authStore.ensureAccessToken(),
+
+    refreshSession:
+      () =>
+        authStore.refreshSession(),
+
+    onSessionInvalid:
+      () => {
+        authStore.clearSession()
+
+        /*
+         * Во время первоначального init()
+         * Router ещё не запущен.
+         * После app.use(router) guard сам отправит
+         * пользователя на login.
+         */
+        if (!routerReady) {
+          return
+        }
+
+        const currentRoute =
+          router.currentRoute.value
+
+        if (
+          currentRoute.meta
+            .requiresAuth
+        ) {
+          router.replace({
+            name: 'login',
+
+            query: {
+              redirect:
+                currentRoute.fullPath,
+            },
+          })
+        }
+      },
+  })
+
+  /*
+   * Восстанавливаем persisted session:
+   *
+   * access жив -> /auth/me
+   * access истёк -> /auth/refresh -> /auth/me
+   */
+  await authStore.init()
+
+  app.use(router)
+
+  await router.isReady()
+
+  routerReady = true
+
+  app.mount('#app')
+}
+
+bootstrap().catch((error) => {
+  renderBootstrapFailure(error)
+})

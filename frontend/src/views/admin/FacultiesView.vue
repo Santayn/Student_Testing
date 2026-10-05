@@ -1,0 +1,688 @@
+<script setup>
+import {
+  computed,
+  onMounted,
+  ref,
+} from 'vue'
+
+import AdminNotice from '@/components/admin/AdminNotice.vue'
+import AdminPageShell from '@/components/admin/AdminPageShell.vue'
+
+import {
+  UiActionMenu,
+  UiAlert,
+  UiButton,
+  UiCard,
+  UiDialog,
+  UiEmptyState,
+  UiLoadingState,
+  UiFilterBar,
+  UiInput,
+  UiSelect,
+  UiTextarea,
+  UiUnsavedChangesConfirm,
+  useOverlayForm,
+} from '@/components/ui'
+
+import {
+  API_ERROR_CODES,
+  facultiesApi,
+} from '@/api'
+
+import {
+  apiFieldError,
+  presentApiError,
+} from '@/utils/apiErrorPresentation'
+
+import {
+  clearFormFieldError,
+  focusFirstInvalidField,
+  FORM_FIELD_ERROR_SUMMARY,
+  setFormFieldError,
+} from '@/utils/formErrorLifecycle'
+
+import {
+  useAdminFacultiesData,
+} from '@/composables/admin/faculties/useAdminFacultiesData'
+
+const {
+  descriptionOptions,
+  sortOptions,
+  faculties,
+  loading,
+  notice,
+  searchQuery,
+  descriptionFilter,
+  sortMode,
+  hasActiveFilters,
+  filteredFaculties,
+  filterResultText,
+  showNotice,
+  clearNotice,
+  resetFilters,
+  loadFaculties,
+} = useAdminFacultiesData()
+
+const formError = ref('')
+const formFieldErrors = ref({})
+const facultyFormElement = ref(null)
+
+const deleteTarget = ref(null)
+const deleteConfirmVisible = ref(false)
+const deletingId = ref(null)
+const deleteError = ref('')
+
+const {
+  form,
+  model: facultyDialogModel,
+  isCreate,
+  saving,
+  confirmCloseVisible,
+  openCreate,
+  openEdit,
+  requestClose,
+  discardAndClose,
+  continueEditing,
+  beginSaving,
+  finishSaving,
+  failSaving,
+} = useOverlayForm({
+  createDefault: () => ({
+    id: null,
+    name: '',
+    code: '',
+    description: '',
+  }),
+  mapEntity: (faculty) => ({
+    id: faculty?.id ?? null,
+    name: faculty?.name ?? '',
+    code: faculty?.code ?? '',
+    description: faculty?.description ?? '',
+  }),
+})
+
+const facultyDialogTitle = computed(() => {
+  return isCreate.value
+    ? 'Новый факультет'
+    : 'Редактирование факультета'
+})
+
+const canSubmit = computed(() => {
+  return !facultyFormValidationMessage() && !saving.value
+})
+
+function facultyActionItems(faculty) {
+  return [
+    {
+      label: 'Изменить',
+      icon: 'pi pi-pencil',
+      command: () => openEditFaculty(faculty),
+    },
+    {
+      label: 'Удалить',
+      icon: 'pi pi-trash',
+      danger: true,
+      command: () => requestDeleteFaculty(faculty),
+    },
+  ]
+}
+
+function openCreateFaculty() {
+  formError.value = ''
+  formFieldErrors.value = {}
+  openCreate()
+}
+
+function openEditFaculty(faculty) {
+  formError.value = ''
+  formFieldErrors.value = {}
+  openEdit(faculty)
+}
+
+function requestDeleteFaculty(faculty) {
+  deleteTarget.value = faculty
+  deleteError.value = ''
+  deleteConfirmVisible.value = true
+}
+
+function closeDeleteDialog() {
+  if (deletingId.value !== null) {
+    return
+  }
+
+  deleteConfirmVisible.value = false
+  deleteTarget.value = null
+  deleteError.value = ''
+}
+
+function facultyFormValidationMessage() {
+  const name = String(form.name ?? '').trim()
+  const code = String(form.code ?? '').trim()
+  const description = String(
+    form.description ?? ''
+  ).trim()
+
+  if (!name) {
+    return { field: 'name', message: 'Введите название факультета.' }
+  }
+
+  if (name.length > 200) {
+    return { field: 'name', message: 'Название факультета не может быть длиннее 200 символов.' }
+  }
+
+  if (!code) {
+    return { field: 'code', message: 'Введите код факультета.' }
+  }
+
+  if (code.length > 50) {
+    return { field: 'code', message: 'Код факультета не может быть длиннее 50 символов.' }
+  }
+
+  if (description.length > 1000) {
+    return { field: 'description', message: 'Описание факультета не может быть длиннее 1000 символов.' }
+  }
+
+  const normalizedCode = code.toLocaleLowerCase('ru-RU')
+  const duplicate = faculties.value.find((faculty) => {
+    return String(faculty.code ?? '')
+      .trim()
+      .toLocaleLowerCase('ru-RU') === normalizedCode &&
+      String(faculty.id) !== String(form.id ?? '')
+  })
+
+  if (duplicate) {
+    return { field: 'code', message: `Факультет с кодом «${code}» уже существует.` }
+  }
+
+  return null
+}
+
+async function saveFaculty() {
+  if (saving.value) {
+    return
+  }
+
+  const validation = facultyFormValidationMessage()
+
+  if (validation) {
+    setFormFieldError(
+      formFieldErrors,
+      formError,
+      validation.field,
+      validation.message
+    )
+
+    await focusFirstInvalidField(
+      facultyFormElement.value
+    )
+    return
+  }
+
+  beginSaving()
+  formError.value = ''
+  formFieldErrors.value = {}
+  clearNotice()
+
+  const payload = {
+    name: String(form.name).trim(),
+    code: String(form.code).trim(),
+    description:
+      String(form.description ?? '').trim() || null,
+  }
+
+  try {
+    const editingId = form.id
+
+    if (editingId) {
+      await facultiesApi.update(
+        editingId,
+        payload
+      )
+    } else {
+      await facultiesApi.create(payload)
+    }
+
+    await loadFaculties()
+    finishSaving({ close: true })
+
+    showNotice(
+      'success',
+      editingId
+        ? 'Факультет обновлён.'
+        : 'Факультет создан.'
+    )
+  } catch (error) {
+    const presentation = presentApiError(
+      error,
+      {
+        context: 'form',
+        fallback: 'Не удалось сохранить факультет',
+        forbiddenMessage:
+          'Недостаточно прав для сохранения изменений.',
+      }
+    )
+
+    formFieldErrors.value =
+      presentation.fieldErrors
+
+    formError.value =
+      presentation.channel === 'field'
+        ? FORM_FIELD_ERROR_SUMMARY
+        : presentation.message
+    failSaving()
+
+    if (
+      presentation.channel === 'field'
+    ) {
+      await focusFirstInvalidField(
+        facultyFormElement.value
+      )
+    }
+  }
+}
+
+async function deleteFaculty() {
+  const faculty = deleteTarget.value
+
+  if (!faculty || deletingId.value !== null) {
+    return
+  }
+
+  deletingId.value = faculty.id
+  deleteError.value = ''
+  clearNotice()
+
+  try {
+    await facultiesApi.remove(faculty.id)
+    await loadFaculties()
+
+    deleteConfirmVisible.value = false
+    deleteTarget.value = null
+
+    showNotice(
+      'success',
+      'Факультет удалён.'
+    )
+  } catch (error) {
+    deleteError.value = presentApiError(
+      error,
+      {
+        context: 'delete',
+        fallback: 'Не удалось удалить факультет',
+        codeMessages: {
+          [API_ERROR_CODES.FACULTY_HAS_DEPENDENCIES]:
+            'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.',
+        },
+        conflictMessage:
+          'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.',
+        forbiddenMessage:
+          'Недостаточно прав для удаления факультета.',
+        notFoundMessage:
+          'Факультет уже удалён или больше недоступен.',
+      }
+    ).message
+  } finally {
+    deletingId.value = null
+  }
+}
+
+onMounted(loadFaculties)
+</script>
+
+<template>
+  <AdminPageShell
+    title="Факультеты"
+    description="Управляйте факультетами и их основными данными."
+  >
+    <template #actions>
+      <UiButton
+        variant="secondary"
+        size="sm"
+        icon="pi pi-refresh"
+        label="Обновить"
+        :loading="loading"
+        loading-text="Обновление..."
+        @click="loadFaculties"
+      />
+    </template>
+
+    <AdminNotice
+      :type="notice.type"
+      :message="notice.message"
+      @close="clearNotice"
+    />
+
+    <UiCard
+      title="Список факультетов"
+      description="Поиск выполняется по названию, коду и описанию."
+    >
+      <div class="admin-faculties-workspace">
+        <UiFilterBar
+          v-model="searchQuery"
+          search-placeholder="Название, код или описание"
+          :result-text="filterResultText"
+          :reset-disabled="!hasActiveFilters"
+          @reset="resetFilters"
+        >
+          <template #filters>
+            <UiSelect
+              v-model="descriptionFilter"
+              label="Описание"
+              :options="descriptionOptions"
+              size="sm"
+            />
+
+            <UiSelect
+              v-model="sortMode"
+              label="Сортировка"
+              :options="sortOptions"
+              size="sm"
+            />
+          </template>
+
+          <template #actions>
+            <UiButton
+              variant="primary"
+              size="sm"
+              icon="pi pi-plus"
+              label="Добавить факультет"
+              @click="openCreateFaculty"
+            />
+          </template>
+        </UiFilterBar>
+
+        <UiLoadingState
+          v-if="loading"
+          compact
+          label="Загрузка факультетов..."
+        />
+
+        <UiEmptyState
+          v-else-if="!faculties.length"
+          description="Факультеты ещё не созданы. Добавьте первый факультет кнопкой выше."
+          compact
+        />
+
+        <UiEmptyState
+          v-else-if="!filteredFaculties.length"
+          description="По текущему поиску и фильтрам факультеты не найдены."
+          compact
+        >
+          <template #actions>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              label="Сбросить фильтры"
+              @click="resetFilters"
+            />
+          </template>
+        </UiEmptyState>
+
+        <div
+          v-else
+          class="admin-faculty-grid"
+        >
+          <article
+            v-for="faculty in filteredFaculties"
+            :key="faculty.id"
+            class="admin-faculty-card"
+          >
+            <div class="admin-faculty-card__heading">
+              <span class="admin-faculty-card__code">
+                {{ faculty.code }}
+              </span>
+
+              <h2 class="admin-faculty-card__title">
+                {{ faculty.name }}
+              </h2>
+            </div>
+
+            <p class="admin-faculty-card__description">
+              {{ faculty.description || 'Описание пока не добавлено.' }}
+            </p>
+
+            <div class="admin-faculty-card__actions">
+              <UiActionMenu
+                :items="facultyActionItems(faculty)"
+                :aria-label="`Действия: ${faculty.name}`"
+              />
+            </div>
+          </article>
+        </div>
+      </div>
+    </UiCard>
+
+    <UiDialog
+      v-model="facultyDialogModel"
+      :title="facultyDialogTitle"
+      width="38rem"
+      :dismissable-mask="false"
+    >
+      <form
+        ref="facultyFormElement"
+        class="admin-faculty-form"
+        @submit.prevent="saveFaculty"
+      >
+        <UiAlert
+          v-if="formError"
+          variant="danger"
+          :message="formError"
+        />
+
+        <UiInput
+          v-model="form.name"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'name')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'name')"
+          label="Название факультета"
+          maxlength="200"
+          :disabled="saving"
+          required
+        />
+
+        <UiInput
+          v-model="form.code"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'code')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'code')"
+          label="Код факультета"
+          hint="Код должен быть уникальным. Например: fit."
+          maxlength="50"
+          :disabled="saving"
+          required
+        />
+
+        <UiTextarea
+          v-model="form.description"
+          @update:model-value="clearFormFieldError(formFieldErrors, formError, 'description')"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'description')"
+          label="Описание"
+          maxlength="1000"
+          :rows="6"
+          auto-resize
+          :disabled="saving"
+        />
+
+        <div class="admin-faculty-form__actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="saving"
+            @click="requestClose"
+          />
+
+          <UiButton
+            type="submit"
+            variant="primary"
+            :label="isCreate ? 'Создать факультет' : 'Сохранить изменения'"
+            :loading="saving"
+            loading-text="Сохранение..."
+            :disabled="!canSubmit"
+          />
+        </div>
+      </form>
+    </UiDialog>
+
+    <UiUnsavedChangesConfirm
+      v-model="confirmCloseVisible"
+      :busy="saving"
+      @continue="continueEditing"
+      @discard="discardAndClose"
+    />
+
+    <UiDialog
+      v-model="deleteConfirmVisible"
+      title="Удалить факультет?"
+      width="31rem"
+      :closable="deletingId === null"
+      :close-on-escape="deletingId === null"
+      :dismissable-mask="false"
+    >
+      <div class="admin-faculty-delete">
+        <UiAlert
+          v-if="deleteError"
+          variant="danger"
+          :message="deleteError"
+        />
+
+        <p>
+          Факультет
+          <strong>«{{ deleteTarget?.name }}»</strong>
+          будет удалён. Если факультет нельзя удалить из-за связанных групп, предметов или других данных, причина останется в этом окне.
+        </p>
+      </div>
+
+      <template #footer>
+        <div class="admin-faculty-delete__actions">
+          <UiButton
+            variant="secondary"
+            label="Отмена"
+            :disabled="deletingId !== null"
+            @click="closeDeleteDialog"
+          />
+
+          <UiButton
+            variant="danger"
+            label="Удалить факультет"
+            :loading="deletingId !== null"
+            loading-text="Удаление..."
+            @click="deleteFaculty"
+          />
+        </div>
+      </template>
+    </UiDialog>
+  </AdminPageShell>
+</template>
+
+<style scoped>
+.admin-faculties-workspace,
+.admin-faculty-form,
+.admin-faculty-delete {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-faculty-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+
+.admin-faculty-card {
+  min-width: 0;
+  padding: 15px;
+
+  display: grid;
+  align-content: start;
+  gap: 13px;
+
+  color: var(--st-text);
+  background: var(--st-surface-muted);
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+}
+
+.admin-faculty-card__heading {
+  min-width: 0;
+
+  display: grid;
+  gap: 6px;
+}
+
+.admin-faculty-card__code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+
+  color: var(--st-primary);
+  background: var(--st-primary-soft);
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: var(--st-font-weight-bold);
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.admin-faculty-card__title {
+  margin: 0;
+
+  font-size: 18px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.admin-faculty-card__description {
+  margin: 0;
+
+  color: var(--st-text-secondary);
+
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.admin-faculty-card__actions,
+.admin-faculty-form__actions,
+.admin-faculty-delete__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-faculty-card__actions {
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+.admin-faculty-delete p {
+  margin: 0;
+
+  color: var(--st-text-secondary);
+
+  font-size: 14px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.admin-faculty-delete strong {
+  color: var(--st-text);
+}
+
+@media (max-width: 640px) {
+  .admin-faculty-card__actions,
+  .admin-faculty-form__actions,
+  .admin-faculty-delete__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-faculty-card__actions > *,
+  .admin-faculty-form__actions > *,
+  .admin-faculty-delete__actions > * {
+    width: 100%;
+  }
+}
+</style>

@@ -1,0 +1,61 @@
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+
+import componentSource from '@/views/admin/TeachingAssignmentsView.vue?raw'
+import mutationSource from '@/composables/admin/teaching-assignments/useAdminTeachingAssignmentMutations.js?raw'
+
+import {
+  isAssignableTeacherMembership,
+} from '@/utils/teacherMembershipEligibility'
+
+describe('admin workload membership eligibility', () => {
+  it('allows only active non-removed teacher memberships for new workload', () => {
+    expect(
+      isAssignableTeacherMembership({
+        id: 10,
+        role: 1,
+        status: 1,
+        removedAtUtc: null,
+      })
+    ).toBe(true)
+
+    expect(
+      isAssignableTeacherMembership({
+        id: 11,
+        role: 1,
+        status: 2,
+        removedAtUtc: null,
+      })
+    ).toBe(false)
+
+    expect(
+      isAssignableTeacherMembership({
+        id: 12,
+        role: 1,
+        status: 1,
+        removedAtUtc: '2026-09-20T10:00:00Z',
+      })
+    ).toBe(false)
+
+    expect(
+      isAssignableTeacherMembership({
+        id: 13,
+        role: 2,
+        status: 1,
+        removedAtUtc: null,
+      })
+    ).toBe(false)
+  })
+
+  it('rechecks the selected membership immediately before creating active workload', () => {
+    expect(componentSource).toContain('useAdminTeachingAssignmentMutations')
+    expect(mutationSource).toContain('currentAssignableMembershipIds(')
+    expect(mutationSource).toContain('revalidateAssignableTeacherMembershipIds')
+    expect(mutationSource).toContain('formSnapshot.subjectMembershipId')
+    expect(mutationSource).toContain('const formSnapshot = captureAssignmentForm()')
+    expect(mutationSource).toContain('Выбранное назначение преподавателя больше не активно')
+  })
+})

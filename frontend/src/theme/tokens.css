@@ -1,0 +1,174 @@
+/*
+ * Student Testing design system — Academic Navy.
+ *
+ * Single source of application color and layout tokens.
+ * Global document rules live in theme/base.css; components use --st-* tokens.
+ */
+:root,
+html[data-theme='light'] {
+  --st-font-sans:
+    "Manrope", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --st-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+
+  /* Fixed typography weights. Keep this contract intentionally small. */
+  --st-font-weight-regular: 400;
+  --st-font-weight-medium: 500;
+  --st-font-weight-semibold: 600;
+  --st-font-weight-bold: 700;
+
+  /* Typography */
+  --st-font-xs: 0.75rem;
+  --st-font-sm: 0.8125rem;
+  --st-font-md: 0.875rem;
+  --st-font-lg: 1rem;
+  --st-font-xl: 1.25rem;
+  --st-font-page-title: clamp(1.5rem, 3vw, 2rem);
+  --st-line-tight: 1.2;
+  --st-line-normal: 1.45;
+  --st-line-relaxed: 1.6;
+
+  /* Motion */
+  --st-motion-fast: 140ms;
+  --st-motion-normal: 180ms;
+  --st-motion-slow: 240ms;
+  --st-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --st-ease-emphasized: var(--st-ease-standard);
+
+  /* Brand */
+  --st-primary: #2563eb;
+  --st-primary-hover: #1d4ed8;
+  --st-primary-soft: #dbeafe;
+  --st-primary-soft-text: #1e40af;
+  --st-on-primary: #ffffff;
+
+  /* Shell */
+  --st-shell-bg: #0f172a;
+  --st-shell-elevated: #1e293b;
+  --st-shell-text: #f8fafc;
+  --st-shell-muted: #94a3b8;
+  --st-shell-border: #334155;
+  --st-shell-hover: #182338;
+  --st-shell-active: var(--st-shell-hover);
+
+  /* Workspace */
+  --st-page-bg: #f8fafc;
+  --st-surface: #ffffff;
+  --st-surface-muted: #f1f5f9;
+  --st-border: #e2e8f0;
+  --st-text: #0f172a;
+  --st-text-secondary: #64748b;
+  --st-text-muted: #64748b;
+  --st-text-subtle: #94a3b8;
+  --st-overlay-backdrop: rgb(15 23 42 / 46%);
+
+  /* Scrollbars */
+  --st-scrollbar-size: 8px;
+  --st-scrollbar-thumb: #cbd5e1;
+  --st-scrollbar-thumb-hover: #94a3b8;
+  --st-scrollbar-shell-thumb: #475569;
+  --st-scrollbar-shell-thumb-hover: #64748b;
+
+  /* Semantic */
+  --st-success: #16a34a;
+  --st-success-soft: #f0fdf4;
+  --st-success-text: #166534;
+  --st-warning: #d97706;
+  --st-warning-soft: #fffbeb;
+  --st-warning-text: #92400e;
+  --st-danger: #dc2626;
+  --st-danger-soft: #fef2f2;
+  --st-danger-text: #991b1b;
+  --st-info: #0284c7;
+  --st-info-soft: #f0f9ff;
+  --st-info-text: #075985;
+  --st-on-success: #ffffff;
+  --st-on-warning: #422006;
+  --st-on-danger: #ffffff;
+  --st-on-info: #ffffff;
+
+  /* Geometry */
+  --st-header-height: 64px;
+  --st-sidebar-width: 256px;
+  --st-sidebar-collapsed-width: 72px;
+  --st-control-height-sm: 34px;
+  --st-control-height: 40px;
+  --st-control-height-lg: 46px;
+  --st-table-row-height: 46px;
+
+  --st-radius-control: 8px;
+  --st-radius-card: 12px;
+  --st-radius-dialog: 16px;
+
+  /* Compatibility aliases used by the current showcase. */
+  --st-radius-sm: var(--st-radius-control);
+  --st-radius-md: 10px;
+  --st-radius-lg: var(--st-radius-card);
+  --st-radius-xl: var(--st-radius-dialog);
+
+  --st-space-page: 24px;
+  --st-space-page-lg: 32px;
+  --st-space-section: 24px;
+  --st-space-card: 20px;
+
+  --st-focus-shadow: 0 0 0 3px rgb(37 99 235 / 14%);
+  --st-shadow-card: 0 1px 2px rgb(15 23 42 / 5%);
+  --st-shadow-elevated: 0 10px 30px rgb(15 23 42 / 10%);
+
+  --st-content-width: 1280px;
+}
+
+html[data-theme='dark'] {
+  /* OLED-friendly dark palette: near-black surfaces, softened text and accents. */
+  --st-primary: #4a78cf;
+  --st-primary-hover: #5b86d6;
+  --st-primary-soft: #172238;
+  --st-primary-soft-text: #b8c9e8;
+  --st-on-primary: #eef2f7;
+
+  --st-shell-bg: #080a0d;
+  --st-shell-elevated: #0f1217;
+  --st-shell-text: #d7dbe0;
+  --st-shell-muted: #8e97a3;
+  --st-shell-border: #242a33;
+  --st-shell-hover: #151a20;
+  --st-shell-active: #1a2028;
+
+  --st-page-bg: #0b0d10;
+  --st-surface: #111419;
+  --st-surface-muted: #181c22;
+  --st-border: #2a3038;
+  --st-text: #d7dbe0;
+  --st-text-secondary: #aab1bb;
+  --st-text-muted: #8e97a3;
+  --st-text-subtle: #78818d;
+  --st-overlay-backdrop: rgb(0 0 0 / 68%);
+
+  --st-scrollbar-thumb: #3a424d;
+  --st-scrollbar-thumb-hover: #596474;
+  --st-scrollbar-shell-thumb: #343c47;
+  --st-scrollbar-shell-thumb-hover: #566171;
+
+  --st-success: #4fa56f;
+  --st-success-soft: #102319;
+  --st-success-text: #9dcfaf;
+  --st-warning: #c39a52;
+  --st-warning-soft: #2a2113;
+  --st-warning-text: #dbc28d;
+  --st-danger: #c86565;
+  --st-danger-soft: #2a1718;
+  --st-danger-text: #dda0a0;
+  --st-info: #5a9bc2;
+  --st-info-soft: #102430;
+  --st-info-text: #9bc5dc;
+  --st-on-success: #edf4ef;
+  --st-on-warning: #f2e5cb;
+  --st-on-danger: #f5eded;
+  --st-on-info: #edf3f7;
+
+  --st-focus-shadow: 0 0 0 3px rgb(74 120 207 / 22%);
+  --st-shadow-card: 0 1px 2px rgb(0 0 0 / 30%);
+  --st-shadow-elevated: 0 12px 32px rgb(0 0 0 / 42%);
+}
