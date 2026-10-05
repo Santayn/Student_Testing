@@ -14,13 +14,30 @@
 
 Архитектура frontend/backend, модель данных, безопасность, предметные домены, жизненный цикл запросов, файловое хранилище, runtime и технические ограничения.
 
-## План следующих разделов
+## [Развёртывание](./deployment/README.md)
 
-После Technical документация будет последовательно дополнена разделами:
+Системные требования, Docker Compose, быстрый запуск, переменные окружения, первый старт, volumes, healthchecks, обновление и ограничения production-развёртывания.
 
-1. `deployment/` — установка, конфигурация и развёртывание;
-2. `api/` — контракт frontend/backend;
-3. `testing/` — стратегия тестирования и регрессионные проверки;
-4. `development/` — руководство разработчика;
-5. `administration/` — эксплуатация и обслуживание;
-6. `reference/` — справочные материалы, статусы и термины.
+## [REST API](./api/README.md)
+
+Полный контракт frontend/backend: endpoint'ы, auth/security, request/response conventions, student learning API, ошибки, файлы и OpenAPI.
+
+## [Тестирование](./testing/README.md)
+
+Frontend/backend test strategy, quality gates, security/concurrency regression, API smoke, pre-release checklist, CI/E2E roadmap и текущие ограничения покрытия.
+
+## [Разработка](./development/README.md)
+
+Руководство разработчика: структура репозитория, backend/frontend conventions, добавление endpoint'ов и страниц, database/security changes, quality gates, contribution workflow и review checklist.
+
+## [Эксплуатация и администрирование](./administration/README.md)
+
+Поддержка работающей системы: запуск/health/logs, административный доступ, сессии, backup/restore, volumes, обновление, rollback и disaster recovery.
+
+## [Справочник](./reference/README.md)
+
+Быстрые таблицы терминов, ролей, permissions, статусов, кодов, сущностей, ошибок, лимитов, env-переменных, портов и инфраструктурных значений.
+
+## Комплект документации
+
+Основной план документации проекта завершён: описание продукта, руководство пользователя, техническая документация, развёртывание, API, тестирование, разработка, эксплуатация и справочные материалы находятся под единым `docs/`.
