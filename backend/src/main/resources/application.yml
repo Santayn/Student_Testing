@@ -35,6 +35,11 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:[*],http://127.0.0.1:[*]}
   storage:
     lecture-materials-dir: ${APP_STORAGE_LECTURE_MATERIALS_DIR:uploads/lecture-materials}
+  database-backup:
+    pg-dump-path: ${APP_DATABASE_BACKUP_PG_DUMP_PATH:pg_dump}
+    psql-path: ${APP_DATABASE_BACKUP_PSQL_PATH:psql}
+    schema: ${APP_DATABASE_BACKUP_SCHEMA:}
+    include-clean: ${APP_DATABASE_BACKUP_INCLUDE_CLEAN:true}
   text-answer-grading:
     local-llm:
       enabled: ${APP_TEXT_ANSWER_LOCAL_LLM_ENABLED:false}

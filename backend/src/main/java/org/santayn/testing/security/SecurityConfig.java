@@ -39,6 +39,10 @@ public class SecurityConfig {
             "ROLE_ADMIN", "ADMIN", "roles.manage", "ROLES.MANAGE"
     };
 
+    private static final String[] STRICT_ADMIN_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN"
+    };
+
     private static final String[] USER_READ_AUTHORITIES = {
             "ROLE_ADMIN", "ADMIN", "users.read", "USERS.READ"
     };
@@ -128,6 +132,12 @@ public class SecurityConfig {
                                         "/api/v1/status/**"
                                 ).permitAll()
                                 .requestMatchers("/api/v1/public/learning/**").authenticated()
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/v1/admin/database-backups",
+                                        "/api/v1/admin/database-backups/restore"
+                                )
+                                .hasAnyAuthority(STRICT_ADMIN_AUTHORITIES)
                                 .requestMatchers("/api/v1/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers("/api/v1/tests/attempts/**", "/api/v1/tests/responses/**")
                                 .hasAnyAuthority(ADMIN_AUTHORITIES)
@@ -236,7 +246,9 @@ public class SecurityConfig {
         corsConfiguration.setAllowedHeaders(List.of("*"));
         corsConfiguration.setExposedHeaders(List.of(
                 "Authorization",
-                "Content-Type"
+                "Content-Type",
+                "Content-Disposition",
+                "Content-Length"
         ));
         corsConfiguration.setAllowCredentials(false);
         corsConfiguration.setMaxAge(3600L);

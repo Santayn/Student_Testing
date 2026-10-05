@@ -2,6 +2,7 @@ package org.santayn.testing.web.advice;
 
 import jakarta.validation.ConstraintViolationException;
 import org.santayn.testing.service.AuthConflictException;
+import org.santayn.testing.service.DatabaseBackupException;
 import org.santayn.testing.service.ResourceNotFoundException;
 import org.santayn.testing.web.dto.common.ErrorResponse;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -117,6 +118,13 @@ public class ApiExceptionHandler {
                         "Размер загружаемых файлов превышает допустимый лимит: до 50 МБ на файл и до 200 МБ на запрос.",
                         trace
                 ));
+    }
+
+    @ExceptionHandler(DatabaseBackupException.class)
+    public ResponseEntity<ErrorResponse> handleDatabaseBackup(DatabaseBackupException ex) {
+        String trace = UUID.randomUUID().toString();
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of("database_backup_failed", ex.getMessage(), trace));
     }
 
     @ExceptionHandler(RuntimeException.class)

@@ -143,4 +143,16 @@ export const adminRoutes = [
       'admin-teaching'
     ),
   },
+
+  {
+    path: '/admin/database-backups',
+    name: 'admin-database-backups',
+
+    component: () =>
+      import(
+        '@/views/admin/DatabaseBackupsView.vue'
+      ),
+
+    meta: adminMeta,
+  },
 ]
