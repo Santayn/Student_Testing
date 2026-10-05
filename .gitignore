@@ -44,5 +44,14 @@ backend/target/
 backend/uploads/
 frontend/node_modules/
 frontend/dist/
+
+# Canonical environment policy
+# Only /.env.example belongs in version control. Local configuration lives in
+# the root /.env; nested frontend/backend env files are intentionally unused.
 .env
+.env.local
+.env.*.local
 .env.backup-*
+frontend/.env*
+backend/.env*
+!.env.example

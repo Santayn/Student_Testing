@@ -14,5 +14,5 @@ export function parseBooleanFlag(value) {
 export const publicRegistrationEnabled =
   parseBooleanFlag(
     import.meta.env
-      .VITE_PUBLIC_REGISTRATION_ENABLED
+      .APP_PUBLIC_REGISTRATION_ENABLED
   )

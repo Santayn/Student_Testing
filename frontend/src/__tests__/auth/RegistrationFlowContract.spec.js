@@ -27,12 +27,12 @@ describe('public registration frontend contract', () => {
 
     expect(features)
       .toContain(
-        'VITE_PUBLIC_REGISTRATION_ENABLED'
+        'APP_PUBLIC_REGISTRATION_ENABLED'
       )
 
     expect(compose)
       .toContain(
-        'VITE_PUBLIC_REGISTRATION_ENABLED: ${APP_PUBLIC_REGISTRATION_ENABLED:-false}'
+        'APP_PUBLIC_REGISTRATION_ENABLED: ${APP_PUBLIC_REGISTRATION_ENABLED:-false}'
       )
   })
 

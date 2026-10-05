@@ -21,8 +21,10 @@ BACKEND_PORT: "8080"
 ```text
 project-root/
 ├── docker-compose.yml
-├── Dockerfile              # существующий backend Dockerfile
-├── backend/                # backend source
+├── backend/
+│   ├── Dockerfile          # backend image
+│   ├── .dockerignore
+│   └── ...                 # backend source
 └── frontend/
     ├── package.json
     ├── package-lock.json
@@ -50,8 +52,10 @@ project-root/
 start-local.cmd
 ```
 
-Скрипт создаёт локальный `.env` с новыми случайными секретами, если файла ещё
-нет. После этого обычный `docker compose up -d --build` также будет работать.
+Скрипт создаёт минимальный локальный `.env` с новыми случайными секретами, если файла ещё
+нет. Если `.env` уже существует, скрипт сохраняет локальные параметры машины и при необходимости
+обновляет только отсутствующие/некорректные секреты. После этого обычный
+`docker compose up -d --build` также будет работать.
 
 ## Ручная настройка
 
@@ -63,13 +67,21 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-После запуска:
+После запуска (при стандартном `BACKEND_PORT=8080`):
 
 ```text
 Frontend: http://localhost/
 Backend:  http://localhost:8080/
 Postgres: доступен только внутри Docker-сети проекта
 ```
+
+Если host-порт `8080` занят, достаточно добавить в корневой `.env`, например:
+
+```env
+BACKEND_PORT=8081
+```
+
+Этот же `BACKEND_PORT` автоматически использует Vite dev proxy при отдельном запуске frontend через `npm run dev`.
 
 Nginx frontend автоматически проксирует:
 
@@ -86,8 +98,9 @@ Nginx frontend автоматически проксирует:
 без отдельного production URL backend. Секреты запуска хранятся в локальном
 `.env`, который исключён из Git.
 
-Локальный `.env` исключён из Git и из передаваемого ZIP. Не публикуйте его;
-на сервере задайте отдельные значения `POSTGRES_PASSWORD` и `APP_JWT_SECRET`.
+Локальный `.env` исключён из Git. Не публикуйте его; на сервере задайте отдельные значения
+`POSTGRES_PASSWORD` и `APP_JWT_SECRET`. Корневой `.env.example` является единственным шаблоном
+переменных проекта; отдельные frontend/backend `.env.example` не используются.
 
 Vue Router history mode поддерживается через:
 

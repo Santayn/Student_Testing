@@ -25,71 +25,96 @@ function New-HexSecret {
     return (($bytes | ForEach-Object { $_.ToString("x2") }) -join "")
 }
 
-function Test-EnvironmentValue {
+function Get-EnvironmentValue {
     param(
         [Parameter(Mandatory = $true)]
+        [string]$Content,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $escapedName = [Regex]::Escape($Name)
+    $match = [Regex]::Match(
+        $Content,
+        "(?m)^\s*$escapedName\s*=\s*(.*?)\s*$"
+    )
+
+    if (-not $match.Success) {
+        return $null
+    }
+
+    return $match.Groups[1].Value.Trim()
+}
+
+function Set-EnvironmentValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Content,
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
 
         [Parameter(Mandatory = $true)]
-        [int]$MinimumLength
+        [string]$Value
     )
 
     $escapedName = [Regex]::Escape($Name)
-    $match = [Regex]::Match(
-        $Content,
-        "(?m)^\s*$escapedName\s*=\s*(.+?)\s*$"
-    )
+    $pattern = "(?m)^\s*$escapedName\s*=.*$"
+    $replacement = "$Name=$Value"
 
-    if (-not $match.Success) {
-        return $false
+    if ([Regex]::IsMatch($Content, $pattern)) {
+        return [Regex]::Replace($Content, $pattern, $replacement, 1)
     }
 
-    $value = $match.Groups[1].Value.Trim()
-    return $value.Length -ge $MinimumLength
+    if ([string]::IsNullOrWhiteSpace($Content)) {
+        return "$replacement`r`n"
+    }
+
+    return $Content.TrimEnd("`r", "`n") + "`r`n$replacement`r`n"
 }
 
 $environmentPath = Join-Path $projectRoot ".env"
-$mustCreateEnvironment = -not (Test-Path $environmentPath)
+$environmentExisted = Test-Path $environmentPath
+$environmentContent = if ($environmentExisted) {
+    [System.IO.File]::ReadAllText($environmentPath)
+}
+else {
+    ""
+}
 
-if (-not $mustCreateEnvironment) {
-    $environmentContent = [System.IO.File]::ReadAllText($environmentPath)
-    $hasDatabasePassword = Test-EnvironmentValue `
-        -Content $environmentContent `
-        -Name "POSTGRES_PASSWORD" `
-        -MinimumLength 12
-    $hasJwtSecret = Test-EnvironmentValue `
-        -Content $environmentContent `
-        -Name "APP_JWT_SECRET" `
-        -MinimumLength 32
+$databasePassword = Get-EnvironmentValue `
+    -Content $environmentContent `
+    -Name "POSTGRES_PASSWORD"
+$jwtSecret = Get-EnvironmentValue `
+    -Content $environmentContent `
+    -Name "APP_JWT_SECRET"
 
-    $mustCreateEnvironment = -not ($hasDatabasePassword -and $hasJwtSecret)
+$needsDatabasePassword = [string]::IsNullOrWhiteSpace($databasePassword) -or $databasePassword.Length -lt 12
+$needsJwtSecret = [string]::IsNullOrWhiteSpace($jwtSecret) -or $jwtSecret.Length -lt 32
 
-    if ($mustCreateEnvironment) {
+if ($needsDatabasePassword -or $needsJwtSecret) {
+    if ($environmentExisted) {
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $backupPath = Join-Path $projectRoot ".env.backup-$timestamp"
         Copy-Item $environmentPath $backupPath
-        Write-Host "Старый некорректный .env сохранён как $backupPath" -ForegroundColor Yellow
+        Write-Host "Старый .env сохранён как $backupPath" -ForegroundColor Yellow
     }
-}
 
-if ($mustCreateEnvironment) {
-    $databasePassword = New-HexSecret -ByteCount 24
-    $jwtSecret = New-HexSecret -ByteCount 48
-    $environmentContent = @"
-POSTGRES_DB=student_test
-POSTGRES_USER=student_test
-POSTGRES_PASSWORD=$databasePassword
+    if ($needsDatabasePassword) {
+        $environmentContent = Set-EnvironmentValue `
+            -Content $environmentContent `
+            -Name "POSTGRES_PASSWORD" `
+            -Value (New-HexSecret -ByteCount 24)
+    }
 
-SPRING_JPA_HIBERNATE_DDL_AUTO=update
-SPRING_SQL_INIT_MODE=always
-APP_DATA_LOADER_ENABLED=true
-APP_PUBLIC_REGISTRATION_ENABLED=false
-APP_JWT_SECRET=$jwtSecret
-APP_CORS_ALLOWED_ORIGINS=http://localhost:[*],http://127.0.0.1:[*]
-"@
+    if ($needsJwtSecret) {
+        $environmentContent = Set-EnvironmentValue `
+            -Content $environmentContent `
+            -Name "APP_JWT_SECRET" `
+            -Value (New-HexSecret -ByteCount 48)
+    }
 
     $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText(
@@ -98,7 +123,12 @@ APP_CORS_ALLOWED_ORIGINS=http://localhost:[*],http://127.0.0.1:[*]
         $utf8WithoutBom
     )
 
-    Write-Host "Создан новый локальный .env." -ForegroundColor Green
+    if ($environmentExisted) {
+        Write-Host "Локальный .env обновлён: изменены только отсутствующие/некорректные секреты." -ForegroundColor Green
+    }
+    else {
+        Write-Host "Создан минимальный локальный .env с новыми секретами." -ForegroundColor Green
+    }
 }
 
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
