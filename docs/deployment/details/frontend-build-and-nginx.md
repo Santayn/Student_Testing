@@ -15,12 +15,12 @@ nginx:1.27-alpine
 
 Runtime image не содержит Node.js development server.
 
-## Build-time Vite variables
+## Build-time frontend variables
 
 Docker build принимает:
 
 ```text
-VITE_PUBLIC_REGISTRATION_ENABLED
+APP_PUBLIC_REGISTRATION_ENABLED
 VITE_API_TIMEOUT_MS
 VITE_SUBMIT_TIMEOUT_MS
 VITE_FILE_TRANSFER_TIMEOUT_MS

@@ -4,12 +4,11 @@
 
 ```text
 Student_Testing/
-├── backend/                 Spring Boot приложение
-├── frontend/                Vue SPA
+├── backend/                 Spring Boot приложение и backend Docker image
+├── frontend/                Vue SPA и frontend Docker image
 ├── docs/                    документация
 ├── recommendations/         аудиты и рекомендации
 ├── docker-compose.yml       локальный stack
-├── Dockerfile               backend image
 ├── start-local.ps1
 ├── start-local.cmd
 └── .env.example
@@ -18,16 +17,19 @@ Student_Testing/
 ## Backend
 
 ```text
-backend/src/main/java/org/santayn/testing/
-├── config/
-├── models/
-├── repository/
-├── security/
-├── service/
-└── web/
-    ├── advice/
-    ├── controller/rest/
-    └── dto/
+backend/
+├── Dockerfile
+├── .dockerignore
+└── src/main/java/org/santayn/testing/
+    ├── config/
+    ├── models/
+    ├── repository/
+    ├── security/
+    ├── service/
+    └── web/
+        ├── advice/
+        ├── controller/rest/
+        └── dto/
 ```
 
 `models/` дополнительно разделён по предметным областям. `repository/` и `service/` в основном плоские.

@@ -17,9 +17,9 @@ application.yml default
 
 ## Frontend
 
-Vite использует `VITE_*`. Эти значения попадают в browser bundle и считаются публичными.
+Vite читает корневой `.env` через `envDir`. Стандартные `VITE_*` попадают в browser bundle и считаются публичными. Дополнительно через `define` публикуется только один безопасный `APP_*` flag — `APP_PUBLIC_REGISTRATION_ENABLED`; остальные `APP_*` клиенту не экспонируются.
 
-В Docker изменение `VITE_*` обычно требует rebuild frontend, а не restart.
+В Docker изменение frontend build-time значений требует rebuild frontend, а не restart.
 
 ## Feature flags
 
@@ -27,8 +27,8 @@ Vite использует `VITE_*`. Эти значения попадают в 
 
 ## Registration
 
-Public registration имеет backend runtime flag и frontend build flag. Они должны быть согласованы.
+Public registration имеет один канонический flag `APP_PUBLIC_REGISTRATION_ENABLED`. Backend читает его runtime, а Vite публикует тот же flag в frontend build/dev environment.
 
 ## Secrets
 
-Секреты нельзя хранить в source, commit'ить в `.env` или помещать в frontend `VITE_*`.
+Секреты нельзя хранить в source, commit'ить в `.env`, помещать в `VITE_*` или явно публиковать через Vite `define`.

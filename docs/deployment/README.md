@@ -84,4 +84,4 @@ Multi-stage frontend image, build-time параметры Vite, Nginx, SPA fallb
 
 ### [Ограничения развёртывания](./details/deployment-limitations.md)
 
-Текущие риски и ограничения: отсутствие миграций и чистого production bootstrap, demo seed, `mvnw`, Vite proxy, LLM в Docker и другие найденные аудитом моменты.
+Текущие риски и ограничения: отсутствие миграций и чистого production bootstrap, demo seed, `mvnw`, LLM в Docker и другие найденные аудитом моменты.

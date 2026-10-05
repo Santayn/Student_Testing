@@ -2,7 +2,7 @@
 
 ## Multi-stage build
 
-Backend image собирается из корневого `Dockerfile`.
+Backend image собирается из `backend/Dockerfile` с build context `./backend`.
 
 ### Build stage
 

@@ -24,10 +24,6 @@ Frontend имеет ESLint/Prettier/static-quality, backend — только com
 
 `backend/mvnw` имеет CRLF/permission проблему в текущем snapshot; `.gitattributes` rule `/mvnw` не покрывает вложенный wrapper.
 
-### Dev port mismatch
-
-Vite proxy — `8081`, backend default — `8080`.
-
 ### Нет PostgreSQL-specific test layer
 
 H2 не проверяет `schema.sql`, `citext`, partial indexes и реальные lock semantics.
@@ -65,7 +61,7 @@ API shapes защищаются главным образом tests/runtime conv
 ```text
 1. CI
 2. migrations + PostgreSQL test layer
-3. mvnw/port onboarding fixes
+3. mvnw onboarding fix
 4. Java formatter/linter
 5. bootstrap/demo separation
 6. contribution templates

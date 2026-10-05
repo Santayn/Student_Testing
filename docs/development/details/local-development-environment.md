@@ -29,9 +29,9 @@ npm run dev
 npm run quality
 ```
 
-### Текущий proxy-нюанс
+### Vite proxy и корневой `.env`
 
-Vite проксирует `/api` на `http://localhost:8081`, а backend по умолчанию работает на `8080`. До синхронизации конфигурации разработчику нужно либо запускать backend на 8081, либо менять proxy.
+Vite использует корневой `.env` (`envDir` указывает на корень проекта). `BACKEND_PORT` является единым host-port override для Docker backend и target dev proxy. При отсутствии значения используется `8080`. Отдельный `frontend/.env` не нужен.
 
 ## Backend локально
 
@@ -59,4 +59,4 @@ IDE должна:
 
 ## Environment
 
-Backend env — runtime. `VITE_*` — build/dev-time. Наличие параметра в `application.yml` не означает, что Docker Compose уже пробрасывает его в container.
+Корневой `.env` хранит только локальные overrides/секреты, а `.env.example` документирует доступные параметры всего проекта. `VITE_*` остаются публичными build/dev-time значениями; backend `APP_*`/`SPRING_*` — runtime. Compose явно пробрасывает поддерживаемые backend overrides.

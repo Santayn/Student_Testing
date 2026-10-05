@@ -1,86 +1,57 @@
 # Локальная разработка
 
-## Общая схема
+## Каноническая конфигурация
 
-При разработке frontend/backend можно запускать отдельно от production Nginx:
+Корневые `.env` и `.env.example` являются единственным env-источником проекта. Отдельные env-файлы внутри `frontend/` или `backend/` не используются.
 
-```text
-Vite dev server
-      ↓ /api proxy
-Spring Boot
-      ↓
-PostgreSQL
+Реальный `.env` рекомендуется хранить минимальным. Пример машины, где `8080` занят:
+
+```env
+POSTGRES_PASSWORD=<local-secret>
+APP_JWT_SECRET=<local-secret>
+BACKEND_PORT=8081
 ```
 
-PostgreSQL при желании можно оставить в Docker, но для этого его порт необходимо отдельно опубликовать или использовать другой доступный PostgreSQL instance.
+## Рекомендуемый режим frontend-разработки
+
+Backend и PostgreSQL можно оставить в Docker:
+
+```bash
+docker compose up -d postgres backend
+```
+
+Frontend запустить отдельно:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Vite читает `../.env` через `envDir` и направляет `/api` на:
+
+```text
+http://127.0.0.1:${BACKEND_PORT:-8080}
+```
+
+Таким образом Docker mapping и Vite proxy используют один `BACKEND_PORT`. Внутренний Docker proxy Nginx при этом не меняется и продолжает использовать `backend:8080`.
 
 ## Backend вне Docker
 
-Backend требует обязательные datasource-параметры:
+При прямом запуске Spring Boot сам по себе не загружает dotenv-файл как shell environment. Необходимые значения нужно экспортировать в процесс/IDE либо использовать собственную run configuration. Минимально требуются datasource-параметры и `APP_JWT_SECRET`.
 
-```text
-SPRING_DATASOURCE_URL
-SPRING_DATASOURCE_USERNAME
-SPRING_DATASOURCE_PASSWORD
-APP_JWT_SECRET
-```
-
-На Windows из `backend/`:
+Windows из `backend/`:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-Backend по умолчанию использует:
+Backend default port — `8080`. `BACKEND_PORT` является настройкой host mapping/Vite proxy и не заменяет `SERVER_PORT` для прямого Spring Boot процесса.
 
-```text
-SERVER_PORT=8080
-```
+## Unix/macOS
 
-### Unix/macOS
-
-README содержит команду:
-
-```bash
-./mvnw spring-boot:run
-```
-
-но текущий `backend/mvnw` в поставляемом архиве имеет CRLF line endings и не сохраняет executable bit. До исправления wrapper необходимо нормализовать или использовать установленный Maven.
-
-## Frontend вне Docker
-
-Из `frontend/`:
-
-```bash
-npm ci
-npm run dev
-```
-
-Vite автоматически выбирает development port и проксирует запросы `/api`.
-
-### Текущий конфликт портов
-
-`vite.config.js` сейчас содержит:
-
-```text
-target: http://localhost:8081
-```
-
-а backend default:
-
-```text
-8080
-```
-
-Поэтому при неизменённой конфигурации необходимо либо:
-
-- запустить backend с `SERVER_PORT=8081`, либо
-- исправить Vite proxy target на `8080`.
-
-Канонический Docker-сценарий этой проблемы не имеет: Nginx проксирует API на Docker service `backend:8080`.
+Текущий `backend/mvnw` в snapshot имеет известную CRLF/executable проблему. До исправления wrapper требуется нормализация или установленный Maven.
 
 ## CORS
 
-При same-origin production proxy CORS обычно не участвует. При раздельных dev servers backend должен разрешать origin Vite-сервера через `APP_CORS_ALLOWED_ORIGINS`.
-
-Текущий local default допускает localhost/127.0.0.1 с произвольным портом.
+При same-origin Docker/Nginx proxy CORS обычно не участвует. При отдельном Vite dev server backend local default разрешает localhost/127.0.0.1 с произвольным портом.

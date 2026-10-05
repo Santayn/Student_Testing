@@ -54,6 +54,6 @@ lecture-uploads
 | Docker backend lecture storage | `/app/uploads/lecture-materials` |
 | Nginx SPA root | `/usr/share/nginx/html` |
 
-## Local-development caveat
+## Local development
 
-Текущий Vite proxy направлен на backend `localhost:8081`, тогда как backend default — `8080`. Это известное ограничение локальной разработки.
+Vite dev proxy читает `BACKEND_PORT` из корневого `.env` и по умолчанию использует `127.0.0.1:8080`. Поэтому тот же override, который меняет Docker host mapping, автоматически меняет и frontend dev proxy target.

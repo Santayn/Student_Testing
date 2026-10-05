@@ -39,6 +39,8 @@ npm run test:unit -- --run
 
 При запуске всего проекта через Docker используйте корневой `docker-compose.yml`.
 
+Все переменные проекта берутся из корневых `.env` / `.env.example`. Файлы `frontend/.env*` не используются. Для локального `npm run dev` Vite также читает корневой `.env`; `BACKEND_PORT` задаёт target dev proxy.
+
 ## Структура `src`
 
 ```text
@@ -70,13 +72,13 @@ Student-only страницы прохождения обучения испол
 
 ## Регистрация
 
-Публичная регистрация управляется frontend-переменной:
+Публичная регистрация управляется единой корневой переменной:
 
 ```text
-VITE_PUBLIC_REGISTRATION_ENABLED
+APP_PUBLIC_REGISTRATION_ENABLED
 ```
 
-В Docker она синхронизируется с backend-переменной `APP_PUBLIC_REGISTRATION_ENABLED`.
+`frontend/vite.config.js` читает корневой `.env` и явно публикует в browser bundle только этот конкретный безопасный `APP_*` flag через `define`, а стандартные `VITE_*` загружаются обычным механизмом Vite. Отдельный frontend `.env` не используется.
 
 Новый аккаунт без завершённой привязки роли/Person остаётся на `/account-pending`.
 

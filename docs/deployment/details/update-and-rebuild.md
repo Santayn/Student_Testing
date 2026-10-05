@@ -38,7 +38,7 @@ docker compose up -d --build
 APP_PUBLIC_REGISTRATION_ENABLED=true
 ```
 
-должно сопровождаться rebuild frontend, поскольку Compose передаёт это значение как `VITE_PUBLIC_REGISTRATION_ENABLED` на build stage.
+должно сопровождаться rebuild frontend, поскольку frontend получает `APP_PUBLIC_REGISTRATION_ENABLED` на build stage.
 
 Простой `docker compose restart frontend` оставит старый JavaScript bundle.
 

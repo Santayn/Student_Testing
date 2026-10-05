@@ -67,12 +67,6 @@ Auth store persist'ит refresh token. Это делает долгоживущ�
 
 В отдельных UI-сценариях присутствует логика под специфичные коды вроде dependency conflict, в то время как backend чаще возвращает общие codes. Контракт следует унифицировать и затем зафиксировать в `docs/api/`.
 
-### Dev proxy Vite и backend port
-
-Текущий `vite.config.js` проксирует dev API на `localhost:8081`, в то время как backend default и Docker mapping обычно используют `8080`.
-
-Локальная разработка требует либо совпадающей настройки порта, либо изменения proxy target.
-
 ### Maven wrapper line endings
 
 `backend/mvnw` содержит CRLF и может не запускаться напрямую в Linux shell без нормализации line endings/executable bit. Docker build не зависит от wrapper, поскольку использует системный Maven image.

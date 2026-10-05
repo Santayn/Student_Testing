@@ -34,22 +34,6 @@ Schema развивается через Hibernate `ddl-auto` и общий `sch
 
 Поставляемый `backend/mvnw` имеет CRLF line endings, а ZIP не сохраняет executable permission. `./mvnw spring-boot:run` на Linux/macOS в текущем виде требует исправления.
 
-### Vite proxy использует другой порт
-
-Development proxy:
-
-```text
-localhost:8081
-```
-
-Backend default:
-
-```text
-8080
-```
-
-Раздельный dev startup требует согласовать порты.
-
 ### SQL backup не включает lecture files
 
 Встроенный backup сохраняет PostgreSQL, но не `lecture-uploads`.
@@ -70,13 +54,9 @@ Compose содержит:
 
 и не предоставляет `FRONTEND_PORT`.
 
-### Не все backend settings пробрасываются Compose
-
-`application.yml` поддерживает дополнительные multipart/backup/LLM параметры, но добавление их только в `.env` не передаст значения в container, пока они не указаны в Compose `environment`.
-
 ### Frontend env частично build-time
 
-Изменение `VITE_*` или публичной регистрации требует rebuild, не только restart.
+Изменение `VITE_*` или `APP_PUBLIC_REGISTRATION_ENABLED` для production frontend требует rebuild, не только restart. Для локального `npm run dev` Vite читает корневой `.env` при запуске.
 
 ### PostgreSQL client version не зафиксирована
 
