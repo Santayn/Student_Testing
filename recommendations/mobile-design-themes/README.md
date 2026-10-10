@@ -26,6 +26,20 @@
    рамка у карточек, вид верхней панели, вид заголовков разделов, вид нижней навигации, вид вариантов ответа.
 3. **Общие компоненты** (`core/ui/Components.kt`, `navigation/MainShell.kt`) читают токены — поэтому ~40 экранов
    преподавателя и администратора перекрашиваются сами, их трогать не нужно.
+   Стандартные Material-компоненты тоже следуют теме: `MaterialTheme.shapes` собирается из токенов
+   (`appShapes()` в `Theme.kt`):
+
+   | Material-форма | Токен | Где видно |
+   |---|---|---|
+   | `extraSmall` | `fieldShape` | поля ввода, выпадающие меню, снекбар |
+   | `small` | `chipShape` | чипы-фильтры (`FilterChip`) |
+   | `medium` | `cardShape` | `Card` |
+   | `large` | `buttonShape` | плавающая кнопка (`AppFab`) |
+   | `extraLarge` | 28dp, общее | диалоги, окно выбора, нижние листы |
+
+   Поэтому токены форм — `CornerBasedShape` (`Shapes.rounded(…)`, `Shapes.pill`), а не произвольный `Shape`.
+   В экранах **не** берите `MaterialTheme.shapes.small/large` для своих элементов: при `chipShape = pill` строка
+   или окно станут «пилюлей»/кругом. Берите нужный токен напрямую (`Design.tokens.tileShape`, `fieldShape`, …).
 4. **«Фирменные» экраны** — три места, где у темы своя компоновка, а не только стиль:
    главная студента, шапка лекции, шапка итога теста. Для них у каждой темы свой Composable.
 
@@ -44,7 +58,8 @@ mobile/shared/src/commonMain/kotlin/org/santayn/testing/mobile/
   core/ui/Theme.kt                — сборка темы, общий «Высокий контраст», реестры palette()/tokens()
   core/ui/Components.kt           — общие компоненты на токенах: AppScreen, AppIconButton, AppCard, NavCard,
                                     SectionTitle, StatusChip, Banner, StatTile, поля, BusyButton(accent), Modifier.depth,
-                                    AnswerOptionCard (вариант ответа карточкой), RadioRow/CheckRow (строкой)
+                                    AnswerOptionCard (вариант ответа карточкой), RadioRow/CheckRow (строкой),
+                                    AppButton / AppOutlinedButton (кнопки в форме темы), AppFab (плавающая кнопка с подписью)
   navigation/MainShell.kt         — AppNavigationBar: CLASSIC и FLOATING_PILL
   feature/home/HomeData.kt        — HomeViewModel: данные главной (общие для всех тем)
   feature/home/PolytechHome.kt    — главная темы A
@@ -126,6 +141,13 @@ mobile/shared/src/androidDeviceTest/.../a11y/AccessibilityUiTests.kt — UI-те
   - вёрстка выдерживает «Очень крупный» текст (×1.5) при системном шрифте 1.3 — ничего не обрезается так,
     что теряется смысл.
 - **Компоненты, а не копии.** Экраны собираются из `core/ui/Components.kt`. Своё — только в «фирменных» местах.
+  В экранах не используйте напрямую `Button`, `OutlinedButton`, `ExtendedFloatingActionButton`: их формы
+  и высоты не из темы. Замены: `BusyButton`/`AppButton`, `BusyButton(outlined = true)`/`AppOutlinedButton`, `AppFab`.
+  (Исключение — `TextButton` в диалогах и ссылки.) Проверка: `grep -rn "OutlinedButton(\|ExtendedFloatingActionButton(" feature/`
+  должна находить только `AppOutlinedButton(`.
+- **Плавающие кнопки — только `AppFab`.** У стандартного `ExtendedFloatingActionButton` текст не попадает в дерево
+  доступности (в `uiautomator dump` — `NAF="true"`, TalkBack читает «кнопка» без названия). `AppFab` задаёт подпись сам;
+  для коротких надписей передавайте `accessibilityLabel` («Тема» → «Новая тема»).
 - **Статус-бар.** Если экран рисует цветную панель под статус-баром — вызовите `LightStatusBarIcons()`.
 - **Никаких хардкод-цветов** в общих компонентах и фирменных экранах вне файла темы: только
   `MaterialTheme.colorScheme`, `AppTheme.status`, `Design.brand`.
@@ -176,7 +198,17 @@ adb pull /sdcard/Android/data/org.santayn.testing.mobile.shared.test/files/scree
 
 - Профиль → «Стиль оформления» → своя тема. Пройти: главная → предмет → лекции → лекция → «Продолжить тест»
   (переключать вопросы сегментами, не отправлять) → «Результаты» → «Профиль».
-- То же под `teacher` (главная, «Контент» → «Вопросы», «Лекции») и `admin` («Структура» → «Группы», «Доступ» → «Пользователи»).
+- То же под `teacher`: главная, «Предметы», «Контент» → «Темы», «Вопросы», «Создать тест», «Лекции», «Шаблоны курса»,
+  «Моя нагрузка», «Результаты», «Профиль».
+- То же под `admin`: **каждый** пункт «Структуры» (Факультеты, Группы → «Состав группы», Справочник предметов,
+  Предметы факультетов, Преподаватели и предметы, Учебная нагрузка) и «Доступа» (Пользователи → карточка
+  пользователя, Роли и права, Резервные копии), «Главная» → «Результаты».
+  Откройте хотя бы по одному: редактор («Добавить»), окно выбора (поле «Преподаватель»), подтверждение удаления
+  (нажмите «Удалить», затем «Отмена») — так видны формы диалогов, полей и чипов.
+- Сценарием через `adb` переходите осторожно: «Назад» на корневой вкладке закрывает приложение, и следующий
+  скриншот снимет рабочий стол. Перед снимком проверяйте, что приложение впереди:
+  `adb shell dumpsys activity activities | grep topResumedActivity`. Если приложение пропало — смотрите
+  `adb logcat -d -b crash`: это может быть падение, а не промах.
 - Режимы: светлая, тёмная (`adb shell cmd uimode night yes|no`), «Высокий контраст»,
   «Очень крупный» + `adb shell settings put system font_scale 1.3` (после — вернуть `1.0`).
 - Без сети: `adb shell cmd connectivity airplane-mode enable|disable` — плашка «Нет подключения» видна и читаема в теме.
@@ -189,6 +221,8 @@ adb pull /sdcard/Android/data/org.santayn.testing.mobile.shared.test/files/scree
 - [ ] Палитры светлая и тёмная; `ContrastTests` зелёные (включая добавленные пары).
 - [ ] `AccessibilityUiTests` зелёные на эмуляторе для **всех** тем.
 - [ ] Главная, шапка лекции, итог теста — по макету темы; остальные экраны выглядят цельно (общие компоненты).
+- [ ] Пройдены все экраны преподавателя и администратора (список в «Ручной проверке»), включая диалоги:
+      ничего не «выпадает» из темы (чужие формы кнопок, круглые окна, поля-«пилюли»), падений нет.
 - [ ] «Очень крупный» текст, высокий контраст, тёмная — без поломок вёрстки.
 - [ ] Тема A не изменилась (сравнение снимков).
 - [ ] `compileKotlinIosSimulatorArm64` проходит.

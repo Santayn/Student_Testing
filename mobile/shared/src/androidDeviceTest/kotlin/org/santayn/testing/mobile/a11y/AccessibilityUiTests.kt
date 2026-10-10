@@ -64,6 +64,7 @@ import org.santayn.testing.mobile.core.platform.TextSpeaker
 import org.santayn.testing.mobile.core.storage.AppSettings
 import org.santayn.testing.mobile.core.storage.KeyValueStore
 import org.santayn.testing.mobile.core.storage.ThemeMode
+import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.AppScreen
 import org.santayn.testing.mobile.core.ui.ErrorState
 import org.santayn.testing.mobile.core.ui.LocalNetworkStatus
@@ -323,6 +324,24 @@ class AccessibilityUiTests(private val design: DesignTheme) {
         themed { AppScreen(title = "Профиль", onBack = {}) { } }
         rule.onNodeWithText("Профиль").assert(isHeading())
         rule.onNodeWithContentDescription("Назад").assertHasClickAction()
+        rule.onRoot().tryPerformAccessibilityChecks()
+    }
+
+    @Test
+    fun floatingActionButtonIsLabelledButton() {
+        themed {
+            Column {
+                AppFab("Тема", onClick = {}, accessibilityLabel = "Новая тема")
+                AppFab("Добавить", onClick = {})
+            }
+        }
+        rule.onNodeWithContentDescription("Новая тема")
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        rule.onNodeWithText("Добавить")
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        saveScreenshot("fab")
         rule.onRoot().tryPerformAccessibilityChecks()
     }
 

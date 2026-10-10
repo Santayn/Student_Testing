@@ -1,6 +1,7 @@
 package org.santayn.testing.mobile.feature.teacher
 
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,7 @@ import org.santayn.testing.mobile.core.ui.DateField
 import org.santayn.testing.mobile.core.ui.FormField
 import org.santayn.testing.mobile.core.ui.MultiSelectField
 import org.santayn.testing.mobile.core.ui.ScreenList
+import org.santayn.testing.mobile.core.ui.SectionTitle
 import org.santayn.testing.mobile.core.ui.SelectField
 import org.santayn.testing.mobile.core.ui.SelectOption
 import org.santayn.testing.mobile.core.ui.StatGrid
@@ -386,7 +388,7 @@ fun TestEditorScreen(route: TeacherTestCreateRoute, role: WorkspaceRole, navigat
 private fun StepCard(title: String, content: @Composable () -> Unit) {
     AppCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            SectionTitle(title, Modifier.padding(bottom = 2.dp))
             content()
         }
     }

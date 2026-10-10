@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.admin
 
+import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.RetryBanner
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.horizontalScroll
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -118,11 +118,11 @@ class TeacherSubjectsViewModel(
     private val _state = MutableStateFlow(TeacherSubjectsState())
     val state = _state.asStateFlow()
 
+    private val showError: (Throwable) -> Unit = { e -> _state.update { it.copy(loading = false, error = e.userMessage()) } }
+
     init {
         loadReference()
     }
-
-    private val showError: (Throwable) -> Unit = { e -> _state.update { it.copy(loading = false, error = e.userMessage()) } }
 
     /** Справочники преподавателей и предметов. */
     fun loadReference() {
@@ -582,7 +582,7 @@ fun AdminTeachingScreen(navigator: AppNavigator) {
         actions = { IconButton(onClick = { vm.openLoadTypes(true) }) { Icon(Icons.Default.Tune, "Типы нагрузки") } },
         floatingActionButton = {
             if (state.facultyId != null) {
-                ExtendedFloatingActionButton(onClick = vm::openCreate, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Назначение") })
+                AppFab("Назначение", onClick = vm::openCreate, accessibilityLabel = "Новое назначение")
             }
         },
     ) { padding ->

@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.profile
 
+import org.santayn.testing.mobile.core.ui.design.Design
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -176,7 +177,7 @@ fun OfflineStorageSettings(modifier: Modifier = Modifier) {
                 applyInput()
                 focus.clearFocus()
             }),
-            shape = MaterialTheme.shapes.small,
+            shape = Design.tokens.fieldShape,
             // Ввод применяется по «Готово» или при уходе из поля — только если его меняли.
             modifier = Modifier.fillMaxWidth().onFocusChanged { if (!it.isFocused && inputEdited) applyInput() },
         )

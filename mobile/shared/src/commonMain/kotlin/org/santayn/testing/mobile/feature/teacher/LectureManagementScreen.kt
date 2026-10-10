@@ -1,5 +1,7 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppFab
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -17,12 +19,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -296,7 +296,7 @@ fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, na
         onBack = navigator::back,
         floatingActionButton = {
             if (picker.selected != null) {
-                ExtendedFloatingActionButton(onClick = vm::openCreate, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Лекция") })
+                AppFab("Лекция", onClick = vm::openCreate, accessibilityLabel = "Новая лекция")
             }
         },
     ) { padding ->
@@ -420,7 +420,7 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
                 }
             }
         }
-        OutlinedButton(onClick = { picker.launch() }) {
+        AppOutlinedButton(onClick = { picker.launch() }) {
             Icon(Icons.Default.AttachFile, null)
             Text(" Добавить файлы")
         }

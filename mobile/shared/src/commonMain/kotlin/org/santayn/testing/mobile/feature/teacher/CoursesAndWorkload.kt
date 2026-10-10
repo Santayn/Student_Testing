@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +20,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -283,7 +283,7 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
                         SearchField(query, { query = it }, Modifier.weight(1f), placeholder = "Поиск шаблона")
                     }
                     if (!vm.isAdmin) {
-                        OutlinedButton(onClick = { vm.openTemplate(null) }) {
+                        AppOutlinedButton(onClick = { vm.openTemplate(null) }) {
                             Icon(Icons.Default.Add, null)
                             Text(" Новый шаблон")
                         }

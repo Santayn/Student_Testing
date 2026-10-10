@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.core.ui
 
+import org.santayn.testing.mobile.core.ui.design.Design
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,10 +71,10 @@ fun DateField(
             supportingText = error?.let { { Text(it) } },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.small,
+            shape = Design.tokens.fieldShape,
         )
         Box(
-            Modifier.matchParentSize().padding(top = 8.dp).clip(MaterialTheme.shapes.small)
+            Modifier.matchParentSize().padding(top = 8.dp).clip(Design.tokens.fieldShape)
                 .clickable(enabled = enabled) { open = true }
         )
     }

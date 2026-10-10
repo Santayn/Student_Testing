@@ -1,13 +1,13 @@
 package org.santayn.testing.mobile
 
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
+import org.santayn.testing.mobile.core.ui.AppButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -131,8 +131,8 @@ private fun RestoreFailedScreen(message: String) {
                 modifier = Modifier.semantics { heading() },
             )
             Text(offline?.hint ?: message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = { scope.launch { session.restore() } }) { Text("Повторить") }
-            OutlinedButton(onClick = { session.logout() }) { Text("Выйти") }
+            AppButton(onClick = { scope.launch { session.restore() } }) { Text("Повторить") }
+            AppOutlinedButton(onClick = { session.logout() }) { Text("Выйти") }
         }
     }
 }

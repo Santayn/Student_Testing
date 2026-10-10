@@ -229,11 +229,16 @@ private fun appTypography(display: FontFamily, body: FontFamily): Typography {
 }
 
 /** Радиусы Material для компонентов, которые их берут из темы (диалоги, меню, поля). */
-private fun appShapes(): Shapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
+/**
+ * Формы Material-компонентов из токенов темы, чтобы стандартные компоненты совпадали с фирменными:
+ * extraSmall — поля ввода и меню, small — чипы-фильтры, medium — карточки,
+ * large — плавающие кнопки (FAB), extraLarge — диалоги и нижние листы.
+ */
+private fun appShapes(tokens: DesignTokens): Shapes = Shapes(
+    extraSmall = tokens.fieldShape,
+    small = tokens.chipShape,
+    medium = tokens.cardShape,
+    large = tokens.buttonShape,
     extraLarge = RoundedCornerShape(28.dp),
 )
 
@@ -272,7 +277,7 @@ fun StudentTestingTheme(
         MaterialTheme(
             colorScheme = colors.scheme,
             typography = appTypography(tokens.displayFont, tokens.bodyFont),
-            shapes = appShapes(),
+            shapes = appShapes(tokens),
             content = content,
         )
     }

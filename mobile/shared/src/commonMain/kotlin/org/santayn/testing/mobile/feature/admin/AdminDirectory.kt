@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.admin
 
+import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import org.santayn.testing.mobile.core.ui.RetryBanner
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +15,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -225,7 +225,7 @@ private fun <T> DictionaryScreen(
         title = title,
         onBack = navigator::back,
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { vm.open(DictForm()) }, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Добавить") })
+            AppFab("Добавить", onClick = { vm.open(DictForm()) })
         },
     ) { padding ->
         LoadStateContent(state.items, onRetry = vm::reload, onRefresh = vm::reload) { items ->

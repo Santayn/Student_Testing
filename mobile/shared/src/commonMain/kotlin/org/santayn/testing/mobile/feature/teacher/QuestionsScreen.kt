@@ -1,5 +1,7 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppFab
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,12 +20,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -389,7 +389,7 @@ fun QuestionsScreen(route: TeacherQuestionsRoute, role: WorkspaceRole, navigator
         },
         floatingActionButton = {
             if (state.topicId != null) {
-                ExtendedFloatingActionButton(onClick = vm::openCreate, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Вопрос") })
+                AppFab("Вопрос", onClick = vm::openCreate, accessibilityLabel = "Новый вопрос")
             }
         },
     ) { padding ->
@@ -422,7 +422,7 @@ fun QuestionsScreen(route: TeacherQuestionsRoute, role: WorkspaceRole, navigator
                                 FilterChip(activeFilter == f, { activeFilter = f }, { Text(f.label) })
                             }
                         }
-                        OutlinedButton(onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) }) {
+                        AppOutlinedButton(onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) }) {
                             Text("Создать тест по теме")
                         }
                     }
@@ -549,7 +549,7 @@ private fun OptionsSection(form: QuestionForm, state: QuestionsUiState, vm: Ques
             }
         }
     }
-    OutlinedButton(onClick = { vm.openOption(null) }) {
+    AppOutlinedButton(onClick = { vm.openOption(null) }) {
         Icon(Icons.Default.Add, null)
         Text(" Добавить вариант")
     }
@@ -578,7 +578,7 @@ fun MatchingPairsEditor(pairs: List<MatchingPairDto>, onChange: (List<MatchingPa
             FormField(pair.right, { v -> onChange(pairs.mapIndexed { i, p -> if (i == index) p.copy(right = v) else p }) }, "Колонка Б")
         }
     }
-    OutlinedButton(onClick = { onChange(pairs + MatchingPairDto(pairs.size + 1)) }) {
+    AppOutlinedButton(onClick = { onChange(pairs + MatchingPairDto(pairs.size + 1)) }) {
         Icon(Icons.Default.Add, null)
         Text(" Добавить пару")
     }
@@ -599,7 +599,7 @@ private fun ImportDialog(state: QuestionsUiState, vm: QuestionsViewModel) {
                 )
                 val topic = state.topics.firstOrNull { it.id == state.topicId }
                 Text("Тема: ${topic?.name ?: "—"}", style = MaterialTheme.typography.labelLarge)
-                OutlinedButton(onClick = { picker.launch() }, enabled = !state.importing) {
+                AppOutlinedButton(onClick = { picker.launch() }, enabled = !state.importing) {
                     Icon(Icons.Default.UploadFile, null)
                     Text(" ${state.importFile?.name ?: "Выбрать файл .docx"}")
                 }

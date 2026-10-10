@@ -49,6 +49,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -647,7 +649,7 @@ fun SwitchRow(
 ) {
     // Вся строка — один переключатель: TalkBack читает «название, вкл/выкл, переключатель».
     Row(
-        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.small)
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
             .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -673,7 +675,7 @@ fun CheckRow(
     enabled: Boolean = true,
 ) {
     Row(
-        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.small)
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
             .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)
             .padding(vertical = 4.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -698,7 +700,7 @@ fun RadioRow(
     enabled: Boolean = true,
 ) {
     Row(
-        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.small)
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 4.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -800,7 +802,7 @@ fun <T> SelectField(
         // Прозрачный слой поверх поля: перехватывает нажатие и описывает поле для программы чтения с экрана.
         Box(
             Modifier.matchParentSize().padding(top = 8.dp)
-                .clip(MaterialTheme.shapes.small)
+                .clip(Design.tokens.fieldShape)
                 .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "выбрать") { open = true }
                 .semantics {
                     val spoken = accessibilityLabel ?: label
@@ -846,7 +848,7 @@ private fun <T> SelectDialog(
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
-            shape = MaterialTheme.shapes.large,
+            shape = MaterialTheme.shapes.extraLarge,
             modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 560.dp),
         ) {
             Column(Modifier.padding(vertical = 16.dp)) {
@@ -934,7 +936,7 @@ fun <T> MultiSelectField(
             shape = Design.tokens.fieldShape,
         )
         Box(
-            Modifier.matchParentSize().padding(top = 8.dp).clip(MaterialTheme.shapes.small)
+            Modifier.matchParentSize().padding(top = 8.dp).clip(Design.tokens.fieldShape)
                 .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "выбрать") { open = true }
                 .semantics {
                     contentDescription = label
@@ -948,7 +950,7 @@ fun <T> MultiSelectField(
         var query by remember { mutableStateOf("") }
         val filtered = options.filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }
         Dialog(onDismissRequest = { open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 600.dp)) {
+            Surface(shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 600.dp)) {
                 Column(Modifier.padding(vertical = 16.dp)) {
                     Text(
                         label,
@@ -1112,6 +1114,78 @@ fun BusyButton(
             content = content,
         )
     }
+}
+
+/**
+ * Плавающая кнопка действия с подписью (форма — из темы).
+ * Собрана на FloatingActionButton, а не на ExtendedFloatingActionButton: у того текст не попадает в дерево
+ * доступности, и TalkBack читает «кнопка» без названия.
+ * [accessibilityLabel] уточняет короткий текст для TalkBack («Тема» → «Новая тема»); видимый текст должен входить в него.
+ */
+@Composable
+fun AppFab(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Default.Add,
+    accessibilityLabel: String = text,
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier.semantics { if (accessibilityLabel != text) contentDescription = accessibilityLabel },
+    ) {
+        Row(
+            Modifier.padding(start = 16.dp, end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null)
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = if (accessibilityLabel != text) Modifier.clearAndSetSemantics { } else Modifier,
+            )
+        }
+    }
+}
+
+/** Второстепенная кнопка с обводкой в форме кнопок темы (вместо стандартного OutlinedButton). */
+@Composable
+fun AppOutlinedButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        enabled = enabled,
+        shape = Design.tokens.buttonShape,
+        border = BorderStroke(1.5.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant),
+        content = content,
+    )
+}
+
+/** Основная кнопка в форме кнопок темы (вместо стандартного Button). */
+@Composable
+fun AppButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val tokens = Design.tokens
+    val base = MaterialTheme.colorScheme.primary
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .heightIn(min = maxOf(48.dp, tokens.buttonHeight))
+            .then(if (enabled) Modifier.depth(tokens.buttonDepth, tokens.buttonShape, base) else Modifier),
+        enabled = enabled,
+        shape = tokens.buttonShape,
+        content = content,
+    )
 }
 
 /**

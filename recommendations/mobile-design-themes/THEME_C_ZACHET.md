@@ -164,6 +164,11 @@ internal fun zachetTokens(): DesignTokens {
 
 `enum class DesignTheme`: `ZACHET(title = "Зачёт", description = "Тёмная игровая тема: крупные кнопки и прогресс")`.
 
+Формы стандартных Material-компонентов выводятся из этих токенов сами (README, раздел 1, таблица `appShapes()`):
+чипы-фильтры — 10dp, поля и меню — 14dp, плавающая кнопка `AppFab` — 18dp, как кнопки. «Объём» (`buttonDepth`)
+уже рисуют `BusyButton` и `AppButton`. Контурные кнопки (`outlined`, `AppOutlinedButton`) и `AppFab` остаются
+плоскими — так и задумано (у FAB своя тень).
+
 Проверьте «объём» в высоком контрасте: в HC `cardBorder` включается сам, `depth` рисуется темнее `outlineVariant`
 HC-палитры — должно читаться. Если некрасиво — в `StudentTestingTheme` при `highContrast` обнуляйте
 `buttonDepth`/`cardDepth` (для всех тем это безопасно: у A они и так 0).
@@ -191,6 +196,12 @@ HC-палитры — должно читаться. Если некрасиво
 В `BusyButton` (`Components.kt`): если `true` — на экране `text.uppercase()` весом 800, а для TalkBack — исходный
 текст: `Text(text.uppercase(), modifier = Modifier.clearAndSetSemantics { contentDescription = text })`.
 Иначе TalkBack может читать короткие слова в прописных по буквам («Д-А-Л-Е-Е»).
+
+То же сделайте в `AppFab` (там подпись уже передаётся строкой и `contentDescription` задан — меняется только
+видимый текст). `AppButton` и `AppOutlinedButton` принимают произвольное содержимое (`content: RowScope.() -> Unit`),
+поэтому прописными сами не станут. Переведите их на `text: String` + необязательный `icon: ImageVector?`, как у
+`BusyButton`, и поправьте вызовы (их немного: `grep -rn "AppButton(\|AppOutlinedButton(" mobile/shared/src`).
+Иначе в теме C кнопки будут вперемешку: часть прописными, часть нет.
 
 ### 4.3. (По желанию) квадратные кнопки-иконки
 

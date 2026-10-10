@@ -7,7 +7,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -106,19 +106,19 @@ data class DesignTokens(
     val displayFont: FontFamily,
     /** Основной текст, подписи, кнопки. */
     val bodyFont: FontFamily,
-    val buttonShape: Shape,
+    val buttonShape: CornerBasedShape,
     val buttonHeight: Dp,
     /** «Объёмная» кнопка: нижний край высотой depth темнее кнопки (0 — плоская). */
     val buttonDepth: Dp,
-    val cardShape: Shape,
+    val cardShape: CornerBasedShape,
     /** Тонкая рамка вокруг карточек (нужна, когда карточка почти не отличается от фона). */
     val cardBorder: Boolean,
     /** «Объёмная» карточка: нижний край толщиной depth (0 — без него). */
     val cardDepth: Dp,
-    val chipShape: Shape,
-    val fieldShape: Shape,
+    val chipShape: CornerBasedShape,
+    val fieldShape: CornerBasedShape,
     /** Иконка-плитка в карточках-ссылках, аватар-заглушки. */
-    val tileShape: Shape,
+    val tileShape: CornerBasedShape,
     /** Кнопки-иконки в верхней панели в круглой подложке цвета surface. */
     val iconButtonsOnSurface: Boolean,
     /** Верхняя панель цвета фона экрана (иначе — цвета surface). */

@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -11,7 +12,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Topic
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -209,11 +209,7 @@ fun TopicsScreen(route: TeacherTopicsRoute, role: WorkspaceRole, navigator: AppN
         onBack = navigator::back,
         floatingActionButton = {
             if (picker.selected != null) {
-                ExtendedFloatingActionButton(
-                    onClick = vm::openCreate,
-                    icon = { Icon(Icons.Default.Add, null) },
-                    text = { Text("Тема") },
-                )
+                AppFab("Тема", onClick = vm::openCreate, accessibilityLabel = "Новая тема")
             }
         },
     ) { padding ->
