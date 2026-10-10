@@ -1,5 +1,13 @@
 package org.santayn.testing.mobile.feature.learning
 
+import androidx.compose.foundation.layout.Box
+import org.santayn.testing.mobile.core.ui.AppTheme
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import org.santayn.testing.mobile.core.ui.design.Design
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -416,30 +424,11 @@ fun LectureScreen(route: LectureRoute, navigator: AppNavigator) {
     val downloading by vm.downloading.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val lecture = (state as? LoadState.Ready)?.data?.lecture
-    AppScreen(title = lecture?.title ?: "Лекция", subtitle = lecture?.courseName, onBack = navigator::back) { padding ->
+    // Название лекции — в шапке экрана (LectureHero), в верхней панели — курс.
+    AppScreen(title = lecture?.courseName ?: "Лекция", onBack = navigator::back) { padding ->
         LoadStateContent(state, onRetry = { vm.load() }, refreshing = refreshing, onRefresh = { vm.load(true) }) { data ->
             ScreenList(contentPadding = screenPadding(padding)) {
-                item {
-                    AppCard {
-                        Text(data.lecture.title, style = MaterialTheme.typography.titleLarge)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            StatusChip("Лекция ${data.lecture.ordinal}", Tone.PRIMARY)
-                            if (data.lecture.versionNumber > 0) StatusChip("Версия ${data.lecture.versionNumber}")
-                        }
-                        Spacer(Modifier.size(4.dp))
-                        val description = data.lecture.description?.takeIf { it.isNotBlank() }
-                        Row(verticalAlignment = Alignment.Top) {
-                            Text(
-                                description ?: "Описание лекции не указано.",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f),
-                            )
-                            if (description != null) {
-                                SpeakButton(key = "lecture-${data.lecture.id}", text = { "${data.lecture.title}. $description" })
-                            }
-                        }
-                    }
-                }
+                item { LectureHero(data.lecture) }
 
                 item { SectionTitle("Материалы") }
                 if (data.materialsError != null) item { Banner(data.materialsError, Tone.DANGER) }
@@ -486,10 +475,10 @@ fun MaterialRow(
 ) {
     AppCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            FileTypeTile(name)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     formatFileSize(size) + when {
                         busy && progress != null -> " · скачивание ${(progress * 100).toInt()} %"
@@ -511,6 +500,31 @@ fun MaterialRow(
                 )
             }
             trailing?.invoke()
+        }
+    }
+}
+
+/** Плитка типа файла: видео — тёмная с «плей», документы — подпись расширения. */
+@Composable
+private fun FileTypeTile(name: String) {
+    val ext = name.substringAfterLast('.', "").lowercase()
+    val video = ext in setOf("mp4", "mov", "mkv", "webm", "avi")
+    val image = ext in setOf("jpg", "jpeg", "png", "gif", "webp", "heic")
+    Box(
+        Modifier.size(width = 56.dp, height = 48.dp).clip(Design.tokens.tileShape)
+            .background(if (video) MaterialTheme.colorScheme.inverseSurface else AppTheme.status.primarySoft),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            video -> Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.inverseOnSurface)
+            image -> Icon(Icons.Default.Image, contentDescription = null, tint = AppTheme.status.primarySoftText)
+            ext.isNotEmpty() && ext.length <= 4 -> Text(
+                ext.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = AppTheme.status.primarySoftText,
+            )
+            else -> Icon(Icons.Default.Description, contentDescription = null, tint = AppTheme.status.primarySoftText)
         }
     }
 }
@@ -545,6 +559,7 @@ private fun TestCard(test: PublicTestDto, onStart: () -> Unit) {
             BusyButton(
                 text = if (test.canResume) "Продолжить тест" else "Пройти тест",
                 onClick = onStart,
+                accent = true,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

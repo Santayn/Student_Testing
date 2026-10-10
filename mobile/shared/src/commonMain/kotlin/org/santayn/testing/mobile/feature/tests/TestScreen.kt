@@ -1,5 +1,36 @@
 package org.santayn.testing.mobile.feature.tests
 
+import org.santayn.testing.mobile.core.ui.design.Design
+import org.santayn.testing.mobile.core.ui.design.AnswerStyle
+import org.santayn.testing.mobile.core.ui.AnswerOptionCard
+import org.santayn.testing.mobile.core.util.formatDuration
+import org.santayn.testing.mobile.core.ui.SectionTitle
+import org.santayn.testing.mobile.core.ui.EmptyState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -231,6 +262,8 @@ fun TestScreen(route: TestRoute, navigator: AppNavigator) {
     val answers by vm.answers.collectAsState()
     val submit by vm.submit.collectAsState()
     var confirm by rememberSaveable { mutableStateOf(false) }
+    // Тест проходится по одному вопросу на экран; номер текущего переживает поворот экрана.
+    var current by rememberSaveable(route.testId, route.assignmentId) { mutableIntStateOf(0) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { vm.flushDraft() }
 
@@ -250,62 +283,81 @@ fun TestScreen(route: TestRoute, navigator: AppNavigator) {
         return
     }
 
+    val questions = session?.questions.orEmpty()
+    val index = current.coerceIn(0, (questions.size - 1).coerceAtLeast(0))
+    val locked = submit != SubmitState.Idle
+    val requestSubmit = {
+        val unanswered = questions.count { !answers.isAnswered(it) }
+        if (unanswered > 0) confirm = true else vm.submitAttempt()
+    }
+
     AppScreen(
         title = title,
+        subtitle = session?.attempt?.test?.duration?.let(::formatDuration)?.let { "Ограничение по времени: $it" },
         onBack = navigator::back,
+        actions = {
+            if (questions.isNotEmpty() && submit == SubmitState.Idle) {
+                TextButton(onClick = requestSubmit) { Text("Завершить") }
+            }
+        },
         bottomBar = {
-            if (session != null) {
-                SubmitBar(
-                    answered = session.questions.count { answers.isAnswered(it) },
-                    total = session.questions.size,
+            if (questions.isNotEmpty()) {
+                StepBar(
+                    index = index,
+                    total = questions.size,
+                    answered = questions.count { answers.isAnswered(it) },
                     submit = submit,
-                    onSubmit = {
-                        val unanswered = session.questions.count { !answers.isAnswered(it) }
-                        if (unanswered > 0) confirm = true else vm.submitAttempt()
-                    },
+                    onPrev = { current = index - 1 },
+                    onNext = { current = index + 1 },
+                    onSubmit = requestSubmit,
                 )
             }
         },
     ) { padding ->
         // Попытку не перезапускаем при восстановлении связи — только повтор после ошибки.
         LoadStateContent(state, onRetry = vm::start, refreshOnReconnect = false) { data ->
-            val locked = submit != SubmitState.Idle
-            ScreenList(contentPadding = screenPadding(padding)) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        data.attempt.test?.description?.takeIf { it.isNotBlank() }?.let {
-                            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (data.restoredFromDraft) Banner("Восстановлены сохранённые ответы этой попытки.", Tone.INFO)
-                        (submit as? SubmitState.Unknown)?.let { unknown ->
-                            Banner(unknown.message, Tone.WARNING, title = "Результат отправки неизвестен")
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                BusyButton("Открыть результаты", onClick = { navigator.open(ResultsRoute) }, outlined = true)
-                                BusyButton("Отправить снова", onClick = vm::unlockSubmit, outlined = true)
-                            }
-                        }
+            val scroll = rememberScrollState()
+            LaunchedEffect(index) { scroll.scrollTo(0) }
+            Column(
+                Modifier.fillMaxSize().verticalScroll(scroll).padding(screenPadding(padding)),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (data.restoredFromDraft) Banner("Восстановлены сохранённые ответы этой попытки.", Tone.INFO)
+                (submit as? SubmitState.Unknown)?.let { unknown ->
+                    Banner(unknown.message, Tone.WARNING, title = "Результат отправки неизвестен")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BusyButton("Открыть результаты", onClick = { navigator.open(ResultsRoute) }, outlined = true)
+                        BusyButton("Отправить снова", onClick = vm::unlockSubmit, outlined = true)
+                    }
+                }
+                if (data.questions.isEmpty()) {
+                    EmptyState("В тесте нет вопросов")
+                } else {
+                    QuestionProgress(data.questions, answers, index, onJump = { current = it })
+                    val question = data.questions[index]
+                    key(question.id) {
+                        QuestionCard(index = index, question = question, answers = answers, enabled = !locked, onChange = vm::update)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = AppTheme.status.successText,
+                            modifier = Modifier.size(16.dp),
+                        )
                         Text(
-                            "Ответы сохраняются на устройстве автоматически.",
+                            "Ответы сохраняются на телефоне — можно продолжить позже",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                }
-                itemsIndexed(data.questions, key = { _, q -> q.id }) { index, question ->
-                    QuestionCard(
-                        index = index,
-                        question = question,
-                        answers = answers,
-                        enabled = !locked,
-                        onChange = vm::update,
-                    )
                 }
             }
         }
     }
 
     if (confirm && session != null) {
-        val unanswered = session.questions.count { !answers.isAnswered(it) }
+        val unanswered = questions.count { !answers.isAnswered(it) }
         ConfirmDialog(
             title = "Отправить ответы?",
             message = "Без ответа осталось вопросов: $unanswered. Они будут засчитаны как неверные.",
@@ -319,24 +371,123 @@ fun TestScreen(route: TestRoute, navigator: AppNavigator) {
     }
 }
 
+/**
+ * Прогресс по вопросам: «Вопрос N из M» (объявляется TalkBack при переходе) и сегменты-кнопки
+ * для перехода к любому вопросу. Больше 10 вопросов — ряд номеров с прокруткой.
+ */
 @Composable
-private fun SubmitBar(answered: Int, total: Int, submit: SubmitState, onSubmit: () -> Unit) {
-    Surface(shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Отвечено $answered из $total", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                BusyButton(
-                    text = "Завершить",
-                    onClick = onSubmit,
-                    busy = submit == SubmitState.Submitting,
-                    enabled = submit == SubmitState.Idle && total > 0,
-                )
+private fun QuestionProgress(
+    questions: List<PublicQuestionDto>,
+    answers: AttemptAnswers,
+    current: Int,
+    onJump: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            "Вопрос ${current + 1} из ${questions.size}",
+            style = MaterialTheme.typography.labelLarge,
+            color = AppTheme.status.primarySoftText,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        if (questions.size <= 10) {
+            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                questions.forEachIndexed { i, q ->
+                    val answered = answers.isAnswered(q)
+                    val color = when {
+                        i == current -> MaterialTheme.colorScheme.onBackground
+                        answered -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.outlineVariant
+                    }
+                    Box(
+                        Modifier.weight(1f).heightIn(min = 48.dp)
+                            .selectable(selected = i == current, role = Role.Tab, onClick = { onJump(i) })
+                            .semantics {
+                                contentDescription = "Вопрос ${i + 1}"
+                                stateDescription = if (answered) "отвечен" else "без ответа"
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth().height(if (i == current) 10.dp else 8.dp)
+                                .clip(RoundedCornerShape(percent = 50)).background(color)
+                        )
+                    }
+                }
             }
-            Spacer(Modifier.size(8.dp))
-            LinearProgressIndicator(
-                progress = { if (total == 0) 0f else answered.toFloat() / total },
-                modifier = Modifier.fillMaxWidth(),
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.selectableGroup()) {
+                itemsIndexed(questions) { i, q ->
+                    val answered = answers.isAnswered(q)
+                    val selected = i == current
+                    Box(
+                        Modifier.size(48.dp).clip(CircleShape)
+                            .background(if (answered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                            .border(
+                                width = if (selected) 3.dp else 1.dp,
+                                color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline,
+                                shape = CircleShape,
+                            )
+                            .selectable(selected = selected, role = Role.Tab, onClick = { onJump(i) })
+                            .semantics { stateDescription = if (answered) "отвечен" else "без ответа" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "${i + 1}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (answered) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Нижняя панель шага: «Назад» и «Следующий вопрос», на последнем — «Завершить». */
+@Composable
+private fun StepBar(
+    index: Int,
+    total: Int,
+    answered: Int,
+    submit: SubmitState,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onSubmit: () -> Unit,
+) {
+    Surface(
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Отвечено $answered из $total",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (index > 0) BusyButton("Назад", onClick = onPrev, outlined = true)
+                if (index < total - 1) {
+                    BusyButton(
+                        "Следующий вопрос",
+                        onClick = onNext,
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    BusyButton(
+                        "Завершить тест",
+                        onClick = onSubmit,
+                        busy = submit == SubmitState.Submitting,
+                        enabled = submit == SubmitState.Idle,
+                        accent = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
     }
 }
@@ -352,7 +503,7 @@ internal fun QuestionCard(
     val type = effectiveType(question)
     val answered = answers.isAnswered(question)
     val options = question.options.sortedWith(compareBy({ it.ordinal }, { it.id }))
-    AppCard {
+    val header: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.Top) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -366,46 +517,95 @@ internal fun QuestionCard(
             }
             SpeakButton(key = "question-${question.id}", text = { spokenQuestion(index, question, type, options) })
         }
-        Spacer(Modifier.size(4.dp))
-        // Текст вопроса — заголовок: TalkBack/VoiceOver переходят между вопросами жестом «по заголовкам».
-        Text(
-            question.displayText,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() },
-        )
-        Spacer(Modifier.size(4.dp))
-        when (type) {
-            QuestionType.SINGLE -> Column(Modifier.selectableGroup()) {
-                options.forEach { option ->
-                    RadioRow(
-                        title = option.text,
-                        selected = answers.single[question.id] == option.id,
-                        enabled = enabled,
-                        onClick = { onChange { it.withSingle(question.id, option.id) } },
-                    )
-                }
-            }
-            QuestionType.MULTIPLE -> Column {
-                options.forEach { option ->
-                    CheckRow(
-                        title = option.text,
-                        checked = option.id in answers.multiple[question.id].orEmpty(),
-                        enabled = enabled,
-                        onCheckedChange = { checked -> onChange { it.withMultiple(question.id, option.id, checked) } },
-                    )
-                }
-            }
-            QuestionType.MATCHING -> MatchingQuestion(question, answers, enabled, onChange)
-            else -> FormField(
-                value = answers.text[question.id].orEmpty(),
-                onValueChange = { value -> onChange { it.withText(question.id, value) } },
-                label = "Ваш ответ",
-                singleLine = false,
-                minLines = 3,
-                enabled = enabled,
+    }
+    when (Design.tokens.answerStyle) {
+        AnswerStyle.CARDS -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            header()
+            // Текст вопроса — заголовок: TalkBack/VoiceOver переходят между вопросами жестом «по заголовкам».
+            Text(
+                question.displayText,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.semantics { heading() },
             )
+            when (type) {
+                QuestionType.SINGLE -> Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    options.forEach { option ->
+                        AnswerOptionCard(
+                            title = option.text,
+                            selected = answers.single[question.id] == option.id,
+                            multiple = false,
+                            enabled = enabled,
+                            onToggle = { onChange { it.withSingle(question.id, option.id) } },
+                        )
+                    }
+                }
+                QuestionType.MULTIPLE -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    options.forEach { option ->
+                        AnswerOptionCard(
+                            title = option.text,
+                            selected = option.id in answers.multiple[question.id].orEmpty(),
+                            multiple = true,
+                            enabled = enabled,
+                            onToggle = { checked -> onChange { it.withMultiple(question.id, option.id, checked) } },
+                        )
+                    }
+                }
+                QuestionType.MATCHING -> AppCard { MatchingQuestion(question, answers, enabled, onChange) }
+                else -> AppCard { TextAnswerField(question, answers, enabled, onChange) }
+            }
+        }
+        AnswerStyle.LIST -> AppCard {
+            header()
+            Spacer(Modifier.size(4.dp))
+            Text(
+                question.displayText,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+            Spacer(Modifier.size(4.dp))
+            when (type) {
+                QuestionType.SINGLE -> Column(Modifier.selectableGroup()) {
+                    options.forEach { option ->
+                        RadioRow(
+                            title = option.text,
+                            selected = answers.single[question.id] == option.id,
+                            enabled = enabled,
+                            onClick = { onChange { it.withSingle(question.id, option.id) } },
+                        )
+                    }
+                }
+                QuestionType.MULTIPLE -> Column {
+                    options.forEach { option ->
+                        CheckRow(
+                            title = option.text,
+                            checked = option.id in answers.multiple[question.id].orEmpty(),
+                            enabled = enabled,
+                            onCheckedChange = { checked -> onChange { it.withMultiple(question.id, option.id, checked) } },
+                        )
+                    }
+                }
+                QuestionType.MATCHING -> MatchingQuestion(question, answers, enabled, onChange)
+                else -> TextAnswerField(question, answers, enabled, onChange)
+            }
         }
     }
+}
+
+@Composable
+private fun TextAnswerField(
+    question: PublicQuestionDto,
+    answers: AttemptAnswers,
+    enabled: Boolean,
+    onChange: ((AttemptAnswers) -> AttemptAnswers) -> Unit,
+) {
+    FormField(
+        value = answers.text[question.id].orEmpty(),
+        onValueChange = { value -> onChange { it.withText(question.id, value) } },
+        label = "Ваш ответ",
+        singleLine = false,
+        minLines = 3,
+        enabled = enabled,
+    )
 }
 
 /** Текст для кнопки «Прочитать вслух»: номер, вопрос и варианты ответа. */
@@ -487,29 +687,18 @@ private fun TestResultScreen(
     onResults: () -> Unit,
     onBack: () -> Unit,
 ) {
-    AppScreen(title = "Результат", subtitle = title, onBack = onBack) { padding ->
-        ScreenList(contentPadding = screenPadding(padding)) {
-            item {
-                AppCard {
-                    Text(
-                        "Тест завершён",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    )
-                    StatGrid(
-                        listOf(
-                            "Правильных" to "${result.correctCount} из ${result.totalCount}",
-                            "Баллы" to formatNumber(result.score),
-                        )
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BusyButton("Мои результаты", onClick = onResults)
-                        BusyButton("К лекции", onClick = onBack, outlined = true)
-                    }
-                }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { _ ->
+        LazyColumn(
+            contentPadding = PaddingValues(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+        ) {
+            item { ResultHero(title = title, result = result, onBack = onBack) }
+            if (result.details.isNotEmpty()) {
+                item { SectionTitle("Разбор ответов", modifier = Modifier.padding(horizontal = 20.dp)) }
             }
             itemsIndexed(result.details) { index, detail ->
-                AppCard {
+                AppCard(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.semantics(mergeDescendants = true) { heading() },
@@ -517,13 +706,24 @@ private fun TestResultScreen(
                         Icon(
                             if (detail.correct) Icons.Default.CheckCircle else Icons.Default.Cancel,
                             contentDescription = if (detail.correct) "Верно" else "Неверно",
-                            tint = if (detail.correct) AppTheme.status.success else AppTheme.status.danger,
+                            tint = if (detail.correct) AppTheme.status.successText else AppTheme.status.dangerText,
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Вопрос ${index + 1}", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "Вопрос ${index + 1} · " + if (detail.correct) "верно" else "неверно",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (detail.correct) AppTheme.status.successText else AppTheme.status.dangerText,
+                        )
                     }
+                    Spacer(Modifier.size(4.dp))
                     Text(detail.questionText.orEmpty(), style = MaterialTheme.typography.titleSmall)
                     AnswerView(detail.givenAnswer, detail.correctAnswer)
+                }
+            }
+            item {
+                Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    BusyButton("К лекции", onClick = onBack, outlined = true, modifier = Modifier.weight(1f))
+                    BusyButton("Все результаты", onClick = onResults, modifier = Modifier.weight(1f))
                 }
             }
         }

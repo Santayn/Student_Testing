@@ -57,6 +57,7 @@ fun App() {
     val responseCache = koinInject<ResponseCache>()
     val offlineFiles = koinInject<OfflineFiles>()
     val themeMode by settings.themeMode.collectAsState()
+    val designTheme by settings.designTheme.collectAsState()
     val textScale by settings.textScale.collectAsState()
     val highContrast by settings.highContrast.collectAsState()
     val state by session.state.collectAsState()
@@ -88,7 +89,7 @@ fun App() {
     val loggedIn = state as? SessionState.LoggedIn
     LaunchedEffect(loggedIn?.user?.userId, loggedIn?.workspaceRole) { cache.invalidate() }
 
-    StudentTestingTheme(themeMode, highContrast = highContrast, textScale = textScale.factor) {
+    StudentTestingTheme(themeMode, design = designTheme, highContrast = highContrast, textScale = textScale.factor) {
         CompositionLocalProvider(
             LocalSnackbarHostState provides snackbarHostState,
             LocalNetworkStatus provides network,

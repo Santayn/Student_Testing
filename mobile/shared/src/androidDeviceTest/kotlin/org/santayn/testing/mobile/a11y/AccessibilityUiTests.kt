@@ -41,7 +41,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.tryPerformAccessibilityChecks
 import androidx.compose.ui.unit.dp
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +52,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.santayn.testing.mobile.core.ui.design.DesignTheme
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
@@ -75,6 +76,10 @@ import org.santayn.testing.mobile.data.model.QuestionType
 import org.santayn.testing.mobile.domain.AttemptAnswers
 import org.santayn.testing.mobile.feature.profile.DisplaySettings
 import org.santayn.testing.mobile.feature.tests.QuestionCard
+import org.santayn.testing.mobile.feature.tests.ResultHero
+import org.santayn.testing.mobile.data.model.SubmitAttemptResponse
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
 
 /**
  * UI-тесты доступности на устройстве.
@@ -87,8 +92,18 @@ import org.santayn.testing.mobile.feature.tests.QuestionCard
  *
  * Запуск (эмулятор или телефон по USB): `./gradlew :shared:connectedAndroidDeviceTest`
  */
-@RunWith(AndroidJUnit4::class)
-class AccessibilityUiTests {
+/*
+ * Параметризовано темой оформления: каждая тема из DesignTheme проходит ВСЕ проверки ниже
+ * (новая тема подключается автоматически).
+ */
+@RunWith(Parameterized::class)
+class AccessibilityUiTests(private val design: DesignTheme) {
+
+    companion object {
+        @JvmStatic
+        @Parameterized.Parameters(name = "{0}")
+        fun themes(): List<DesignTheme> = DesignTheme.entries
+    }
 
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
@@ -150,7 +165,12 @@ class AccessibilityUiTests {
         network: NetworkStatus? = null,
         content: @Composable () -> Unit,
     ) = rule.setContent {
-        StudentTestingTheme(if (dark) ThemeMode.DARK else ThemeMode.LIGHT, highContrast, textScale) {
+        StudentTestingTheme(
+            themeMode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT,
+            design = design,
+            highContrast = highContrast,
+            textScale = textScale,
+        ) {
             CompositionLocalProvider(LocalNetworkStatus provides network) {
                 Surface(color = MaterialTheme.colorScheme.background) { content() }
             }
@@ -256,6 +276,45 @@ class AccessibilityUiTests {
         assertNotNull("ATF должен найти проблему у кнопки 20 dp без подписи", error)
         assertTrue(error!!::class.java.name, error::class.java.name.contains("Accessibility"))
     }
+
+    // region итог теста (шапка темы)
+
+    @Test
+    fun resultHeroAnnouncesScoreAndPassesAtf() {
+        themed {
+            Column {
+                ResultHero(
+                    title = "Тест по теме лекции",
+                    result = SubmitAttemptResponse(attemptId = 1, score = 2.0, correctCount = 2, totalCount = 4),
+                    onBack = {},
+                )
+            }
+        }
+        rule.onNodeWithContentDescription("Результат 50 процентов").assertIsDisplayed()
+        rule.onNodeWithText("2 из 4 верно").assert(isHeading()).assert(isLiveRegionSelf)
+        rule.onNodeWithContentDescription("К лекции").assertHasClickAction()
+        rule.onRoot().tryPerformAccessibilityChecks()
+        saveScreenshot("result-hero")
+    }
+
+    @Test
+    fun answerCardsKeepRolesInCardsStyle() {
+        themed { TestQuestions() }
+        saveScreenshot("test-question-cards")
+        rule.onNodeWithText("Клавиатура").performScrollTo().assert(roleIs(Role.Checkbox)).performClick().assertIsOn()
+    }
+
+    /** Снимок для визуальной проверки: /sdcard/Android/data/<пакет тестов>/files/screens/<name>.png. */
+    private fun saveScreenshot(name: String) {
+        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        val dir = java.io.File(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "screens")
+        dir.mkdirs()
+        java.io.File(dir, "${design.name.lowercase()}-$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private val isLiveRegionSelf = SemanticsMatcher.keyIsDefined(SemanticsProperties.LiveRegion)
+
+    // endregion
 
     // region заголовки экранов и сообщения о связи
 

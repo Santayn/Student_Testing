@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.core.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -46,6 +47,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -71,7 +73,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -88,7 +95,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import org.santayn.testing.mobile.core.ui.design.Design
+import org.santayn.testing.mobile.core.ui.design.SectionTitleStyle
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
@@ -135,14 +147,16 @@ fun AppScreen(
                 },
                 navigationIcon = {
                     if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
-                        }
+                        AppIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Назад", onClick = onBack)
                     }
                 },
                 actions = actions,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = if (Design.tokens.topBarOnBackground) {
+                        MaterialTheme.colorScheme.background
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
                 ),
             )
             NetworkBanner()
@@ -154,6 +168,22 @@ fun AppScreen(
         containerColor = MaterialTheme.colorScheme.background,
         content = content,
     )
+}
+
+/**
+ * Кнопка-иконка в стиле темы: в «Политехе» — в круглой подложке цвета surface.
+ * [label] обязателен: это подпись для TalkBack/VoiceOver.
+ */
+@Composable
+fun AppIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color? = null) {
+    val colors = if (Design.tokens.iconButtonsOnSurface) {
+        IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surface)
+    } else {
+        IconButtonDefaults.iconButtonColors()
+    }
+    IconButton(onClick = onClick, modifier = modifier.padding(horizontal = 4.dp), colors = colors) {
+        Icon(icon, contentDescription = label, tint = tint ?: androidx.compose.material3.LocalContentColor.current)
+    }
 }
 
 // endregion
@@ -334,17 +364,20 @@ fun AppCard(
     containerColor: Color = MaterialTheme.colorScheme.surface,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val tokens = Design.tokens
     val colors = CardDefaults.cardColors(containerColor = containerColor)
-    val border = CardDefaults.outlinedCardBorder()
+    val border = if (tokens.cardBorder) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
+    val cardModifier = modifier.fillMaxWidth().depth(tokens.cardDepth, tokens.cardShape, MaterialTheme.colorScheme.outlineVariant)
     if (onClick != null) {
         Card(
             onClick = onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = cardModifier,
+            shape = tokens.cardShape,
             colors = colors,
             border = border,
         ) { Column(Modifier.padding(16.dp), content = content) }
     } else {
-        Card(modifier = modifier.fillMaxWidth(), colors = colors, border = border) {
+        Card(modifier = cardModifier, shape = tokens.cardShape, colors = colors, border = border) {
             Column(Modifier.padding(16.dp), content = content)
         }
     }
@@ -364,7 +397,7 @@ fun NavCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
                 Box(
-                    Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                    Modifier.size(44.dp).clip(Design.tokens.tileShape)
                         .background(AppTheme.status.primarySoft),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -404,10 +437,23 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composab
         modifier.fillMaxWidth().padding(top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val (style, color) = when (Design.tokens.sectionTitle) {
+            SectionTitleStyle.DISPLAY -> MaterialTheme.typography.titleMedium.copy(
+                fontFamily = Design.tokens.displayFont,
+                fontWeight = FontWeight.SemiBold,
+            ) to MaterialTheme.colorScheme.onBackground
+            SectionTitleStyle.CAPS -> MaterialTheme.typography.labelLarge.copy(
+                letterSpacing = 0.08.em,
+            ) to MaterialTheme.colorScheme.onSurfaceVariant
+            SectionTitleStyle.BOLD -> MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+            ) to MaterialTheme.colorScheme.onBackground
+        }
         Text(
-            text,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (Design.tokens.sectionTitle == SectionTitleStyle.CAPS) text.uppercase() else text,
+            style = style,
+            color = color,
             modifier = Modifier.weight(1f).semantics { heading() },
         )
         action?.invoke()
@@ -436,11 +482,11 @@ fun StatusChip(text: String, tone: Tone = Tone.NEUTRAL, modifier: Modifier = Mod
         Tone.DANGER -> s.dangerSoft to s.dangerText
         Tone.INFO -> s.infoSoft to s.infoText
     }
-    Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(999.dp), modifier = modifier) {
+    Surface(color = bg, contentColor = fg, shape = Design.tokens.chipShape, modifier = modifier) {
         Text(
             text,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             maxLines = 1,
         )
     }
@@ -461,13 +507,13 @@ fun Banner(text: String, tone: Tone = Tone.INFO, modifier: Modifier = Modifier, 
     Surface(
         color = bg,
         contentColor = fg,
-        shape = MaterialTheme.shapes.medium,
+        shape = Design.tokens.cardShape,
         modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {
             // Ошибки и предупреждения зачитываются сразу при появлении.
             if (announce) liveRegion = LiveRegionMode.Polite
         },
     ) {
-        Column(Modifier.padding(12.dp)) {
+        Column(Modifier.padding(14.dp)) {
             if (title != null) {
                 Text(title, style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(2.dp))
@@ -493,14 +539,14 @@ fun RetryBanner(message: String, onRetry: () -> Unit, modifier: Modifier = Modif
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        border = CardDefaults.outlinedCardBorder(),
+        shape = Design.tokens.cardShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = if (Design.tokens.cardBorder) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
     ) {
-        Column(Modifier.padding(12.dp).semantics(mergeDescendants = true) {}) {
+        Column(Modifier.padding(14.dp).semantics(mergeDescendants = true) {}) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.titleLarge)
         }
     }
 }
@@ -543,7 +589,7 @@ fun SearchField(
             }
         },
         singleLine = true,
-        shape = MaterialTheme.shapes.small,
+        shape = Design.tokens.fieldShape,
     )
 }
 
@@ -586,7 +632,7 @@ fun FormField(
         visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         enabled = enabled,
         trailingIcon = trailingIcon,
-        shape = MaterialTheme.shapes.small,
+        shape = Design.tokens.fieldShape,
     )
 }
 
@@ -663,6 +709,54 @@ fun RadioRow(
     }
 }
 
+/**
+ * Вариант ответа отдельной карточкой (AnswerStyle.CARDS). Семантика как у [RadioRow]/[CheckRow]:
+ * одна карточка — один элемент с ролью «переключатель»/«флажок» и состоянием.
+ */
+@Composable
+fun AnswerOptionCard(
+    title: String,
+    selected: Boolean,
+    multiple: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val tokens = Design.tokens
+    val shape = tokens.cardShape
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val interaction = if (multiple) {
+        Modifier.toggleable(value = selected, enabled = enabled, role = Role.Checkbox, onValueChange = onToggle)
+    } else {
+        Modifier.selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onToggle(true) })
+    }
+    Surface(
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
+        shadowElevation = if (selected && tokens.cardDepth == 0.dp) 4.dp else 0.dp,
+        modifier = modifier.fillMaxWidth().depth(tokens.cardDepth, shape, borderColor),
+    ) {
+        Row(
+            Modifier.clip(shape).then(interaction).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (multiple) {
+                Checkbox(checked = selected, onCheckedChange = null, enabled = enabled)
+            } else {
+                RadioButton(selected = selected, onClick = null, enabled = enabled)
+            }
+            Spacer(Modifier.width(14.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
 /** Вариант для [SelectField]. */
 data class SelectOption<T>(val value: T, val label: String, val description: String? = null)
 
@@ -701,7 +795,7 @@ fun <T> SelectField(
             supportingText = error?.let { { Text(it) } },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
-            shape = MaterialTheme.shapes.small,
+            shape = Design.tokens.fieldShape,
         )
         // Прозрачный слой поверх поля: перехватывает нажатие и описывает поле для программы чтения с экрана.
         Box(
@@ -837,7 +931,7 @@ fun <T> MultiSelectField(
             supportingText = error?.let { { Text(it) } },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
-            shape = MaterialTheme.shapes.small,
+            shape = Design.tokens.fieldShape,
         )
         Box(
             Modifier.matchParentSize().padding(top = 8.dp).clip(MaterialTheme.shapes.small)
@@ -937,7 +1031,28 @@ fun ConfirmDialog(
 @Composable
 private fun LocalContentColorOnButton(): Color = androidx.compose.material3.LocalContentColor.current
 
-/** Кнопка с индикатором выполнения. */
+/**
+ * «Объёмный» нижний край высотой [depth] (кнопки и карточки темы с depth > 0):
+ * под элементом рисуется та же форма темнее [base] и смещённая вниз. Место под край резервируется отступом.
+ */
+fun Modifier.depth(depth: Dp, shape: Shape, base: Color): Modifier =
+    if (depth <= 0.dp) {
+        this
+    } else {
+        this.padding(bottom = depth).drawBehind {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            translate(top = depth.toPx()) {
+                drawOutline(outline, color = lerp(base, Color.Black, 0.35f))
+            }
+        }
+    }
+
+/**
+ * Кнопка с индикатором выполнения в стиле темы (форма, высота, «объёмный» край).
+ *
+ * @param outlined второстепенная кнопка с обводкой.
+ * @param accent главное действие экрана в акцентном цвете темы («Пройти тест»).
+ */
 @Composable
 fun BusyButton(
     text: String,
@@ -947,7 +1062,9 @@ fun BusyButton(
     enabled: Boolean = true,
     outlined: Boolean = false,
     icon: ImageVector? = null,
+    accent: Boolean = false,
 ) {
+    val tokens = Design.tokens
     val content: @Composable RowScope.() -> Unit = {
         if (busy) {
             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = androidx.compose.material3.LocalContentColor.current)
@@ -958,12 +1075,42 @@ fun BusyButton(
         }
         Text(text)
     }
+    val active = enabled && !busy
+    val containerColor = when {
+        outlined -> Color.Transparent
+        accent -> Design.brand.accent
+        else -> MaterialTheme.colorScheme.primary
+    }
     // Пока идёт операция, кнопка озвучивается как «выполняется».
-    val buttonModifier = modifier.heightIn(min = 48.dp).semantics { if (busy) stateDescription = "выполняется" }
+    val buttonModifier = modifier
+        .heightIn(min = maxOf(48.dp, tokens.buttonHeight))
+        .then(if (!outlined && active) Modifier.depth(tokens.buttonDepth, tokens.buttonShape, containerColor) else Modifier)
+        .semantics { if (busy) stateDescription = "выполняется" }
+    val padding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
     if (outlined) {
-        OutlinedButton(onClick = onClick, modifier = buttonModifier, enabled = enabled && !busy, content = content)
+        OutlinedButton(
+            onClick = onClick,
+            modifier = buttonModifier,
+            enabled = active,
+            shape = tokens.buttonShape,
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+            contentPadding = padding,
+            content = content,
+        )
     } else {
-        Button(onClick = onClick, modifier = buttonModifier, enabled = enabled && !busy, content = content)
+        Button(
+            onClick = onClick,
+            modifier = buttonModifier,
+            enabled = active,
+            shape = tokens.buttonShape,
+            colors = if (accent) {
+                ButtonDefaults.buttonColors(containerColor = Design.brand.accent, contentColor = Design.brand.onAccent)
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+            contentPadding = padding,
+            content = content,
+        )
     }
 }
 

@@ -20,6 +20,7 @@ import org.koin.compose.koinInject
 import org.santayn.testing.mobile.core.storage.AppSettings
 import org.santayn.testing.mobile.core.storage.TextScale
 import org.santayn.testing.mobile.core.storage.ThemeMode
+import org.santayn.testing.mobile.core.ui.design.DesignTheme
 import org.santayn.testing.mobile.core.ui.RadioRow
 import org.santayn.testing.mobile.core.ui.SwitchRow
 import org.santayn.testing.mobile.core.ui.ThinDivider
@@ -35,7 +36,23 @@ fun DisplaySettings(modifier: Modifier = Modifier) {
     val textScale by settings.textScale.collectAsState()
     val highContrast by settings.highContrast.collectAsState()
 
+    val designTheme by settings.designTheme.collectAsState()
+
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Выбор стиля появляется, когда тем оформления больше одной (см. DesignTheme).
+        if (DesignTheme.entries.size > 1) {
+            GroupTitle("Стиль оформления")
+            Column(Modifier.selectableGroup()) {
+                DesignTheme.entries.forEach { theme ->
+                    RadioRow(
+                        "${theme.title} — ${theme.description}",
+                        selected = designTheme == theme,
+                        onClick = { settings.setDesignTheme(theme) },
+                    )
+                }
+            }
+            ThinDivider()
+        }
         GroupTitle("Тема")
         Column(Modifier.selectableGroup()) {
             listOf(ThemeMode.SYSTEM to "Как в системе", ThemeMode.LIGHT to "Светлая", ThemeMode.DARK to "Тёмная")

@@ -2,6 +2,7 @@ package org.santayn.testing.mobile.di
 
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
+import org.santayn.testing.mobile.feature.home.HomeViewModel
 import org.koin.dsl.module
 import org.santayn.testing.mobile.core.session.WorkspaceRole
 import org.santayn.testing.mobile.feature.learning.LectureViewModel
@@ -28,6 +29,7 @@ import org.santayn.testing.mobile.feature.admin.*
 
 val viewModelModule = module {
     viewModelOf(::ProfileViewModel)
+    viewModel { (role: WorkspaceRole) -> HomeViewModel(role, get(), get(), get()) }
 
     // Обучение
     viewModel { (role: WorkspaceRole) -> SubjectsViewModel(role, get(), get(), get(), get(), get()) }

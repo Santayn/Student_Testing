@@ -1,6 +1,31 @@
 package org.santayn.testing.mobile.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import org.santayn.testing.mobile.core.ui.design.Design
+import org.santayn.testing.mobile.core.ui.design.NavBarStyle
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
@@ -83,26 +108,13 @@ fun MainShell(role: WorkspaceRole) {
     val backStackEntry by nav.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onTopLevel = tabs.any { tab -> destination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true }
-    // При крупном шрифте подписи всех вкладок не помещаются — показываем подпись только у активной.
-    val showAllLabels = LocalDensity.current.fontScale <= 1.3f
+    val selectedIndex = tabs.indexOfFirst { tab -> destination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             AnimatedVisibility(onTopLevel, enter = expandVertically(), exit = shrinkVertically()) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        val selected = destination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = { navigator.openTab(tab.route) },
-                            // Подпись скрыта (крупный шрифт) — название вкладки передаём через иконку.
-                            icon = { Icon(tab.icon, contentDescription = if (showAllLabels || selected) null else tab.label) },
-                            label = { Text(tab.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            alwaysShowLabel = showAllLabels,
-                        )
-                    }
-                }
+                AppNavigationBar(tabs, selectedIndex, onSelect = { navigator.openTab(it.route) })
             }
         },
     ) { padding ->
@@ -155,5 +167,87 @@ private fun AppNavHost(nav: NavHostController, navigator: AppNavigator, role: Wo
         composable<AdminTeacherSubjectsRoute> { AdminTeacherSubjectsScreen(navigator) }
         composable<AdminTeachingRoute> { AdminTeachingScreen(navigator) }
         composable<AdminBackupsRoute> { AdminBackupsScreen(navigator) }
+    }
+}
+
+/** Нижняя навигация главных вкладок в стиле темы (DesignTokens.navBar). */
+@Composable
+private fun AppNavigationBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect: (BottomTab) -> Unit) {
+    // При крупном шрифте подписи не помещаются — показываем подпись только у активной вкладки.
+    val roomyText = LocalDensity.current.fontScale <= 1.3f
+    when (Design.tokens.navBar) {
+        NavBarStyle.CLASSIC -> NavigationBar {
+            tabs.forEachIndexed { index, tab ->
+                val selected = index == selectedIndex
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = { onSelect(tab) },
+                    // Подпись скрыта — название вкладки передаём через иконку.
+                    icon = { Icon(tab.icon, contentDescription = if (roomyText || selected) null else tab.label) },
+                    label = { Text(tab.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    alwaysShowLabel = roomyText,
+                )
+            }
+        }
+        NavBarStyle.FLOATING_PILL -> FloatingPillBar(tabs, selectedIndex, onSelect, showSelectedLabel = true)
+    }
+}
+
+/**
+ * Плавающая панель-«пилюля» (тема «Политех»): активная вкладка — цветная капсула с иконкой и подписью,
+ * остальные — иконки. Каждая вкладка — один элемент с ролью «вкладка» и названием для TalkBack.
+ */
+@Composable
+private fun FloatingPillBar(
+    tabs: List<BottomTab>,
+    selectedIndex: Int,
+    onSelect: (BottomTab) -> Unit,
+    showSelectedLabel: Boolean,
+) {
+    Surface(
+        shape = RoundedCornerShape(percent = 50),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 10.dp,
+        border = if (Design.tokens.cardBorder) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp)
+            .fillMaxWidth()
+            .heightIn(min = 64.dp),
+    ) {
+        Row(
+            Modifier.selectableGroup().padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEachIndexed { index, tab ->
+                val selected = index == selectedIndex
+                val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(tab) })
+                        .heightIn(min = 48.dp)
+                        .widthIn(min = 48.dp)
+                        .padding(horizontal = if (selected && showSelectedLabel) 16.dp else 12.dp)
+                        .semantics(mergeDescendants = true) { contentDescription = tab.label },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(tab.icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
+                    if (selected && showSelectedLabel) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            tab.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = content,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
     }
 }

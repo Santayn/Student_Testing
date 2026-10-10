@@ -57,6 +57,7 @@ import org.santayn.testing.mobile.core.session.SessionManager
 import org.santayn.testing.mobile.core.session.pendingReason
 import org.santayn.testing.mobile.core.storage.AppSettings
 import org.santayn.testing.mobile.core.ui.AppTheme
+import org.santayn.testing.mobile.core.ui.design.Design
 import org.santayn.testing.mobile.core.ui.Banner
 import org.santayn.testing.mobile.core.ui.BusyButton
 import org.santayn.testing.mobile.core.ui.CheckRow
@@ -146,10 +147,10 @@ fun LoginScreen(notice: String?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
-                Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(AppTheme.status.shell),
+                Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(Design.brand.hero),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.School, contentDescription = null, tint = AppTheme.status.onShell, modifier = Modifier.size(34.dp))
+                Icon(Icons.Default.School, contentDescription = null, tint = Design.brand.onHero, modifier = Modifier.size(34.dp))
             }
             Spacer(Modifier.height(12.dp))
             Text("STUDENT TESTING", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -158,7 +159,8 @@ fun LoginScreen(notice: String?) {
             Card(
                 modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = CardDefaults.outlinedCardBorder(),
+                shape = Design.tokens.cardShape,
+                border = if (Design.tokens.cardBorder) CardDefaults.outlinedCardBorder() else null,
             ) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
@@ -331,7 +333,8 @@ fun AccountPendingScreen(user: CurrentUser) {
         Card(
             modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = CardDefaults.outlinedCardBorder(),
+            shape = Design.tokens.cardShape,
+            border = if (Design.tokens.cardBorder) CardDefaults.outlinedCardBorder() else null,
         ) {
             Column(
                 Modifier.padding(20.dp),

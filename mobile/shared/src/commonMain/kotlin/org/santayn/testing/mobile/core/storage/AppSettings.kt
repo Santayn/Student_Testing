@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.santayn.testing.mobile.core.platform.defaultServerUrl
+import org.santayn.testing.mobile.core.ui.design.DesignTheme
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -65,6 +66,16 @@ class AppSettings(private val store: KeyValueStore) {
     )
     val textScale: StateFlow<TextScale> = _textScale.asStateFlow()
 
+    private val _designTheme = MutableStateFlow(DesignTheme.fromName(store.getString(KEY_DESIGN_THEME)))
+
+    /** Тема оформления («Стиль оформления» в настройках). */
+    val designTheme: StateFlow<DesignTheme> = _designTheme.asStateFlow()
+
+    fun setDesignTheme(theme: DesignTheme) {
+        store.putString(KEY_DESIGN_THEME, theme.name)
+        _designTheme.value = theme
+    }
+
     private val _offlineFilesLimitMb = MutableStateFlow(
         store.getString(KEY_OFFLINE_LIMIT)?.toIntOrNull()?.let(OfflineFilesLimit::clamp) ?: OfflineFilesLimit.DEFAULT_MB
     )
@@ -122,6 +133,7 @@ class AppSettings(private val store: KeyValueStore) {
 
     companion object {
         private const val KEY_THEME = "theme_mode"
+        private const val KEY_DESIGN_THEME = "design_theme"
         private const val KEY_TEXT_SCALE = "text_scale"
         private const val KEY_HIGH_CONTRAST = "high_contrast"
         private const val KEY_OFFLINE_LIMIT = "offline_files_limit_mb"

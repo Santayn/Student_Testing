@@ -14,28 +14,30 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.jetbrains.compose.resources.Font
 import org.santayn.testing.mobile.core.storage.ThemeMode
-import org.santayn.testing.mobile.resources.Res
-import org.santayn.testing.mobile.resources.manrope
+import org.santayn.testing.mobile.core.ui.design.BrandColors
+import org.santayn.testing.mobile.core.ui.design.DesignTheme
+import org.santayn.testing.mobile.core.ui.design.DesignTokens
+import org.santayn.testing.mobile.core.ui.design.LocalBrandColors
+import org.santayn.testing.mobile.core.ui.design.LocalDesign
+import org.santayn.testing.mobile.core.ui.design.PolytechPalette
+import org.santayn.testing.mobile.core.ui.design.ThemePalette
+import org.santayn.testing.mobile.core.ui.design.polytechTokens
 
 /*
- * Тема по токенам сайта: frontend/src/theme/tokens.css («Academic Navy»).
+ * Сборка темы приложения: тема оформления (core/ui/design) × светлая/тёмная схема × высокий контраст
+ * × размер текста.
  *
- * Отличия от сайта ради контраста WCAG 2.1 AA (4.5:1 для текста, ГОСТ Р 52872-2019):
- * - светлая тема: приглушённый текст #64748B → #556476 (на #F1F5F9 было 4.3:1);
- * - тёмная тема: primary #4A78CF → #5A86D6 и тёмный текст на кнопках (было 3.8:1),
- *   тёмный текст на кнопках ошибки (было 3.3:1).
- * Проверяется тестом ContrastTests. Режим «Высокий контраст» — не ниже 7:1 (AAA).
+ * Контраст текста — WCAG 2.1 AA (4.5:1, ГОСТ Р 52872-2019) во всех палитрах тем и AAA (7:1)
+ * в режиме «Высокий контраст»; проверяется тестом ContrastTests для каждой темы.
  */
 
 /** Семантические цвета, которых нет в Material ColorScheme. */
@@ -60,25 +62,7 @@ data class StatusColors(
     val textMuted: Color,
 )
 
-internal val LightStatus = StatusColors(
-    success = Color(0xFF16A34A), successSoft = Color(0xFFF0FDF4), successText = Color(0xFF166534),
-    warning = Color(0xFFD97706), warningSoft = Color(0xFFFFFBEB), warningText = Color(0xFF92400E),
-    danger = Color(0xFFDC2626), dangerSoft = Color(0xFFFEF2F2), dangerText = Color(0xFF991B1B),
-    info = Color(0xFF0284C7), infoSoft = Color(0xFFF0F9FF), infoText = Color(0xFF075985),
-    primarySoft = Color(0xFFDBEAFE), primarySoftText = Color(0xFF1E40AF),
-    shell = Color(0xFF0F172A), onShell = Color(0xFFF8FAFC),
-    textMuted = Color(0xFF556476),
-)
-
-internal val DarkStatus = StatusColors(
-    success = Color(0xFF4FA56F), successSoft = Color(0xFF102319), successText = Color(0xFF9DCFAF),
-    warning = Color(0xFFC39A52), warningSoft = Color(0xFF2A2113), warningText = Color(0xFFDBC28D),
-    danger = Color(0xFFC86565), dangerSoft = Color(0xFF2A1718), dangerText = Color(0xFFDDA0A0),
-    info = Color(0xFF5A9BC2), infoSoft = Color(0xFF102430), infoText = Color(0xFF9BC5DC),
-    primarySoft = Color(0xFF172238), primarySoftText = Color(0xFFB8C9E8),
-    shell = Color(0xFF080A0D), onShell = Color(0xFFD7DBE0),
-    textMuted = Color(0xFF8E97A3),
-)
+// region Высокий контраст — общий для всех тем (формы и шрифты остаются от темы)
 
 internal val LightHighContrastStatus = StatusColors(
     success = Color(0xFF166534), successSoft = Color(0xFFF0FDF4), successText = Color(0xFF14532D),
@@ -98,80 +82,6 @@ internal val DarkHighContrastStatus = StatusColors(
     primarySoft = Color(0xFF172554), primarySoftText = Color(0xFFBFDBFE),
     shell = Color(0xFF000000), onShell = Color(0xFFFFFFFF),
     textMuted = Color(0xFFE5E7EB),
-)
-
-internal val LightColors: ColorScheme = lightColorScheme(
-    primary = Color(0xFF2563EB),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFDBEAFE),
-    onPrimaryContainer = Color(0xFF1E40AF),
-    secondary = Color(0xFF475569),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE2E8F0),
-    onSecondaryContainer = Color(0xFF0F172A),
-    tertiary = Color(0xFF0284C7),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFF0F9FF),
-    onTertiaryContainer = Color(0xFF075985),
-    error = Color(0xFFDC2626),
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFFEF2F2),
-    onErrorContainer = Color(0xFF991B1B),
-    // Фон темнее карточек (на сайте #F8FAFC): на телефоне белые карточки на почти белом фоне
-    // не читаются как отдельные блоки.
-    background = Color(0xFFF1F5F9),
-    onBackground = Color(0xFF0F172A),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF0F172A),
-    surfaceVariant = Color(0xFFF1F5F9),
-    onSurfaceVariant = Color(0xFF556476),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFFFFFF),
-    surfaceContainer = Color(0xFFF8FAFC),
-    surfaceContainerHigh = Color(0xFFF1F5F9),
-    surfaceContainerHighest = Color(0xFFE2E8F0),
-    outline = Color(0xFFCBD5E1),
-    outlineVariant = Color(0xFFE2E8F0),
-    inverseSurface = Color(0xFF0F172A),
-    inverseOnSurface = Color(0xFFF8FAFC),
-    inversePrimary = Color(0xFF93C5FD),
-    scrim = Color(0xFF000000),
-)
-
-internal val DarkColors: ColorScheme = darkColorScheme(
-    primary = Color(0xFF5A86D6),
-    onPrimary = Color(0xFF0B0D10),
-    primaryContainer = Color(0xFF172238),
-    onPrimaryContainer = Color(0xFFB8C9E8),
-    secondary = Color(0xFFAAB1BB),
-    onSecondary = Color(0xFF111419),
-    secondaryContainer = Color(0xFF242A33),
-    onSecondaryContainer = Color(0xFFD7DBE0),
-    tertiary = Color(0xFF5A9BC2),
-    onTertiary = Color(0xFFEDF3F7),
-    tertiaryContainer = Color(0xFF102430),
-    onTertiaryContainer = Color(0xFF9BC5DC),
-    error = Color(0xFFC86565),
-    onError = Color(0xFF0B0D10),
-    errorContainer = Color(0xFF2A1718),
-    onErrorContainer = Color(0xFFDDA0A0),
-    background = Color(0xFF0B0D10),
-    onBackground = Color(0xFFD7DBE0),
-    surface = Color(0xFF111419),
-    onSurface = Color(0xFFD7DBE0),
-    surfaceVariant = Color(0xFF181C22),
-    onSurfaceVariant = Color(0xFFAAB1BB),
-    surfaceContainerLowest = Color(0xFF0B0D10),
-    surfaceContainerLow = Color(0xFF111419),
-    surfaceContainer = Color(0xFF14181D),
-    surfaceContainerHigh = Color(0xFF181C22),
-    surfaceContainerHighest = Color(0xFF20252C),
-    outline = Color(0xFF3A424D),
-    outlineVariant = Color(0xFF2A3038),
-    inverseSurface = Color(0xFFD7DBE0),
-    inverseOnSurface = Color(0xFF111419),
-    inversePrimary = Color(0xFF2563EB),
-    scrim = Color(0xFF000000),
 )
 
 /** Высокий контраст, светлый: чёрный текст на белом, тёмные границы. */
@@ -248,77 +158,96 @@ internal val DarkHighContrastColors: ColorScheme = darkColorScheme(
     scrim = Color(0xFF000000),
 )
 
-val LocalStatusColors = staticCompositionLocalOf { LightStatus }
+internal val LightHighContrastBrand = BrandColors(
+    hero = Color(0xFF1E3A8A), onHero = Color(0xFFFFFFFF), onHeroMuted = Color(0xFFFFFFFF),
+    heroChip = Color(0xFF172E6E),
+    accent = Color(0xFF166534), onAccent = Color(0xFFFFFFFF),
+    highlight = Color(0xFF1E3A8A), onHighlight = Color(0xFFFFFFFF),
+)
+
+internal val DarkHighContrastBrand = BrandColors(
+    hero = Color(0xFF172554), onHero = Color(0xFFFFFFFF), onHeroMuted = Color(0xFFFFFFFF),
+    heroChip = Color(0xFF000000),
+    accent = Color(0xFF86EFAC), onAccent = Color(0xFF000000),
+    highlight = Color(0xFFBFDBFE), onHighlight = Color(0xFF000000),
+)
+
+// endregion
+
+val LocalStatusColors = staticCompositionLocalOf { PolytechPalette.lightStatus }
 
 object AppTheme {
     val status: StatusColors
         @Composable @ReadOnlyComposable get() = LocalStatusColors.current
 }
 
+/** Палитра темы оформления. */
+internal fun DesignTheme.palette(): ThemePalette = when (this) {
+    DesignTheme.POLYTECH -> PolytechPalette
+}
+
+/** Токены темы оформления (шрифты грузятся из ресурсов — поэтому @Composable). */
 @Composable
-private fun manropeFamily(): FontFamily = FontFamily(
-    listOf(400, 500, 600, 700).map { weight ->
-        Font(
-            resource = Res.font.manrope,
-            weight = FontWeight(weight),
-            variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
-        )
+internal fun DesignTheme.tokens(): DesignTokens = when (this) {
+    DesignTheme.POLYTECH -> polytechTokens()
+}
+
+/** Итоговые цвета: тема × светлая/тёмная × высокий контраст. */
+internal data class ResolvedColors(val scheme: ColorScheme, val status: StatusColors, val brand: BrandColors)
+
+internal fun colorsFor(theme: DesignTheme, dark: Boolean, highContrast: Boolean): ResolvedColors {
+    val p = theme.palette()
+    return when {
+        dark && highContrast -> ResolvedColors(DarkHighContrastColors, DarkHighContrastStatus, DarkHighContrastBrand)
+        highContrast -> ResolvedColors(LightHighContrastColors, LightHighContrastStatus, LightHighContrastBrand)
+        dark -> ResolvedColors(p.dark, p.darkStatus, p.darkBrand)
+        else -> ResolvedColors(p.light, p.lightStatus, p.lightBrand)
     }
-)
+}
 
-@Composable
-private fun appTypography(): Typography {
-    val family = manropeFamily()
+/** Шкала Material 3: заголовки — акцидентный шрифт темы, остальное — основной. */
+private fun appTypography(display: FontFamily, body: FontFamily): Typography {
     val base = Typography()
-    fun TextStyle.withFamily(weight: FontWeight? = null) =
-        copy(fontFamily = family, fontWeight = weight ?: fontWeight)
-
+    fun TextStyle.with(family: FontFamily, weight: FontWeight) = copy(fontFamily = family, fontWeight = weight)
     return Typography(
-        displayLarge = base.displayLarge.withFamily(FontWeight.Bold),
-        displayMedium = base.displayMedium.withFamily(FontWeight.Bold),
-        displaySmall = base.displaySmall.withFamily(FontWeight.Bold),
-        headlineLarge = base.headlineLarge.withFamily(FontWeight.Bold),
-        headlineMedium = base.headlineMedium.withFamily(FontWeight.Bold),
-        headlineSmall = base.headlineSmall.withFamily(FontWeight.SemiBold),
-        titleLarge = base.titleLarge.withFamily(FontWeight.SemiBold).copy(fontSize = 20.sp),
-        titleMedium = base.titleMedium.withFamily(FontWeight.SemiBold),
-        titleSmall = base.titleSmall.withFamily(FontWeight.SemiBold),
-        bodyLarge = base.bodyLarge.withFamily(FontWeight.Normal),
-        bodyMedium = base.bodyMedium.withFamily(FontWeight.Normal),
-        bodySmall = base.bodySmall.withFamily(FontWeight.Normal),
-        labelLarge = base.labelLarge.withFamily(FontWeight.SemiBold),
-        labelMedium = base.labelMedium.withFamily(FontWeight.Medium),
-        labelSmall = base.labelSmall.withFamily(FontWeight.Medium),
+        displayLarge = base.displayLarge.with(display, FontWeight.SemiBold),
+        displayMedium = base.displayMedium.with(display, FontWeight.SemiBold),
+        displaySmall = base.displaySmall.with(display, FontWeight.SemiBold),
+        headlineLarge = base.headlineLarge.with(display, FontWeight.SemiBold),
+        headlineMedium = base.headlineMedium.with(display, FontWeight.SemiBold),
+        headlineSmall = base.headlineSmall.with(display, FontWeight.SemiBold).copy(fontSize = 22.sp, lineHeight = 28.sp),
+        titleLarge = base.titleLarge.with(display, FontWeight.SemiBold).copy(fontSize = 20.sp, lineHeight = 26.sp),
+        titleMedium = base.titleMedium.with(body, FontWeight.SemiBold).copy(fontSize = 17.sp),
+        titleSmall = base.titleSmall.with(body, FontWeight.SemiBold),
+        bodyLarge = base.bodyLarge.with(body, FontWeight.Normal),
+        bodyMedium = base.bodyMedium.with(body, FontWeight.Normal),
+        bodySmall = base.bodySmall.with(body, FontWeight.Normal),
+        labelLarge = base.labelLarge.with(body, FontWeight.SemiBold),
+        labelMedium = base.labelMedium.with(body, FontWeight.Medium),
+        labelSmall = base.labelSmall.with(body, FontWeight.Medium),
     )
 }
 
-/** Радиусы: контролы 8, карточки 12, диалоги 16 (tokens.css). */
-private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(24.dp),
+/** Радиусы Material для компонентов, которые их берут из темы (диалоги, меню, поля). */
+private fun appShapes(): Shapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
-
-/** Палитра по режиму темы и настройке высокого контраста. */
-internal fun colorsFor(dark: Boolean, highContrast: Boolean): Pair<ColorScheme, StatusColors> = when {
-    dark && highContrast -> DarkHighContrastColors to DarkHighContrastStatus
-    dark -> DarkColors to DarkStatus
-    highContrast -> LightHighContrastColors to LightHighContrastStatus
-    else -> LightColors to LightStatus
-}
 
 /**
  * Тема приложения.
  *
- * @param highContrast усиленная палитра (контраст текста не ниже 7:1).
- * @param textScale дополнительный множитель к системному размеру шрифта
- *   (системная настройка Android/iOS учитывается всегда).
+ * @param design тема оформления (настройка «Стиль оформления»).
+ * @param highContrast усиленная палитра (контраст текста не ниже 7:1); у карточек появляется рамка.
+ * @param textScale дополнительный множитель к системному размеру шрифта.
  */
 @Composable
 fun StudentTestingTheme(
     themeMode: ThemeMode,
+    design: DesignTheme = DesignTheme.DEFAULT,
     highContrast: Boolean = false,
     textScale: Float = 1f,
     content: @Composable () -> Unit,
@@ -328,19 +257,22 @@ fun StudentTestingTheme(
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val (colors, status) = colorsFor(dark, highContrast)
+    val colors = colorsFor(design, dark, highContrast)
+    val baseTokens = design.tokens()
+    // В высоком контрасте карточка белая на белом/чёрная на чёрном — нужна рамка.
+    val tokens = if (highContrast) baseTokens.copy(cardBorder = true) else baseTokens
     val density = LocalDensity.current
-    val scaledDensity = remember(density, textScale) {
-        Density(density.density, density.fontScale * textScale)
-    }
+    val scaledDensity = remember(density, textScale) { Density(density.density, density.fontScale * textScale) }
     CompositionLocalProvider(
-        LocalStatusColors provides status,
+        LocalStatusColors provides colors.status,
+        LocalBrandColors provides colors.brand,
+        LocalDesign provides tokens,
         LocalDensity provides scaledDensity,
     ) {
         MaterialTheme(
-            colorScheme = colors,
-            typography = appTypography(),
-            shapes = AppShapes,
+            colorScheme = colors.scheme,
+            typography = appTypography(tokens.displayFont, tokens.bodyFont),
+            shapes = appShapes(),
             content = content,
         )
     }

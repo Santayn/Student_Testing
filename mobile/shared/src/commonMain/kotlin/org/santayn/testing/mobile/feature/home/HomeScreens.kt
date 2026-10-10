@@ -17,6 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
+import org.santayn.testing.mobile.core.ui.CollectMessages
+import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
+import org.santayn.testing.mobile.core.ui.design.Design
+import org.santayn.testing.mobile.core.ui.design.DesignTheme
 import org.santayn.testing.mobile.core.platform.platformName
 import org.santayn.testing.mobile.core.session.SessionManager
 import org.santayn.testing.mobile.core.session.SessionState
@@ -36,71 +42,23 @@ import org.santayn.testing.mobile.navigation.AppNavigator
 import org.santayn.testing.mobile.navigation.MenuEntry
 import org.santayn.testing.mobile.navigation.Menus
 
-/** Главная страница по рабочей роли (views/HomeView.vue). */
+/**
+ * Главная страница по рабочей роли (views/HomeView.vue).
+ * Данные — [HomeViewModel] (общие для всех тем), компоновка — своя у каждой темы оформления.
+ */
 @Composable
 fun HomeScreen(role: WorkspaceRole, navigator: AppNavigator) {
     val session = koinInject<SessionManager>()
     val state by session.state.collectAsState()
     val user = (state as? SessionState.LoggedIn)?.user
+    val vm = koinViewModel<HomeViewModel>(key = "home-$role") { parametersOf(role) }
+    CollectMessages(vm)
+    val student by vm.student.collectAsState()
+    ReloadOnReconnect { vm.load() }
+    val name = greetingName(user?.person?.firstName, user?.displayName.orEmpty())
 
-    val sections: List<Pair<String, List<MenuEntry>>> = when (role) {
-        WorkspaceRole.STUDENT -> listOf(
-            "Обучение" to listOf(
-                Menus.subjects.copy(description = "Предметы, лекции, материалы и тесты"),
-                Menus.results.copy(description = "Ваши попытки и баллы"),
-            ),
-            "Аккаунт" to listOf(Menus.profile),
-        )
-        WorkspaceRole.TEACHER -> listOf(
-            "Учебный контент" to Menus.teacherContent,
-            "Работа" to listOf(
-                Menus.teacherWorkload,
-                Menus.subjects.copy(title = "Мои предметы", description = "Предметы, за которыми вы закреплены"),
-                Menus.results.copy(description = "Результаты студентов по вашим тестам"),
-            ),
-        )
-        WorkspaceRole.ADMIN -> listOf(
-            "Обзор" to listOf(
-                Menus.results.copy(description = "Результаты по всем предметам"),
-                Menus.subjects.copy(title = "Доступные предметы", description = "Каталог предметов"),
-            ),
-            "Академическая структура" to Menus.adminStructure,
-            "Учебный контент" to Menus.teacherContent,
-            "Управление доступом" to Menus.adminAccess,
-        )
-    }
-
-    AppScreen(
-        title = "Главная",
-        actions = {
-            IconButton(onClick = { navigator.open(AboutRoute) }) {
-                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "О системе")
-            }
-        },
-    ) { padding ->
-        ScreenList(contentPadding = screenPadding(padding)) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        "Здравствуйте, ${user?.displayName ?: ""}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    StatusChip(role.title, Tone.PRIMARY)
-                }
-            }
-            sections.forEach { (title, entries) ->
-                item { SectionTitle(title) }
-                items(entries) { entry ->
-                    NavCard(
-                        title = entry.title,
-                        description = entry.description,
-                        icon = entry.icon,
-                        onClick = { navigator.open(entry.route) },
-                    )
-                }
-            }
-        }
+    when (Design.tokens.theme) {
+        DesignTheme.POLYTECH -> PolytechHome(role, name, student, onRetry = vm::load, navigator = navigator)
     }
 }
 
