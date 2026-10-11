@@ -167,6 +167,7 @@ internal fun polytechTokens(): DesignTokens = DesignTokens(
     tileShape = Shapes.rounded(12.dp),
     iconButtonsOnSurface = true,
     topBarOnBackground = true,
+    largeTopLevelTitle = false,
     sectionTitle = SectionTitleStyle.DISPLAY,
     navBar = NavBarStyle.FLOATING_PILL,
     answerStyle = AnswerStyle.CARDS,

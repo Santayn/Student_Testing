@@ -79,6 +79,17 @@ import org.santayn.testing.mobile.feature.profile.DisplaySettings
 import org.santayn.testing.mobile.feature.tests.QuestionCard
 import org.santayn.testing.mobile.feature.tests.ResultHero
 import org.santayn.testing.mobile.data.model.SubmitAttemptResponse
+import androidx.navigation.compose.rememberNavController
+import org.santayn.testing.mobile.core.session.WorkspaceRole
+import org.santayn.testing.mobile.core.ui.LoadState
+import org.santayn.testing.mobile.data.model.PublicLectureDto
+import org.santayn.testing.mobile.feature.home.KafedraHome
+import org.santayn.testing.mobile.feature.home.LastAttempt
+import org.santayn.testing.mobile.feature.home.PolytechHome
+import org.santayn.testing.mobile.feature.home.StudentHome
+import org.santayn.testing.mobile.feature.learning.LectureHero
+import org.santayn.testing.mobile.feature.learning.SubjectItem
+import org.santayn.testing.mobile.navigation.AppNavigator
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.graphics.asAndroidBitmap
 
@@ -278,7 +289,7 @@ class AccessibilityUiTests(private val design: DesignTheme) {
         assertTrue(error!!::class.java.name, error::class.java.name.contains("Accessibility"))
     }
 
-    // region итог теста (шапка темы)
+    // region фирменные экраны темы: итог теста, главная, шапка лекции
 
     @Test
     fun resultHeroAnnouncesScoreAndPassesAtf() {
@@ -291,11 +302,77 @@ class AccessibilityUiTests(private val design: DesignTheme) {
                 )
             }
         }
-        rule.onNodeWithContentDescription("Результат 50 процентов").assertIsDisplayed()
-        rule.onNodeWithText("2 из 4 верно").assert(isHeading()).assert(isLiveRegionSelf)
+        // Итог объявляется сам (заголовок + live region), число верных — одним сообщением; вид — свой у темы.
+        when (design) {
+            DesignTheme.POLYTECH -> {
+                rule.onNodeWithContentDescription("Результат 50 процентов").assertIsDisplayed()
+                rule.onNodeWithText("2 из 4 верно").assert(isHeading()).assert(isLiveRegionSelf)
+            }
+            DesignTheme.KAFEDRA -> {
+                rule.onNodeWithText("Тест завершён").assert(isHeading()).assert(isLiveRegionSelf)
+                rule.onNodeWithContentDescription("2 из 4 правильных ответов").assertIsDisplayed()
+                rule.onNodeWithContentDescription("2 верно, 2 неверно").assertIsDisplayed()
+            }
+        }
         rule.onNodeWithContentDescription("К лекции").assertHasClickAction()
         rule.onRoot().tryPerformAccessibilityChecks()
         saveScreenshot("result-hero")
+    }
+
+    /** Главная темы в превью-обёртке: данные передаются готовыми, без ViewModel. */
+    @Test
+    fun studentHomePassesAtf() {
+        val home = StudentHome(
+            contextLine = "ПИ-201 · Информационные системы",
+            subjects = listOf(
+                SubjectItem(1, "Информатика", "Устройство компьютера и основы алгоритмов", null),
+                SubjectItem(2, "Базы данных", null, null),
+            ),
+            lastAttempt = LastAttempt("Тест по теме лекции", 50.0, "2026-10-10T09:00:00Z"),
+            emptyReason = null,
+        )
+        themed {
+            val navigator = AppNavigator(rememberNavController())
+            val state = LoadState.Ready(home)
+            when (design) {
+                DesignTheme.POLYTECH -> PolytechHome(WorkspaceRole.STUDENT, "Анна", state, onRetry = {}, navigator = navigator)
+                DesignTheme.KAFEDRA -> KafedraHome(WorkspaceRole.STUDENT, "Анна", state, onRetry = {}, navigator = navigator)
+            }
+        }
+        rule.onNodeWithText("Информатика").assertIsDisplayed()
+        when (design) {
+            DesignTheme.POLYTECH -> rule.onNodeWithText("Привет, Анна").assert(isHeading())
+            DesignTheme.KAFEDRA -> {
+                rule.onNodeWithText("Сегодня").assert(isHeading())
+                rule.onNodeWithContentDescription("Профиль").assertHasClickAction()
+                rule.onNodeWithContentDescription("50 процентов верно", useUnmergedTree = true).assertIsDisplayed()
+            }
+        }
+        rule.onRoot().tryPerformAccessibilityChecks()
+        saveScreenshot("home")
+    }
+
+    @Test
+    fun lectureHeroTitleIsHeadingAndPassesAtf() {
+        themed {
+            Column(Modifier.padding(16.dp)) {
+                LectureHero(
+                    PublicLectureDto(
+                        id = 1, ordinal = 101, versionNumber = 1,
+                        title = "Устройства персонального компьютера",
+                        description = "Память, процессор и устройства ввода-вывода: из чего состоит компьютер.",
+                    )
+                )
+            }
+        }
+        rule.onNodeWithText("Устройства персонального компьютера").assert(isHeading())
+        // «Прочитать вслух»: в «Политехе» — кнопка с подписью, в «Кафедре» — кнопка-иконка.
+        when (design) {
+            DesignTheme.POLYTECH -> rule.onNodeWithText("Прочитать вслух").assertHasClickAction()
+            DesignTheme.KAFEDRA -> rule.onNodeWithContentDescription("Прочитать вслух").assertHasClickAction()
+        }
+        rule.onRoot().tryPerformAccessibilityChecks()
+        saveScreenshot("lecture-hero")
     }
 
     @Test
