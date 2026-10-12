@@ -122,6 +122,25 @@ class AttemptAnswersTests {
         assertEquals(a, b, "перемешивание вариантов не меняет сигнатуру")
         assertTrue(a != c)
     }
+
+    @Test
+    fun matchingMoveSwapsBetweenPromptsAndReturnsToPool() {
+        val q = 3L
+        var a = AttemptAnswers()
+            .withMatchingMove(q, "Раздел", 1)
+            .withMatchingMove(q, "Материал", 2)
+        // Перетаскивание «Раздел» на занятую подсказку 2: варианты меняются местами.
+        a = a.withMatchingMove(q, "Раздел", 2)
+        assertEquals(2, a.matching[q]?.get("Раздел"))
+        assertEquals(1, a.matching[q]?.get("Материал"))
+        // Из списка вариантов на занятую подсказку: прежний вариант возвращается в список.
+        a = a.withMatchingMove(q, "Раздел", null)
+        assertEquals(mapOf("Материал" to 1), a.matching[q])
+        a = a.withMatchingMove(q, "Раздел", 1)
+        assertEquals(mapOf("Раздел" to 1), a.matching[q])
+        // На ту же подсказку — ничего не меняется.
+        assertEquals(a, a.withMatchingMove(q, "Раздел", 1))
+    }
 }
 
 class ResultScoringTests {

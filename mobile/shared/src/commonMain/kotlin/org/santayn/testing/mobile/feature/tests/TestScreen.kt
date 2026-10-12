@@ -550,7 +550,7 @@ internal fun QuestionCard(
                         )
                     }
                 }
-                QuestionType.MATCHING -> AppCard { MatchingQuestion(question, answers, enabled, onChange) }
+                QuestionType.MATCHING -> MatchingBoard(question, answers, enabled, onChange)
                 else -> AppCard { TextAnswerField(question, answers, enabled, onChange) }
             }
         }
@@ -584,7 +584,7 @@ internal fun QuestionCard(
                         )
                     }
                 }
-                QuestionType.MATCHING -> MatchingQuestion(question, answers, enabled, onChange)
+                QuestionType.MATCHING -> MatchingBoard(question, answers, enabled, onChange)
                 else -> TextAnswerField(question, answers, enabled, onChange)
             }
         }
@@ -629,54 +629,6 @@ private fun spokenQuestion(
             append(question.matchingOptions.joinToString("; "))
         }
         else -> append("Введите ответ текстом.")
-    }
-}
-
-/**
- * Сопоставление (components/tests/StudentMatchingQuestion.vue):
- * для каждой левой подсказки выбирается правая часть; каждую правую часть можно использовать один раз.
- */
-@Composable
-private fun MatchingQuestion(
-    question: PublicQuestionDto,
-    answers: AttemptAnswers,
-    enabled: Boolean,
-    onChange: ((AttemptAnswers) -> AttemptAnswers) -> Unit,
-) {
-    val prompts = question.matchingPrompts.sortedBy { it.ordinal }
-    val selections = answers.matching[question.id].orEmpty()
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            "Сопоставлено ${selections.size} из ${prompts.size}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        prompts.forEach { prompt ->
-            val current = answers.matchingRightFor(question.id, prompt.ordinal)
-            val available = question.matchingOptions.filter { right ->
-                val owner = selections[right]
-                owner == null || owner == prompt.ordinal
-            }
-            Column {
-                // Подсказка входит в описание поля ниже — программе чтения с экрана не дублируем.
-                Text(
-                    prompt.text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clearAndSetSemantics {},
-                )
-                SelectField(
-                    label = "Соответствие",
-                    accessibilityLabel = "Соответствие для «${prompt.text}»",
-                    options = available.map { SelectOption(it, it) },
-                    selected = current,
-                    allowClear = true,
-                    enabled = enabled,
-                    placeholder = "Выберите вариант",
-                    onSelect = { right -> onChange { it.withMatching(question.id, prompt.ordinal, right) } },
-                )
-            }
-        }
     }
 }
 

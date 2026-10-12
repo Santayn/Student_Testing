@@ -1,5 +1,8 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import androidx.compose.foundation.selection.selectableGroup
+import org.santayn.testing.mobile.core.ui.RadioRow
+import org.santayn.testing.mobile.data.api.CoursesApi
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +74,13 @@ import org.santayn.testing.mobile.navigation.TeacherTestCreateRoute
 /** Группа и учебные назначения преподавателя в ней. */
 data class GroupTarget(val groupId: Int, val name: String, val assignmentIds: List<Int>)
 
+/**
+ * Кому назначается тест (TestAssignment.scope).
+ * GROUPS — scope 4, по назначению на каждую учебную нагрузку выбранных групп;
+ * COURSE_VERSION — scope 2, одно назначение на версию курса: тест видят все группы, которым выдана версия.
+ */
+enum class AssignTarget(val label: String) { GROUPS("Группам"), COURSE_VERSION("Версии курса") }
+
 data class TestForm(
     val title: String = "",
     val description: String = "",
@@ -90,6 +100,9 @@ data class TestEditorUiState(
     val topicId: Int? = null,
     val groups: List<GroupTarget> = emptyList(),
     val selectedGroups: Set<Int> = emptySet(),
+    val target: AssignTarget = AssignTarget.GROUPS,
+    val versions: List<CourseVersionOption> = emptyList(),
+    val versionId: Int? = null,
     val questions: List<QuestionDto> = emptyList(),
     val loadingContext: Boolean = false,
     val form: TestForm = TestForm(),
@@ -105,6 +118,7 @@ class TestEditorViewModel(
     private val groupsApi: GroupsApi,
     private val questionsApi: QuestionsApi,
     private val testsApi: TestsApi,
+    private val coursesApi: CoursesApi,
 ) : BaseViewModel() {
     private val _state = MutableStateFlow(TestEditorUiState(form = defaultForm()))
     val state = _state.asStateFlow()
@@ -137,7 +151,12 @@ class TestEditorViewModel(
 
     private suspend fun loadContext(preferredTopicId: Int?) = coroutineScope {
         val membershipId = subjects.state.value.selectedMembershipId
-        _state.update { it.copy(topics = emptyList(), topicId = null, groups = emptyList(), selectedGroups = emptySet(), questions = emptyList()) }
+        _state.update {
+            it.copy(
+                topics = emptyList(), topicId = null, groups = emptyList(), selectedGroups = emptySet(), questions = emptyList(),
+                versions = emptyList(), versionId = null,
+            )
+        }
         if (membershipId == null) return@coroutineScope
         _state.update { it.copy(loadingContext = true) }
         try {
@@ -152,7 +171,8 @@ class TestEditorViewModel(
                 GroupTarget(groupId, groups[groupId]?.name ?: "Группа #$groupId", list.map { it.id }.distinct())
             }.sortedBy { it.name.lowercase() }
             val topicId = topics.firstOrNull { it.id == preferredTopicId }?.id
-            _state.update { it.copy(topics = topics, groups = targets, topicId = topicId, loadingContext = false) }
+            val versions = runCatching { loadVersions(subjects.state.value.selectedSubjectId) }.getOrDefault(emptyList())
+            _state.update { it.copy(topics = topics, groups = targets, topicId = topicId, versions = versions, loadingContext = false) }
             if (topicId != null) loadQuestions(topicId)
         } catch (e: Exception) {
             _state.update { it.copy(loadingContext = false, notice = Tone.DANGER to e.userMessage()) }
@@ -169,7 +189,19 @@ class TestEditorViewModel(
         _state.update { if (it.topicId == topicId) it.copy(questions = questions) else it }
     }
 
+    /** Версии шаблонов курса предмета — для назначения теста на версию. */
+    private suspend fun loadVersions(subjectId: Int?): List<CourseVersionOption> = coroutineScope {
+        if (subjectId == null) return@coroutineScope emptyList()
+        coursesApi.getTemplates(subjectId).map { template ->
+            async { coursesApi.getVersions(template.id).map { CourseVersionOption(it, template.name) } }
+        }.awaitAll().flatten().sortedWith(compareBy({ it.templateName.lowercase() }, { -it.version.versionNumber }))
+    }
+
     fun setGroups(ids: Set<Int>) = _state.update { it.copy(selectedGroups = ids) }
+
+    fun setTarget(target: AssignTarget) = _state.update { it.copy(target = target, notice = null) }
+
+    fun setVersion(id: Int?) = _state.update { it.copy(versionId = id, notice = null) }
 
     fun updateForm(transform: (TestForm) -> TestForm) = _state.update { it.copy(form = transform(it.form), notice = null) }
 
@@ -197,7 +229,8 @@ class TestEditorViewModel(
         val c = counts(s.questions)
         return when {
             subjects.state.value.selected == null || s.topicId == null -> "Выберите предмет и тему."
-            s.selectedGroups.isEmpty() -> "Выберите хотя бы одну группу."
+            s.target == AssignTarget.GROUPS && s.selectedGroups.isEmpty() -> "Выберите хотя бы одну группу."
+            s.target == AssignTarget.COURSE_VERSION && s.versionId == null -> "Выберите версию курса."
             total < 1 -> "Количество вопросов должно быть больше нуля."
             fixedCount(f) > total -> "Сумма вопросов по типам не может превышать общее количество."
             c.total < total -> "В теме недостаточно активных вопросов."
@@ -218,7 +251,7 @@ class TestEditorViewModel(
             return
         }
         val assignmentIds = s.groups.filter { it.groupId in s.selectedGroups }.flatMap { it.assignmentIds }.distinct()
-        if (assignmentIds.isEmpty()) {
+        if (s.target == AssignTarget.GROUPS && assignmentIds.isEmpty()) {
             _state.update { it.copy(notice = Tone.DANGER to "Не удалось определить учебные назначения для выбранных групп.") }
             return
         }
@@ -248,21 +281,32 @@ class TestEditorViewModel(
                     ),
                 )
             )
-            try {
-                assignmentIds.forEach { assignmentId ->
-                    testsApi.createAssignments(
-                        test.id,
-                        TestAssignmentRequest(
-                            scope = 4,
-                            courseVersionId = null,
-                            courseLectureId = null,
-                            teachingAssignmentId = assignmentId,
-                            availableFromUtc = f.availableFrom!!.startOfDayUtcIso(),
-                            availableUntilUtc = f.availableUntil!!.endOfDayUtcIso(),
-                            status = f.status,
-                        ),
+            val requests = when (s.target) {
+                AssignTarget.GROUPS -> assignmentIds.map { assignmentId ->
+                    TestAssignmentRequest(
+                        scope = 4,
+                        courseVersionId = null,
+                        courseLectureId = null,
+                        teachingAssignmentId = assignmentId,
+                        availableFromUtc = f.availableFrom!!.startOfDayUtcIso(),
+                        availableUntilUtc = f.availableUntil!!.endOfDayUtcIso(),
+                        status = f.status,
                     )
                 }
+                AssignTarget.COURSE_VERSION -> listOf(
+                    TestAssignmentRequest(
+                        scope = 2,
+                        courseVersionId = s.versionId,
+                        courseLectureId = null,
+                        teachingAssignmentId = null,
+                        availableFromUtc = f.availableFrom!!.startOfDayUtcIso(),
+                        availableUntilUtc = f.availableUntil!!.endOfDayUtcIso(),
+                        status = f.status,
+                    )
+                )
+            }
+            try {
+                requests.forEach { request -> testsApi.createAssignments(test.id, request) }
             } catch (cause: Exception) {
                 // Откат: удаляем созданный тест (createTestWithAssignments.js).
                 val rollback = runCatching { testsApi.delete(test.id) }
@@ -279,8 +323,12 @@ class TestEditorViewModel(
             _state.update {
                 it.copy(
                     saving = false,
-                    notice = Tone.SUCCESS to "Тест #${test.id} создан и назначен выбранным группам. " +
-                        "Привяжите его к лекции в разделе «Лекции», чтобы студенты увидели тест.",
+                    notice = Tone.SUCCESS to when (s.target) {
+                        AssignTarget.GROUPS -> "Тест #${test.id} создан и назначен выбранным группам. "
+                        AssignTarget.COURSE_VERSION -> "Тест #${test.id} создан и назначен версии курса " +
+                            "«${s.versions.firstOrNull { it.version.id == s.versionId }?.label}»: его получат все группы, " +
+                            "которым выдана эта версия. "
+                    } + "Привяжите его к лекции в разделе «Лекции», чтобы студенты увидели тест.",
                     form = defaultForm(),
                     selectedGroups = emptySet(),
                 )
@@ -305,14 +353,38 @@ fun TestEditorScreen(route: TeacherTestCreateRoute, role: WorkspaceRole, navigat
                 StepCard("1. Предмет, группы и тема") {
                     TeacherSubjectSelector(picker, vm::selectMembership, vm.subjects.isAdmin)
                     if (picker.selected != null) {
-                        MultiSelectField(
-                            label = "Группы",
-                            options = state.groups.map { SelectOption(it.groupId, it.name) },
-                            selected = state.selectedGroups,
-                            onChange = vm::setGroups,
-                            placeholder = if (state.groups.isEmpty() && !state.loadingContext) "Нет активной нагрузки по группам" else "Выберите группы",
-                            enabled = state.groups.isNotEmpty(),
-                        )
+                        Column(Modifier.selectableGroup()) {
+                            Text("Кому назначить", style = MaterialTheme.typography.labelLarge)
+                            AssignTarget.entries.forEach { t ->
+                                RadioRow(t.label, state.target == t, { vm.setTarget(t) })
+                            }
+                        }
+                        when (state.target) {
+                            AssignTarget.GROUPS -> MultiSelectField(
+                                label = "Группы",
+                                options = state.groups.map { SelectOption(it.groupId, it.name) },
+                                selected = state.selectedGroups,
+                                onChange = vm::setGroups,
+                                placeholder = if (state.groups.isEmpty() && !state.loadingContext) "Нет активной нагрузки по группам" else "Выберите группы",
+                                enabled = state.groups.isNotEmpty(),
+                            )
+                            AssignTarget.COURSE_VERSION -> {
+                                SelectField(
+                                    label = "Версия курса",
+                                    options = state.versions.map { SelectOption(it.version.id, it.label, it.description) },
+                                    selected = state.versionId,
+                                    onSelect = vm::setVersion,
+                                    placeholder = if (state.versions.isEmpty() && !state.loadingContext) "У предмета нет версий курса" else "Выберите версию",
+                                    enabled = state.versions.isNotEmpty(),
+                                )
+                                Text(
+                                    "Тест получат все группы, которым администратор выдал эту версию в «Учебной нагрузке», " +
+                                        "в том числе выданные позже.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         SelectField(
                             "Тема",
                             state.topics.map { SelectOption(it.id, "${it.ordinal}. ${it.name}") },

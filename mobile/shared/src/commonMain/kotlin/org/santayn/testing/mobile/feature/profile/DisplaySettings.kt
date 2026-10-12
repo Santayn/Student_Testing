@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.profile
 
+import org.santayn.testing.mobile.core.ui.AppButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -107,6 +108,6 @@ fun DisplaySettingsDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("Специальные возможности") },
         text = { DisplaySettings(Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Готово") } },
+        confirmButton = { AppButton(onClick = onDismiss) { Text("Готово") } },
     )
 }

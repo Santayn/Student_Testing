@@ -48,13 +48,13 @@ val viewModelModule = module {
         QuestionsViewModel(route, get { parametersOf(role) }, get(), get())
     }
     viewModel { (route: TeacherTestCreateRoute, role: WorkspaceRole) ->
-        TestEditorViewModel(route, get { parametersOf(role) }, get(), get(), get(), get(), get())
+        TestEditorViewModel(route, get { parametersOf(role) }, get(), get(), get(), get(), get(), get())
     }
     viewModel { (route: TeacherLecturesRoute, role: WorkspaceRole) ->
-        LectureManagementViewModel(route, get { parametersOf(role) }, get(), get(), get())
+        LectureManagementViewModel(route, get { parametersOf(role) }, get(), get(), get(), get())
     }
     viewModel { (route: TeacherCoursesRoute, role: WorkspaceRole) ->
-        CourseTemplatesViewModel(route, get { parametersOf(role) }, get())
+        CourseTemplatesViewModel(route, get { parametersOf(role) }, get(), get(), get(), get(), get())
     }
     viewModelOf(::WorkloadViewModel)
 

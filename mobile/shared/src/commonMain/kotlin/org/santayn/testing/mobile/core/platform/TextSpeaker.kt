@@ -8,19 +8,53 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Дополняет, а не заменяет TalkBack/VoiceOver: кнопка «Прочитать вслух» нужна тем,
  * кто плохо видит, но не пользуется программой чтения с экрана.
+ *
+ * Если прочитать не получается (нет синтезатора, нет русского голоса, звук на нуле), реализация
+ * сообщает об этом через [problem] — молча «ничего не происходит» быть не должно.
  */
 interface TextSpeaker {
     /** Ключ текста, который сейчас читается, или null. */
     val speakingKey: StateFlow<String?>
 
+    /** Почему чтение не началось или не слышно; показывается пользователю, сбрасывается [dismissProblem]. */
+    val problem: StateFlow<SpeechProblem?>
+
     fun speak(key: String, text: String)
 
     fun stop()
+
+    fun dismissProblem()
+
+    /**
+     * Открывает системный экран, где проблему можно исправить (установка синтезатора, загрузка голоса).
+     * false — на этой платформе такого экрана нет, пользователю показывается только подсказка.
+     */
+    fun openSettings(problem: SpeechProblem): Boolean
+}
+
+/** Причина, по которой текст не прочитан (или не будет слышен). */
+enum class SpeechProblem {
+    /** На устройстве нет синтезатора речи или он не запускается. */
+    NO_ENGINE,
+
+    /** Синтезатор есть, но не умеет читать по-русски (голос не установлен). */
+    NO_RUSSIAN_VOICE,
+
+    /** Громкость звука на нуле — чтение идёт, но его не слышно. */
+    MUTED,
+
+    /** Синтезатор вернул ошибку при чтении. */
+    FAILED,
 }
 
 /** Заглушка для тестов и превью. */
 class SilentSpeaker : TextSpeaker {
     override val speakingKey = MutableStateFlow<String?>(null)
+    override val problem = MutableStateFlow<SpeechProblem?>(null)
     override fun speak(key: String, text: String) = Unit
     override fun stop() = Unit
+    override fun dismissProblem() {
+        problem.value = null
+    }
+    override fun openSettings(problem: SpeechProblem) = false
 }
