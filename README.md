@@ -107,3 +107,8 @@ Vue Router history mode поддерживается через:
 ```nginx
 try_files $uri $uri/ /index.html;
 ```
+
+## Мобильное приложение
+
+Нативный клиент для Android и iOS (Kotlin Multiplatform + Compose Multiplatform) лежит в папке `mobile/`.
+Он повторяет функциональность фронтенда для всех ролей. Запуск, архитектура и тесты описаны в [mobile/README.md](mobile/README.md).
