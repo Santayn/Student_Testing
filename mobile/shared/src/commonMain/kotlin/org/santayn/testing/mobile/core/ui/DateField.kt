@@ -1,5 +1,9 @@
 package org.santayn.testing.mobile.core.ui
 
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import org.santayn.testing.mobile.core.ui.design.Design
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -59,45 +63,41 @@ fun DateField(
     enabled: Boolean = true,
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
-    Box(modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value?.toRu().orEmpty(),
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text(label) },
-            trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
-            isError = error != null,
-            supportingText = error?.let { { Text(it) } },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = Design.tokens.fieldShape,
-        )
-        Box(
-            Modifier.matchParentSize().padding(top = 8.dp).clip(Design.tokens.fieldShape)
-                .clickable(enabled = enabled) { open = true }
-        )
-    }
+    PickerField(
+        label = label,
+        valueText = value?.toRu(),
+        placeholder = "Не выбрана",
+        onClick = { open = true },
+        error = error,
+        enabled = enabled,
+        modifier = modifier,
+        trailing = { PickerChevron(enabled, Icons.Default.CalendarMonth) },
+        semanticsModifier = Modifier.semantics {
+            contentDescription = label
+            stateDescription = value?.toRu() ?: "не выбрана"
+            if (error != null) error(error)
+        },
+    )
     if (open) {
         val initialMillis = value?.atStartOfDayIn(TimeZone.UTC)?.toEpochMilliseconds()
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
         DatePickerDialog(
             onDismissRequest = { open = false },
             confirmButton = {
-                TextButton(onClick = {
+                AppButton("Выбрать", onClick = {
                     val millis = pickerState.selectedDateMillis
                     onChange(millis?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.UTC).date })
                     open = false
-                }) { Text("Выбрать") }
+                })
             },
             dismissButton = {
                 if (allowClear) {
-                    TextButton(onClick = {
+                    AppOutlinedButton("Очистить", onClick = {
                         onChange(null)
                         open = false
-                    }) { Text("Очистить") }
+                    })
                 }
-                TextButton(onClick = { open = false }) { Text("Отмена") }
+                AppOutlinedButton("Отмена", onClick = { open = false })
             },
         ) {
             DatePicker(state = pickerState)

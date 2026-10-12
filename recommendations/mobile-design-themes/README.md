@@ -60,6 +60,9 @@ mobile/shared/src/commonMain/kotlin/org/santayn/testing/mobile/
                                     SectionTitle, StatusChip, Banner, StatTile, поля, BusyButton(accent), Modifier.depth,
                                     AnswerOptionCard (вариант ответа карточкой), RadioRow/CheckRow (строкой),
                                     AppButton / AppOutlinedButton (кнопки в форме темы), AppFab (плавающая кнопка с подписью)
+  core/ui/Controls.kt             — свои контролы вместо Material: AppTextField, PickerField + PickerSheet (выбор снизу),
+                                    индикаторы переключателя/флажка/радио, AppFilterChip, AppSlider — на токенах темы
+  feature/tests/MatchingBoard.kt  — сопоставление перетаскиванием (общее для всех тем)
   navigation/MainShell.kt         — AppNavigationBar: CLASSIC и FLOATING_PILL
   feature/home/HomeData.kt        — HomeViewModel: данные главной (общие для всех тем)
   feature/home/PolytechHome.kt    — главная темы A
@@ -145,6 +148,9 @@ mobile/shared/src/androidDeviceTest/.../a11y/AccessibilityUiTests.kt — UI-те
   и высоты не из темы. Замены: `BusyButton`/`AppButton`, `BusyButton(outlined = true)`/`AppOutlinedButton`, `AppFab`.
   (Исключение — `TextButton` в диалогах и ссылки.) Проверка: `grep -rn "OutlinedButton(\|ExtendedFloatingActionButton(" feature/`
   должна находить только `AppOutlinedButton(`.
+- **Контролы — только свои** (`core/ui/Controls.kt`): не используйте в экранах `OutlinedTextField`, `Switch`, `Checkbox`,
+  `RadioButton`, `FilterChip`, `Slider` напрямую. Новой теме обычно достаточно токенов; если нужен другой вид
+  (например, поля с линией снизу) — добавьте значение в токены и ветку в `Controls.kt`, тему A не меняя.
 - **Плавающие кнопки — только `AppFab`.** У стандартного `ExtendedFloatingActionButton` текст не попадает в дерево
   доступности (в `uiautomator dump` — `NAF="true"`, TalkBack читает «кнопка» без названия). `AppFab` задаёт подпись сам;
   для коротких надписей передавайте `accessibilityLabel` («Тема» → «Новая тема»).

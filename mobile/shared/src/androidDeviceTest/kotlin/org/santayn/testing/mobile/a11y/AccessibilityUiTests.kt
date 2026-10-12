@@ -26,6 +26,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
+import org.junit.Assert.assertEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -66,6 +71,8 @@ import org.koin.dsl.module
 import org.santayn.testing.mobile.core.network.ConnectivityObserver
 import org.santayn.testing.mobile.core.network.NetworkStatus
 import org.santayn.testing.mobile.core.platform.SilentSpeaker
+import org.santayn.testing.mobile.core.platform.SpeechProblem
+import org.santayn.testing.mobile.core.ui.SpeechProblemHost
 import org.santayn.testing.mobile.core.platform.TextSpeaker
 import org.santayn.testing.mobile.core.storage.AppSettings
 import org.santayn.testing.mobile.core.storage.KeyValueStore
@@ -236,15 +243,48 @@ class AccessibilityUiTests(private val design: DesignTheme) {
         rule.onNodeWithText("Мышь").assertIsOn()
     }
 
+    private fun stateIs(value: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value)
+
     @Test
-    fun matchingFieldNamesItsPrompt() {
+    fun matchingSlotNamesItsPromptAndOffersActions() {
         themed { TestQuestions() }
-        rule.onNodeWithContentDescription("Соответствие для «Лекция»")
-            .assert(roleIs(Role.DropdownList))
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Выберите вариант"))
-            .assertHasClickAction()
-        // Видимая подсказка не дублируется отдельным элементом.
+        val slot = rule.onNodeWithContentDescription("Соответствие для «Лекция»").performScrollTo()
+        slot.assert(roleIs(Role.Button)).assert(stateIs("не выбрано"))
+        // Видимая подсказка не дублируется отдельным элементом — она в описании слота.
         rule.onAllNodesWithText("Лекция").assertCountEquals(0)
+        // Действие для TalkBack/VoiceOver вместо перетаскивания.
+        val action = slot.fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == "Поставить «Раздел»" }
+        rule.runOnIdle { action.action() }
+        slot.assert(stateIs("Раздел"))
+        rule.onRoot().tryPerformAccessibilityChecks()
+    }
+
+    @Test
+    fun matchingWorksByTapsWithoutDragging() {
+        themed { TestQuestions() }
+        rule.onNodeWithContentDescription("Соответствие для «Тема»").performScrollTo()
+        rule.onNodeWithText("Материал").performClick()
+        rule.onNodeWithText("Материал").assert(stateIs("выбран, нажмите на подсказку"))
+        rule.onNodeWithContentDescription("Соответствие для «Тема»").performClick()
+        rule.onNodeWithContentDescription("Соответствие для «Тема»").assert(stateIs("Материал"))
+    }
+
+    @Test
+    fun matchingWorksByDragAndDrop() {
+        themed { TestQuestions() }
+        rule.onNodeWithContentDescription("Соответствие для «Тема»").performScrollTo()
+        val chip = rule.onNodeWithText("Раздел")
+        val chipBounds = chip.fetchSemanticsNode().boundsInRoot
+        val row = rule.onNodeWithContentDescription("Соответствие для «Тема»").fetchSemanticsNode().boundsInRoot
+        // Слот — правая половина строки.
+        val target = Offset(row.right - row.width / 4f, row.center.y) - chipBounds.topLeft
+        chip.performTouchInput {
+            down(center)
+            repeat(12) { step -> moveTo(lerp(center, target, (step + 1) / 12f)) }
+            up()
+        }
+        rule.onNodeWithContentDescription("Соответствие для «Тема»").assert(stateIs("Раздел"))
+        saveScreenshot("matching-dragged")
     }
 
     @Test
@@ -485,6 +525,20 @@ class AccessibilityUiTests(private val design: DesignTheme) {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
         saveScreenshot("fab")
         rule.onRoot().tryPerformAccessibilityChecks()
+    }
+
+    @Test
+    fun speechProblemIsExplainedWithAction() {
+        val speaker = org.koin.core.context.GlobalContext.get().get<TextSpeaker>() as SilentSpeaker
+        speaker.problem.value = SpeechProblem.NO_RUSSIAN_VOICE
+        themed { SpeechProblemHost() }
+        rule.onNodeWithText("Нет русского голоса").assertIsDisplayed()
+        rule.onNodeWithText("Открыть настройки").assertHasClickAction()
+        rule.onNodeWithText("Нет русского голоса").tryPerformAccessibilityChecks()
+        rule.onNodeWithText("Закрыть").performClick()
+        rule.waitForIdle()
+        assertEquals(null, speaker.problem.value)
+        rule.onNodeWithText("Нет русского голоса").assertDoesNotExist()
     }
 
     @Test

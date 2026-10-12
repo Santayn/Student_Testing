@@ -1,5 +1,14 @@
 package org.santayn.testing.mobile.core.ui
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,7 +53,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -58,7 +66,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -631,21 +638,21 @@ fun SearchField(
     modifier: Modifier = Modifier,
     placeholder: String = "Поиск",
 ) {
-    OutlinedTextField(
+    AppTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(placeholder) },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        trailingIcon = {
-            if (value.isNotEmpty()) {
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = placeholder },
+        placeholder = placeholder,
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingIcon = if (value.isNotEmpty()) {
+            {
                 IconButton(onClick = { onValueChange("") }) {
                     Icon(Icons.Default.Clear, contentDescription = "Очистить")
                 }
             }
+        } else {
+            null
         },
-        singleLine = true,
-        shape = Design.tokens.fieldShape,
     )
 }
 
@@ -665,30 +672,27 @@ fun FormField(
     enabled: Boolean = true,
     required: Boolean = false,
     trailingIcon: @Composable (() -> Unit)? = null,
+    placeholder: String? = null,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    imeAction: ImeAction = ImeAction.Default,
 ) {
-    OutlinedTextField(
+    AppTextField(
         value = value,
         onValueChange = { if (maxLength == null || it.length <= maxLength) onValueChange(it) },
-        label = { Text(if (required) "$label *" else label) },
-        modifier = modifier.fillMaxWidth(),
-        isError = error != null,
-        supportingText = when {
-            error != null -> ({ Text(error) })
-            supportingText != null || maxLength != null -> ({
-                Row(Modifier.fillMaxWidth()) {
-                    Text(supportingText.orEmpty(), Modifier.weight(1f))
-                    if (maxLength != null && !singleLine) Text("${value.length}/$maxLength")
-                }
-            })
-            else -> null
-        },
+        modifier = modifier,
+        label = label,
+        placeholder = placeholder,
+        required = required,
+        error = error,
+        supportingText = supportingText,
+        counter = if (maxLength != null && !singleLine) "${value.length}/$maxLength" else null,
         singleLine = singleLine,
         minLines = minLines,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         enabled = enabled,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        keyboardActions = keyboardActions,
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         trailingIcon = trailingIcon,
-        shape = Design.tokens.fieldShape,
     )
 }
 
@@ -715,7 +719,7 @@ fun SwitchRow(
             }
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        AppSwitchIndicator(checked, enabled)
     }
 }
 
@@ -731,11 +735,11 @@ fun CheckRow(
     Row(
         modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
             .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)
-            .padding(vertical = 4.dp, horizontal = 12.dp),
+            .padding(vertical = 8.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
-        Spacer(Modifier.width(12.dp))
+        AppCheckboxIndicator(checked, enabled)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (description != null) {
@@ -756,11 +760,11 @@ fun RadioRow(
     Row(
         modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .padding(vertical = 4.dp, horizontal = 12.dp),
+            .padding(vertical = 8.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null, enabled = enabled)
-        Spacer(Modifier.width(12.dp))
+        AppRadioIndicator(selected, enabled)
+        Spacer(Modifier.width(14.dp))
         Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
     }
 }
@@ -790,9 +794,9 @@ fun AnswerOptionCard(
     }
     Surface(
         shape = shape,
-        color = MaterialTheme.colorScheme.surface,
+        // В теме с акцентом выбранный ответ выделяется рамкой и индикатором цвета акцента, фон не меняется.
+        color = if (selected && !accent) AppTheme.status.primarySoft else MaterialTheme.colorScheme.surface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
-        shadowElevation = if (selected && tokens.cardDepth == 0.dp) 4.dp else 0.dp,
         modifier = modifier.fillMaxWidth().depth(tokens.cardDepth, shape, borderColor),
     ) {
         Row(
@@ -800,29 +804,16 @@ fun AnswerOptionCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (multiple) {
-                Checkbox(
-                    checked = selected,
-                    onCheckedChange = null,
-                    enabled = enabled,
-                    colors = if (accent) {
-                        CheckboxDefaults.colors(checkedColor = selectedColor, checkmarkColor = MaterialTheme.colorScheme.surface)
-                    } else {
-                        CheckboxDefaults.colors()
-                    },
-                )
+                AppCheckboxIndicator(selected, enabled, color = selectedColor, checkColor = if (accent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary)
             } else {
-                RadioButton(
-                    selected = selected,
-                    onClick = null,
-                    enabled = enabled,
-                    colors = if (accent) RadioButtonDefaults.colors(selectedColor = selectedColor) else RadioButtonDefaults.colors(),
-                )
+                AppRadioIndicator(selected, enabled, color = selectedColor)
             }
             Spacer(Modifier.width(14.dp))
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected && !accent) AppTheme.status.primarySoftText else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -833,7 +824,7 @@ fun AnswerOptionCard(
 data class SelectOption<T>(val value: T, val label: String, val description: String? = null)
 
 /**
- * Поле выбора: по нажатию открывает диалог со списком и поиском.
+ * Поле выбора: по нажатию открывает панель снизу со списком и поиском.
  * Заменяет UiSelect / PrimeVue Select.
  */
 @Composable
@@ -854,129 +845,143 @@ fun <T> SelectField(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     val selectedOption = options.firstOrNull { it.value == selected }
-    Box(modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = selectedOption?.label ?: "",
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text(if (required) "$label *" else label) },
-            placeholder = { Text(placeholder) },
-            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-            isError = error != null,
-            supportingText = error?.let { { Text(it) } },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
-            shape = Design.tokens.fieldShape,
-        )
-        // Прозрачный слой поверх поля: перехватывает нажатие и описывает поле для программы чтения с экрана.
-        Box(
-            Modifier.matchParentSize().padding(top = 8.dp)
-                .clip(Design.tokens.fieldShape)
-                .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "выбрать") { open = true }
-                .semantics {
-                    val spoken = accessibilityLabel ?: label
-                    contentDescription = if (required) "$spoken, обязательное поле" else spoken
-                    stateDescription = selectedOption?.label ?: placeholder
-                    if (error != null) error(error)
-                }
-        )
-    }
+    PickerField(
+        label = label,
+        valueText = selectedOption?.label,
+        placeholder = placeholder,
+        onClick = { open = true },
+        required = required,
+        error = error,
+        enabled = enabled,
+        modifier = modifier,
+        semanticsModifier = Modifier.semantics {
+            val spoken = accessibilityLabel ?: label
+            contentDescription = if (required) "$spoken, обязательное поле" else spoken
+            stateDescription = selectedOption?.label ?: placeholder
+            if (error != null) error(error)
+        },
+    )
     if (open) {
-        SelectDialog(
+        PickerSheet(
             title = label,
-            options = options,
-            selected = selected,
-            allowClear = allowClear,
             searchable = searchable,
             onDismiss = { open = false },
-            onSelect = {
-                onSelect(it)
-                open = false
-            },
-        )
+        ) { query ->
+            val filtered = options.filter { it.matches(query) }
+            if (allowClear && query.isBlank()) {
+                item {
+                    PickerRow("Не выбрано", null, selected == null, multiple = false) {
+                        onSelect(null)
+                        open = false
+                    }
+                }
+            }
+            items(filtered) { option ->
+                PickerRow(option.label, option.description, option.value == selected, multiple = false) {
+                    onSelect(option.value)
+                    open = false
+                }
+            }
+            if (filtered.isEmpty()) item { PickerEmpty() }
+        }
     }
 }
 
+private fun SelectOption<*>.matches(query: String): Boolean =
+    query.isBlank() || label.contains(query.trim(), ignoreCase = true) || description?.contains(query.trim(), ignoreCase = true) == true
+
+/**
+ * Панель выбора снизу в стиле темы: заголовок, поиск, список; [footer] — кнопки (для множественного выбора).
+ * Содержимое списка строит [content] по строке поиска.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun <T> SelectDialog(
+internal fun PickerSheet(
     title: String,
-    options: List<SelectOption<T>>,
-    selected: T?,
-    allowClear: Boolean,
     searchable: Boolean,
     onDismiss: () -> Unit,
-    onSelect: (T?) -> Unit,
+    footer: (@Composable () -> Unit)? = null,
+    content: androidx.compose.foundation.lazy.LazyListScope.(query: String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val filtered = remember(query, options) {
-        if (query.isBlank()) options
-        else options.filter {
-            it.label.contains(query.trim(), ignoreCase = true) ||
-                it.description?.contains(query.trim(), ignoreCase = true) == true
-        }
-    }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 560.dp),
-        ) {
-            Column(Modifier.padding(vertical = 16.dp)) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = {
+            Box(
+                Modifier.padding(top = 10.dp, bottom = 4.dp).size(width = 40.dp, height = 5.dp)
+                    .clip(CircleShape).background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        },
+    ) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding()) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     title,
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 20.dp).semantics { heading() },
+                    modifier = Modifier.weight(1f).semantics { heading() },
                 )
-                if (searchable) {
-                    SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                }
-                LazyColumn(Modifier.weight(1f, fill = false)) {
-                    if (allowClear) {
-                        item {
-                            SelectRow(label = "Не выбрано", description = null, checked = selected == null) { onSelect(null) }
-                        }
-                    }
-                    items(filtered) { option ->
-                        SelectRow(option.label, option.description, option.value == selected) { onSelect(option.value) }
-                    }
-                    if (filtered.isEmpty()) {
-                        item {
-                            Text(
-                                "Ничего не найдено",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(20.dp),
-                            )
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Отмена") }
-                }
+                AppIconButton(Icons.Default.Close, "Закрыть", onDismiss)
+            }
+            if (searchable) {
+                SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+            LazyColumn(
+                Modifier.weight(1f, fill = false).heightIn(max = 520.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) { content(query) }
+            if (footer != null) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { footer() }
+            } else {
+                Spacer(Modifier.height(12.dp))
             }
         }
     }
 }
 
+/** Строка панели выбора: выбранная подсвечена фоном и отмечена индикатором (радио или флажок). */
 @Composable
-private fun SelectRow(label: String, description: String?, checked: Boolean, onClick: () -> Unit) {
+internal fun PickerRow(label: String, description: String?, checked: Boolean, multiple: Boolean, onClick: () -> Unit) {
+    val background = if (checked) AppTheme.status.primarySoft else Color.Transparent
+    val interaction = if (multiple) {
+        Modifier.toggleable(value = checked, role = Role.Checkbox, onValueChange = { onClick() })
+    } else {
+        Modifier.selectable(selected = checked, role = Role.RadioButton, onClick = onClick)
+    }
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .selectable(selected = checked, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Design.tokens.tileShape).background(background)
+            .then(interaction).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (multiple) AppCheckboxIndicator(checked) else AppRadioIndicator(checked)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (checked) AppTheme.status.primarySoftText else MaterialTheme.colorScheme.onSurface,
+            )
             if (description != null) {
                 Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        // «Выбрано» озвучивается через selectable; галочка — только визуальная.
-        if (checked) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
     }
 }
 
-/** Множественный выбор: поле со списком выбранных + диалог с чекбоксами. */
+@Composable
+private fun PickerEmpty() {
+    Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+}
+
+/** Множественный выбор: поле со списком выбранных + панель с флажками. */
 @Composable
 fun <T> MultiSelectField(
     label: String,
@@ -990,67 +995,44 @@ fun <T> MultiSelectField(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     val summary = options.filter { it.value in selected }.joinToString(", ") { it.label }
-    Box(modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = summary,
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
-            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-            isError = error != null,
-            supportingText = error?.let { { Text(it) } },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
-            shape = Design.tokens.fieldShape,
-        )
-        Box(
-            Modifier.matchParentSize().padding(top = 8.dp).clip(Design.tokens.fieldShape)
-                .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "выбрать") { open = true }
-                .semantics {
-                    contentDescription = label
-                    stateDescription = summary.ifBlank { placeholder }
-                    if (error != null) error(error)
-                }
-        )
-    }
+    PickerField(
+        label = label,
+        valueText = summary.ifBlank { null },
+        placeholder = placeholder,
+        onClick = { open = true },
+        error = error,
+        enabled = enabled,
+        modifier = modifier,
+        semanticsModifier = Modifier.semantics {
+            contentDescription = label
+            stateDescription = summary.ifBlank { placeholder }
+            if (error != null) error(error)
+        },
+    )
     if (open) {
         var draft by remember { mutableStateOf(selected) }
-        var query by remember { mutableStateOf("") }
-        val filtered = options.filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }
-        Dialog(onDismissRequest = { open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 600.dp)) {
-                Column(Modifier.padding(vertical = 16.dp)) {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 20.dp).semantics { heading() },
-                    )
-                    if (options.size > 7) {
-                        SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                    }
-                    LazyColumn(Modifier.weight(1f, fill = false).padding(horizontal = 8.dp)) {
-                        items(filtered) { option ->
-                            CheckRow(
-                                title = option.label,
-                                description = option.description,
-                                checked = option.value in draft,
-                                onCheckedChange = { checked ->
-                                    draft = if (checked) draft + option.value else draft - option.value
-                                },
-                            )
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { open = false }) { Text("Отмена") }
-                        TextButton(onClick = {
-                            onChange(draft)
-                            open = false
-                        }) { Text("Готово") }
-                    }
+        PickerSheet(
+            title = label,
+            searchable = options.size > 7,
+            onDismiss = { open = false },
+            footer = {
+                BusyButton(
+                    if (draft.isEmpty()) "Готово" else "Готово · ${draft.size}",
+                    onClick = {
+                        onChange(draft)
+                        open = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+        ) { query ->
+            val filtered = options.filter { it.matches(query) }
+            items(filtered) { option ->
+                PickerRow(option.label, option.description, option.value in draft, multiple = true) {
+                    draft = if (option.value in draft) draft - option.value else draft + option.value
                 }
             }
+            if (filtered.isEmpty()) item { PickerEmpty() }
         }
     }
 }
@@ -1079,6 +1061,7 @@ fun ConfirmDialog(
                 onClick = onConfirm,
                 enabled = !busy,
                 shape = Design.tokens.buttonShape,
+                modifier = Modifier.heightIn(min = 48.dp),
                 colors = if (destructive) {
                     ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
@@ -1096,8 +1079,10 @@ fun ConfirmDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text(dismissText) }
+            AppOutlinedButton(dismissText, onClick = onDismiss, enabled = !busy)
         },
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = MaterialTheme.colorScheme.surface,
     )
 }
 

@@ -1,5 +1,16 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppFilterChip
+import org.santayn.testing.mobile.data.model.LectureAssignmentDto
+import org.santayn.testing.mobile.core.util.nowInstant
+import org.santayn.testing.mobile.domain.hidesAllLectures
+import org.santayn.testing.mobile.domain.StudentLectureSource
+import org.santayn.testing.mobile.domain.studentLectureSource
+import androidx.compose.material.icons.filled.LibraryBooks
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.style.TextOverflow
+import org.santayn.testing.mobile.navigation.TeacherLecturesRoute
+import org.santayn.testing.mobile.data.api.LecturesApi
 import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.horizontalScroll
@@ -16,7 +27,6 @@ import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Work
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +106,15 @@ data class VersionForm(
     val publishNow: Boolean = false,
 )
 
+/**
+ * Где используется версия курса: сколько в ней лекций и каким группам она выдана через учебную нагрузку
+ * (TeachingAssignment.courseVersionId). Без лекций выданная версия «пустая»: студенты группы не увидят лекций.
+ */
+data class VersionUsage(val lectureCount: Int?, val groups: List<String>, val emptyForGroups: List<String> = emptyList())
+
+/** Фильтр шаблонов по видимости. */
+enum class TemplateVisibilityFilter(val label: String) { ALL("Все"), VISIBLE("Видимые"), HIDDEN("Скрытые") }
+
 data class CoursesUiState(
     val loading: Boolean = false,
     val templates: List<CourseTemplateDto> = emptyList(),
@@ -109,12 +128,20 @@ data class CoursesUiState(
     val saving: Boolean = false,
     val deleting: CourseTemplateDto? = null,
     val deleteBusy: Boolean = false,
+    val usage: Map<Int, VersionUsage> = emptyMap(),
+    /** Версия, публикацию которой нужно подтвердить (у шаблона уже есть опубликованная). */
+    val confirmPublish: CourseVersionDto? = null,
+    val visibilityFilter: TemplateVisibilityFilter = TemplateVisibilityFilter.ALL,
 )
 
 class CourseTemplatesViewModel(
     private val route: TeacherCoursesRoute,
     val subjects: TeacherSubjectsHolder,
     private val courses: CoursesApi,
+    private val lectures: LecturesApi,
+    private val teaching: TeachingApi,
+    private val groups: GroupsApi,
+    private val cache: ContextCache,
 ) : BaseViewModel() {
     val isAdmin = subjects.isAdmin
     private val _state = MutableStateFlow(CoursesUiState())
@@ -154,7 +181,7 @@ class CourseTemplatesViewModel(
     }
 
     fun selectTemplate(template: CourseTemplateDto?) {
-        _state.update { it.copy(selectedTemplate = template, versions = emptyList()) }
+        _state.update { it.copy(selectedTemplate = template, versions = emptyList(), usage = emptyMap()) }
         if (template != null) launchSafe { loadVersions(template.id) }
     }
 
@@ -166,7 +193,50 @@ class CourseTemplatesViewModel(
             _state.update { it.copy(versionsLoading = false) }
         }
         _state.update { if (it.selectedTemplate?.id == templateId) it.copy(versions = versions) else it }
+        val usage = runCatching { loadUsage(versions) }.getOrDefault(emptyMap())
+        _state.update { if (it.selectedTemplate?.id == templateId) it.copy(usage = usage) else it }
     }
+
+    /** Лекции версий и группы, которым версии выданы в нагрузке выбранного предмета. */
+    private suspend fun loadUsage(versions: List<CourseVersionDto>): Map<Int, VersionUsage> = coroutineScope {
+        if (versions.isEmpty()) return@coroutineScope emptyMap()
+        val membershipId = subjects.state.value.selectedMembershipId
+        val counts = versions.map { v ->
+            async { v.id to runCatching { lectures.getAll(courseVersionId = v.id).size }.getOrNull() }
+        }
+        val assignments = membershipId?.let { id ->
+            runCatching { teaching.getAssignments(subjectMembershipId = id) }.getOrDefault(emptyList())
+        }.orEmpty().filter { a -> a.courseVersionId != null && versions.any { it.id == a.courseVersionId } }
+        val groupNames = assignments.mapNotNull { it.groupId }.distinct().map { id ->
+            async { id to runCatching { cache.load("group:$id", ContextCache.REFERENCE_TTL) { groups.getById(id) }.name }.getOrNull() }
+        }.awaitAll().toMap()
+        val lectureAssignments = assignments.map { a ->
+            async { a.id to runCatching { teaching.getLectureAssignments(a.id) }.getOrDefault(emptyList()) }
+        }.awaitAll().toMap()
+        val lectureCounts = counts.awaitAll().toMap()
+        val now = nowInstant()
+        versions.associate { v ->
+            val issued = assignments.filter { it.courseVersionId == v.id }
+            val groupTitle = { a: TeachingAssignmentDto -> a.groupId?.let { groupNames[it] } ?: "Группа #${a.groupId}" }
+            val texts = issued.map { a ->
+                val status = if (a.status == TeachingAssignmentStatus.ACTIVE) "" else ", ${TeachingAssignmentStatus.title(a.status).lowercase()}"
+                val source = studentLectureSource(a.courseVersionId, lectureAssignments[a.id].orEmpty(), lectureCounts[v.id], now)
+                val extra = if (source is StudentLectureSource.Assigned) ", назначено лекций отдельно: ${source.count}" else ""
+                "${groupTitle(a)} (${a.academicYear}/${a.academicYear + 1}, ${a.semester} сем.$status$extra)"
+            }
+            val empty = issued.filter { a ->
+                a.status == TeachingAssignmentStatus.ACTIVE &&
+                    studentLectureSource(a.courseVersionId, lectureAssignments[a.id].orEmpty(), lectureCounts[v.id], now).hidesAllLectures
+            }.map(groupTitle)
+            v.id to VersionUsage(lectureCounts[v.id], texts, empty)
+        }
+    }
+
+    fun selectVisibilityFilter(filter: TemplateVisibilityFilter) = _state.update { it.copy(visibilityFilter = filter) }
+
+    /** Маршрут к лекциям версии (создание лекций внутри версии курса). */
+    fun lecturesRoute(version: CourseVersionDto) =
+        TeacherLecturesRoute(subjectId = subjects.state.value.selectedSubjectId, courseVersionId = version.id)
 
     fun openTemplate(template: CourseTemplateDto?) = _state.update {
         it.copy(templateForm = template?.let { t -> TemplateForm(t.id, t.name, t.publicVisible) } ?: TemplateForm(), formError = null)
@@ -201,9 +271,11 @@ class CourseTemplatesViewModel(
             _state.update { it.copy(deleteBusy = false, deleting = null) }
             toast(e.userMessage("Не удалось удалить шаблон"))
         }) {
+            // Шаблон с версиями сервер не удаляет, а скрывает (publicVisible = false) — сообщаем, что произошло на самом деле.
+            val hadVersions = runCatching { courses.getVersions(template.id).isNotEmpty() }.getOrDefault(false)
             courses.removeTemplate(template.id)
             _state.update { it.copy(deleteBusy = false, deleting = null, selectedTemplate = null, versions = emptyList()) }
-            toast("Шаблон удалён")
+            toast(if (hadVersions) "Шаблон скрыт: у него есть версии, они сохранены" else "Шаблон удалён")
             loadTemplates()
         }
     }
@@ -251,7 +323,20 @@ class CourseTemplatesViewModel(
         }
     }
 
+    /** Публикация снимает текущую опубликованную версию шаблона — сначала спрашиваем. */
+    fun requestTogglePublish(version: CourseVersionDto) {
+        val other = _state.value.versions.firstOrNull { it.published && it.id != version.id }
+        if (!version.published && other != null) {
+            _state.update { it.copy(confirmPublish = version) }
+        } else {
+            togglePublish(version)
+        }
+    }
+
+    fun dismissPublish() = _state.update { it.copy(confirmPublish = null) }
+
     fun togglePublish(version: CourseVersionDto) {
+        _state.update { it.copy(confirmPublish = null) }
         launchSafe {
             if (version.published) courses.unpublishVersion(version.id) else courses.publishVersion(version.id)
             toast(if (version.published) "Публикация снята" else "Версия опубликована")
@@ -277,10 +362,23 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
             if (vm.isAdmin) {
                 item { Banner("Администратор может редактировать существующие шаблоны, но не создавать новые.", Tone.INFO) }
             }
+            item {
+                Banner(
+                    "Шаблон — сам курс, версия — его состояние (лекции версии). Студенты видят курс, когда администратор " +
+                        "выдаёт версию группе в «Учебной нагрузке». У шаблона опубликована только одна версия.",
+                    Tone.INFO,
+                    title = "Как курс попадает к студентам",
+                )
+            }
             if (picker.selected != null) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SearchField(query, { query = it }, Modifier.weight(1f), placeholder = "Поиск шаблона")
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        TemplateVisibilityFilter.entries.forEach { f ->
+                            AppFilterChip(state.visibilityFilter == f, { vm.selectVisibilityFilter(f) }, f.label)
+                        }
                     }
                     if (!vm.isAdmin) {
                         AppOutlinedButton("Новый шаблон", onClick = { vm.openTemplate(null) }, icon = Icons.Default.Add)
@@ -294,7 +392,15 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
                     EmptyState("Шаблонов пока нет", icon = Icons.Default.CollectionsBookmark)
                 }
             }
-            items(state.templates.filter { query.isBlank() || it.name.contains(query.trim(), true) }, key = { "t${it.id}" }) { template ->
+            val visibleTemplates = state.templates.filter {
+                (query.isBlank() || it.name.contains(query.trim(), true) || it.id.toString() == query.trim()) &&
+                    when (state.visibilityFilter) {
+                        TemplateVisibilityFilter.ALL -> true
+                        TemplateVisibilityFilter.VISIBLE -> it.publicVisible
+                        TemplateVisibilityFilter.HIDDEN -> !it.publicVisible
+                    }
+            }
+            items(visibleTemplates, key = { "t${it.id}" }) { template ->
                 val selected = template.id == state.selectedTemplate?.id
                 AppCard(onClick = { vm.selectTemplate(if (selected) null else template) }) {
                     Row {
@@ -314,19 +420,13 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
                             Text("Версий пока нет.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         state.versions.forEach { version ->
-                            AppCard(onClick = { vm.openVersion(version) }) {
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    StatusChip("v${version.versionNumber}", Tone.PRIMARY)
-                                    StatusChip(if (version.published) "Опубликована" else "Черновик", if (version.published) Tone.SUCCESS else Tone.WARNING)
-                                }
-                                Text(version.title, style = MaterialTheme.typography.titleSmall)
-                                version.publishedAtUtc?.let {
-                                    Text("Опубликована ${formatDateTime(it)}", style = MaterialTheme.typography.bodySmall)
-                                }
-                                TextButton(onClick = { vm.togglePublish(version) }) {
-                                    Text(if (version.published) "Снять с публикации" else "Опубликовать")
-                                }
-                            }
+                            VersionCard(
+                                version = version,
+                                usage = state.usage[version.id],
+                                onEdit = { vm.openVersion(version) },
+                                onLectures = { navigator.open(vm.lecturesRoute(version)) },
+                                onTogglePublish = { vm.requestTogglePublish(version) },
+                            )
                         }
                     }
                 }
@@ -367,13 +467,72 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
     state.deleting?.let { template ->
         ConfirmDialog(
             title = "Удалить шаблон?",
-            message = "Шаблон «${template.name}» и его версии будут удалены.",
+            message = "Если у шаблона «${template.name}» нет версий, он будет удалён. Если версии есть — шаблон " +
+                "станет скрытым, а версии, их лекции и выдача группам сохранятся.",
             confirmText = "Удалить",
             destructive = true,
             busy = state.deleteBusy,
             onConfirm = vm::confirmDelete,
             onDismiss = { vm.askDelete(null) },
         )
+    }
+    state.confirmPublish?.let { version ->
+        val current = state.versions.firstOrNull { it.published && it.id != version.id }
+        ConfirmDialog(
+            title = "Опубликовать v${version.versionNumber}?",
+            message = "Сейчас опубликована v${current?.versionNumber} «${current?.title}». У шаблона может быть только одна " +
+                "опубликованная версия, поэтому с неё публикация будет снята.",
+            confirmText = "Опубликовать",
+            onConfirm = { vm.togglePublish(version) },
+            onDismiss = vm::dismissPublish,
+        )
+    }
+}
+
+@Composable
+private fun VersionCard(
+    version: CourseVersionDto,
+    usage: VersionUsage?,
+    onEdit: () -> Unit,
+    onLectures: () -> Unit,
+    onTogglePublish: () -> Unit,
+) {
+    AppCard(onClick = onEdit) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            StatusChip("v${version.versionNumber}", Tone.PRIMARY)
+            StatusChip(if (version.published) "Опубликована" else "Черновик", if (version.published) Tone.SUCCESS else Tone.WARNING)
+            usage?.lectureCount?.let { StatusChip("Лекций: $it", if (it == 0) Tone.WARNING else Tone.NEUTRAL) }
+        }
+        Text(version.title, style = MaterialTheme.typography.titleSmall)
+        version.description?.takeIf { it.isNotBlank() }?.let {
+            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+        version.changeNotes?.takeIf { it.isNotBlank() }?.let {
+            Text("Что изменилось: $it", style = MaterialTheme.typography.bodySmall)
+        }
+        version.publishedAtUtc?.takeIf { version.published }?.let {
+            Text("Опубликована ${formatDateTime(it)}", style = MaterialTheme.typography.bodySmall)
+        }
+        if (usage != null) {
+            Text(
+                if (usage.groups.isEmpty()) "Группам не выдана" else "Выдана: " + usage.groups.joinToString(", "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (usage.emptyForGroups.isNotEmpty()) {
+                Banner(
+                    "В версии нет лекций, поэтому студенты групп ${usage.emptyForGroups.joinToString(", ")} сейчас не видят " +
+                        "ни одной лекции предмета. Добавьте лекции в версию («Лекции версии»).",
+                    Tone.DANGER,
+                )
+            }
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            AppOutlinedButton("Лекции версии", onClick = onLectures, icon = Icons.Default.LibraryBooks)
+            TextButton(onClick = onTogglePublish, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (version.published) "Снять с публикации" else "Опубликовать")
+            }
+        }
     }
 }
 
@@ -387,6 +546,8 @@ data class WorkloadItem(
     val subjectName: String,
     val groupName: String,
     val loadTypeName: String?,
+    /** Версия курса, выданная группе этой нагрузкой («vN · название»). */
+    val courseVersion: String? = null,
 )
 
 data class WorkloadData(val items: List<WorkloadItem>)
@@ -396,6 +557,7 @@ class WorkloadViewModel(
     private val loader: TeacherContextLoader,
     private val teaching: TeachingApi,
     private val groups: GroupsApi,
+    private val courses: CoursesApi,
     private val cache: ContextCache,
 ) : BaseViewModel() {
     private val _state = MutableStateFlow<LoadState<WorkloadData>>(LoadState.Loading)
@@ -418,6 +580,10 @@ class WorkloadViewModel(
                 val groupMap = groupIds.map { id ->
                     async { cache.load("group:$id", ContextCache.REFERENCE_TTL) { groups.getById(id) } }
                 }.awaitAll().associateBy { it.id }
+                val versionIds = assignments.mapNotNull { it.second.courseVersionId }.toSet()
+                val versionMap = versionIds.map { id ->
+                    async { id to runCatching { courses.getVersion(id) }.getOrNull() }
+                }.awaitAll().toMap()
                 val types = loadTypes.await()
                 val subjectNames = context.subjects.associate { it.id to it.name }
                 val items = assignments.map { (membership, a) ->
@@ -427,6 +593,9 @@ class WorkloadViewModel(
                         subjectName = subjectNames[membership.subjectId] ?: "Предмет #${membership.subjectId}",
                         groupName = a.groupId?.let { groupMap[it]?.name } ?: "Группа #${a.groupId}",
                         loadTypeName = a.loadTypeId?.let { types[it]?.name },
+                        courseVersion = a.courseVersionId?.let { id ->
+                            versionMap[id]?.let { "v${it.versionNumber} · ${it.title}" } ?: "версия #$id"
+                        },
                     )
                 }.sortedWith(compareBy({ it.subjectName.lowercase() }, { it.groupName.lowercase() }))
                 _state.value = LoadState.Ready(WorkloadData(items))
@@ -471,14 +640,14 @@ fun WorkloadScreen(navigator: AppNavigator) {
                         SelectField("Учебный год", years.map { SelectOption(it, "$it/${it + 1}") }, year, { year = it },
                             allowClear = true, placeholder = "Все годы")
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(semester == null, { semester = null }, { Text("Оба семестра") })
-                            FilterChip(semester == 1, { semester = 1 }, { Text("1 семестр") })
-                            FilterChip(semester == 2, { semester = 2 }, { Text("2 семестр") })
+                            AppFilterChip(semester == null, { semester = null }, "Оба семестра")
+                            AppFilterChip(semester == 1, { semester = 1 }, "1 семестр")
+                            AppFilterChip(semester == 2, { semester = 2 }, "2 семестр")
                         }
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(status == null, { status = null }, { Text("Все статусы") })
+                            AppFilterChip(status == null, { status = null }, "Все статусы")
                             TeachingAssignmentStatus.all.forEach { s ->
-                                FilterChip(status == s, { status = s }, { Text(TeachingAssignmentStatus.title(s)) })
+                                AppFilterChip(status == s, { status = s }, TeachingAssignmentStatus.title(s))
                             }
                         }
                     }
@@ -500,6 +669,11 @@ fun WorkloadScreen(navigator: AppNavigator) {
                                 a.studyCourse?.let { StatusChip("$it курс") }
                                 a.hoursPerWeek?.let { StatusChip("${formatNumber(it)} ч/нед") }
                             }
+                            Text(
+                                item.courseVersion?.let { "Курс: $it" } ?: "Версия курса не выбрана — студенты видят лекции предмета",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             a.notes?.takeIf { it.isNotBlank() }?.let {
                                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

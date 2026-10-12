@@ -188,6 +188,19 @@ data class TeachingAssignmentDto(
     val notes: String? = null,
 )
 
+/** Назначение лекции на учебную нагрузку (TeachingRestController /teaching/lecture-assignments). */
+@Serializable
+data class LectureAssignmentDto(
+    val id: Int,
+    val teachingAssignmentId: Int? = null,
+    val courseLectureId: Int? = null,
+    val availableFromUtc: String? = null,
+    val dueToUtc: String? = null,
+    val closedAtUtc: String? = null,
+    val required: Boolean = false,
+    val status: Int = 1,
+)
+
 object TeachingAssignmentStatus {
     const val ACTIVE = 1
     const val DRAFT = 2

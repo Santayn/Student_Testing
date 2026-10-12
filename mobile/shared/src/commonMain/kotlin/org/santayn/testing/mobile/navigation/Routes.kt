@@ -51,7 +51,8 @@ import org.santayn.testing.mobile.core.session.WorkspaceRole
 @Serializable data class TeacherTopicsRoute(val subjectId: Int? = null)
 @Serializable data class TeacherQuestionsRoute(val subjectId: Int? = null, val topicId: Int? = null)
 @Serializable data class TeacherTestCreateRoute(val subjectId: Int? = null, val topicId: Int? = null)
-@Serializable data class TeacherLecturesRoute(val subjectId: Int? = null)
+/** [courseVersionId] — открыть лекции этой версии курса (переход из «Шаблонов курса»). */
+@Serializable data class TeacherLecturesRoute(val subjectId: Int? = null, val courseVersionId: Int? = null)
 @Serializable data class TeacherCoursesRoute(val subjectId: Int? = null)
 @Serializable data object TeacherWorkloadRoute
 

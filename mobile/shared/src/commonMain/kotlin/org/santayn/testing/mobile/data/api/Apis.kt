@@ -125,6 +125,8 @@ class TeachingApi(private val api: ApiClient) {
     )
 
     suspend fun getAssignment(id: Int): TeachingAssignmentDto = api.get("/teaching/assignments/$id")
+    suspend fun getLectureAssignments(teachingAssignmentId: Int): List<LectureAssignmentDto> =
+        api.get("/teaching/lecture-assignments", mapOf("teachingAssignmentId" to teachingAssignmentId))
     suspend fun createAssignment(request: TeachingAssignmentRequest): TeachingAssignmentDto =
         api.post("/teaching/assignments", request)
 
@@ -163,6 +165,7 @@ class CoursesApi(private val api: ApiClient) {
 
     suspend fun removeTemplate(id: Int) = api.delete("/courses/templates/$id")
     suspend fun getVersions(templateId: Int): List<CourseVersionDto> = api.get("/courses/templates/$templateId/versions")
+    suspend fun getVersion(versionId: Int): CourseVersionDto = api.get("/courses/versions/$versionId")
     suspend fun createVersion(templateId: Int, request: CourseVersionRequest): CourseVersionDto =
         api.post("/courses/templates/$templateId/versions", request)
 

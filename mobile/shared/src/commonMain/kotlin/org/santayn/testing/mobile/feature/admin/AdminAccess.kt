@@ -1,5 +1,7 @@
 package org.santayn.testing.mobile.feature.admin
 
+import org.santayn.testing.mobile.core.ui.AppButton
+import org.santayn.testing.mobile.core.ui.AppFilterChip
 import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +21,6 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -267,11 +268,11 @@ fun AdminUsersScreen(navigator: AppNavigator) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SearchField(query, { query = it }, placeholder = "Логин, ФИО, email, телефон, роль")
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(roleFilter == null, { roleFilter = null }, { Text("Все роли") })
-                            data.roles.forEach { r -> FilterChip(roleFilter == r.name, { roleFilter = r.name }, { Text(r.name) }) }
+                            AppFilterChip(roleFilter == null, { roleFilter = null }, "Все роли")
+                            data.roles.forEach { r -> AppFilterChip(roleFilter == r.name, { roleFilter = r.name }, r.name) }
                         }
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            UserActiveFilter.entries.forEach { f -> FilterChip(activeFilter == f, { activeFilter = f }, { Text(f.label) }) }
+                            UserActiveFilter.entries.forEach { f -> AppFilterChip(activeFilter == f, { activeFilter = f }, f.label) }
                         }
                         AppOutlinedButton("Новая персона", onClick = { vm.openPerson(null) }, icon = Icons.Default.PersonAdd)
                     }
@@ -437,8 +438,8 @@ fun AdminRolesScreen(navigator: AppNavigator) {
             ScreenList(contentPadding = screenPadding(padding)) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(tab == 0, { tab = 0 }, { Text("Роли (${data.roles.size})") })
-                        FilterChip(tab == 1, { tab = 1 }, { Text("Права (${data.permissions.size})") })
+                        AppFilterChip(tab == 0, { tab = 0 }, "Роли (${data.roles.size})")
+                        AppFilterChip(tab == 1, { tab = 1 }, "Права (${data.permissions.size})")
                     }
                     SearchField(query, { query = it })
                     AppOutlinedButton(
@@ -493,8 +494,8 @@ fun AdminRolesScreen(navigator: AppNavigator) {
                     FormField(description, { description = it }, "Описание")
                 }
             },
-            confirmButton = { TextButton(onClick = { vm.create(name, description) }, enabled = !busy) { Text("Создать") } },
-            dismissButton = { TextButton(onClick = { vm.openCreate(null) }) { Text("Отмена") } },
+            confirmButton = { AppButton("Создать", onClick = { vm.create(name, description) }, enabled = !busy) },
+            dismissButton = { AppOutlinedButton("Отмена", onClick = { vm.openCreate(null) }) },
         )
     }
 }

@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppFilterChip
 import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,7 +66,10 @@ import org.santayn.testing.mobile.core.ui.MultiSelectField
 import org.santayn.testing.mobile.core.ui.ScreenList
 import org.santayn.testing.mobile.core.ui.SearchField
 import org.santayn.testing.mobile.core.ui.SectionTitle
+import org.santayn.testing.mobile.core.ui.SelectField
 import org.santayn.testing.mobile.core.ui.SelectOption
+import org.santayn.testing.mobile.data.api.CoursesApi
+import org.santayn.testing.mobile.data.model.CourseVersionDto
 import org.santayn.testing.mobile.core.ui.StatusChip
 import org.santayn.testing.mobile.core.ui.SwitchRow
 import org.santayn.testing.mobile.core.ui.Tone
@@ -94,7 +97,22 @@ data class LectureForm(
     val publicVisible: Boolean = false,
     val testIds: Set<Int> = emptySet(),
     val pendingFiles: List<PlatformFile> = emptyList(),
+    /** Версия курса, в которую входит лекция; null — лекция предмета без версии. */
+    val courseVersionId: Int? = null,
 )
+
+/** Версия курса для выбора: «Шаблон · vN». */
+data class CourseVersionOption(val version: CourseVersionDto, val templateName: String) {
+    val label: String get() = "$templateName · v${version.versionNumber}"
+    val description: String get() = version.title + if (version.published) " · опубликована" else " · черновик"
+}
+
+/** Фильтр списка лекций по версии курса. */
+sealed interface VersionFilter {
+    data object All : VersionFilter
+    data object WithoutVersion : VersionFilter
+    data class Version(val id: Int) : VersionFilter
+}
 
 data class LecturesUiState(
     val loading: Boolean = false,
@@ -110,6 +128,8 @@ data class LecturesUiState(
     val deletingMaterial: LectureMaterialDto? = null,
     val deletingLecture: LectureDto? = null,
     val deleteBusy: Boolean = false,
+    val versions: List<CourseVersionOption> = emptyList(),
+    val versionFilter: VersionFilter = VersionFilter.All,
 )
 
 enum class PublishFilter(val label: String) { ALL("Все"), PUBLISHED("Опубликованные"), HIDDEN("Скрытые") }
@@ -119,9 +139,12 @@ class LectureManagementViewModel(
     val subjects: TeacherSubjectsHolder,
     private val lecturesApi: LecturesApi,
     private val testsApi: TestsApi,
+    private val coursesApi: CoursesApi,
     private val cache: ContextCache,
 ) : BaseViewModel() {
-    private val _state = MutableStateFlow(LecturesUiState())
+    private val _state = MutableStateFlow(
+        LecturesUiState(versionFilter = route.courseVersionId?.let { VersionFilter.Version(it) } ?: VersionFilter.All),
+    )
     val state = _state.asStateFlow()
 
     init {
@@ -133,8 +156,13 @@ class LectureManagementViewModel(
 
     fun selectMembership(id: Int?) {
         subjects.select(id)
+        _state.update { it.copy(versionFilter = VersionFilter.All) }
         launchSafe { load() }
     }
+
+    fun selectVersionFilter(filter: VersionFilter) = _state.update { it.copy(versionFilter = filter) }
+
+    fun versionOption(id: Int?): CourseVersionOption? = _state.value.versions.firstOrNull { it.version.id == id }
 
     fun refresh() = launchSafe { load() }
 
@@ -157,19 +185,37 @@ class LectureManagementViewModel(
             val linked = lectures.map { l -> async { l.id to runCatching { lecturesApi.getTests(l.id) }.getOrDefault(emptyList()) } }
                 .awaitAll().toMap()
             val tests = runCatching { testsApi.getAll(subjectId = picker.selectedSubjectId) }.getOrDefault(emptyList())
-            _state.update { it.copy(loading = false, lectures = lectures, linkedTests = linked, subjectTests = tests) }
+            val versions = runCatching { loadVersions(picker.selectedSubjectId) }.getOrDefault(emptyList())
+            _state.update {
+                it.copy(loading = false, lectures = lectures, linkedTests = linked, subjectTests = tests, versions = versions)
+            }
         } catch (e: Exception) {
             _state.update { it.copy(loading = false, error = e.userMessage()) }
         }
     }
 
-    fun openCreate() = _state.update { it.copy(form = LectureForm(), formError = null, materials = emptyList()) }
+    /** Версии всех шаблонов курса предмета (преподавателю сервер отдаёт только его шаблоны). */
+    private suspend fun loadVersions(subjectId: Int?): List<CourseVersionOption> = coroutineScope {
+        if (subjectId == null) return@coroutineScope emptyList()
+        coursesApi.getTemplates(subjectId).map { template ->
+            async { coursesApi.getVersions(template.id).map { CourseVersionOption(it, template.name) } }
+        }.awaitAll().flatten().sortedWith(compareBy({ it.templateName.lowercase() }, { -it.version.versionNumber }))
+    }
+
+    /** Новая лекция создаётся в версии, выбранной в фильтре. */
+    fun openCreate() = _state.update {
+        val version = (it.versionFilter as? VersionFilter.Version)?.id
+        it.copy(form = LectureForm(courseVersionId = version), formError = null, materials = emptyList())
+    }
 
     fun openEdit(lecture: LectureDto) {
         val testIds = _state.value.linkedTests[lecture.id].orEmpty().map { it.id }.toSet()
         _state.update {
             it.copy(
-                form = LectureForm(lecture.id, lecture.title, lecture.description.orEmpty(), lecture.publicVisible, testIds),
+                form = LectureForm(
+                    lecture.id, lecture.title, lecture.description.orEmpty(), lecture.publicVisible, testIds,
+                    courseVersionId = lecture.courseVersionId,
+                ),
                 formError = null,
                 materials = emptyList(),
             )
@@ -208,7 +254,7 @@ class LectureManagementViewModel(
             val request = LectureRequest(
                 subjectId = membership.subjectId,
                 subjectMembershipId = membership.membershipId,
-                courseVersionId = null,
+                courseVersionId = form.courseVersionId,
                 ordinal = ordinal,
                 title = form.title.trim(),
                 description = form.description.trim().ifBlank { null },
@@ -282,7 +328,9 @@ class LectureManagementViewModel(
 
 @Composable
 fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, navigator: AppNavigator) {
-    val vm = koinViewModel<LectureManagementViewModel>(key = "lectures-mgmt-${route.subjectId}") { parametersOf(route, role) }
+    val vm = koinViewModel<LectureManagementViewModel>(key = "lectures-mgmt-${route.subjectId}-${route.courseVersionId}") {
+        parametersOf(route, role)
+    }
     ReloadOnReconnect { vm.reloadAfterReconnect() }
     CollectMessages(vm)
     val state by vm.state.collectAsState()
@@ -291,6 +339,7 @@ fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, na
     var publish by rememberSaveable { mutableStateOf(PublishFilter.ALL) }
     var withTestsOnly by rememberSaveable { mutableStateOf(false) }
 
+    val filterVersion = (state.versionFilter as? VersionFilter.Version)?.let { vm.versionOption(it.id) }
     AppScreen(
         title = "Лекции",
         onBack = navigator::back,
@@ -307,9 +356,32 @@ fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, na
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SearchField(query, { query = it }, placeholder = "Поиск лекции")
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            PublishFilter.entries.forEach { f -> FilterChip(publish == f, { publish = f }, { Text(f.label) }) }
-                            FilterChip(withTestsOnly, { withTestsOnly = !withTestsOnly }, { Text("С тестами") })
+                            PublishFilter.entries.forEach { f -> AppFilterChip(publish == f, { publish = f }, f.label) }
+                            AppFilterChip(withTestsOnly, { withTestsOnly = !withTestsOnly }, "С тестами")
                         }
+                        if (state.versions.isNotEmpty()) {
+                            SelectField<VersionFilter>(
+                                label = "Версия курса",
+                                options = listOf(
+                                    SelectOption<VersionFilter>(VersionFilter.All, "Все лекции предмета"),
+                                    SelectOption<VersionFilter>(VersionFilter.WithoutVersion, "Без версии курса"),
+                                ) + state.versions.map {
+                                    SelectOption<VersionFilter>(VersionFilter.Version(it.version.id), it.label, it.description)
+                                },
+                                selected = state.versionFilter,
+                                onSelect = { it?.let(vm::selectVersionFilter) },
+                            )
+                        }
+                    }
+                }
+                if (filterVersion != null) {
+                    item {
+                        Banner(
+                            "Студенты увидят эти лекции, когда администратор выдаст версию «${filterVersion.label}» группе " +
+                                "в «Учебной нагрузке». Группа с выданной версией видит только лекции версии " +
+                                "(если ей не назначены отдельные лекции).",
+                            Tone.INFO,
+                        )
                     }
                 }
             }
@@ -327,7 +399,21 @@ fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, na
                         PublishFilter.PUBLISHED -> l.publicVisible
                         PublishFilter.HIDDEN -> !l.publicVisible
                     } &&
-                    (!withTestsOnly || state.linkedTests[l.id].orEmpty().isNotEmpty())
+                    (!withTestsOnly || state.linkedTests[l.id].orEmpty().isNotEmpty()) &&
+                    when (val v = state.versionFilter) {
+                        VersionFilter.All -> true
+                        VersionFilter.WithoutVersion -> l.courseVersionId == null
+                        is VersionFilter.Version -> l.courseVersionId == v.id
+                    }
+            }
+            if (!state.loading && state.error == null && state.lectures.isNotEmpty() && filtered.isEmpty()) {
+                item {
+                    if (filterVersion != null) {
+                        EmptyState("В версии пока нет лекций", message = "Создайте лекцию — она попадёт в эту версию курса.", icon = Icons.Default.LibraryBooks)
+                    } else {
+                        EmptyState("Ничего не найдено", message = "Измените поиск или фильтры.", icon = Icons.Default.LibraryBooks)
+                    }
+                }
             }
             items(filtered, key = { it.id }) { lecture ->
                 val tests = state.linkedTests[lecture.id].orEmpty()
@@ -336,6 +422,9 @@ fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, na
                         StatusChip("№${lecture.ordinal}", Tone.PRIMARY)
                         StatusChip(if (lecture.publicVisible) "Опубликована" else "Скрыта", if (lecture.publicVisible) Tone.SUCCESS else Tone.WARNING)
                         StatusChip("Тестов: ${tests.size}")
+                        lecture.courseVersionId?.let { id ->
+                            StatusChip(vm.versionOption(id)?.label ?: "Версия курса $id", Tone.INFO)
+                        }
                     }
                     Text(lecture.title, style = MaterialTheme.typography.titleMedium)
                     lecture.description?.takeIf { it.isNotBlank() }?.let {
@@ -382,6 +471,16 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
         FormField(form.description, { v -> vm.updateForm { it.copy(description = v) } }, "Описание",
             singleLine = false, minLines = 4, maxLength = 2000)
         SwitchRow("Опубликовать для студентов", form.publicVisible, { v -> vm.updateForm { it.copy(publicVisible = v) } })
+        if (state.versions.isNotEmpty() || form.courseVersionId != null) {
+            SelectField(
+                label = "Версия курса",
+                options = state.versions.map { SelectOption(it.version.id, it.label, it.description) },
+                selected = form.courseVersionId,
+                onSelect = { id -> vm.updateForm { it.copy(courseVersionId = id) } },
+                allowClear = true,
+                placeholder = "Без версии (лекция предмета)",
+            )
+        }
         MultiSelectField(
             label = "Тесты лекции",
             options = state.subjectTests.map { SelectOption(it.id, it.title, "Вопросов: ${it.questionCount}") },

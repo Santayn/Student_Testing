@@ -1,5 +1,13 @@
 package org.santayn.testing.mobile.feature.admin
 
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
+import org.santayn.testing.mobile.core.ui.AppButton
+import org.santayn.testing.mobile.core.ui.AppFilterChip
+import org.santayn.testing.mobile.data.model.LectureAssignmentDto
+import org.santayn.testing.mobile.domain.hidesAllLectures
+import org.santayn.testing.mobile.domain.StudentLectureSource
+import org.santayn.testing.mobile.domain.studentLectureSource
+import org.santayn.testing.mobile.data.api.LecturesApi
 import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.RetryBanner
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
@@ -18,7 +26,6 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -277,8 +284,8 @@ fun AdminTeacherSubjectsScreen(navigator: AppNavigator) {
             onDismissRequest = { vm.askAdd(null) },
             title = { Text("Назначить «${subject.name}»?") },
             text = { FormField(notes, { notes = it }, "Примечание (необязательно)", singleLine = false, minLines = 2) },
-            confirmButton = { TextButton(onClick = { vm.confirmAdd(notes) }) { Text("Назначить") } },
-            dismissButton = { TextButton(onClick = { vm.askAdd(null) }) { Text("Отмена") } },
+            confirmButton = { AppButton("Назначить", onClick = { vm.confirmAdd(notes) }) },
+            dismissButton = { AppOutlinedButton("Отмена", onClick = { vm.askAdd(null) }) },
         )
     }
     state.removing?.let {
@@ -327,6 +334,11 @@ data class TeachingState(
     val assignments: List<TeachingAssignmentDto> = emptyList(),
     val form: AssignmentForm? = null,
     val versions: List<CourseVersionDto> = emptyList(),
+    /** Название шаблона курса для каждой версии и число лекций в версии (null — не удалось узнать). */
+    val versionTemplates: Map<Int, String> = emptyMap(),
+    val versionLectures: Map<Int, Int?> = emptyMap(),
+    /** Назначения лекций редактируемой нагрузки: если есть активные, версия курса на лекции студентов не влияет. */
+    val formLectureAssignments: List<LectureAssignmentDto> = emptyList(),
     val formError: String? = null,
     val saving: Boolean = false,
     val loadTypesOpen: Boolean = false,
@@ -341,6 +353,7 @@ class TeachingAssignmentsViewModel(
     private val memberships: MembershipsApi,
     private val users: UsersApi,
     private val courses: CoursesApi,
+    private val lectures: LecturesApi,
     private val cache: ContextCache,
 ) : BaseViewModel() {
     private val _state = MutableStateFlow(TeachingState(period = defaultPeriod()))
@@ -445,6 +458,7 @@ class TeachingAssignmentsViewModel(
                 form = AssignmentForm(academicYear = p.academicYear.toString(), semester = p.semester, studyCourse = p.studyCourse.toString()),
                 formError = null,
                 versions = emptyList(),
+                formLectureAssignments = emptyList(),
             )
         }
     }
@@ -461,9 +475,14 @@ class TeachingAssignmentsViewModel(
                     status = a.status, notes = a.notes.orEmpty(),
                 ),
                 formError = null,
+                formLectureAssignments = emptyList(),
             )
         }
         subjectId?.let { loadVersions(it) }
+        launchSafe(onError = {}) {
+            val items = teaching.getLectureAssignments(a.id)
+            _state.update { if (it.form?.id == a.id) it.copy(formLectureAssignments = items) else it }
+        }
     }
 
     fun updateForm(transform: (AssignmentForm) -> AssignmentForm) {
@@ -477,8 +496,15 @@ class TeachingAssignmentsViewModel(
     }
 
     private fun loadVersions(subjectId: Int) = launchSafe {
-        val versions = courses.getTemplates(subjectId).map { t -> async { courses.getVersions(t.id) } }.awaitAll().flatten()
-        _state.update { it.copy(versions = versions) }
+        val byTemplate = courses.getTemplates(subjectId).map { t -> async { t to courses.getVersions(t.id) } }.awaitAll()
+        val versions = byTemplate.flatMap { it.second }
+        val templates = byTemplate.flatMap { (t, list) -> list.map { it.id to t.name } }.toMap()
+        _state.update { it.copy(versions = versions, versionTemplates = templates) }
+        // Пустая версия «закрывает» студентам лекции предмета — число лекций показываем рядом с выбором.
+        val counts = versions.map { v ->
+            async { v.id to runCatching { lectures.getAll(courseVersionId = v.id).size }.getOrNull() }
+        }.awaitAll().toMap()
+        _state.update { it.copy(versionLectures = counts) }
     }
 
     fun closeForm() = _state.update { it.copy(form = null, formError = null) }
@@ -597,8 +623,8 @@ fun AdminTeachingScreen(navigator: AppNavigator) {
                             { c -> if (c != null) vm.setPeriod(p.copy(studyCourse = c)) }, Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(p.semester == 1, { vm.setPeriod(p.copy(semester = 1)) }, { Text("1 семестр") })
-                        FilterChip(p.semester == 2, { vm.setPeriod(p.copy(semester = 2)) }, { Text("2 семестр") })
+                        AppFilterChip(p.semester == 1, { vm.setPeriod(p.copy(semester = 1)) }, "1 семестр")
+                        AppFilterChip(p.semester == 2, { vm.setPeriod(p.copy(semester = 2)) }, "2 семестр")
                     }
                 }
             }
@@ -621,9 +647,9 @@ fun AdminTeachingScreen(navigator: AppNavigator) {
             item {
                 SearchField(query, { query = it }, placeholder = "Предмет, преподаватель, группа")
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(statusFilter == null, { statusFilter = null }, { Text("Все") })
+                    AppFilterChip(statusFilter == null, { statusFilter = null }, "Все")
                     TeachingAssignmentStatus.all.forEach { s ->
-                        FilterChip(statusFilter == s, { statusFilter = s }, { Text(TeachingAssignmentStatus.title(s)) })
+                        AppFilterChip(statusFilter == s, { statusFilter = s }, TeachingAssignmentStatus.title(s))
                     }
                 }
             }
@@ -688,11 +714,45 @@ private fun AssignmentEditor(form: AssignmentForm, state: TeachingState, vm: Tea
                 keyboardType = KeyboardType.Number, modifier = Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(form.semester == 1, { vm.updateForm { it.copy(semester = 1) } }, { Text("1 семестр") })
-            FilterChip(form.semester == 2, { vm.updateForm { it.copy(semester = 2) } }, { Text("2 семестр") })
+            AppFilterChip(form.semester == 1, { vm.updateForm { it.copy(semester = 1) } }, "1 семестр")
+            AppFilterChip(form.semester == 2, { vm.updateForm { it.copy(semester = 2) } }, "2 семестр")
         }
-        SelectField("Версия курса", state.versions.map { SelectOption(it.id, "v${it.versionNumber} · ${it.title}") }, form.courseVersionId,
-            { id -> vm.updateForm { it.copy(courseVersionId = id) } }, allowClear = true, placeholder = "Не выбрана")
+        SelectField(
+            "Версия курса",
+            state.versions.map { v ->
+                val lectures = state.versionLectures[v.id]?.let { "лекций: $it" } ?: "лекции: —"
+                SelectOption(
+                    v.id,
+                    listOfNotNull(state.versionTemplates[v.id], "v${v.versionNumber}").joinToString(" · "),
+                    "${v.title} · ${if (v.published) "опубликована" else "черновик"} · $lectures",
+                )
+            },
+            form.courseVersionId,
+            { id -> vm.updateForm { it.copy(courseVersionId = id) } },
+            allowClear = true,
+            placeholder = "Не выбрана — студенты видят лекции предмета",
+        )
+        form.courseVersionId?.let { id ->
+            val source = studentLectureSource(id, state.formLectureAssignments, state.versionLectures[id], nowInstant())
+            when {
+                source is StudentLectureSource.Assigned -> Text(
+                    "У нагрузки отдельно назначены лекции (${source.count}) — студенты видят только их, версия курса " +
+                        "влияет на тесты, назначенные на версию.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                source.hidesAllLectures -> Banner(
+                    "В этой версии нет лекций. Пока преподаватель не добавит лекции в версию, студенты групп " +
+                        "не увидят лекций предмета: при выбранной версии показываются только её лекции.",
+                    Tone.WARNING,
+                )
+                else -> Text(
+                    "Студенты групп увидят лекции этой версии и тесты, назначенные на неё.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         SelectField("Статус", TeachingAssignmentStatus.all.map { SelectOption(it, TeachingAssignmentStatus.title(it)) }, form.status,
             { s -> if (s != null) vm.updateForm { it.copy(status = s) } })
         FormField(form.notes, { v -> vm.updateForm { it.copy(notes = v) } }, "Примечание", singleLine = false, minLines = 2)
