@@ -4,11 +4,18 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 import org.santayn.testing.mobile.core.network.userMessage
 import org.santayn.testing.mobile.core.session.SessionManager
 import org.santayn.testing.mobile.core.session.WorkspaceRole
 import org.santayn.testing.mobile.core.ui.BaseViewModel
 import org.santayn.testing.mobile.core.ui.LoadState
+import org.santayn.testing.mobile.core.util.nowInstant
 import org.santayn.testing.mobile.core.util.parseInstantOrNull
 import org.santayn.testing.mobile.data.api.ResultsApi
 import org.santayn.testing.mobile.domain.StudentContextLoader
@@ -37,6 +44,8 @@ data class StudentHome(
     val lastAttempt: LastAttempt?,
     /** Пояснение, если предметов нет (нет группы / не назначены). */
     val emptyReason: String?,
+    /** Сколько дней подряд студент завершал тесты, см. [streakDays]; 0 — серии нет. */
+    val streakDays: Int = 0,
 )
 
 class HomeViewModel(
@@ -65,8 +74,10 @@ class HomeViewModel(
                 // Результаты — дополнительная информация: их ошибка не должна ломать главную.
                 val attempts = async { runCatching { results.getStudentData() }.getOrNull()?.attempts.orEmpty() }
                 val ctx = context.await()
-                val last = attempts.await()
+                val allAttempts = attempts.await()
+                val last = allAttempts
                     .maxByOrNull { parseInstantOrNull(it.completedAt)?.toEpochMilliseconds() ?: Long.MIN_VALUE }
+                val zone = TimeZone.currentSystemDefault()
                 _student.value = LoadState.Ready(
                     StudentHome(
                         contextLine = listOf(
@@ -82,10 +93,52 @@ class HomeViewModel(
                             ctx.subjects.isEmpty() -> "Для вашей группы пока не назначены предметы."
                             else -> null
                         },
+                        streakDays = streakDays(
+                            completedAt = allAttempts.mapNotNull { parseInstantOrNull(it.completedAt) },
+                            today = nowInstant().toLocalDateTime(zone).date,
+                            zone = zone,
+                        ),
                     )
                 )
             }
         }
+    }
+}
+
+/**
+ * Сколько дней подряд (по местному времени) студент завершал хотя бы одну попытку.
+ * Серия жива, если последняя попытка сегодня или вчера; иначе 0.
+ */
+fun streakDays(completedAt: List<Instant>, today: LocalDate, zone: TimeZone): Int {
+    val days = completedAt.map { it.toLocalDateTime(zone).date }.toSet()
+    val yesterday = today.minus(1, DateTimeUnit.DAY)
+    var day = when {
+        today in days -> today
+        yesterday in days -> yesterday
+        else -> return 0
+    }
+    var count = 0
+    while (day in days) {
+        count++
+        day = day.minus(1, DateTimeUnit.DAY)
+    }
+    return count
+}
+
+/** «1 день подряд», «2 дня подряд», «5 дней подряд». */
+fun streakLabel(days: Int): String = "$days ${plural(days, "день", "дня", "дней")} подряд"
+
+/** «предмет», «предмета», «предметов». */
+internal fun subjectsWord(count: Int): String = plural(count, "предмет", "предмета", "предметов")
+
+private fun plural(count: Int, one: String, few: String, many: String): String {
+    val mod100 = count % 100
+    val mod10 = count % 10
+    return when {
+        mod100 in 11..14 -> many
+        mod10 == 1 -> one
+        mod10 in 2..4 -> few
+        else -> many
     }
 }
 

@@ -60,6 +60,7 @@ fun HomeScreen(role: WorkspaceRole, navigator: AppNavigator) {
     when (Design.tokens.theme) {
         DesignTheme.POLYTECH -> PolytechHome(role, name, student, onRetry = vm::load, navigator = navigator)
         DesignTheme.KAFEDRA -> KafedraHome(role, name, student, onRetry = vm::load, navigator = navigator)
+        DesignTheme.ZACHET -> ZachetHome(role, name, student, onRetry = vm::load, navigator = navigator)
     }
 }
 

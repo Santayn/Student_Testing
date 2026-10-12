@@ -422,9 +422,10 @@ fun QuestionsScreen(route: TeacherQuestionsRoute, role: WorkspaceRole, navigator
                                 FilterChip(activeFilter == f, { activeFilter = f }, { Text(f.label) })
                             }
                         }
-                        AppOutlinedButton(onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) }) {
-                            Text("Создать тест по теме")
-                        }
+                        AppOutlinedButton(
+                            "Создать тест по теме",
+                            onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) },
+                        )
                     }
                 }
             }
@@ -549,10 +550,7 @@ private fun OptionsSection(form: QuestionForm, state: QuestionsUiState, vm: Ques
             }
         }
     }
-    AppOutlinedButton(onClick = { vm.openOption(null) }) {
-        Icon(Icons.Default.Add, null)
-        Text(" Добавить вариант")
-    }
+    AppOutlinedButton("Добавить вариант", onClick = { vm.openOption(null) }, icon = Icons.Default.Add)
 }
 
 /** Редактор пар соответствия (components/questions/MatchingPairsEditor.vue). */
@@ -578,10 +576,7 @@ fun MatchingPairsEditor(pairs: List<MatchingPairDto>, onChange: (List<MatchingPa
             FormField(pair.right, { v -> onChange(pairs.mapIndexed { i, p -> if (i == index) p.copy(right = v) else p }) }, "Колонка Б")
         }
     }
-    AppOutlinedButton(onClick = { onChange(pairs + MatchingPairDto(pairs.size + 1)) }) {
-        Icon(Icons.Default.Add, null)
-        Text(" Добавить пару")
-    }
+    AppOutlinedButton("Добавить пару", onClick = { onChange(pairs + MatchingPairDto(pairs.size + 1)) }, icon = Icons.Default.Add)
 }
 
 @Composable
@@ -599,10 +594,12 @@ private fun ImportDialog(state: QuestionsUiState, vm: QuestionsViewModel) {
                 )
                 val topic = state.topics.firstOrNull { it.id == state.topicId }
                 Text("Тема: ${topic?.name ?: "—"}", style = MaterialTheme.typography.labelLarge)
-                AppOutlinedButton(onClick = { picker.launch() }, enabled = !state.importing) {
-                    Icon(Icons.Default.UploadFile, null)
-                    Text(" ${state.importFile?.name ?: "Выбрать файл .docx"}")
-                }
+                AppOutlinedButton(
+                    state.importFile?.name ?: "Выбрать файл .docx",
+                    onClick = { picker.launch() },
+                    enabled = !state.importing,
+                    icon = Icons.Default.UploadFile,
+                )
                 if (state.importResult != null) Banner(state.importResult, Tone.SUCCESS)
             }
         },

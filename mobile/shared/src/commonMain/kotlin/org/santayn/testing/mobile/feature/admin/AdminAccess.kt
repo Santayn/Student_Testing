@@ -273,10 +273,7 @@ fun AdminUsersScreen(navigator: AppNavigator) {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             UserActiveFilter.entries.forEach { f -> FilterChip(activeFilter == f, { activeFilter = f }, { Text(f.label) }) }
                         }
-                        AppOutlinedButton(onClick = { vm.openPerson(null) }) {
-                            Icon(Icons.Default.PersonAdd, null)
-                            Text(" Новая персона")
-                        }
+                        AppOutlinedButton("Новая персона", onClick = { vm.openPerson(null) }, icon = Icons.Default.PersonAdd)
                     }
                 }
                 item { SectionTitle("Найдено: ${filtered.size}") }
@@ -317,12 +314,13 @@ fun AdminUsersScreen(navigator: AppNavigator) {
                 searchable = true,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppOutlinedButton(onClick = { vm.openPerson(null) }) { Text("Создать персону") }
+                AppOutlinedButton("Создать персону", onClick = { vm.openPerson(null) })
                 if (f.personId != null) {
-                    AppOutlinedButton(onClick = { vm.openPerson(data.people.firstOrNull { it.id == f.personId }) }) {
-                        Icon(Icons.Default.Edit, null)
-                        Text(" Изменить")
-                    }
+                    AppOutlinedButton(
+                        "Изменить",
+                        onClick = { vm.openPerson(data.people.firstOrNull { it.id == f.personId }) },
+                        icon = Icons.Default.Edit,
+                    )
                 }
             }
             MultiSelectField("Роли", data.roles.map { SelectOption(it.id, it.name, it.description) }, f.roleIds,
@@ -443,10 +441,11 @@ fun AdminRolesScreen(navigator: AppNavigator) {
                         FilterChip(tab == 1, { tab = 1 }, { Text("Права (${data.permissions.size})") })
                     }
                     SearchField(query, { query = it })
-                    AppOutlinedButton(onClick = { vm.openCreate(tab == 0) }) {
-                        Icon(Icons.Default.Add, null)
-                        Text(if (tab == 0) " Новая роль" else " Новое право")
-                    }
+                    AppOutlinedButton(
+                        if (tab == 0) "Новая роль" else "Новое право",
+                        onClick = { vm.openCreate(tab == 0) },
+                        icon = Icons.Default.Add,
+                    )
                 }
                 if (tab == 0) {
                     items(data.roles.filter { query.isBlank() || it.name.contains(query.trim(), true) }, key = { "r${it.id}" }) { role ->
@@ -592,9 +591,10 @@ fun AdminBackupsScreen(navigator: AppNavigator) {
                     BusyButton("Скачать резервную копию", onClick = vm::createBackup, busy = state.downloading,
                         icon = Icons.Default.Download, modifier = Modifier.fillMaxWidth())
                     if (state.ready != null) {
-                        AppOutlinedButton(onClick = { state.ready?.let { saver.launch(it.fileName.removeSuffix(".sql"), "sql") } }) {
-                            Text("Сохранить ${state.ready!!.fileName} (${formatFileSize(state.ready!!.bytes.size.toLong())})")
-                        }
+                        AppOutlinedButton(
+                            "Сохранить ${state.ready!!.fileName} (${formatFileSize(state.ready!!.bytes.size.toLong())})",
+                            onClick = { state.ready?.let { saver.launch(it.fileName.removeSuffix(".sql"), "sql") } },
+                        )
                     }
                 }
             }
@@ -605,14 +605,16 @@ fun AdminBackupsScreen(navigator: AppNavigator) {
                         Text("  Восстановление", style = MaterialTheme.typography.titleMedium)
                     }
                     Banner("Восстановление перезапишет текущие данные. Перед восстановлением сделайте свежую резервную копию.", Tone.WARNING)
-                    AppOutlinedButton(onClick = { picker.launch() }, enabled = !state.restoring) {
-                        Icon(Icons.Default.UploadFile, null)
-                        Text(" ${state.restoreFile?.name ?: "Выбрать файл .sql"}")
-                    }
+                    AppOutlinedButton(
+                        state.restoreFile?.name ?: "Выбрать файл .sql",
+                        onClick = { picker.launch() },
+                        enabled = !state.restoring,
+                        icon = Icons.Default.UploadFile,
+                    )
                     BusyButton("Восстановить", onClick = { vm.askRestore(true) }, busy = state.restoring,
                         enabled = state.restoreFile != null, modifier = Modifier.fillMaxWidth())
                     if (state.message?.first == Tone.SUCCESS && state.message?.second?.startsWith("База восстановлена") == true) {
-                        AppOutlinedButton(onClick = vm::relogin) { Text("Войти заново") }
+                        AppOutlinedButton("Войти заново", onClick = vm::relogin)
                     }
                 }
             }

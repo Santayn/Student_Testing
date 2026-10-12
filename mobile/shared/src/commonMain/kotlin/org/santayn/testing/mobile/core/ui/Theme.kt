@@ -31,8 +31,10 @@ import org.santayn.testing.mobile.core.ui.design.LocalBrandColors
 import org.santayn.testing.mobile.core.ui.design.LocalDesign
 import org.santayn.testing.mobile.core.ui.design.PolytechPalette
 import org.santayn.testing.mobile.core.ui.design.ThemePalette
+import org.santayn.testing.mobile.core.ui.design.ZachetPalette
 import org.santayn.testing.mobile.core.ui.design.kafedraTokens
 import org.santayn.testing.mobile.core.ui.design.polytechTokens
+import org.santayn.testing.mobile.core.ui.design.zachetTokens
 
 /*
  * Сборка темы приложения: тема оформления (core/ui/design) × светлая/тёмная схема × высокий контраст
@@ -163,14 +165,14 @@ internal val DarkHighContrastColors: ColorScheme = darkColorScheme(
 internal val LightHighContrastBrand = BrandColors(
     hero = Color(0xFF1E3A8A), onHero = Color(0xFFFFFFFF), onHeroMuted = Color(0xFFFFFFFF),
     heroChip = Color(0xFF172E6E),
-    accent = Color(0xFF166534), onAccent = Color(0xFFFFFFFF),
+    accent = Color(0xFF166534), onAccent = Color(0xFFFFFFFF), accentOnSurface = Color(0xFF166534),
     highlight = Color(0xFF1E3A8A), onHighlight = Color(0xFFFFFFFF),
 )
 
 internal val DarkHighContrastBrand = BrandColors(
     hero = Color(0xFF172554), onHero = Color(0xFFFFFFFF), onHeroMuted = Color(0xFFFFFFFF),
     heroChip = Color(0xFF000000),
-    accent = Color(0xFF86EFAC), onAccent = Color(0xFF000000),
+    accent = Color(0xFF86EFAC), onAccent = Color(0xFF000000), accentOnSurface = Color(0xFF86EFAC),
     highlight = Color(0xFFBFDBFE), onHighlight = Color(0xFF000000),
 )
 
@@ -187,6 +189,7 @@ object AppTheme {
 internal fun DesignTheme.palette(): ThemePalette = when (this) {
     DesignTheme.POLYTECH -> PolytechPalette
     DesignTheme.KAFEDRA -> KafedraPalette
+    DesignTheme.ZACHET -> ZachetPalette
 }
 
 /** Токены темы оформления (шрифты грузятся из ресурсов — поэтому @Composable). */
@@ -194,6 +197,7 @@ internal fun DesignTheme.palette(): ThemePalette = when (this) {
 internal fun DesignTheme.tokens(): DesignTokens = when (this) {
     DesignTheme.POLYTECH -> polytechTokens()
     DesignTheme.KAFEDRA -> kafedraTokens()
+    DesignTheme.ZACHET -> zachetTokens()
 }
 
 /** Итоговые цвета: тема × светлая/тёмная × высокий контраст. */

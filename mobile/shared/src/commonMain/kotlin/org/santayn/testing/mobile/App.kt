@@ -131,8 +131,8 @@ private fun RestoreFailedScreen(message: String) {
                 modifier = Modifier.semantics { heading() },
             )
             Text(offline?.hint ?: message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            AppButton(onClick = { scope.launch { session.restore() } }) { Text("Повторить") }
-            AppOutlinedButton(onClick = { session.logout() }) { Text("Выйти") }
+            AppButton("Повторить", onClick = { scope.launch { session.restore() } })
+            AppOutlinedButton("Выйти", onClick = { session.logout() })
         }
     }
 }

@@ -283,10 +283,7 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
                         SearchField(query, { query = it }, Modifier.weight(1f), placeholder = "Поиск шаблона")
                     }
                     if (!vm.isAdmin) {
-                        AppOutlinedButton(onClick = { vm.openTemplate(null) }) {
-                            Icon(Icons.Default.Add, null)
-                            Text(" Новый шаблон")
-                        }
+                        AppOutlinedButton("Новый шаблон", onClick = { vm.openTemplate(null) }, icon = Icons.Default.Add)
                     }
                 }
             }
