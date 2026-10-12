@@ -123,14 +123,14 @@ internal val KafedraDarkStatus = StatusColors(
 internal val KafedraLightBrand = BrandColors(
     hero = Color(0xFFFFFFFF), onHero = Color(0xFF0E1F3D), onHeroMuted = Color(0xFF5B6678),
     heroChip = Color(0xFFEEF1F6),
-    accent = Color(0xFF045BA7), onAccent = Color(0xFFFFFFFF),
+    accent = Color(0xFF045BA7), onAccent = Color(0xFFFFFFFF), accentOnSurface = Color(0xFF045BA7),
     highlight = Color(0xFFE6F0FA), onHighlight = Color(0xFF03457F),
 )
 
 internal val KafedraDarkBrand = BrandColors(
     hero = Color(0xFF161D2B), onHero = Color(0xFFE6EAF2), onHeroMuted = Color(0xFFA3ADBF),
     heroChip = Color(0xFF1E2636),
-    accent = Color(0xFF7DB3EE), onAccent = Color(0xFF0B1420),
+    accent = Color(0xFF7DB3EE), onAccent = Color(0xFF0B1420), accentOnSurface = Color(0xFF7DB3EE),
     highlight = Color(0xFF12304F), onHighlight = Color(0xFFCFE4FA),
 )
 
@@ -199,6 +199,7 @@ internal fun kafedraTokens(): DesignTokens {
         buttonShape = Shapes.rounded(12.dp),
         buttonHeight = 52.dp,
         buttonDepth = 0.dp,
+        buttonLabelUppercase = false,
         cardShape = Shapes.rounded(14.dp),
         cardBorder = true,                 // белая карточка на #F4F6F9 + рамка outlineVariant
         cardDepth = 0.dp,
@@ -206,10 +207,12 @@ internal fun kafedraTokens(): DesignTokens {
         fieldShape = Shapes.rounded(12.dp),
         tileShape = Shapes.rounded(10.dp),
         iconButtonsOnSurface = false,      // кнопки-иконки без подложки
+        iconButtonShape = null,
         topBarOnBackground = true,
         largeTopLevelTitle = true,
         sectionTitle = SectionTitleStyle.CAPS,
         navBar = NavBarStyle.TAB_BAR,
         answerStyle = AnswerStyle.LIST,
+        selectedAnswerUsesAccent = false,
     )
 }

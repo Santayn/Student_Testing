@@ -118,14 +118,14 @@ internal val PolytechDarkStatus = StatusColors(
 internal val PolytechLightBrand = BrandColors(
     hero = Color(0xFF2E54DC), onHero = Color(0xFFFFFFFF), onHeroMuted = Color(0xFFDCE4FA),
     heroChip = Color(0xFF2546BC),
-    accent = Color(0xFF11D56B), onAccent = Color(0xFF06281A),
+    accent = Color(0xFF11D56B), onAccent = Color(0xFF06281A), accentOnSurface = Color(0xFF0B6B37),
     highlight = Color(0xFF9BD5FF), onHighlight = Color(0xFF0B1630),
 )
 
 internal val PolytechDarkBrand = BrandColors(
     hero = Color(0xFF1D2E6B), onHero = Color(0xFFFFFFFF), onHeroMuted = Color(0xFFC9D5FF),
     heroChip = Color(0xFF2A3D85),
-    accent = Color(0xFF11D56B), onAccent = Color(0xFF06281A),
+    accent = Color(0xFF11D56B), onAccent = Color(0xFF06281A), accentOnSurface = Color(0xFF11D56B),
     highlight = Color(0xFF9BD5FF), onHighlight = Color(0xFF0B1630),
 )
 
@@ -159,6 +159,7 @@ internal fun polytechTokens(): DesignTokens = DesignTokens(
     buttonShape = Shapes.pill,
     buttonHeight = 52.dp,
     buttonDepth = 0.dp,
+    buttonLabelUppercase = false,
     cardShape = Shapes.rounded(20.dp),
     cardBorder = false,
     cardDepth = 0.dp,
@@ -166,9 +167,11 @@ internal fun polytechTokens(): DesignTokens = DesignTokens(
     fieldShape = Shapes.rounded(14.dp),
     tileShape = Shapes.rounded(12.dp),
     iconButtonsOnSurface = true,
+    iconButtonShape = null,
     topBarOnBackground = true,
     largeTopLevelTitle = false,
     sectionTitle = SectionTitleStyle.DISPLAY,
     navBar = NavBarStyle.FLOATING_PILL,
     answerStyle = AnswerStyle.CARDS,
+    selectedAnswerUsesAccent = false,
 )

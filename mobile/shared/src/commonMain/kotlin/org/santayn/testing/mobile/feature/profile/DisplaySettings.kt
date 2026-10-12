@@ -108,6 +108,6 @@ fun DisplaySettingsDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("Специальные возможности") },
         text = { DisplaySettings(Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { AppButton(onClick = onDismiss) { Text("Готово") } },
+        confirmButton = { AppButton("Готово", onClick = onDismiss) },
     )
 }

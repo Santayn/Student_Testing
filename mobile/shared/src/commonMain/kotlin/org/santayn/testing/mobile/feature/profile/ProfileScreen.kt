@@ -234,8 +234,8 @@ fun ProfileScreen(navigator: AppNavigator) {
         AlertDialog(
             onDismissRequest = { logoutConfirm = false },
             title = { Text("Выйти из аккаунта?") },
-            confirmButton = { AppButton(onClick = { session.logout() }) { Text("Выйти") } },
-            dismissButton = { AppOutlinedButton(onClick = { logoutConfirm = false }) { Text("Отмена") } },
+            confirmButton = { AppButton("Выйти", onClick = { session.logout() }) },
+            dismissButton = { AppOutlinedButton("Отмена", onClick = { logoutConfirm = false }) },
         )
     }
 }
@@ -304,8 +304,7 @@ private fun ChangePasswordDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            AppButton(
-                enabled = !busy && current.isNotEmpty(),
+            AppButton(if (busy) "Сохранение…" else "Сменить", enabled = !busy && current.isNotEmpty(),
                 onClick = {
                     nextError = when {
                         next.length < 6 -> "Минимум 6 символов"
@@ -330,9 +329,8 @@ private fun ChangePasswordDialog(onDismiss: () -> Unit) {
                             busy = false
                         }
                     }
-                },
-            ) { Text(if (busy) "Сохранение…" else "Сменить") }
+                })
         },
-        dismissButton = { AppOutlinedButton(onClick = onDismiss, enabled = !busy) { Text("Отмена") } },
+        dismissButton = { AppOutlinedButton("Отмена", onClick = onDismiss, enabled = !busy) },
     )
 }
