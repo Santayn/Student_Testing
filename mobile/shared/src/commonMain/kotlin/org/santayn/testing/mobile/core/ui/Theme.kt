@@ -26,10 +26,12 @@ import org.santayn.testing.mobile.core.storage.ThemeMode
 import org.santayn.testing.mobile.core.ui.design.BrandColors
 import org.santayn.testing.mobile.core.ui.design.DesignTheme
 import org.santayn.testing.mobile.core.ui.design.DesignTokens
+import org.santayn.testing.mobile.core.ui.design.KafedraPalette
 import org.santayn.testing.mobile.core.ui.design.LocalBrandColors
 import org.santayn.testing.mobile.core.ui.design.LocalDesign
 import org.santayn.testing.mobile.core.ui.design.PolytechPalette
 import org.santayn.testing.mobile.core.ui.design.ThemePalette
+import org.santayn.testing.mobile.core.ui.design.kafedraTokens
 import org.santayn.testing.mobile.core.ui.design.polytechTokens
 
 /*
@@ -184,12 +186,14 @@ object AppTheme {
 /** Палитра темы оформления. */
 internal fun DesignTheme.palette(): ThemePalette = when (this) {
     DesignTheme.POLYTECH -> PolytechPalette
+    DesignTheme.KAFEDRA -> KafedraPalette
 }
 
 /** Токены темы оформления (шрифты грузятся из ресурсов — поэтому @Composable). */
 @Composable
 internal fun DesignTheme.tokens(): DesignTokens = when (this) {
     DesignTheme.POLYTECH -> polytechTokens()
+    DesignTheme.KAFEDRA -> kafedraTokens()
 }
 
 /** Итоговые цвета: тема × светлая/тёмная × высокий контраст. */

@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -48,6 +49,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
@@ -82,6 +85,8 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -128,39 +133,77 @@ fun AppScreen(
     bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val barColor = if (Design.tokens.topBarOnBackground) {
+        MaterialTheme.colorScheme.background
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    // Крупный заголовок — только на главных вкладках и пока он помещается: при очень крупном шрифте
+    // две строки не влезают в развёрнутую панель, тогда остаётся обычная.
+    val largeTitle = onBack == null && Design.tokens.largeTopLevelTitle && LocalDensity.current.fontScale <= 1.3f
+    val titleContent: @Composable () -> Unit = {
+        // Заголовок экрана — heading: по заголовкам можно перемещаться жестами TalkBack/VoiceOver.
+        Column(Modifier.semantics(mergeDescendants = true) { heading() }) {
+            if (largeTitle) {
+                // Одна строка: длинный заголовок («Академическая структура») уменьшается, а не переносится.
+                val style = LocalTextStyle.current
+                Text(
+                    title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    autoSize = TextAutoSize.StepBased(
+                        minFontSize = minOf(20f, style.fontSize.value).sp,
+                        maxFontSize = style.fontSize,
+                        stepSize = 1.sp,
+                    ),
+                )
+            } else {
+                Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+    val scrollBehavior = if (largeTitle) TopAppBarDefaults.exitUntilCollapsedScrollBehavior() else null
     Scaffold(
+        modifier = if (scrollBehavior != null) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier,
         topBar = {
             Column {
+            if (scrollBehavior != null) {
+                // Развёрнутый заголовок LargeTopAppBar берёт стиль headlineMedium, свёрнутый — titleLarge.
+                val expandedTitle = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em,
+                )
+                MaterialTheme(typography = MaterialTheme.typography.copy(headlineMedium = expandedTitle)) {
+                    LargeTopAppBar(
+                        title = titleContent,
+                        actions = actions,
+                        // Ниже стандартных 64/152dp: над заголовком нет пустой полосы, строка 38sp помещается.
+                        collapsedHeight = 56.dp,
+                        expandedHeight = 120.dp,
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
+                        scrollBehavior = scrollBehavior,
+                    )
+                }
+            } else {
             TopAppBar(
-                title = {
-                    // Заголовок экрана — heading: по заголовкам можно перемещаться жестами TalkBack/VoiceOver.
-                    Column(Modifier.semantics(mergeDescendants = true) { heading() }) {
-                        Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        if (!subtitle.isNullOrBlank()) {
-                            Text(
-                                subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                },
+                title = titleContent,
                 navigationIcon = {
                     if (onBack != null) {
                         AppIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Назад", onClick = onBack)
                     }
                 },
                 actions = actions,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (Design.tokens.topBarOnBackground) {
-                        MaterialTheme.colorScheme.background
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-                ),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor),
             )
+            }
             NetworkBanner()
             }
         },
@@ -249,7 +292,7 @@ fun ErrorState(
             )
             if (onRetry != null) {
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onRetry) { Text("Повторить") }
+                Button(onClick = onRetry, shape = Design.tokens.buttonShape) { Text("Повторить") }
             }
         }
     }
@@ -533,7 +576,7 @@ fun Banner(text: String, tone: Tone = Tone.INFO, modifier: Modifier = Modifier, 
 fun RetryBanner(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Banner(message, Tone.DANGER, title = "Не удалось загрузить данные")
-        OutlinedButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Повторить") }
+        OutlinedButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp), shape = Design.tokens.buttonShape) { Text("Повторить") }
     }
 }
 
@@ -1008,6 +1051,7 @@ fun ConfirmDialog(
             Button(
                 onClick = onConfirm,
                 enabled = !busy,
+                shape = Design.tokens.buttonShape,
                 colors = if (destructive) {
                     ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,

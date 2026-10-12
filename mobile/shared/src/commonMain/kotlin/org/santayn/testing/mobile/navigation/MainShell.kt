@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.santayn.testing.mobile.core.ui.design.Design
 import org.santayn.testing.mobile.core.ui.design.NavBarStyle
 import androidx.compose.animation.expandVertically
@@ -33,15 +34,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -190,6 +194,41 @@ private fun AppNavigationBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect
             }
         }
         NavBarStyle.FLOATING_PILL -> FloatingPillBar(tabs, selectedIndex, onSelect, showSelectedLabel = true)
+        NavBarStyle.TAB_BAR -> Column {
+            // Подпись растёт со шрифтом только до 13dp: иначе «Результаты» не помещается в пятую часть экрана.
+            val labelSize = with(LocalDensity.current) { minOf(11.sp.toDp(), 13.dp).toSp() }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                tabs.forEachIndexed { index, tab ->
+                    val selected = index == selectedIndex
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = { onSelect(tab) },
+                        // Подпись скрыта — название вкладки передаём через иконку.
+                        icon = { Icon(tab.icon, contentDescription = if (roomyText || selected) null else tab.label) },
+                        // Активная вкладка — цветом и жирностью: одного цвета для состояния мало.
+                        label = {
+                            Text(
+                                tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = labelSize,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        alwaysShowLabel = roomyText,
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = Color.Transparent,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    )
+                }
+            }
+        }
     }
 }
 

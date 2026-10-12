@@ -33,6 +33,10 @@ enum class DesignTheme(val title: String, val description: String) {
         title = "Политех",
         description = "Фирменный стиль КубГТУ: синий, крупные заголовки, плитки",
     ),
+    KAFEDRA(
+        title = "Кафедра",
+        description = "Спокойный академический стиль: списки и много воздуха",
+    ),
     ;
 
     companion object {
@@ -71,8 +75,14 @@ enum class NavBarStyle {
     /** Плавающая «пилюля»: активная вкладка — цветная капсула с иконкой и подписью (A). */
     FLOATING_PILL,
 
-    /** Классическая панель Material на всю ширину с подписями (B). */
+    /** Классическая панель Material на всю ширину с подписями. */
     CLASSIC,
+
+    /**
+     * Плоская панель вкладок с линией сверху, как в iOS: без подложки у активной вкладки,
+     * она выделена цветом и жирностью подписи (B «Кафедра»).
+     */
+    TAB_BAR,
 }
 
 /**
@@ -123,6 +133,8 @@ data class DesignTokens(
     val iconButtonsOnSurface: Boolean,
     /** Верхняя панель цвета фона экрана (иначе — цвета surface). */
     val topBarOnBackground: Boolean,
+    /** На главных вкладках (экраны без «Назад») — крупный заголовок слева, сворачивается при прокрутке. */
+    val largeTopLevelTitle: Boolean,
     val sectionTitle: SectionTitleStyle,
     val navBar: NavBarStyle,
     val answerStyle: AnswerStyle,
