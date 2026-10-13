@@ -1,5 +1,6 @@
 package org.santayn.testing.mobile.core.util
 
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.math.round
@@ -27,6 +28,20 @@ fun formatDate(isoDate: String?): String {
     val parts = isoDate.take(10).split('-')
     return if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else isoDate
 }
+
+private val weekdaysRu = listOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+
+private val monthsGenitiveRu = listOf(
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+)
+
+/** «Пятница, 10 октября»: день недели и число с месяцем в родительном падеже. */
+fun formatDayRu(date: LocalDate): String =
+    "${weekdaysRu[date.dayOfWeek.ordinal]}, ${date.day} ${monthsGenitiveRu[date.month.ordinal]}"
+
+/** Сегодняшняя дата в часовом поясе устройства, см. [formatDayRu]. */
+fun formatTodayRu(): String = formatDayRu(nowInstant().toLocalDateTime(TimeZone.currentSystemDefault()).date)
 
 /** «дд.мм.гггг» → «гггг-мм-дд» или null при неверном формате. */
 fun parseRuDate(value: String): String? {

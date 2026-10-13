@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.luminance
 import org.santayn.testing.mobile.core.ui.ResolvedColors
 import org.santayn.testing.mobile.core.ui.colorsFor
 import org.santayn.testing.mobile.core.ui.design.DesignTheme
+import org.santayn.testing.mobile.core.ui.design.KafedraSubjectAccentsDark
+import org.santayn.testing.mobile.core.ui.design.KafedraSubjectAccentsLight
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.test.Test
@@ -80,6 +82,24 @@ class ContrastTests {
         val failures = DesignTheme.entries.flatMap { theme ->
             check(theme, dark = false, highContrast = true, minimum = 7.0) +
                 check(theme, dark = true, highContrast = true, minimum = 7.0)
+        }
+        assertTrue(failures.isEmpty(), failures.joinToString("\n"))
+    }
+
+    /** Полоски предметов на главной «Кафедры» — графика: не ниже 3:1 к поверхности карточки. */
+    @Test
+    fun kafedraSubjectAccentsAreVisible() {
+        val failures = listOf(
+            "светлая" to (KafedraSubjectAccentsLight to colorsFor(DesignTheme.KAFEDRA, dark = false, highContrast = false)),
+            "тёмная" to (KafedraSubjectAccentsDark to colorsFor(DesignTheme.KAFEDRA, dark = true, highContrast = false)),
+            "светлая, высокий контраст" to (KafedraSubjectAccentsLight to colorsFor(DesignTheme.KAFEDRA, dark = false, highContrast = true)),
+            "тёмная, высокий контраст" to (KafedraSubjectAccentsDark to colorsFor(DesignTheme.KAFEDRA, dark = true, highContrast = true)),
+        ).flatMap { (mode, pair) ->
+            val (accents, colors) = pair
+            accents.mapIndexedNotNull { index, accent ->
+                val value = ratio(accent, colors.scheme.surface)
+                if (value < 3.0) "Кафедра ($mode): полоска $index = ${(value * 100).toInt() / 100.0} < 3.0" else null
+            }
         }
         assertTrue(failures.isEmpty(), failures.joinToString("\n"))
     }

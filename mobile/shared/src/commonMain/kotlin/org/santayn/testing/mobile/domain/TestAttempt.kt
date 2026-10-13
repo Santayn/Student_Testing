@@ -126,6 +126,26 @@ data class AttemptAnswers(
         return copy(matching = matching + (questionId to current))
     }
 
+    /**
+     * Перенести правую часть [rightText] к подсказке [toPrompt] (null — вернуть в список вариантов).
+     * Если у подсказки уже был вариант, он меняется местами: уходит туда, откуда пришёл [rightText],
+     * а если тот лежал в списке вариантов — возвращается в список. Так работает перетаскивание.
+     */
+    fun withMatchingMove(questionId: Long, rightText: String, toPrompt: Int?): AttemptAnswers {
+        val current = matching[questionId].orEmpty().toMutableMap()
+        val from = current[rightText]
+        if (toPrompt == null) {
+            current.remove(rightText)
+        } else {
+            val displaced = current.entries.firstOrNull { it.value == toPrompt && it.key != rightText }?.key
+            current[rightText] = toPrompt
+            if (displaced != null) {
+                if (from != null) current[displaced] = from else current.remove(displaced)
+            }
+        }
+        return copy(matching = matching + (questionId to current))
+    }
+
     /** Выбранная правая часть для подсказки. */
     fun matchingRightFor(questionId: Long, promptOrdinal: Int): String? =
         matching[questionId]?.entries?.firstOrNull { it.value == promptOrdinal }?.key

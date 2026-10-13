@@ -8,6 +8,7 @@
 |---|---|---|---|
 | `unbounded.ttf` | Unbounded (вариативный, wght) | «Политех» — заголовки | `ofl/unbounded/Unbounded[wght].ttf` |
 | `onest.ttf` | Onest (вариативный, wght) | «Политех» — текст | `ofl/onest/Onest[wght].ttf` |
+| `golos_text.ttf` | Golos Text (вариативный, wght) | «Кафедра» — весь текст | `ofl/golostext/GolosText[wght].ttf` |
 
 Новая тема со своим шрифтом: файл кладётся в ту же папку, строка добавляется в эту таблицу
 (см. `recommendations/mobile-design-themes/README.md`).

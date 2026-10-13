@@ -1,5 +1,8 @@
 package org.santayn.testing.mobile.feature.profile
 
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
+import org.santayn.testing.mobile.core.ui.AppButton
+import org.santayn.testing.mobile.core.ui.AppFilterChip
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +14,6 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -158,10 +160,10 @@ fun ProfileScreen(navigator: AppNavigator) {
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             loggedIn.availableRoles.forEach { role ->
-                                FilterChip(
+                                AppFilterChip(
                                     selected = role == loggedIn.workspaceRole,
                                     onClick = { session.setWorkspaceRole(role) },
-                                    label = { Text(role.title) },
+                                    label = role.title,
                                 )
                             }
                         }
@@ -232,8 +234,8 @@ fun ProfileScreen(navigator: AppNavigator) {
         AlertDialog(
             onDismissRequest = { logoutConfirm = false },
             title = { Text("Выйти из аккаунта?") },
-            confirmButton = { TextButton(onClick = { session.logout() }) { Text("Выйти") } },
-            dismissButton = { TextButton(onClick = { logoutConfirm = false }) { Text("Отмена") } },
+            confirmButton = { AppButton(onClick = { session.logout() }) { Text("Выйти") } },
+            dismissButton = { AppOutlinedButton(onClick = { logoutConfirm = false }) { Text("Отмена") } },
         )
     }
 }
@@ -302,7 +304,7 @@ private fun ChangePasswordDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(
+            AppButton(
                 enabled = !busy && current.isNotEmpty(),
                 onClick = {
                     nextError = when {
@@ -312,7 +314,7 @@ private fun ChangePasswordDialog(onDismiss: () -> Unit) {
                         else -> null
                     }
                     repeatError = if (repeat != next) "Пароли не совпадают" else null
-                    if (nextError != null || repeatError != null) return@TextButton
+                    if (nextError != null || repeatError != null) return@AppButton
                     busy = true
                     error = null
                     scope.launch {
@@ -331,6 +333,6 @@ private fun ChangePasswordDialog(onDismiss: () -> Unit) {
                 },
             ) { Text(if (busy) "Сохранение…" else "Сменить") }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Отмена") } },
+        dismissButton = { AppOutlinedButton(onClick = onDismiss, enabled = !busy) { Text("Отмена") } },
     )
 }

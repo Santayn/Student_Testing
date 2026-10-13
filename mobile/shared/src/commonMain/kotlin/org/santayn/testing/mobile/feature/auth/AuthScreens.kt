@@ -1,5 +1,7 @@
 package org.santayn.testing.mobile.feature.auth
 
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
+import org.santayn.testing.mobile.core.ui.AppButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -300,11 +302,11 @@ fun ServerDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(value) }) { Text("Сохранить") } },
+        confirmButton = { AppButton(onClick = { onSave(value) }) { Text("Сохранить") } },
         dismissButton = {
             Row {
-                TextButton(onClick = onReset) { Text("По умолчанию") }
-                TextButton(onClick = onDismiss) { Text("Отмена") }
+                AppOutlinedButton(onClick = onReset) { Text("По умолчанию") }
+                AppOutlinedButton(onClick = onDismiss) { Text("Отмена") }
             }
         },
     )

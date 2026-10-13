@@ -326,16 +326,6 @@ private fun SubjectRow(name: String, description: String?, onClick: () -> Unit) 
     }
 }
 
-/** «Информатика» → «Ин», «Базы данных» → «БД». */
-internal fun initials(name: String): String {
-    val words = name.split(' ', '-').filter { it.isNotBlank() }
-    return when {
-        words.size >= 2 -> "${words[0].first()}${words[1].first()}".uppercase()
-        words.isNotEmpty() -> words[0].take(2).replaceFirstChar { it.uppercase() }
-        else -> "?"
-    }
-}
-
 private fun subjectsWord(count: Int): String {
     val mod100 = count % 100
     val mod10 = count % 10

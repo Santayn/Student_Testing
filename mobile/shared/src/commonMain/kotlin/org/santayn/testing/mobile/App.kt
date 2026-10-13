@@ -2,6 +2,7 @@ package org.santayn.testing.mobile
 
 import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.AppButton
+import org.santayn.testing.mobile.core.ui.SpeechProblemHost
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,6 +112,7 @@ fun App() {
                         }
                     }
                 }
+                SpeechProblemHost()
             }
         }
     }

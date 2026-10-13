@@ -1,5 +1,7 @@
 package org.santayn.testing.mobile.feature.profile
 
+import org.santayn.testing.mobile.core.ui.AppSlider
+import org.santayn.testing.mobile.core.ui.AppTextField
 import org.santayn.testing.mobile.core.ui.design.Design
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,8 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -135,7 +135,7 @@ fun OfflineStorageSettings(modifier: Modifier = Modifier) {
             modifier = Modifier.semantics { heading() },
         )
         val shownMb = mbAt(sliderPosition)
-        Slider(
+        AppSlider(
             value = sliderPosition,
             onValueChange = {
                 sliderPosition = it
@@ -161,23 +161,21 @@ fun OfflineStorageSettings(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        OutlinedTextField(
+        AppTextField(
             value = input,
             onValueChange = {
                 input = it
                 inputError = null
                 inputEdited = true
             },
-            label = { Text("Лимит") },
-            supportingText = { Text(inputError ?: "Например: 500, 500 МБ, 2 ГБ") },
-            isError = inputError != null,
-            singleLine = true,
+            label = "Лимит",
+            error = inputError,
+            supportingText = "Например: 500, 500 МБ, 2 ГБ",
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
                 applyInput()
                 focus.clearFocus()
             }),
-            shape = Design.tokens.fieldShape,
             // Ввод применяется по «Готово» или при уходе из поля — только если его меняли.
             modifier = Modifier.fillMaxWidth().onFocusChanged { if (!it.isFocused && inputEdited) applyInput() },
         )

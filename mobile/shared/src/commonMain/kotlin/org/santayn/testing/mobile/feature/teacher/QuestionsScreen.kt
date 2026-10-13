@@ -1,5 +1,7 @@
 package org.santayn.testing.mobile.feature.teacher
 
+import org.santayn.testing.mobile.core.ui.AppButton
+import org.santayn.testing.mobile.core.ui.AppFilterChip
 import org.santayn.testing.mobile.core.ui.AppFab
 import org.santayn.testing.mobile.core.ui.AppOutlinedButton
 import org.santayn.testing.mobile.core.ui.ReloadOnReconnect
@@ -20,11 +22,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -412,14 +412,14 @@ fun QuestionsScreen(route: TeacherQuestionsRoute, role: WorkspaceRole, navigator
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SearchField(query, { query = it }, placeholder = "Поиск по тексту вопроса")
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(typeFilter == null, { typeFilter = null }, { Text("Все типы") })
+                            AppFilterChip(typeFilter == null, { typeFilter = null }, "Все типы")
                             QuestionType.all.forEach { t ->
-                                FilterChip(typeFilter == t, { typeFilter = if (typeFilter == t) null else t }, { Text(QuestionType.title(t)) })
+                                AppFilterChip(typeFilter == t, { typeFilter = if (typeFilter == t) null else t }, QuestionType.title(t))
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             ActiveFilter.entries.forEach { f ->
-                                FilterChip(activeFilter == f, { activeFilter = f }, { Text(f.label) })
+                                AppFilterChip(activeFilter == f, { activeFilter = f }, f.label)
                             }
                         }
                         AppOutlinedButton(onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) }) {
@@ -454,10 +454,7 @@ fun QuestionsScreen(route: TeacherQuestionsRoute, role: WorkspaceRole, navigator
                         StatusChip(if (q.active) "Активен" else "Скрыт", if (q.active) Tone.SUCCESS else Tone.WARNING)
                     }
                     Text(q.question, style = MaterialTheme.typography.bodyLarge, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Показывать в тестах", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                        Switch(checked = q.active, onCheckedChange = { vm.toggleActive(q) })
-                    }
+                    SwitchRow("Показывать в тестах", q.active, { vm.toggleActive(q) })
                 }
             }
         }
@@ -521,9 +518,9 @@ private fun QuestionEditor(form: QuestionForm, state: QuestionsUiState, vm: Ques
                 }
             },
             confirmButton = {
-                TextButton(onClick = vm::saveOption, enabled = !state.optionSaving) { Text(if (state.optionSaving) "Сохранение…" else "Сохранить") }
+                AppButton(onClick = vm::saveOption, enabled = !state.optionSaving) { Text(if (state.optionSaving) "Сохранение…" else "Сохранить") }
             },
-            dismissButton = { TextButton(onClick = vm::closeOption) { Text("Отмена") } },
+            dismissButton = { AppOutlinedButton(onClick = vm::closeOption) { Text("Отмена") } },
         )
     }
 }
@@ -610,11 +607,11 @@ private fun ImportDialog(state: QuestionsUiState, vm: QuestionsViewModel) {
             if (state.importResult == null) {
                 BusyButton("Импортировать", onClick = vm::runImport, busy = state.importing, enabled = state.importFile != null)
             } else {
-                TextButton(onClick = { vm.openImport(false) }) { Text("Готово") }
+                AppButton(onClick = { vm.openImport(false) }) { Text("Готово") }
             }
         },
         dismissButton = {
-            if (state.importResult == null) TextButton(onClick = { vm.openImport(false) }, enabled = !state.importing) { Text("Отмена") }
+            if (state.importResult == null) AppOutlinedButton(onClick = { vm.openImport(false) }, enabled = !state.importing) { Text("Отмена") }
         },
     )
 }

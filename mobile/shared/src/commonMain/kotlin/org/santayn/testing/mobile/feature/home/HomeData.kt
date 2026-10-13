@@ -114,3 +114,13 @@ fun homeSections(role: WorkspaceRole): List<Pair<String, List<MenuEntry>>> = whe
 /** Имя для приветствия: имя персоны, иначе первое слово отображаемого имени. */
 fun greetingName(firstName: String?, displayName: String): String =
     firstName?.takeIf { it.isNotBlank() } ?: displayName.split(' ').lastOrNull { it.isNotBlank() } ?: displayName
+
+/** «Информатика» → «Ин», «Базы данных» → «БД». */
+internal fun initials(name: String): String {
+    val words = name.split(' ', '-').filter { it.isNotBlank() }
+    return when {
+        words.size >= 2 -> "${words[0].first()}${words[1].first()}".uppercase()
+        words.isNotEmpty() -> words[0].take(2).replaceFirstChar { it.uppercase() }
+        else -> "?"
+    }
+}
