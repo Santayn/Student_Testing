@@ -54,6 +54,11 @@ defineProps({
     type: Array,
     default: () => [],
   },
+  courseVersionWarning: {
+    type: Object,
+    default: null,
+  },
+
   courseVersionOptions: {
     type: Array,
     default: () => [],
@@ -188,6 +193,12 @@ function updateModelValue(value) {
             filter-placeholder="Поиск версии"
             :disabled="saving || loadingCourseVersions || !form.subjectMembershipId"
             hint="Необязательно. Показываются версии курса выбранного преподавателя по этому предмету."
+          />
+
+          <UiAlert
+            v-if="courseVersionWarning"
+            :variant="courseVersionWarning.variant"
+            :message="courseVersionWarning.message"
           />
 
           <UiSelect

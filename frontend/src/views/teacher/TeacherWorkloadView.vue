@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTeacherSubjects } from '@/composables/teacher/useTeacherSubjects'
 import { useTeacherWorkloadData } from '@/composables/teacher/useTeacherWorkloadData'
 import { useTeacherWorkloadPresentation } from '@/composables/teacher/useTeacherWorkloadPresentation'
+import { useCourseVersionNames } from '@/composables/course-templates/useCourseVersionNames'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -42,6 +43,8 @@ const {
   notice,
   refreshAssignments,
 } = workload
+
+const { courseVersionName } = useCourseVersionNames(assignments)
 
 const {
   searchQuery,
@@ -362,7 +365,7 @@ onBeforeUnmount(workload.dispose)
                 v-if="assignment.courseVersionId"
                 class="teacher-muted"
               >
-                Версия курса привязана
+                Версия курса: {{ courseVersionName(assignment.courseVersionId) }}
               </div>
 
               <p

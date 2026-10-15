@@ -40,6 +40,11 @@ vi.mock('@/composables/teacher/useTeacherSubjects', () => ({
   useTeacherSubjects: () => state.teacher,
 }))
 
+// Версии курса не участвуют в сценарии повторного сохранения — у предмета их нет.
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ isAdminMode: false, personId: 7 }),
+}))
+
 vi.mock('@/api', () => ({
   getApiErrorMessage: (_error, fallback) => fallback,
   lecturesApi: {
@@ -53,6 +58,10 @@ vi.mock('@/api', () => ({
   },
   testsApi: {
     getAll: state.api.testsAll,
+  },
+  coursesApi: {
+    getTemplates: () => Promise.resolve({ data: [] }),
+    getVersions: () => Promise.resolve({ data: [] }),
   },
 }))
 

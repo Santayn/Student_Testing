@@ -234,7 +234,8 @@ export function useLectureSaveFlow({
     const payload = {
       subjectId: Number(selectedSubject.value.id),
       subjectMembershipId: Number(selectedMembership.value.id),
-      courseVersionId: null,
+      // 0 / пусто — лекция предмета без версии курса.
+      courseVersionId: Number(form.courseVersionId) || null,
       ordinal: editingLecture?.ordinal || nextOrdinal(),
       title: String(form.title).trim(),
       description: String(form.description ?? '').trim() || null,
