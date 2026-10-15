@@ -54,6 +54,10 @@ import {
   useCourseTemplateMutations,
 } from '@/composables/course-templates/useCourseTemplateMutations'
 
+import {
+  useCourseVersionUsage,
+} from '@/composables/course-templates/useCourseVersionUsage'
+
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -211,7 +215,10 @@ const {
   saveTemplate,
   deleteTemplate,
   saveVersion,
-  publishVersion,
+  publishConfirmTarget,
+  requestPublishVersion,
+  cancelPublishVersion,
+  confirmPublishVersion,
 } = useCourseTemplateMutations({
   selectedSubjectId,
   selectedTemplateId,
@@ -229,6 +236,25 @@ const {
   closeTemplateDrawerImmediately,
   closeVersionDrawerImmediately,
   notice,
+})
+
+const {
+  usageOf,
+  loadUsage,
+} = useCourseVersionUsage({
+  versions,
+  selectedMembership,
+})
+
+// Число лекций и выдача группам пересчитываются при каждой загрузке версий.
+watch(versions, () => {
+  loadUsage()
+})
+
+const currentlyPublishedVersion = computed(() => {
+  return versions.value.find(
+    (item) => item.published && Number(item.id) !== Number(publishConfirmTarget.value?.id)
+  ) ?? null
 })
 
 watch(
@@ -577,6 +603,26 @@ onMounted(async () => {
             <p>{{ version.changeNotes }}</p>
           </div>
 
+          <div
+            v-if="usageOf(version.id)"
+            class="teacher-version-notes"
+          >
+            <span class="teacher-muted">
+              Лекций в версии: {{ usageOf(version.id).lectureCount ?? '—' }}
+            </span>
+            <p>
+              {{ usageOf(version.id).groups.length
+                ? `Выдана: ${usageOf(version.id).groups.join(', ')}`
+                : 'Группам не выдана — версию выдаёт администратор в «Учебной нагрузке».' }}
+            </p>
+          </div>
+
+          <UiAlert
+            v-if="usageOf(version.id)?.emptyForGroups.length"
+            variant="danger"
+            :message="`В версии нет лекций, поэтому студенты групп ${usageOf(version.id).emptyForGroups.join(', ')} сейчас не видят ни одной лекции предмета. Добавьте лекции в версию.`"
+          />
+
           <div class="teacher-entity-card__actions">
             <UiButton
               size="sm"
@@ -590,7 +636,7 @@ onMounted(async () => {
               size="sm"
               :loading="publishingVersionId === version.id"
               loading-text="Обновление..."
-              @click="publishVersion(version)"
+              @click="requestPublishVersion(version)"
             >
               {{ version.published ? 'Снять публикацию' : 'Опубликовать' }}
             </UiButton>
@@ -603,7 +649,7 @@ onMounted(async () => {
                 query: routeQuery(version.id),
               }"
             >
-              Лекции
+              Лекции версии
             </UiButton>
           </div>
         </article>
@@ -660,7 +706,7 @@ onMounted(async () => {
     >
       <div class="teacher-stack">
         <p class="teacher-confirm-text">
-          Шаблон «{{ deleteTarget?.name }}» будет удалён. Доступность связанных версий зависит от правил backend.
+          Если у шаблона «{{ deleteTarget?.name }}» нет версий, он будет удалён. Если версии есть — шаблон станет скрытым, а версии, их лекции и выдача группам сохранятся.
         </p>
 
         <UiAlert
@@ -687,6 +733,35 @@ onMounted(async () => {
             @click="deleteTemplate"
           >
             Удалить
+          </UiButton>
+        </div>
+      </template>
+    </UiDialog>
+    <UiDialog
+      :model-value="Boolean(publishConfirmTarget)"
+      :title="`Опубликовать версию ${publishConfirmTarget?.versionNumber ?? ''}?`"
+      width="32rem"
+      @update:model-value="($event) => !$event && cancelPublishVersion()"
+    >
+      <p class="teacher-confirm-text">
+        Сейчас опубликована версия {{ currentlyPublishedVersion?.versionNumber }} «{{ currentlyPublishedVersion?.title }}».
+        У шаблона может быть только одна опубликованная версия, поэтому с неё публикация будет снята.
+      </p>
+
+      <template #footer>
+        <div class="teacher-drawer-footer">
+          <UiButton
+            variant="secondary"
+            @click="cancelPublishVersion"
+          >
+            Отмена
+          </UiButton>
+
+          <UiButton
+            variant="primary"
+            @click="confirmPublishVersion"
+          >
+            Опубликовать
           </UiButton>
         </div>
       </template>

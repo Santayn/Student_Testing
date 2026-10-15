@@ -186,4 +186,29 @@ describe('useTestEditorSaveFlow', () => {
       'Не создавайте тест повторно'
     )
   })
+
+  it('assigns the test to a course version once (scope 2) instead of group workloads', async () => {
+    const {
+      flow,
+      createFlow,
+      notice,
+    } = fixture({
+      assignmentTarget: ref('version'),
+      selectedCourseVersionId: ref('9'),
+      courseVersionLabel: () => 'Java · v2',
+    })
+
+    await flow.createTest()
+
+    const options = createFlow.mock.calls[0][0]
+    expect(options.assignmentIds).toEqual([9])
+    expect(options.assignmentPayload(9)).toMatchObject({
+      scope: 2,
+      courseVersionId: 9,
+      courseLectureId: null,
+      teachingAssignmentId: null,
+      status: 2,
+    })
+    expect(notice.value.message).toContain('назначен версии курса «Java · v2»')
+  })
 })

@@ -60,7 +60,16 @@ import {
   clearFormFieldError,
 } from '@/utils/formErrorLifecycle'
 
+import {
+  useSubjectCourseVersions,
+} from '@/composables/course-templates/useSubjectCourseVersions'
+
+import {
+  useAuthStore,
+} from '@/stores/auth'
+
 const route = useRoute()
+const authStore = useAuthStore()
 
 const {
   loadingSubjects,
@@ -84,6 +93,16 @@ const notice = ref({
 
 let lectureEditorActions = null
 
+const {
+  courseVersions,
+  loadCourseVersions,
+  courseVersionById,
+} = useSubjectCourseVersions({
+  selectedSubjectId,
+  selectedMembership,
+  authStore,
+})
+
 async function openRouteLecture(lecture) {
   await lectureEditorActions?.openEditLecture(lecture)
 }
@@ -96,6 +115,9 @@ const {
   searchQuery,
   visibilityFilter,
   testFilter,
+  versionFilter,
+  versionFilterOptions,
+  filterCourseVersionId,
   sortMode,
   visibilityOptions,
   testFilterOptions,
@@ -114,8 +136,39 @@ const {
   selectedSubjectId,
   route,
   notice,
+  courseVersions,
   onOpenRouteLecture: openRouteLecture,
 })
+
+const courseVersionOptions = computed(() => [
+  { value: 0, label: 'Без версии (лекция предмета)' },
+  ...courseVersions.value.map((version) => ({
+    value: Number(version.id),
+    label: `${version.label} — ${version.description}`,
+  })),
+])
+
+const filterCourseVersion = computed(() => courseVersionById(filterCourseVersionId.value))
+
+/** Фильтр по версии из ссылки «Лекции» на экране шаблонов курса. */
+function applyRouteVersionFilter() {
+  const routeVersionId = route.query.versionId
+
+  if (routeVersionId && courseVersionById(routeVersionId)) {
+    versionFilter.value = String(routeVersionId)
+  }
+}
+
+async function loadLectureWorkspace({ openRouteLecture = false, applyRouteVersion = false } = {}) {
+  await Promise.all([
+    loadLectures({ openRouteLecture }),
+    loadCourseVersions(),
+  ])
+
+  if (applyRouteVersion) {
+    applyRouteVersionFilter()
+  }
+}
 
 function lectureToForm(lecture = null) {
   return {
@@ -126,6 +179,10 @@ function lectureToForm(lecture = null) {
     testIds: lecture
       ? lectureTests(lecture.id).map((test) => Number(test.id))
       : [],
+    // Новая лекция создаётся в версии курса, выбранной в фильтре.
+    courseVersionId: lecture
+      ? Number(lecture.courseVersionId) || 0
+      : filterCourseVersionId.value ?? 0,
   }
 }
 
@@ -311,7 +368,7 @@ watch(
     closeDeleteDialog()
     resetFilters()
     resetRouteLectureHandling()
-    loadLectures({ openRouteLecture: true })
+    loadLectureWorkspace({ openRouteLecture: true })
   }
 )
 
@@ -327,7 +384,7 @@ onMounted(async () => {
     initialized.value = true
 
     if (selectedSubjectId.value) {
-      await loadLectures({ openRouteLecture: true })
+      await loadLectureWorkspace({ openRouteLecture: true, applyRouteVersion: true })
     }
 
     if (!membershipOptions.value.length) {
@@ -428,6 +485,13 @@ onMounted(async () => {
               :options="testFilterOptions"
               size="sm"
             />
+            <UiSelect
+              v-if="courseVersions.length"
+              v-model="versionFilter"
+              label="Версия курса"
+              :options="versionFilterOptions"
+              size="sm"
+            />
 
             <UiSelect
               v-model="sortMode"
@@ -448,6 +512,12 @@ onMounted(async () => {
             />
           </template>
         </UiFilterBar>
+
+        <UiAlert
+          v-if="filterCourseVersion"
+          variant="info"
+          :message="`Лекции версии «${filterCourseVersion.label}». Новая лекция создаётся в этой версии. Группа, которой администратор выдал версию в учебной нагрузке, видит только её лекции (если группе не назначены отдельные лекции).`"
+        />
 
         <UiLoadingState
           v-if="loading"
@@ -520,6 +590,14 @@ onMounted(async () => {
               {{ lecture.description || 'Описание пока не добавлено.' }}
             </p>
 
+            <div
+              v-if="lecture.courseVersionId"
+              class="teacher-lecture-tests-preview"
+            >
+              <span class="teacher-muted">Версия курса</span>
+              <strong>{{ courseVersionById(lecture.courseVersionId)?.label || `Версия ${lecture.courseVersionId}` }}</strong>
+            </div>
+
             <div class="teacher-lecture-tests-preview">
               <span class="teacher-muted">Связанные тесты</span>
               <strong>{{ lectureTestSummary(lecture.id) }}</strong>
@@ -558,6 +636,7 @@ onMounted(async () => {
       :form-error="formError"
       :form-field-errors="formFieldErrors"
       :available-tests="availableTests"
+      :course-version-options="courseVersionOptions"
       :materials="materials"
       :pending-files="pendingFiles"
       :file-input-key="fileInputKey"

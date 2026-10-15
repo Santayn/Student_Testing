@@ -22,6 +22,7 @@ export function useLectureManagementData({
   selectedSubjectId,
   route,
   notice,
+  courseVersions = ref([]),
   onOpenRouteLecture = async () => {},
 }) {
   const lectures = ref([])
@@ -34,6 +35,8 @@ export function useLectureManagementData({
   const visibilityFilter = ref('all')
   const testFilter = ref('all')
   const sortMode = ref('ordinal')
+  // 'all' | 'none' (лекции без версии курса) | id версии курса строкой
+  const versionFilter = ref('all')
 
   const lecturesRequest = createAbortableRequestGuard()
 
@@ -55,6 +58,21 @@ export function useLectureManagementData({
     { value: 'title-desc', label: 'Название Я–А' },
   ]
 
+  const versionFilterOptions = computed(() => [
+    { value: 'all', label: 'Все версии курса' },
+    { value: 'none', label: 'Без версии курса' },
+    ...courseVersions.value.map((version) => ({
+      value: String(version.id),
+      label: version.label,
+    })),
+  ])
+
+  /** Версия курса, выбранная в фильтре (новая лекция создаётся в ней). */
+  const filterCourseVersionId = computed(() => {
+    const value = versionFilter.value
+    return value === 'all' || value === 'none' ? null : Number(value)
+  })
+
   function lectureTests(lectureId) {
     return lectureTestsById.value.get(Number(lectureId)) ?? []
   }
@@ -63,6 +81,7 @@ export function useLectureManagementData({
     return Boolean(searchQuery.value.trim()) ||
       visibilityFilter.value !== 'all' ||
       testFilter.value !== 'all' ||
+      versionFilter.value !== 'all' ||
       sortMode.value !== 'ordinal'
   })
 
@@ -82,6 +101,17 @@ export function useLectureManagementData({
       if (
         visibilityFilter.value === 'hidden' &&
         lecture.publicVisible
+      ) {
+        return false
+      }
+
+      if (versionFilter.value === 'none' && lecture.courseVersionId) {
+        return false
+      }
+
+      if (
+        filterCourseVersionId.value &&
+        Number(lecture.courseVersionId) !== filterCourseVersionId.value
       ) {
         return false
       }
@@ -169,6 +199,7 @@ export function useLectureManagementData({
     searchQuery.value = ''
     visibilityFilter.value = 'all'
     testFilter.value = 'all'
+    versionFilter.value = 'all'
     sortMode.value = 'ordinal'
   }
 
@@ -289,6 +320,9 @@ export function useLectureManagementData({
     searchQuery,
     visibilityFilter,
     testFilter,
+    versionFilter,
+    versionFilterOptions,
+    filterCourseVersionId,
     sortMode,
     visibilityOptions,
     testFilterOptions,

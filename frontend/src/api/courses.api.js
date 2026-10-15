@@ -21,6 +21,10 @@ export const coursesApi = {
     return http.get(`/courses/templates/${templateId}/versions`)
   },
 
+  getVersion(versionId, config = {}) {
+    return http.get(`/courses/versions/${versionId}`, config)
+  },
+
   createVersion(templateId, data) {
     return http.post(`/courses/templates/${templateId}/versions`, data)
   },

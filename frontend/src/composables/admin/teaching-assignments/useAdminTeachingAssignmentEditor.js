@@ -6,7 +6,14 @@ import {
 import {
   coursesApi,
   getApiErrorMessage,
+  lecturesApi,
+  teachingApi,
 } from '@/api'
+
+import {
+  hidesAllLectures,
+  studentLectureSource,
+} from '@/utils/courseVersionAccess'
 
 import {
   useOverlayForm,
@@ -46,6 +53,9 @@ export function useAdminTeachingAssignmentEditor({
   const groupSearchQuery = ref('')
   const courseVersionChoices = ref([])
   const loadingCourseVersions = ref(false)
+  // versionId → число лекций (null — неизвестно); назначения лекций редактируемой нагрузки.
+  const courseVersionLectureCounts = ref(new Map())
+  const editedLectureAssignments = ref([])
 
   const {
     form: assignmentForm,
@@ -201,9 +211,12 @@ export function useAdminTeachingAssignmentEditor({
 
     courseVersionChoices.value.forEach(
       (item) => {
+        const count = courseVersionLectureCounts.value.get(Number(item.id))
         options.push({
           value: String(item.id),
-          label: item.label,
+          label: count === undefined || count === null
+            ? item.label
+            : `${item.label} · лекций: ${count}`,
         })
       }
     )
@@ -446,6 +459,15 @@ export function useAdminTeachingAssignmentEditor({
     groupSearchQuery.value = ''
     courseVersionChoices.value = []
     openEditAssignmentForm(assignment)
+    editedLectureAssignments.value = []
+    teachingApi
+      .getLectureAssignments({ teachingAssignmentId: assignment.id })
+      .then((response) => {
+        if (Number(assignmentForm.id) === Number(assignment.id)) {
+          editedLectureAssignments.value = listFromResponse(response)
+        }
+      })
+      .catch(() => {})
     await loadCourseVersionsForForm()
   }
 
@@ -560,6 +582,22 @@ export function useAdminTeachingAssignmentEditor({
                 'ru'
               )
           )
+      // Пустая выданная версия «закрывает» студентам лекции предмета —
+      // число лекций показываем рядом с выбором версии.
+      const counts = await Promise.all(
+        courseVersionChoices.value.map((version) =>
+          lecturesApi
+            .getAll({ courseVersionId: version.id })
+            .then((response) => listFromResponse(response).length)
+            .catch(() => null)
+        )
+      )
+
+      if (courseVersionsRequest.isCurrent(requestId)) {
+        courseVersionLectureCounts.value = new Map(
+          courseVersionChoices.value.map((version, index) => [Number(version.id), counts[index]])
+        )
+      }
     } catch (error) {
       if (
         courseVersionsRequest.isCurrent(
@@ -582,6 +620,37 @@ export function useAdminTeachingAssignmentEditor({
       }
     }
   }
+
+  /** Что увидят студенты с выбранной версией курса (правила PublicLearningRestController). */
+  const courseVersionWarning = computed(() => {
+    const versionId = Number(assignmentForm.courseVersionId)
+
+    if (!versionId) {
+      return null
+    }
+
+    const source = studentLectureSource({
+      courseVersionId: versionId,
+      lectureAssignments: assignmentForm.id ? editedLectureAssignments.value : [],
+      versionLectureCount: courseVersionLectureCounts.value.get(versionId) ?? null,
+    })
+
+    if (source.kind === 'assigned') {
+      return {
+        variant: 'info',
+        message: `У нагрузки отдельно назначены лекции (${source.count}) — студенты видят только их; версия курса влияет на тесты, назначенные на версию.`,
+      }
+    }
+
+    if (hidesAllLectures(source)) {
+      return {
+        variant: 'warning',
+        message: 'В этой версии нет лекций. Пока преподаватель не добавит лекции в версию, студенты группы не увидят лекций предмета: при выбранной версии показываются только её лекции.',
+      }
+    }
+
+    return null
+  })
 
   function assignmentPayload(groupId, form = assignmentForm) {
     return {
@@ -634,6 +703,7 @@ export function useAdminTeachingAssignmentEditor({
     teacherOptionsForForm,
     filteredGroupsForCreate,
     courseVersionOptions,
+    courseVersionWarning,
     assignmentConflictForGroup,
     groupHasConflict,
     groupConflictDescription,
