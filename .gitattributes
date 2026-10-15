@@ -2,3 +2,13 @@
 /mvnw text eol=lf
 *.sh text eol=lf
 *.cmd text eol=crlf
+
+# Фронтенд всегда в LF, в том числе на Windows с core.autocrlf=true:
+# архитектурные тесты читают исходники как текст и ищут в них многострочные фрагменты с \n.
+/frontend/**/*.js text eol=lf
+/frontend/**/*.mjs text eol=lf
+/frontend/**/*.vue text eol=lf
+/frontend/**/*.json text eol=lf
+/frontend/**/*.css text eol=lf
+/frontend/**/*.html text eol=lf
+/frontend/**/*.md text eol=lf
