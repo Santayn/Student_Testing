@@ -142,7 +142,8 @@ export function useTeacherSubjects() {
         )
       )
       .map((subject) => ({
-        value: subject.id,
+        // Строкой, как и selectedSubjectId: Select сравнивает значения строго.
+        value: String(subject.id),
         label:
           subject.name ??
           'Предмет без названия',
@@ -211,7 +212,9 @@ export function useTeacherSubjects() {
         )
 
         return {
-          value: membership.id,
+          // Строкой, как и selectedMembershipId: иначе Select не узнаёт выбранное
+          // значение и показывает заглушку «Выберите предмет».
+          value: String(membership.id),
           subjectId:
             membership.subjectId,
           label: authStore.isAdminMode

@@ -2,6 +2,9 @@ import {
   ref,
 } from 'vue'
 
+const SCOPE_COURSE_VERSION = 2
+const SCOPE_TEACHING_ASSIGNMENT = 4
+
 import {
   getApiErrorMessage,
   testsApi,
@@ -17,6 +20,9 @@ export function useTestEditorSaveFlow({
   selectedTopicId,
   selectedGroupIds,
   groupTargets,
+  assignmentTarget = ref('groups'),
+  selectedCourseVersionId = ref(''),
+  courseVersionLabel = () => '',
   validationError,
   ensureSelectedMembershipActive,
   markEditorClean,
@@ -39,7 +45,13 @@ export function useTestEditorSaveFlow({
       return
     }
 
-    const assignmentIds = [
+    const toCourseVersion = assignmentTarget.value === 'version'
+
+    // Для версии курса — одно назначение на версию; тест получат все группы,
+    // которым версия выдана в учебной нагрузке (в том числе выданные позже).
+    const assignmentIds = toCourseVersion
+      ? [Number(selectedCourseVersionId.value)].filter(Boolean)
+      : [
       ...new Set(
         groupTargets.value
           .filter(
@@ -60,8 +72,9 @@ export function useTestEditorSaveFlow({
     if (!assignmentIds.length) {
       notice.value = {
         type: 'danger',
-        message:
-          'Не удалось определить учебные назначения для выбранных групп.',
+        message: toCourseVersion
+          ? 'Выберите версию курса.'
+          : 'Не удалось определить учебные назначения для выбранных групп.',
       }
       return
     }
@@ -149,23 +162,34 @@ export function useTestEditorSaveFlow({
           assignmentIds,
           assignmentPayload: (
             assignmentId
-          ) => ({
-            scope: 4,
-            courseVersionId: null,
-            courseLectureId: null,
-            teachingAssignmentId:
-              Number(assignmentId),
-            availableFromUtc,
-            availableUntilUtc,
-            status:
-              Number(form.value.status),
-          }),
+          ) => (toCourseVersion
+            ? {
+              scope: SCOPE_COURSE_VERSION,
+              courseVersionId: Number(assignmentId),
+              courseLectureId: null,
+              teachingAssignmentId: null,
+              availableFromUtc,
+              availableUntilUtc,
+              status: Number(form.value.status),
+            }
+            : {
+              scope: SCOPE_TEACHING_ASSIGNMENT,
+              courseVersionId: null,
+              courseLectureId: null,
+              teachingAssignmentId:
+                Number(assignmentId),
+              availableFromUtc,
+              availableUntilUtc,
+              status:
+                Number(form.value.status),
+            }),
         })
 
       notice.value = {
         type: 'success',
-        message:
-          `Тест #${test.id} создан и назначен выбранным группам.`,
+        message: toCourseVersion
+          ? `Тест #${test.id} создан и назначен версии курса «${courseVersionLabel(selectedCourseVersionId.value)}»: его получат все группы, которым выдана эта версия.`
+          : `Тест #${test.id} создан и назначен выбранным группам.`,
       }
 
       markEditorClean()

@@ -13,9 +13,13 @@ import {
 const {
   getTemplates,
   getVersions,
+  getLectures,
+  getLectureAssignments,
 } = vi.hoisted(() => ({
   getTemplates: vi.fn(),
   getVersions: vi.fn(),
+  getLectures: vi.fn(),
+  getLectureAssignments: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -23,6 +27,8 @@ vi.mock('@/api', () => ({
     getTemplates,
     getVersions,
   },
+  lecturesApi: { getAll: getLectures },
+  teachingApi: { getLectureAssignments },
   getApiErrorMessage: (_error, fallback) => fallback,
 }))
 
@@ -153,6 +159,7 @@ describe('useAdminTeachingAssignmentEditor', () => {
     assignments.value[0].subjectMembershipId = 12
 
     getTemplates.mockResolvedValue({ data: [] })
+    getLectureAssignments.mockResolvedValue({ data: [] })
 
     await editor.openEditAssignment(assignments.value[0])
 
@@ -177,6 +184,7 @@ describe('useAdminTeachingAssignmentEditor', () => {
         published: true,
       }],
     })
+    getLectures.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }] })
 
     editor.openCreateAssignment()
     editor.assignmentForm.subjectId = '5'
@@ -193,8 +201,46 @@ describe('useAdminTeachingAssignmentEditor', () => {
       { value: '', label: 'Без версии курса' },
       {
         value: '51',
-        label: 'Основной курс · версия 3 · Осень · опубликована',
+        label: 'Основной курс · версия 3 · Осень · опубликована · лекций: 2',
       },
     ])
+    expect(getLectures).toHaveBeenCalledWith({ courseVersionId: 51 })
+    editor.assignmentForm.courseVersionId = '51'
+    expect(editor.courseVersionWarning.value).toBeNull()
+  })
+
+  it('warns that an empty course version hides all lectures from the group', async () => {
+    const { editor } = setup()
+
+    getTemplates.mockResolvedValue({ data: [{ id: 41, name: 'Основной курс' }] })
+    getVersions.mockResolvedValue({ data: [{ id: 52, versionNumber: 1, title: 'Пустая', published: true }] })
+    getLectures.mockResolvedValue({ data: [] })
+
+    editor.openCreateAssignment()
+    editor.assignmentForm.subjectId = '5'
+    editor.assignmentForm.subjectMembershipId = '11'
+    await editor.onAssignmentTeacherChange()
+    editor.assignmentForm.courseVersionId = '52'
+
+    expect(editor.courseVersionWarning.value).toEqual(
+      expect.objectContaining({ variant: 'warning' })
+    )
+  })
+
+  it('does not warn about an empty version when the workload has separately assigned lectures', async () => {
+    const { editor, assignments } = setup()
+
+    getTemplates.mockResolvedValue({ data: [{ id: 41, name: 'Основной курс' }] })
+    getVersions.mockResolvedValue({ data: [{ id: 52, versionNumber: 1, title: 'Пустая', published: true }] })
+    getLectures.mockResolvedValue({ data: [] })
+    getLectureAssignments.mockResolvedValue({ data: [{ id: 7, status: 1 }] })
+
+    await editor.openEditAssignment({ ...assignments.value[0], courseVersionId: 52 })
+    await Promise.resolve()
+
+    expect(getLectureAssignments).toHaveBeenCalledWith({ teachingAssignmentId: assignments.value[0].id })
+    expect(editor.courseVersionWarning.value).toEqual(
+      expect.objectContaining({ variant: 'info' })
+    )
   })
 })

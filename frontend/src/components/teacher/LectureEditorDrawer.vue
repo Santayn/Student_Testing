@@ -8,6 +8,7 @@ import {
   UiDrawer,
   UiEmptyState,
   UiInput,
+  UiSelect,
   UiTextarea,
 } from '@/components/ui'
 
@@ -32,6 +33,8 @@ defineProps({
   formError: { type: String, default: '' },
   formFieldErrors: { type: Object, default: () => ({}) },
   availableTests: { type: Array, default: () => [] },
+  // Версии курса предмета: [{ value, label }], первая — «Без версии» (value 0).
+  courseVersionOptions: { type: Array, default: () => [] },
   materials: { type: Array, default: () => [] },
   pendingFiles: { type: Array, default: () => [] },
   fileInputKey: { type: Number, default: 0 },
@@ -111,6 +114,14 @@ defineExpose({
           <UiCheckbox
             v-model="form.publicVisible"
             label="Публиковать лекцию для студентов"
+          />
+
+          <UiSelect
+            v-if="courseVersionOptions.length > 1"
+            v-model="form.courseVersionId"
+            label="Версия курса"
+            :options="courseVersionOptions"
+            hint="Группа, которой администратор выдал версию в учебной нагрузке, видит только лекции этой версии (если ей не назначены отдельные лекции)."
           />
         </section>
 
