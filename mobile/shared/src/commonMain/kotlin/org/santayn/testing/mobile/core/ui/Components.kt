@@ -106,6 +106,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -235,8 +237,15 @@ fun AppIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifie
     } else {
         IconButtonDefaults.iconButtonColors()
     }
-    IconButton(onClick = onClick, modifier = modifier.padding(horizontal = 4.dp), colors = colors) {
-        Icon(icon, contentDescription = label, tint = tint ?: androidx.compose.material3.LocalContentColor.current)
+    val shape = Design.tokens.iconButtonShape
+    if (shape != null) {
+        IconButton(onClick = onClick, modifier = modifier.padding(horizontal = 4.dp), colors = colors, shape = shape) {
+            Icon(icon, contentDescription = label, tint = tint ?: androidx.compose.material3.LocalContentColor.current)
+        }
+    } else {
+        IconButton(onClick = onClick, modifier = modifier.padding(horizontal = 4.dp), colors = colors) {
+            Icon(icon, contentDescription = label, tint = tint ?: androidx.compose.material3.LocalContentColor.current)
+        }
     }
 }
 
@@ -775,7 +784,9 @@ fun AnswerOptionCard(
 ) {
     val tokens = Design.tokens
     val shape = tokens.cardShape
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val accent = tokens.selectedAnswerUsesAccent
+    val selectedColor = if (accent) Design.brand.accentOnSurface else MaterialTheme.colorScheme.primary
+    val borderColor = if (selected) selectedColor else MaterialTheme.colorScheme.outlineVariant
     val interaction = if (multiple) {
         Modifier.toggleable(value = selected, enabled = enabled, role = Role.Checkbox, onValueChange = onToggle)
     } else {
@@ -783,7 +794,8 @@ fun AnswerOptionCard(
     }
     Surface(
         shape = shape,
-        color = if (selected) AppTheme.status.primarySoft else MaterialTheme.colorScheme.surface,
+        // В теме с акцентом выбранный ответ выделяется рамкой и индикатором цвета акцента, фон не меняется.
+        color = if (selected && !accent) AppTheme.status.primarySoft else MaterialTheme.colorScheme.surface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
         modifier = modifier.fillMaxWidth().depth(tokens.cardDepth, shape, borderColor),
     ) {
@@ -791,13 +803,17 @@ fun AnswerOptionCard(
             Modifier.clip(shape).then(interaction).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (multiple) AppCheckboxIndicator(selected, enabled) else AppRadioIndicator(selected, enabled)
+            if (multiple) {
+                AppCheckboxIndicator(selected, enabled, color = selectedColor, checkColor = if (accent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary)
+            } else {
+                AppRadioIndicator(selected, enabled, color = selectedColor)
+            }
             Spacer(Modifier.width(14.dp))
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) AppTheme.status.primarySoftText else MaterialTheme.colorScheme.onSurface,
+                color = if (selected && !accent) AppTheme.status.primarySoftText else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -1063,7 +1079,7 @@ fun ConfirmDialog(
             }
         },
         dismissButton = {
-            AppOutlinedButton(onClick = onDismiss, enabled = !busy) { Text(dismissText) }
+            AppOutlinedButton(dismissText, onClick = onDismiss, enabled = !busy)
         },
         shape = MaterialTheme.shapes.extraLarge,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -1088,6 +1104,25 @@ fun Modifier.depth(depth: Dp, shape: Shape, base: Color): Modifier =
             }
         }
     }
+
+/**
+ * Подпись кнопки. В теме с buttonLabelUppercase — прописными, крупнее и жирнее; программа чтения с экрана
+ * получает исходный текст: короткие слова в прописных TalkBack может читать по буквам («Д-А-Л-Е-Е»).
+ */
+@Composable
+private fun ButtonLabel(text: String, spoken: String = text) {
+    if (Design.tokens.buttonLabelUppercase) {
+        Text(
+            text.uppercase(),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clearAndSetSemantics { this.text = AnnotatedString(spoken) },
+        )
+    } else {
+        Text(text)
+    }
+}
 
 /**
  * Кнопка с индикатором выполнения в стиле темы (форма, высота, «объёмный» край).
@@ -1115,7 +1150,7 @@ fun BusyButton(
             Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text)
+        ButtonLabel(text)
     }
     val active = enabled && !busy
     val containerColor = when {
@@ -1180,10 +1215,16 @@ fun AppFab(
         ) {
             Icon(icon, contentDescription = null)
             Spacer(Modifier.width(12.dp))
+            val uppercase = Design.tokens.buttonLabelUppercase
             Text(
-                text,
+                if (uppercase) text.uppercase() else text,
                 style = MaterialTheme.typography.labelLarge,
-                modifier = if (accessibilityLabel != text) Modifier.clearAndSetSemantics { } else Modifier,
+                fontWeight = if (uppercase) FontWeight.ExtraBold else null,
+                modifier = when {
+                    accessibilityLabel != text -> Modifier.clearAndSetSemantics { }
+                    uppercase -> Modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }
+                    else -> Modifier
+                },
             )
         }
     }
@@ -1192,10 +1233,11 @@ fun AppFab(
 /** Второстепенная кнопка с обводкой в форме кнопок темы (вместо стандартного OutlinedButton). */
 @Composable
 fun AppOutlinedButton(
+    text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    content: @Composable RowScope.() -> Unit,
+    icon: ImageVector? = null,
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -1203,17 +1245,28 @@ fun AppOutlinedButton(
         enabled = enabled,
         shape = Design.tokens.buttonShape,
         border = BorderStroke(1.5.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant),
-        content = content,
-    )
+    ) { IconAndLabel(text, icon) }
+}
+
+/** Значок и подпись кнопки; пробел перед подписью — отступ от значка. */
+@Composable
+private fun IconAndLabel(text: String, icon: ImageVector?) {
+    if (icon != null) {
+        Icon(icon, contentDescription = null)
+        ButtonLabel(" $text", spoken = text)
+    } else {
+        ButtonLabel(text)
+    }
 }
 
 /** Основная кнопка в форме кнопок темы (вместо стандартного Button). */
 @Composable
 fun AppButton(
+    text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    content: @Composable RowScope.() -> Unit,
+    icon: ImageVector? = null,
 ) {
     val tokens = Design.tokens
     val base = MaterialTheme.colorScheme.primary
@@ -1224,8 +1277,7 @@ fun AppButton(
             .then(if (enabled) Modifier.depth(tokens.buttonDepth, tokens.buttonShape, base) else Modifier),
         enabled = enabled,
         shape = tokens.buttonShape,
-        content = content,
-    )
+    ) { IconAndLabel(text, icon) }
 }
 
 /**

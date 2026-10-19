@@ -99,16 +99,16 @@ fun SpeechProblemHost() {
         text = { Text(message) },
         confirmButton = {
             if (android) {
-                AppButton(onClick = {
+                AppButton(if (current == SpeechProblem.NO_ENGINE) "Установить" else "Открыть настройки", onClick = {
                     speaker.dismissProblem()
                     speaker.openSettings(current)
-                }) { Text(if (current == SpeechProblem.NO_ENGINE) "Установить" else "Открыть настройки") }
+                })
             } else {
-                AppButton(onClick = speaker::dismissProblem) { Text("Понятно") }
+                AppButton("Понятно", onClick = speaker::dismissProblem)
             }
         },
         dismissButton = if (android) {
-            { AppOutlinedButton(onClick = speaker::dismissProblem) { Text("Закрыть") } }
+            { AppOutlinedButton("Закрыть", onClick = speaker::dismissProblem) }
         } else {
             null
         },
