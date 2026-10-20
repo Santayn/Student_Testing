@@ -302,11 +302,11 @@ fun ServerDialog(
                 )
             }
         },
-        confirmButton = { AppButton(onClick = { onSave(value) }) { Text("Сохранить") } },
+        confirmButton = { AppButton("Сохранить", onClick = { onSave(value) }) },
         dismissButton = {
             Row {
-                AppOutlinedButton(onClick = onReset) { Text("По умолчанию") }
-                AppOutlinedButton(onClick = onDismiss) { Text("Отмена") }
+                AppOutlinedButton("По умолчанию", onClick = onReset)
+                AppOutlinedButton("Отмена", onClick = onDismiss)
             }
         },
     )

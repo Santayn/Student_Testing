@@ -84,20 +84,20 @@ fun DateField(
         DatePickerDialog(
             onDismissRequest = { open = false },
             confirmButton = {
-                AppButton(onClick = {
+                AppButton("Выбрать", onClick = {
                     val millis = pickerState.selectedDateMillis
                     onChange(millis?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.UTC).date })
                     open = false
-                }) { Text("Выбрать") }
+                })
             },
             dismissButton = {
                 if (allowClear) {
-                    AppOutlinedButton(onClick = {
+                    AppOutlinedButton("Очистить", onClick = {
                         onChange(null)
                         open = false
-                    }) { Text("Очистить") }
+                    })
                 }
-                AppOutlinedButton(onClick = { open = false }) { Text("Отмена") }
+                AppOutlinedButton("Отмена", onClick = { open = false })
             },
         ) {
             DatePicker(state = pickerState)

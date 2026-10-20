@@ -422,9 +422,10 @@ fun QuestionsScreen(route: TeacherQuestionsRoute, role: WorkspaceRole, navigator
                                 AppFilterChip(activeFilter == f, { activeFilter = f }, f.label)
                             }
                         }
-                        AppOutlinedButton(onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) }) {
-                            Text("Создать тест по теме")
-                        }
+                        AppOutlinedButton(
+                            "Создать тест по теме",
+                            onClick = { navigator.open(TeacherTestCreateRoute(picker.selectedSubjectId, state.topicId)) },
+                        )
                     }
                 }
             }
@@ -518,9 +519,9 @@ private fun QuestionEditor(form: QuestionForm, state: QuestionsUiState, vm: Ques
                 }
             },
             confirmButton = {
-                AppButton(onClick = vm::saveOption, enabled = !state.optionSaving) { Text(if (state.optionSaving) "Сохранение…" else "Сохранить") }
+                AppButton(if (state.optionSaving) "Сохранение…" else "Сохранить", onClick = vm::saveOption, enabled = !state.optionSaving)
             },
-            dismissButton = { AppOutlinedButton(onClick = vm::closeOption) { Text("Отмена") } },
+            dismissButton = { AppOutlinedButton("Отмена", onClick = vm::closeOption) },
         )
     }
 }
@@ -546,10 +547,7 @@ private fun OptionsSection(form: QuestionForm, state: QuestionsUiState, vm: Ques
             }
         }
     }
-    AppOutlinedButton(onClick = { vm.openOption(null) }) {
-        Icon(Icons.Default.Add, null)
-        Text(" Добавить вариант")
-    }
+    AppOutlinedButton("Добавить вариант", onClick = { vm.openOption(null) }, icon = Icons.Default.Add)
 }
 
 /** Редактор пар соответствия (components/questions/MatchingPairsEditor.vue). */
@@ -575,10 +573,7 @@ fun MatchingPairsEditor(pairs: List<MatchingPairDto>, onChange: (List<MatchingPa
             FormField(pair.right, { v -> onChange(pairs.mapIndexed { i, p -> if (i == index) p.copy(right = v) else p }) }, "Колонка Б")
         }
     }
-    AppOutlinedButton(onClick = { onChange(pairs + MatchingPairDto(pairs.size + 1)) }) {
-        Icon(Icons.Default.Add, null)
-        Text(" Добавить пару")
-    }
+    AppOutlinedButton("Добавить пару", onClick = { onChange(pairs + MatchingPairDto(pairs.size + 1)) }, icon = Icons.Default.Add)
 }
 
 @Composable
@@ -596,10 +591,12 @@ private fun ImportDialog(state: QuestionsUiState, vm: QuestionsViewModel) {
                 )
                 val topic = state.topics.firstOrNull { it.id == state.topicId }
                 Text("Тема: ${topic?.name ?: "—"}", style = MaterialTheme.typography.labelLarge)
-                AppOutlinedButton(onClick = { picker.launch() }, enabled = !state.importing) {
-                    Icon(Icons.Default.UploadFile, null)
-                    Text(" ${state.importFile?.name ?: "Выбрать файл .docx"}")
-                }
+                AppOutlinedButton(
+                    state.importFile?.name ?: "Выбрать файл .docx",
+                    onClick = { picker.launch() },
+                    enabled = !state.importing,
+                    icon = Icons.Default.UploadFile,
+                )
                 if (state.importResult != null) Banner(state.importResult, Tone.SUCCESS)
             }
         },
@@ -607,11 +604,11 @@ private fun ImportDialog(state: QuestionsUiState, vm: QuestionsViewModel) {
             if (state.importResult == null) {
                 BusyButton("Импортировать", onClick = vm::runImport, busy = state.importing, enabled = state.importFile != null)
             } else {
-                AppButton(onClick = { vm.openImport(false) }) { Text("Готово") }
+                AppButton("Готово", onClick = { vm.openImport(false) })
             }
         },
         dismissButton = {
-            if (state.importResult == null) AppOutlinedButton(onClick = { vm.openImport(false) }, enabled = !state.importing) { Text("Отмена") }
+            if (state.importResult == null) AppOutlinedButton("Отмена", onClick = { vm.openImport(false) }, enabled = !state.importing)
         },
     )
 }

@@ -1,7 +1,13 @@
 package org.santayn.testing.mobile.a11y
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,6 +78,8 @@ import org.santayn.testing.mobile.core.storage.AppSettings
 import org.santayn.testing.mobile.core.storage.KeyValueStore
 import org.santayn.testing.mobile.core.storage.ThemeMode
 import org.santayn.testing.mobile.core.ui.AppFab
+import org.santayn.testing.mobile.core.ui.AppOutlinedButton
+import org.santayn.testing.mobile.core.ui.BusyButton
 import org.santayn.testing.mobile.core.ui.AppScreen
 import org.santayn.testing.mobile.core.ui.ErrorState
 import org.santayn.testing.mobile.core.ui.LocalNetworkStatus
@@ -94,6 +102,9 @@ import org.santayn.testing.mobile.feature.home.KafedraHome
 import org.santayn.testing.mobile.feature.home.LastAttempt
 import org.santayn.testing.mobile.feature.home.PolytechHome
 import org.santayn.testing.mobile.feature.home.StudentHome
+import org.santayn.testing.mobile.feature.home.ZachetHome
+import org.santayn.testing.mobile.navigation.AppNavigationBar
+import org.santayn.testing.mobile.navigation.bottomTabsFor
 import org.santayn.testing.mobile.feature.learning.LectureHero
 import org.santayn.testing.mobile.feature.learning.SubjectItem
 import org.santayn.testing.mobile.navigation.AppNavigator
@@ -304,7 +315,7 @@ class AccessibilityUiTests(private val design: DesignTheme) {
     fun displaySettingsPassAtfAndUseProperRoles() {
         themed { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { DisplaySettings() } }
         rule.onRoot().tryPerformAccessibilityChecks()
-        rule.onNodeWithText("Тема").assert(isHeading())
+        rule.onNodeWithText("Светлая или тёмная").assert(isHeading())
         rule.onNodeWithText("Крупный").assert(roleIs(Role.RadioButton)).performClick().assertIsSelected()
         rule.onNodeWithText("Высокий контраст").assert(roleIs(Role.Switch)).assertIsOff()
         rule.onNodeWithText("Высокий контраст").performScrollTo().performClick()
@@ -353,6 +364,11 @@ class AccessibilityUiTests(private val design: DesignTheme) {
                 rule.onNodeWithContentDescription("2 из 4 правильных ответов").assertIsDisplayed()
                 rule.onNodeWithContentDescription("2 верно, 2 неверно").assertIsDisplayed()
             }
+            DesignTheme.ZACHET -> {
+                rule.onNodeWithText("Есть над чем поработать").assert(isHeading()).assert(isLiveRegionSelf)
+                rule.onNodeWithContentDescription("Результат 50 процентов", useUnmergedTree = true).assertIsDisplayed()
+                rule.onNodeWithContentDescription("Верно 2 из 4", useUnmergedTree = true).assertIsDisplayed()
+            }
         }
         rule.onNodeWithContentDescription("К лекции").assertHasClickAction()
         rule.onRoot().tryPerformAccessibilityChecks()
@@ -370,6 +386,7 @@ class AccessibilityUiTests(private val design: DesignTheme) {
             ),
             lastAttempt = LastAttempt("Тест по теме лекции", 50.0, "2026-10-10T09:00:00Z"),
             emptyReason = null,
+            streakDays = 5,
         )
         themed {
             val navigator = AppNavigator(rememberNavController())
@@ -377,6 +394,7 @@ class AccessibilityUiTests(private val design: DesignTheme) {
             when (design) {
                 DesignTheme.POLYTECH -> PolytechHome(WorkspaceRole.STUDENT, "Анна", state, onRetry = {}, navigator = navigator)
                 DesignTheme.KAFEDRA -> KafedraHome(WorkspaceRole.STUDENT, "Анна", state, onRetry = {}, navigator = navigator)
+                DesignTheme.ZACHET -> ZachetHome(WorkspaceRole.STUDENT, "Анна", state, onRetry = {}, navigator = navigator)
             }
         }
         rule.onNodeWithText("Информатика").assertIsDisplayed()
@@ -386,6 +404,11 @@ class AccessibilityUiTests(private val design: DesignTheme) {
                 rule.onNodeWithText("Сегодня").assert(isHeading())
                 rule.onNodeWithContentDescription("Профиль").assertHasClickAction()
                 rule.onNodeWithContentDescription("50 процентов верно", useUnmergedTree = true).assertIsDisplayed()
+            }
+            DesignTheme.ZACHET -> {
+                rule.onNodeWithText("Анна").assert(isHeading())
+                rule.onNodeWithText("5 дней подряд").assertIsDisplayed()
+                rule.onNodeWithContentDescription("Последний тест: Тест по теме лекции, 50 процентов верно").assertHasClickAction()
             }
         }
         rule.onRoot().tryPerformAccessibilityChecks()
@@ -409,7 +432,7 @@ class AccessibilityUiTests(private val design: DesignTheme) {
         // «Прочитать вслух»: в «Политехе» — кнопка с подписью, в «Кафедре» — кнопка-иконка.
         when (design) {
             DesignTheme.POLYTECH -> rule.onNodeWithText("Прочитать вслух").assertHasClickAction()
-            DesignTheme.KAFEDRA -> rule.onNodeWithContentDescription("Прочитать вслух").assertHasClickAction()
+            DesignTheme.KAFEDRA, DesignTheme.ZACHET -> rule.onNodeWithContentDescription("Прочитать вслух").assertHasClickAction()
         }
         rule.onRoot().tryPerformAccessibilityChecks()
         saveScreenshot("lecture-hero")
@@ -442,6 +465,48 @@ class AccessibilityUiTests(private val design: DesignTheme) {
         rule.onNodeWithText("Профиль").assert(isHeading())
         rule.onNodeWithContentDescription("Назад").assertHasClickAction()
         rule.onRoot().tryPerformAccessibilityChecks()
+    }
+
+    /**
+     * Кнопки шагов теста при «Очень крупном» тексте. В теме с подписями прописными на экране «СЛЕДУЮЩИЙ ВОПРОС»,
+     * а программа чтения с экрана получает исходный текст — иначе TalkBack может читать прописные по буквам.
+     */
+    @Test
+    fun buttonLabelsKeepSpokenTextAtLargestText() {
+        themed(textScale = 1.5f) {
+            Column(Modifier.padding(16.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    BusyButton("Назад", onClick = {}, outlined = true)
+                    BusyButton("Следующий вопрос", onClick = {}, icon = Icons.AutoMirrored.Filled.ArrowForward, modifier = Modifier.weight(1f))
+                }
+                BusyButton("Завершить тест", onClick = {}, accent = true, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                AppOutlinedButton("Добавить файлы", onClick = {}, icon = Icons.Default.Add, modifier = Modifier.padding(top = 12.dp))
+            }
+        }
+        listOf("Назад", "Следующий вопрос", "Завершить тест", "Добавить файлы").forEach { label ->
+            // substring: у кнопки со значком подпись в темах без прописных начинается с пробела-отступа.
+            rule.onNodeWithText(label, substring = true).assertHasClickAction().assert(roleIs(Role.Button))
+        }
+        rule.onRoot().tryPerformAccessibilityChecks()
+        saveScreenshot("buttons-largest-text")
+    }
+
+    /** Нижняя навигация в стиле темы: каждая вкладка названа для TalkBack и сообщает, выбрана ли она. */
+    @Test
+    fun navigationBarTabsAreLabelledAndSelectable() {
+        val tabs = bottomTabsFor(WorkspaceRole.STUDENT)
+        themed {
+            var selected by remember { mutableStateOf(0) }
+            Column { AppNavigationBar(tabs, selected, onSelect = { selected = tabs.indexOf(it) }) }
+        }
+        val tab = { label: String -> hasText(label) or androidx.compose.ui.test.hasContentDescription(label) }
+        tabs.forEach { rule.onNode(tab(it.label) and roleIs(Role.Tab)).assertIsDisplayed() }
+        rule.onNode(tab("Главная") and roleIs(Role.Tab)).assertIsSelected()
+        rule.onNode(tab("Профиль") and roleIs(Role.Tab)).assertIsNotSelected().performClick()
+        rule.onNode(tab("Профиль") and roleIs(Role.Tab)).assertIsSelected()
+        rule.onNode(tab("Главная") and roleIs(Role.Tab)).assertIsNotSelected()
+        rule.onRoot().tryPerformAccessibilityChecks()
+        saveScreenshot("nav-bar")
     }
 
     @Test

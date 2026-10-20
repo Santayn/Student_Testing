@@ -1,6 +1,5 @@
 package org.santayn.testing.mobile.feature.tests
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,11 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -46,6 +41,7 @@ import org.santayn.testing.mobile.core.platform.LightStatusBarIcons
 import org.santayn.testing.mobile.core.ui.AppCard
 import org.santayn.testing.mobile.core.ui.AppIconButton
 import org.santayn.testing.mobile.core.ui.AppTheme
+import org.santayn.testing.mobile.core.ui.ScoreRing
 import org.santayn.testing.mobile.core.ui.design.Design
 import org.santayn.testing.mobile.core.ui.design.DesignTheme
 import org.santayn.testing.mobile.core.ui.design.KafedraType
@@ -65,6 +61,7 @@ internal fun ResultHero(title: String, result: SubmitAttemptResponse, onBack: ()
     when (Design.tokens.theme) {
         DesignTheme.POLYTECH -> PolytechResultHero(title, result, onBack)
         DesignTheme.KAFEDRA -> KafedraResultHero(title, result, onBack)
+        DesignTheme.ZACHET -> ZachetResultHero(title, result, onBack)
     }
 }
 
@@ -220,29 +217,84 @@ private fun ResultFigure(label: String, value: String, modifier: Modifier = Modi
     }
 }
 
-/** Кольцо результата. Для TalkBack — одна подпись «Результат N процентов». */
+/**
+ * «Зачёт»: без панели — по центру название теста, оценка результата словами и две «объёмные» плитки.
+ * Слова «зачёт/незачёт» не используются: правил оценивания на клиенте нет.
+ */
 @Composable
-private fun ScoreRing(percent: Double, track: Color, progress: Color, label: String, textColor: Color) {
-    Box(
-        Modifier.size(140.dp).clearAndSetSemantics { contentDescription = "Результат ${formatNumber(percent)} процентов" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.size(140.dp)) {
-            val stroke = 14.dp.toPx()
-            val inset = stroke / 2
-            val arcSize = Size(size.width - stroke, size.height - stroke)
-            drawArc(track, startAngle = 0f, sweepAngle = 360f, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke))
-            drawArc(
-                progress,
-                startAngle = -90f,
-                sweepAngle = (percent / 100.0 * 360.0).toFloat(),
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(stroke, cap = StrokeCap.Round),
+private fun ZachetResultHero(title: String, result: SubmitAttemptResponse, onBack: () -> Unit) {
+    val percent = result.percent()
+    val verdict = when {
+        percent >= 90.0 -> "Отличный результат!"
+        percent >= 60.0 -> "Хороший результат"
+        percent > 0.0 -> "Есть над чем поработать"
+        else -> "Попробуй ещё раз"
+    }
+    Column(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 4.dp)) {
+        AppIconButton(Icons.AutoMirrored.Filled.ArrowBack, "К лекции", onClick = onBack)
+        Column(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                verdict,
+                style = MaterialTheme.typography.headlineMedium.copy(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold),
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics {
+                    heading()
+                    liveRegion = LiveRegionMode.Polite
+                },
+            )
+            Text(
+                "${result.correctCount} из ${result.totalCount} верно" + (result.score?.let { " · баллы: ${formatNumber(it)}" } ?: ""),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
-        Text(label, style = MaterialTheme.typography.headlineSmall, color = textColor)
+        Row(
+            Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ResultTile(
+                value = "${formatNumber(percent)}%",
+                label = "результат",
+                spoken = "Результат ${formatNumber(percent)} процентов",
+                color = Design.brand.accentOnSurface,
+                modifier = Modifier.weight(1f),
+            )
+            ResultTile(
+                value = "${result.correctCount}/${result.totalCount}",
+                label = "верно",
+                spoken = "Верно ${result.correctCount} из ${result.totalCount}",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResultTile(value: String, label: String, spoken: String, color: Color, modifier: Modifier = Modifier) {
+    AppCard(modifier = modifier) {
+        Column(Modifier.clearAndSetSemantics { contentDescription = spoken }) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.ExtraBold),
+                color = color,
+            )
+            Text(label, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

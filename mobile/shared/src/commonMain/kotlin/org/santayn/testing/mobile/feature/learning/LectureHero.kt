@@ -16,7 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.santayn.testing.mobile.core.ui.SpeakButton
 import org.santayn.testing.mobile.core.ui.SpeakPillButton
 import org.santayn.testing.mobile.core.ui.design.Design
@@ -33,6 +35,7 @@ internal fun LectureHero(lecture: PublicLectureDto, modifier: Modifier = Modifie
     when (Design.tokens.theme) {
         DesignTheme.POLYTECH -> PolytechLectureHero(lecture, modifier)
         DesignTheme.KAFEDRA -> KafedraLectureHero(lecture, modifier)
+        DesignTheme.ZACHET -> ZachetLectureHero(lecture, modifier)
     }
 }
 
@@ -104,6 +107,40 @@ private fun KafedraLectureHero(lecture: PublicLectureDto, modifier: Modifier) {
             description ?: "Описание лекции не указано.",
             style = KafedraType.lectureBody,
             color = if (description != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** «Зачёт»: без панели — небесный надзаголовок, очень жирный заголовок, приглушённое описание. */
+@Composable
+private fun ZachetLectureHero(lecture: PublicLectureDto, modifier: Modifier) {
+    val description = lecture.description?.takeIf { it.isNotBlank() }
+    val overline = "Лекция ${lecture.ordinal}" + if (lecture.versionNumber > 0) " · версия ${lecture.versionNumber}" else ""
+    Column(modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                overline,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
+                SpeakButton(
+                    key = "lecture-${lecture.id}",
+                    text = { listOfNotNull(lecture.title, description).joinToString(". ") },
+                )
+            }
+        }
+        Text(
+            lecture.title,
+            style = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.ExtraBold),
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            description ?: "Описание лекции не указано.",
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

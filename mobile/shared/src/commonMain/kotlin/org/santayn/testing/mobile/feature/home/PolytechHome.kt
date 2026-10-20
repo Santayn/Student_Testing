@@ -325,14 +325,3 @@ private fun SubjectRow(name: String, description: String?, onClick: () -> Unit) 
         }
     }
 }
-
-private fun subjectsWord(count: Int): String {
-    val mod100 = count % 100
-    val mod10 = count % 10
-    return when {
-        mod100 in 11..14 -> "предметов"
-        mod10 == 1 -> "предмет"
-        mod10 in 2..4 -> "предмета"
-        else -> "предметов"
-    }
-}

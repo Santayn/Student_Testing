@@ -519,10 +519,7 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
                 }
             }
         }
-        AppOutlinedButton(onClick = { picker.launch() }) {
-            Icon(Icons.Default.AttachFile, null)
-            Text(" Добавить файлы")
-        }
+        AppOutlinedButton("Добавить файлы", onClick = { picker.launch() }, icon = Icons.Default.AttachFile)
         Text("Максимальный размер файла — 50 МБ.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 

@@ -381,10 +381,7 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
                         }
                     }
                     if (!vm.isAdmin) {
-                        AppOutlinedButton(onClick = { vm.openTemplate(null) }) {
-                            Icon(Icons.Default.Add, null)
-                            Text(" Новый шаблон")
-                        }
+                        AppOutlinedButton("Новый шаблон", onClick = { vm.openTemplate(null) }, icon = Icons.Default.Add)
                     }
                 }
             }
@@ -531,10 +528,7 @@ private fun VersionCard(
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            AppOutlinedButton(onClick = onLectures) {
-                Icon(Icons.Default.LibraryBooks, null)
-                Text(" Лекции версии")
-            }
+            AppOutlinedButton("Лекции версии", onClick = onLectures, icon = Icons.Default.LibraryBooks)
             TextButton(onClick = onTogglePublish, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text(if (version.published) "Снять с публикации" else "Опубликовать")
             }

@@ -46,7 +46,7 @@ fun DisplaySettings(modifier: Modifier = Modifier) {
             Column(Modifier.selectableGroup()) {
                 DesignTheme.entries.forEach { theme ->
                     RadioRow(
-                        "${theme.title} — ${theme.description}",
+                        theme.title,
                         selected = designTheme == theme,
                         onClick = { settings.setDesignTheme(theme) },
                     )
@@ -54,7 +54,7 @@ fun DisplaySettings(modifier: Modifier = Modifier) {
             }
             ThinDivider()
         }
-        GroupTitle("Тема")
+        GroupTitle("Светлая или тёмная")
         Column(Modifier.selectableGroup()) {
             listOf(ThemeMode.SYSTEM to "Как в системе", ThemeMode.LIGHT to "Светлая", ThemeMode.DARK to "Тёмная")
                 .forEach { (mode, label) ->
@@ -68,15 +68,9 @@ fun DisplaySettings(modifier: Modifier = Modifier) {
                 RadioRow(scale.title, selected = textScale == scale, onClick = { settings.setTextScale(scale) })
             }
         }
-        Text(
-            "Применяется вместе с размером шрифта из настроек телефона.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         ThinDivider()
         SwitchRow(
             title = "Высокий контраст",
-            description = "Чёрный текст на белом фоне (в тёмной теме — белый на чёрном) и чёткие границы",
             checked = highContrast,
             onCheckedChange = settings::setHighContrast,
         )
@@ -108,6 +102,6 @@ fun DisplaySettingsDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("Специальные возможности") },
         text = { DisplaySettings(Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { AppButton(onClick = onDismiss) { Text("Готово") } },
+        confirmButton = { AppButton("Готово", onClick = onDismiss) },
     )
 }

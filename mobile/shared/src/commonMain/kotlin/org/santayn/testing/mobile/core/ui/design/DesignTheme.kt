@@ -7,6 +7,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
@@ -27,16 +28,11 @@ import org.santayn.testing.mobile.core.ui.StatusColors
  * Как добавить тему: recommendations/mobile-design-themes/README.md.
  */
 
-/** Темы оформления. Порядок = порядок в настройках. */
-enum class DesignTheme(val title: String, val description: String) {
-    POLYTECH(
-        title = "Политех",
-        description = "Фирменный стиль КубГТУ: синий, крупные заголовки, плитки",
-    ),
-    KAFEDRA(
-        title = "Кафедра",
-        description = "Спокойный академический стиль: списки и много воздуха",
-    ),
+/** Темы оформления. Порядок = порядок в настройках; там показывается только [title]. */
+enum class DesignTheme(val title: String) {
+    POLYTECH(title = "Политех"),
+    KAFEDRA(title = "Кафедра"),
+    ZACHET(title = "Зачёт"),
     ;
 
     companion object {
@@ -83,6 +79,12 @@ enum class NavBarStyle {
      * она выделена цветом и жирностью подписи (B «Кафедра»).
      */
     TAB_BAR,
+
+    /**
+     * Плавающая панель только из иконок: активная вкладка — скруглённый квадрат цвета highlight.
+     * Подписей на экране нет, название вкладки — для TalkBack (C «Зачёт»).
+     */
+    FLOATING_ICONS,
 }
 
 /**
@@ -90,6 +92,8 @@ enum class NavBarStyle {
  *
  * - hero — фон фирменных панелей (шапка главной, итог теста), текст на нём — onHero / onHeroMuted;
  * - accent — второй акцент для главных действий («Пройти тест») и плиток;
+ * - accentOnSurface — тот же акцент для линий, значков и чисел на surface (не ниже 4.5:1 к ней):
+ *   яркий accent на белом может быть почти не виден;
  * - highlight — третий цвет плиток и выделений.
  */
 @Immutable
@@ -101,6 +105,7 @@ data class BrandColors(
     val heroChip: Color,
     val accent: Color,
     val onAccent: Color,
+    val accentOnSurface: Color,
     val highlight: Color,
     val onHighlight: Color,
 )
@@ -120,6 +125,8 @@ data class DesignTokens(
     val buttonHeight: Dp,
     /** «Объёмная» кнопка: нижний край высотой depth темнее кнопки (0 — плоская). */
     val buttonDepth: Dp,
+    /** Подписи кнопок ПРОПИСНЫМИ, крупнее и жирнее; программа чтения с экрана получает исходный текст. */
+    val buttonLabelUppercase: Boolean,
     val cardShape: CornerBasedShape,
     /** Тонкая рамка вокруг карточек (нужна, когда карточка почти не отличается от фона). */
     val cardBorder: Boolean,
@@ -131,6 +138,8 @@ data class DesignTokens(
     val tileShape: CornerBasedShape,
     /** Кнопки-иконки в верхней панели в круглой подложке цвета surface. */
     val iconButtonsOnSurface: Boolean,
+    /** Форма кнопок-иконок; null — стандартная круглая Material. */
+    val iconButtonShape: Shape?,
     /** Верхняя панель цвета фона экрана (иначе — цвета surface). */
     val topBarOnBackground: Boolean,
     /** На главных вкладках (экраны без «Назад») — крупный заголовок слева, сворачивается при прокрутке. */
@@ -138,6 +147,8 @@ data class DesignTokens(
     val sectionTitle: SectionTitleStyle,
     val navBar: NavBarStyle,
     val answerStyle: AnswerStyle,
+    /** Выбранный вариант ответа обводится акцентом темы (accentOnSurface), а не primary. */
+    val selectedAnswerUsesAccent: Boolean,
 )
 
 val LocalDesign = staticCompositionLocalOf<DesignTokens> { error("DesignTokens не заданы: оберните в StudentTestingTheme") }
