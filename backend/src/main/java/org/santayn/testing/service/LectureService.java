@@ -52,6 +52,22 @@ public class LectureService {
                           String contentFolderKey,
                           Integer linkedTestId,
                           boolean publicVisible) {
+        return create(subjectId, subjectMembershipId, courseVersionId, ordinal, title, description,
+                contentFolderKey, linkedTestId, publicVisible, null);
+    }
+
+    /** @param body текст лекции в Markdown; null — без текста */
+    @Transactional
+    public Lecture create(Integer subjectId,
+                          Integer subjectMembershipId,
+                          Integer courseVersionId,
+                          int ordinal,
+                          String title,
+                          String description,
+                          String contentFolderKey,
+                          Integer linkedTestId,
+                          boolean publicVisible,
+                          String body) {
         LecturePlacement placement = resolvePlacement(subjectId, subjectMembershipId, courseVersionId);
         requireLinkedTest(linkedTestId);
         int normalizedOrdinal = Math.max(1, ordinal);
@@ -72,6 +88,7 @@ public class LectureService {
         lecture.setContentFolderKey(FacultyService.requireText(contentFolderKey, "ContentFolderKey"));
         lecture.setLinkedTestId(linkedTestId);
         lecture.setPublicVisible(publicVisible);
+        lecture.setBody(normalizeBody(body));
         Lecture savedLecture = lectureRepository.save(lecture);
         ensureLinkedTestAvailability(savedLecture);
         return savedLecture;
@@ -88,6 +105,26 @@ public class LectureService {
                           String contentFolderKey,
                           Integer linkedTestId,
                           boolean publicVisible) {
+        return update(lectureId, subjectId, subjectMembershipId, courseVersionId, ordinal, title, description,
+                contentFolderKey, linkedTestId, publicVisible, null);
+    }
+
+    /**
+     * @param body текст лекции в Markdown; null — оставить как есть (старые клиенты его не присылают),
+     *             пустая строка — удалить текст
+     */
+    @Transactional
+    public Lecture update(Integer lectureId,
+                          Integer subjectId,
+                          Integer subjectMembershipId,
+                          Integer courseVersionId,
+                          int ordinal,
+                          String title,
+                          String description,
+                          String contentFolderKey,
+                          Integer linkedTestId,
+                          boolean publicVisible,
+                          String body) {
         Lecture lecture = get(lectureId);
         LecturePlacement placement = resolvePlacement(subjectId, subjectMembershipId, courseVersionId);
         requireLinkedTest(linkedTestId);
@@ -108,8 +145,18 @@ public class LectureService {
         lecture.setContentFolderKey(FacultyService.requireText(contentFolderKey, "ContentFolderKey"));
         lecture.setLinkedTestId(linkedTestId);
         lecture.setPublicVisible(publicVisible);
+        if (body != null) {
+            lecture.setBody(normalizeBody(body));
+        }
         ensureLinkedTestAvailability(lecture);
         return lecture;
+    }
+
+    private static String normalizeBody(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        return body.replace("\r\n", "\n").strip();
     }
 
     @Transactional

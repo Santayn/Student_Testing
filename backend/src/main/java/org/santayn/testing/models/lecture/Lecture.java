@@ -71,4 +71,8 @@ public class Lecture {
 
     @Column(name = "`IsPublic`", nullable = false)
     private boolean publicVisible;
+
+    /** Текст лекции в Markdown (заголовки, списки, таблицы). Может быть распознан со скана. */
+    @Column(name = "`Body`", columnDefinition = "text")
+    private String body;
 }

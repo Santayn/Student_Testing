@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException;
 import org.santayn.testing.service.AuthConflictException;
 import org.santayn.testing.service.DatabaseBackupException;
 import org.santayn.testing.service.ResourceNotFoundException;
+import org.santayn.testing.service.ai.AiUnavailableException;
 import org.santayn.testing.web.dto.common.ErrorResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -125,6 +126,13 @@ public class ApiExceptionHandler {
         String trace = UUID.randomUUID().toString();
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ErrorResponse.of("database_backup_failed", ex.getMessage(), trace));
+    }
+
+    @ExceptionHandler(AiUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleAiUnavailable(AiUnavailableException ex) {
+        String trace = UUID.randomUUID().toString();
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of("ai_unavailable", ex.getMessage(), trace));
     }
 
     @ExceptionHandler(RuntimeException.class)

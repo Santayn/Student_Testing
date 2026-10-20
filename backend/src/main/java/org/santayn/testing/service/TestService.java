@@ -5,6 +5,7 @@ import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
 import org.santayn.testing.models.question.QuestionResponse;
 import org.santayn.testing.models.question.QuestionTypeSupport;
+import org.santayn.testing.models.question.ResponseReview;
 import org.santayn.testing.models.question.SelectedOption;
 import org.santayn.testing.models.test.Test;
 import org.santayn.testing.models.test.TestAssignment;
@@ -28,11 +29,11 @@ import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.santayn.testing.repository.TopicRepository;
+import org.santayn.testing.service.ai.TextAnswerGradingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -68,7 +69,7 @@ public class TestService {
     private final LectureTestLinkRepository lectureTestLinkRepository;
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
-    private final TextAnswerEvaluationService textAnswerEvaluationService;
+    private final TextAnswerGradingService textAnswerGradingService;
 
     @Transactional(readOnly = true)
     public List<Test> findAll() {
@@ -153,6 +154,13 @@ public class TestService {
             }
         }
         test.setQuestionCount(normalizedQuestionCount);
+        return test;
+    }
+
+    @Transactional
+    public Test updateShowAiFeedback(Integer testId, boolean showAiFeedback) {
+        Test test = get(testId);
+        test.setShowAiFeedback(showAiFeedback);
         return test;
     }
 
@@ -470,6 +478,7 @@ public class TestService {
         applyAutomaticScore(response, question, selectedOptionIds);
         response = questionResponseRepository.save(response);
         replaceSelectedOptions(response.getId(), question, selectedOptionIds);
+        textAnswerGradingService.scheduleAiReviewIfNeeded(response);
         return response;
     }
 
@@ -488,6 +497,13 @@ public class TestService {
     private void applyAutomaticScore(QuestionResponse response,
                                      Question question,
                                      List<Long> selectedOptionIds) {
+        if (QuestionTypeSupport.isText(question.getType())) {
+            textAnswerGradingService.gradeOnSubmit(response, question);
+            return;
+        }
+        response.setGradedBy(ResponseReview.GRADED_BY_AUTO);
+        response.setReviewStatus(ResponseReview.NONE);
+        response.setGradedAtUtc(Instant.now());
         if (QuestionTypeSupport.usesSelectableOptions(question.getType())) {
             List<QuestionOption> questionOptions = questionOptionRepository.findByTestQuestionIdOrderByOrdinalAsc(question.getId());
             if (questionOptions.isEmpty()) {
@@ -515,11 +531,8 @@ public class TestService {
             return;
         }
 
-        TextAnswerEvaluationResult evaluation = evaluateTextAnswer(question, response.getAnswerText());
-        response.setCorrect(evaluation.correct());
-        response.setAwardedPoints(question.getPoints()
-                .multiply(evaluation.scoreRatio())
-                .setScale(2, RoundingMode.HALF_UP));
+        response.setCorrect(false);
+        response.setAwardedPoints(BigDecimal.ZERO);
     }
 
     private void replaceSelectedOptions(Long questionResponseId, Question question, List<Long> selectedOptionIds) {
@@ -586,10 +599,6 @@ public class TestService {
             }
         }
         return true;
-    }
-
-    private TextAnswerEvaluationResult evaluateTextAnswer(Question question, String actualRaw) {
-        return textAnswerEvaluationService.evaluate(question.getQuestion(), question.getCorrectAnswer(), actualRaw);
     }
 
     private BigDecimal calculateScore(Integer testAttemptId) {

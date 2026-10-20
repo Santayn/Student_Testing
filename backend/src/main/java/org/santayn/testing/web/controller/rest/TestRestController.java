@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import org.santayn.testing.models.test.Test;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
@@ -63,7 +64,7 @@ public class TestRestController {
         Integer authorPersonId = accessService.isAdmin(authentication)
                 ? null
                 : accessService.currentPersonId(authentication);
-        return ApiResponses.test(testService.create(
+        Test test = testService.create(
                 request.title(),
                 request.description(),
                 request.duration(),
@@ -71,7 +72,11 @@ public class TestRestController {
                 request.questionCount(),
                 selectionRuleInputs(request.selectionRules()),
                 authorPersonId
-        ));
+        );
+        if (request.showAiFeedback() != null) {
+            test = testService.updateShowAiFeedback(test.getId(), request.showAiFeedback());
+        }
+        return ApiResponses.test(test);
     }
 
     @PutMapping("/{id}")
@@ -79,14 +84,19 @@ public class TestRestController {
                                             @Valid @RequestBody TestUpdateRequest request,
                                             Authentication authentication) {
         accessService.requireTestOwner(authentication, id);
-        return ApiResponses.test(testService.update(
+        Test test = testService.update(
                 id,
                 request.title(),
                 request.description(),
                 request.duration(),
                 request.attemptsAllowed(),
                 request.questionCount()
-        ));
+        );
+        // null — старый клиент не знает о настройке: оставляем как есть.
+        if (request.showAiFeedback() != null) {
+            test = testService.updateShowAiFeedback(id, request.showAiFeedback());
+        }
+        return ApiResponses.test(test);
     }
 
     @DeleteMapping("/{id}")
@@ -239,7 +249,8 @@ public class TestRestController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime duration,
             @Positive int attemptsAllowed,
             @Positive int questionCount,
-            List<@Valid SelectionRuleRequest> selectionRules
+            List<@Valid SelectionRuleRequest> selectionRules,
+            Boolean showAiFeedback
     ) {
     }
 
@@ -248,7 +259,8 @@ public class TestRestController {
             @Size(max = 4000) String description,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime duration,
             @Positive int attemptsAllowed,
-            @Positive int questionCount
+            @Positive int questionCount,
+            Boolean showAiFeedback
     ) {
     }
 

@@ -75,6 +75,31 @@ public class LectureMaterialService {
         return saved;
     }
 
+    /** Сохраняет файл, созданный сервером (например, презентацию), как материал лекции. */
+    @Transactional
+    public LectureMaterial saveGenerated(Integer lectureId, String fileName, String contentType, byte[] content) {
+        Lecture lecture = requireLecture(lectureId);
+        String originalName = normalizeOriginalFileName(fileName);
+        Path lectureDir = lectureDirectory(lecture.getId());
+        Path target = lectureDir.resolve(UUID.randomUUID() + "-" + originalName).normalize();
+        if (!target.startsWith(lectureDir)) {
+            throw new IllegalArgumentException("Invalid file path.");
+        }
+        try {
+            Files.write(target, content);
+        } catch (IOException error) {
+            throw new IllegalStateException("Failed to save lecture file: " + originalName, error);
+        }
+        LectureMaterial material = new LectureMaterial();
+        material.setCourseLectureId(lecture.getId());
+        material.setFileName(originalName);
+        material.setStoredPath(materialsRoot().relativize(target).toString().replace('\\', '/'));
+        material.setContentType(contentType);
+        material.setSizeBytes(content.length);
+        material.setUploadedAtUtc(Instant.now());
+        return lectureMaterialRepository.save(material);
+    }
+
     @Transactional
     public void delete(Integer lectureId, Integer materialId) {
         LectureMaterial material = lectureMaterialRepository.findByIdAndCourseLectureId(materialId, lectureId)

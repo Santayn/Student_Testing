@@ -62,7 +62,8 @@ public class LectureRestController {
                 request.description(),
                 request.contentFolderKey(),
                 request.linkedTestId(),
-                request.publicVisible()
+                request.publicVisible(),
+                request.body()
         ));
     }
 
@@ -87,7 +88,8 @@ public class LectureRestController {
                 request.description(),
                 request.contentFolderKey(),
                 request.linkedTestId(),
-                request.publicVisible()
+                request.publicVisible(),
+                request.body()
         ));
     }
 
@@ -118,7 +120,9 @@ public class LectureRestController {
             @Size(max = 2000) String description,
             @NotBlank @Size(max = 255) String contentFolderKey,
             Integer linkedTestId,
-            boolean publicVisible
+            boolean publicVisible,
+            // Текст лекции в Markdown. null — не менять (старые клиенты), пустая строка — удалить.
+            @Size(max = 200000) String body
     ) {
     }
 

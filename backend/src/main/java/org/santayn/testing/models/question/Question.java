@@ -68,4 +68,8 @@ public class Question {
 
     @Column(name = "`IsActive`", nullable = false)
     private boolean active = true;
+
+    /** Критерии оценивания свободного ответа: ключевые пункты и баллы за них (для ИИ и преподавателя). */
+    @Column(name = "`GradingCriteria`", length = 4000)
+    private String gradingCriteria;
 }

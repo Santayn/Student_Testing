@@ -54,7 +54,7 @@ class TestServiceAttemptLimitTests {
     @Mock private LectureRepository lectureRepository;
     @Mock private TestQuestionSelectionRuleRepository selectionRuleRepository;
     @Mock private TopicRepository topicRepository;
-    @Mock private TextAnswerEvaluationService textAnswerEvaluationService;
+    @Mock private org.santayn.testing.service.ai.TextAnswerGradingService textAnswerGradingService;
 
     @InjectMocks
     private TestService testService;

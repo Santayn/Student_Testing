@@ -132,6 +132,21 @@ public class QuestionService {
         return question;
     }
 
+    /**
+     * Критерии оценивания свободного ответа (подсказка для ИИ и преподавателя).
+     * Для вопросов с выбором и сопоставлением не хранятся.
+     */
+    @Transactional
+    public Question updateGradingCriteria(Long questionId, String gradingCriteria) {
+        Question question = get(questionId);
+        String criteria = FacultyService.trimToNull(gradingCriteria);
+        if (criteria != null && criteria.length() > 4000) {
+            throw new IllegalArgumentException("Grading criteria must be at most 4000 characters.");
+        }
+        question.setGradingCriteria(QuestionTypeSupport.isText(question.getType()) ? criteria : null);
+        return question;
+    }
+
     @Transactional
     public QuestionOption addOption(Long questionId, String text, int ordinal, boolean correct) {
         Question question = get(questionId);
