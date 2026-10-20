@@ -83,6 +83,8 @@
 | `APP_AI_IMAGE_GENERATION_ENABLED` | `true` | генерация картинок |
 | `APP_AI_IMAGE_SEARCH_ENABLED` | `true` | поиск в Wikimedia Commons и Openverse |
 
+Рекомендуемая настройка (Groq) и какие ключи где нужны — в [README → ИИ: ключи API](../../../README.md#ии-ключи-api). Ключ хранится только в локальном `.env`.
+
 Compose хранит файлы задач ИИ в volume `ai-files` (`APP_AI_STORAGE_DIR=/app/uploads/ai`). Подробно: [ИИ](../../technical/details/ai.md).
 
 ## Frontend build/dev (`VITE_*`)

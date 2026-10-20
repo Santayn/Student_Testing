@@ -10,6 +10,10 @@ Checklist предназначен для ручной/полуавтомати�
 - [ ] Docker production/local images собираются.
 - [ ] Backend readiness возвращает `200` при доступной БД.
 
+## ИИ
+
+- [ ] Пройдены [тест-кейсы ИИ](./ai-test-cases.md) (при включённом ИИ) или проверено, что при `APP_AI_PROVIDER=none` ИИ-кнопки скрыты, а тесты сдаются как раньше.
+
 ## Authentication
 
 - [ ] Вход корректными credentials работает.
