@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -34,8 +35,10 @@ public class AiJobService {
         job.setTargetId(targetId);
         job.setInputJson(toJson(input));
         job.setStatus(AiJobStatus.QUEUED);
-        job.setCreatedAtUtc(Instant.now());
-        job.setAvailableAtUtc(Instant.now());
+        // До микросекунд, как хранит база: иначе округление вверх делает задачу «будущей» на доли микросекунды.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        job.setCreatedAtUtc(now);
+        job.setAvailableAtUtc(now);
         return jobRepository.save(job);
     }
 
@@ -50,7 +53,7 @@ public class AiJobService {
         job.setAttempts(1);
         job.setInputTokens(usage == null ? 0 : usage.inputTokens());
         job.setOutputTokens(usage == null ? 0 : usage.outputTokens());
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         job.setCreatedAtUtc(now);
         job.setAvailableAtUtc(now);
         job.setStartedAtUtc(now);
@@ -103,7 +106,7 @@ public class AiJobService {
         job.setProgressText(null);
         if (job.getAttempts() < maxAttempts) {
             job.setStatus(AiJobStatus.QUEUED);
-            job.setAvailableAtUtc(Instant.now().plus(Duration.ofSeconds(30L * job.getAttempts())));
+            job.setAvailableAtUtc(Instant.now().truncatedTo(ChronoUnit.MICROS).plus(Duration.ofSeconds(30L * job.getAttempts())));
             return true;
         }
         job.setStatus(AiJobStatus.FAILED);

@@ -145,7 +145,8 @@ public class PptxPresentationBuilder {
 
     private XSLFSlide newSlide(Color background) {
         XSLFSlide slide = slideShow.createSlide();
-        slide.getBackground().setFillColor(background);
+        // Фон — фигурой во весь слайд: заливку фона слайда не учитывает рендер POI (PDF-копия).
+        rect(slide, 0, 0, WIDTH, HEIGHT, background);
         slideNumber++;
         return slide;
     }

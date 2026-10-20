@@ -15,6 +15,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Поиск картинок со свободными лицензиями для слайдов: Wikimedia Commons и Openverse.
@@ -24,6 +26,7 @@ import java.util.List;
 public class ImageSearchService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ImageSearchService.class);
+    private static final long SOURCE_TIMEOUT_SECONDS = 9;
 
     private final AiProperties properties;
     private final HttpClient httpClient;
@@ -48,9 +51,15 @@ public class ImageSearchService {
             throw new IllegalArgumentException("Введите, что искать.");
         }
         int perSource = Math.max(2, Math.min(12, limit) / 2);
-        List<FoundImage> results = new ArrayList<>();
-        results.addAll(safe(() -> wikimedia(normalized, perSource)));
-        results.addAll(safe(() -> openverse(normalized, perSource)));
+        // Банки опрашиваются параллельно: медленный (Openverse отвечает до 15 с) не задерживает быстрый.
+        CompletableFuture<List<FoundImage>> wikimedia = CompletableFuture
+                .supplyAsync(() -> safe(() -> wikimedia(normalized, perSource)))
+                .completeOnTimeout(List.of(), SOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        CompletableFuture<List<FoundImage>> openverse = CompletableFuture
+                .supplyAsync(() -> safe(() -> openverse(normalized, perSource)))
+                .completeOnTimeout(List.of(), SOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        List<FoundImage> results = new ArrayList<>(wikimedia.join());
+        results.addAll(openverse.join());
         return results;
     }
 

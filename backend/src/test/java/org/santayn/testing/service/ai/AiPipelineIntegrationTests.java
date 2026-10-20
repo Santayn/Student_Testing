@@ -140,6 +140,9 @@ class AiPipelineIntegrationTests {
 
         QuestionResponse graded = responseRepository.findById(submitted.responseId()).orElseThrow();
         assertThat(graded.getReviewStatus()).isEqualTo(ResponseReview.NEEDS_TEACHER);
+        // Баллы «от ИИ» за попытку обмана не засчитываются до решения преподавателя.
+        assertThat(graded.getGradedBy()).isEqualTo(ResponseReview.GRADED_BY_AUTO);
+        assertThat(graded.getAwardedPoints()).isEqualByComparingTo("0.00");
         ResponseReviewService.ReviewQueue queue = reviewService.queue(null, "needs_teacher", submitted.testId());
         assertThat(queue.items()).extracting(ResponseReviewService.ReviewItem::responseId).contains(submitted.responseId());
         assertThat(queue.items().get(0).suspicious()).isTrue();
@@ -207,7 +210,9 @@ class AiPipelineIntegrationTests {
 
         AiJob outlineJob = outlineService.enqueue(null, lecture.getId(), 8, "Для первокурсников");
         worker.runReadyJobsNow();
-        JsonNode outline = jobService.readResult(jobService.get(outlineJob.getId()));
+        AiJob outlineDone = jobService.get(outlineJob.getId());
+        assertThat(outlineDone.getError()).isNull();
+        JsonNode outline = jobService.readResult(outlineDone);
 
         assertThat(outline.path("slides")).hasSize(2);
         assertThat(outline.path("slides").get(1).path("layout").asText()).isEqualTo("bullets");

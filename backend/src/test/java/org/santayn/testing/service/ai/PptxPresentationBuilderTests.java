@@ -42,6 +42,13 @@ class PptxPresentationBuilderTests {
 
         assertThat(result.slideCount()).isEqualTo(6);
         assertThat(new String(result.pdf(), 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(result.pdf())) {
+            BufferedImage title = new org.apache.pdfbox.rendering.PDFRenderer(pdf).renderImageWithDPI(0, 20);
+            java.awt.Color center = new java.awt.Color(title.getRGB(title.getWidth() / 2, title.getHeight() - 5));
+            // Титульный слайд — на синем фоне, а не на белом.
+            assertThat(center.getBlue()).isGreaterThan(150);
+            assertThat(center.getRed()).isLessThan(100);
+        }
         try (XMLSlideShow show = new XMLSlideShow(new ByteArrayInputStream(result.pptx()))) {
             assertThat(show.getSlides()).hasSize(6);
             assertThat(slideText(show.getSlides().get(0))).contains("Реляционные базы данных", "Лекция 3");

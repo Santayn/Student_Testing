@@ -201,18 +201,19 @@ export function useLecturePresentation(lectureId) {
     try {
       const response = await aiApi.searchImages(query)
       const found = Array.isArray(response?.data) ? response.data : []
-      slide.image.results = found.map((item) => reactive({ ...item, previewUrl: '' }))
+      slide.image.results = found.map((item) => reactive({ ...item, previewUrl: '', failed: false }))
       if (!found.length) {
         slide.image.error = 'Ничего не найдено — попробуйте другие слова, лучше по-английски.'
       }
-      await Promise.all(slide.image.results.map(async (result) => {
+      // Превью грузятся в фоне: часть банков отвечает медленно, искать снова можно сразу.
+      slide.image.results.forEach(async (result) => {
         try {
           const preview = await aiApi.previewImage(result.imageUrl)
           result.previewUrl = remember(URL.createObjectURL(preview.data))
         } catch {
-          result.previewUrl = ''
+          result.failed = true
         }
-      }))
+      })
     } catch (requestError) {
       slide.image.error = getApiErrorMessage(requestError, 'Поиск картинок не удался.')
     } finally {

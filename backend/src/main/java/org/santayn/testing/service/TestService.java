@@ -1,5 +1,6 @@
 package org.santayn.testing.service;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
@@ -70,6 +71,7 @@ public class TestService {
     private final TestQuestionSelectionRuleRepository selectionRuleRepository;
     private final TopicRepository topicRepository;
     private final TextAnswerGradingService textAnswerGradingService;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<Test> findAll() {
@@ -188,7 +190,11 @@ public class TestService {
                 }
                 testAttemptRepository.deleteAllInBatch(attempts);
             }
-            testAssignmentRepository.deleteByTestId(testId);
+            testAssignmentRepository.deleteAllInBatch(assignments);
+            // Пакетные удаления не трогают загруженные объекты: попытки и ответы остались бы в контексте
+            // со ссылками на удаляемые назначения и вопросы, и flush падал бы с TransientObjectException.
+            entityManager.flush();
+            entityManager.clear();
         }
 
         List<Question> directQuestions = questionRepository.findByTestIdOrderByOrdinalAsc(testId);

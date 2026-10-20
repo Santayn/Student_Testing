@@ -69,10 +69,17 @@ const materialOptions = computed(() => imageMaterials.value.map((material) => ({
 })))
 
 const pageSubtitle = computed(() => (
-  lecture.value?.title
-    ? `Лекция «${lecture.value.title}»: ИИ составит план слайдов по тексту и материалам лекции, вы его поправите и соберёте PPTX.`
-    : 'ИИ составит план слайдов по тексту и материалам лекции, вы его поправите и соберёте PPTX.'
+  lecture.value?.title ? `Лекция «${lecture.value.title}»` : ''
 ))
+
+function slidesText(count) {
+  const value = Number(count) || 0
+  const mod10 = value % 10
+  const mod100 = value % 100
+  if (mod10 === 1 && mod100 !== 11) return `${value} слайд`
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${value} слайда`
+  return `${value} слайдов`
+}
 
 onMounted(load)
 </script>
@@ -82,16 +89,6 @@ onMounted(load)
     title="Презентация по лекции"
     :subtitle="pageSubtitle"
   >
-    <template #actions>
-      <UiButton
-        size="sm"
-        variant="secondary"
-        icon="pi pi-arrow-left"
-        label="К лекциям"
-        :to="{ name: 'teacher-lectures', query: { lectureId } }"
-      />
-    </template>
-
     <UiLoadingState
       v-if="loading"
       label="Загрузка лекции..."
@@ -284,12 +281,13 @@ onMounted(load)
                   class="presentation-image__results"
                 >
                   <button
-                    v-for="result in slide.image.results"
+                    v-for="result in slide.image.results.filter((item) => !item.failed)"
                     :key="result.imageUrl"
                     type="button"
                     class="presentation-image__option"
                     :class="{ 'presentation-image__option--selected': slide.image.selected?.url === result.imageUrl }"
                     :aria-pressed="slide.image.selected?.url === result.imageUrl ? 'true' : 'false'"
+                    :disabled="!result.previewUrl"
                     :title="[result.title, result.author, result.license].filter(Boolean).join(' · ')"
                     @click="selectFound(slide, result)"
                   >
@@ -365,7 +363,7 @@ onMounted(load)
         <div class="teacher-stack">
           <UiCheckbox
             v-model="settings.withPdf"
-            label="Сделать также PDF — его откроет любой телефон"
+            label="Сделать также PDF"
           />
           <div class="presentation-actions">
             <UiButton
@@ -385,7 +383,7 @@ onMounted(load)
           <template v-if="builtResult">
             <UiAlert
               variant="success"
-              :message="`Готово: ${builtResult.slides} слайдов. Файлы добавлены в материалы лекции — студенты увидят их на странице лекции.`"
+              :message="`Готово: ${slidesText(builtResult.slides)}, файлы добавлены в материалы лекции.`"
             />
             <div class="presentation-actions">
               <UiButton

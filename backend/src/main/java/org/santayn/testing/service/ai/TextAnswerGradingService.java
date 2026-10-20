@@ -267,15 +267,18 @@ public class TextAnswerGradingService implements AiJobHandler {
         response.setAiConfidence(BigDecimal.valueOf(verdict.confidence()).setScale(4, RoundingMode.HALF_UP));
         response.setAiFeedback(AiJobService.truncate(verdict.feedback(), 2000));
         response.setAiDetailsJson(detailsJson(verdict));
+        if (verdict.suspicious()) {
+            // Похоже на попытку повлиять на проверку: баллы ИИ не применяем, остаётся оценка по правилам.
+            response.setReviewStatus(ResponseReview.NEEDS_TEACHER);
+            return response.getReviewStatus();
+        }
         response.setAwardedPoints(points(question).multiply(score).setScale(2, RoundingMode.HALF_UP));
         response.setCorrect(verdict.score() >= 0.995);
         response.setGradedBy(ResponseReview.GRADED_BY_AI);
         response.setGradedAtUtc(Instant.now());
         boolean confident = BigDecimal.valueOf(verdict.confidence())
                 .compareTo(properties.getGrading().getReviewThreshold()) >= 0;
-        response.setReviewStatus(confident && !verdict.suspicious()
-                ? ResponseReview.AI_GRADED
-                : ResponseReview.NEEDS_TEACHER);
+        response.setReviewStatus(confident ? ResponseReview.AI_GRADED : ResponseReview.NEEDS_TEACHER);
         attemptScoreService.recalculateIfCompleted(response.getTestAttemptId());
         return response.getReviewStatus();
     }
@@ -286,7 +289,7 @@ public class TextAnswerGradingService implements AiJobHandler {
                 : input.criteria();
         return "Вопрос:\n<<<\n" + input.question() + "\n>>>\n"
                 + "Максимальный балл: " + input.points().stripTrailingZeros().toPlainString() + "\n"
-                + "Эталонные ответы (варианты разделены «;» или переносом строки):\n<<<\n"
+                + "Эталонные ответы (варианты разделены «|» или переносом строки):\n<<<\n"
                 + nullToEmpty(input.expected()) + "\n>>>\n"
                 + "Критерии оценивания:\n<<<\n" + criteria + "\n>>>\n"
                 + "Ответ студента:\n<<<\n" + nullToEmpty(input.answer()) + "\n>>>";

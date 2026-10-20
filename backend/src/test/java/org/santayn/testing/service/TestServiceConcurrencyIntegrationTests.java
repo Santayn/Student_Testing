@@ -36,6 +36,7 @@ class TestServiceConcurrencyIntegrationTests {
     @Autowired private TestRepository testRepository;
     @Autowired private TestAssignmentRepository testAssignmentRepository;
     @Autowired private TestAttemptRepository testAttemptRepository;
+    @Autowired private org.santayn.testing.repository.QuestionRepository questionRepository;
 
     @Test
     void parallelStartCannotExceedAttemptLimit() throws Exception {
@@ -79,6 +80,38 @@ class TestServiceConcurrencyIntegrationTests {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void deletesTestThatStudentsAlreadyStarted() {
+        Person person = new Person();
+        person.setFirstName("Deleted");
+        person.setLastName("Test");
+        person.setDateOfBirth(LocalDate.of(2000, 1, 1));
+        person.setEmail("deleted-" + System.nanoTime() + "@test.local");
+        person.setPhone("");
+        person = personRepository.saveAndFlush(person);
+
+        org.santayn.testing.models.test.Test test = new org.santayn.testing.models.test.Test();
+        test.setTitle("Test with attempts");
+        test.setAttemptsAllowed(2);
+        test.setQuestionCount(1);
+        test = testRepository.saveAndFlush(test);
+        org.santayn.testing.models.question.Question question = new org.santayn.testing.models.question.Question();
+        question.setTestId(test.getId());
+        question.setType(org.santayn.testing.models.question.QuestionTypeSupport.TYPE_TEXT);
+        question.setQuestion("Вопрос");
+        question.setCorrectAnswer("ответ");
+        question = questionRepository.saveAndFlush(question);
+        TestAssignment assignment = activeAssignment(test.getId());
+        TestAttempt attempt = testService.startOrResumeAttemptWithRandomQuestions(assignment.getId(), person.getId(), null)
+                .attempt();
+        testService.submitResponse(attempt.getId(), question.getId(), "ответ", List.of());
+
+        testService.delete(test.getId());
+
+        assertThat(testRepository.existsById(test.getId())).isFalse();
+        assertThat(testAssignmentRepository.findByTestId(test.getId())).isEmpty();
     }
 
     private TestAssignment activeAssignment(Integer testId) {
