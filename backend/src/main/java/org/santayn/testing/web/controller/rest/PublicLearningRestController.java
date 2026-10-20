@@ -35,6 +35,7 @@ import org.santayn.testing.service.LectureMaterialService;
 import org.santayn.testing.service.LectureTestLinkService;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.service.UserRegisterService;
+import org.santayn.testing.service.lecture.LectureTextExportService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -89,6 +90,7 @@ public class PublicLearningRestController {
     private final LectureMaterialService lectureMaterialService;
     private final TestService testService;
     private final UserRegisterService userRegisterService;
+    private final LectureTextExportService lectureTextExportService;
 
     public PublicLearningRestController(CourseTemplateRepository courseTemplateRepository,
                                         CourseVersionRepository courseVersionRepository,
@@ -106,7 +108,8 @@ public class PublicLearningRestController {
                                         LectureTestLinkService lectureTestLinkService,
                                         LectureMaterialService lectureMaterialService,
                                         TestService testService,
-                                        UserRegisterService userRegisterService) {
+                                        UserRegisterService userRegisterService,
+                                        LectureTextExportService lectureTextExportService) {
         this.courseTemplateRepository = courseTemplateRepository;
         this.courseVersionRepository = courseVersionRepository;
         this.groupMembershipRepository = groupMembershipRepository;
@@ -124,6 +127,7 @@ public class PublicLearningRestController {
         this.lectureMaterialService = lectureMaterialService;
         this.testService = testService;
         this.userRegisterService = userRegisterService;
+        this.lectureTextExportService = lectureTextExportService;
     }
 
     @GetMapping("/subjects/{subjectId}")
@@ -219,6 +223,17 @@ public class PublicLearningRestController {
                 .contentType(mediaType)
                 .contentLength(storedMaterial.material().getSizeBytes())
                 .body(resource);
+    }
+
+    /** Текст лекции файлом Word или PDF. */
+    @GetMapping("/lectures/{lectureId}/text/export")
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> exportLectureText(@PathVariable Integer lectureId,
+                                                    @RequestParam(defaultValue = "pdf") String format,
+                                                    Authentication authentication) {
+        StudentLearningContext context = studentLearningContext(authentication);
+        requireAccessibleLecture(context, lectureId);
+        return LectureTextExportService.download(lectureTextExportService.export(lectureId, format));
     }
 
     @GetMapping("/tests/{testId}")

@@ -258,6 +258,10 @@ class LearningApi(private val api: ApiClient) {
     suspend fun downloadMaterial(lectureId: Int, materialId: Int, fallbackName: String): DownloadedFile =
         api.download("/public/learning/lectures/$lectureId/materials/$materialId/download", fallbackName = fallbackName)
 
+    /** Текст лекции в формате docx или pdf. */
+    suspend fun exportLectureText(lectureId: Int, format: String): DownloadedFile =
+        api.download("/public/learning/lectures/$lectureId/text/export?format=$format", fallbackName = "lecture.$format")
+
     /** Потоковое скачивание материала в файл (видео и другие большие файлы). */
     suspend fun downloadMaterialTo(
         lectureId: Int,

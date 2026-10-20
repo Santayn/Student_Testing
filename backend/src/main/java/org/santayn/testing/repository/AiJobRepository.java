@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 public interface AiJobRepository extends JpaRepository<AiJob, Long> {
@@ -35,5 +36,20 @@ public interface AiJobRepository extends JpaRepository<AiJob, Long> {
     @Query("select coalesce(sum(job.imagesGenerated), 0) from AiJob job where job.createdAtUtc >= :since")
     long sumImagesSince(@Param("since") Instant since);
 
+    List<AiJob> findByCreatedAtUtcGreaterThanEqualAndCreatedAtUtcLessThan(Instant from, Instant to);
+
     List<AiJob> findByTypeAndTargetIdAndStatusIn(String type, Long targetId, List<Integer> statuses);
+
+    /** Задачи по удалённой лекции, ещё не взятые в работу, сразу завершаются ошибкой. */
+    @Modifying
+    @Query("update AiJob job set job.status = 4, job.error = :error, job.progressText = null, job.finishedAtUtc = :now "
+            + "where job.status = 1 and job.type in :types and job.targetId = :targetId")
+    int failQueuedByTypesAndTargetId(@Param("types") Collection<String> types,
+                                     @Param("targetId") Long targetId,
+                                     @Param("error") String error,
+                                     @Param("now") Instant now);
+
+    @Modifying
+    @Query("update AiJob job set job.targetId = null where job.type in :types and job.targetId = :targetId")
+    int clearTargetId(@Param("types") Collection<String> types, @Param("targetId") Long targetId);
 }

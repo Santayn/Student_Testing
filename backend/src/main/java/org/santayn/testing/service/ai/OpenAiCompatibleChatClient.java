@@ -92,10 +92,18 @@ public class OpenAiCompatibleChatClient implements AiChatClient {
         }
         JsonNode usage = root.path("usage");
         return new AiChatResult(
-                text,
+                stripThinking(text),
                 usage.path("prompt_tokens").asLong(0),
                 usage.path("completion_tokens").asLong(0)
         );
+    }
+
+    /** Рассуждающие модели (Qwen, DeepSeek) иногда пишут ход мыслей в <think>…</think> прямо в ответ. */
+    static String stripThinking(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replaceAll("(?s)<think>.*?</think>", "").trim();
     }
 
     static String describeError(int status) {

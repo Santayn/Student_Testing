@@ -5,6 +5,9 @@ import {
 } from 'vue'
 
 import { aiApi } from '@/api/ai.api'
+import { getApiErrorMessage } from '@/api/error'
+import { lecturesApi } from '@/api/lectures.api'
+import { saveBlobResponse } from '@/utils/fileDownload'
 
 import {
   UiAlert,
@@ -22,11 +25,40 @@ import { useAiStatus } from '@/composables/ai/useAiStatus'
 const props = defineProps({
   modelValue: { type: String, default: '' },
   lectureId: { type: [Number, String], default: null },
+  // Текст лекции, сохранённый на сервере: выгружается в Word/PDF именно он.
+  savedBody: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'materials-changed'])
+
+const exporting = ref('')
+const exportError = ref('')
+const canExport = computed(() => Boolean(props.lectureId && String(props.savedBody ?? '').trim()))
+const unsavedChanges = computed(() => String(props.modelValue ?? '').trim() !== String(props.savedBody ?? '').trim())
+
+async function exportText(format, toMaterials) {
+  if (exporting.value || !canExport.value) {
+    return
+  }
+
+  exporting.value = `${format}-${toMaterials ? 'material' : 'file'}`
+  exportError.value = ''
+
+  try {
+    if (toMaterials) {
+      await lecturesApi.saveTextAsMaterial(props.lectureId, format)
+      emit('materials-changed')
+    } else {
+      saveBlobResponse(await lecturesApi.exportText(props.lectureId, format), `lecture.${format}`)
+    }
+  } catch (requestError) {
+    exportError.value = getApiErrorMessage(requestError, 'Не удалось подготовить файл.')
+  } finally {
+    exporting.value = ''
+  }
+}
 
 const { aiStatus } = useAiStatus()
 const scanJob = useAiJob()
@@ -175,6 +207,46 @@ function insertRecognized(mode) {
     </div>
 
     <div
+      v-if="canExport"
+      class="lecture-body-editor__export"
+    >
+      <span class="teacher-muted">Скачать</span>
+      <UiButton
+        v-for="format in ['docx', 'pdf']"
+        :key="`file-${format}`"
+        variant="ghost"
+        size="sm"
+        icon="pi pi-download"
+        :label="format.toUpperCase()"
+        :loading="exporting === `${format}-file`"
+        :disabled="Boolean(exporting)"
+        @click="exportText(format, false)"
+      />
+      <span class="teacher-muted">В материалы</span>
+      <UiButton
+        v-for="format in ['docx', 'pdf']"
+        :key="`material-${format}`"
+        variant="ghost"
+        size="sm"
+        icon="pi pi-paperclip"
+        :label="format.toUpperCase()"
+        :loading="exporting === `${format}-material`"
+        :disabled="Boolean(exporting)"
+        @click="exportText(format, true)"
+      />
+      <span
+        v-if="unsavedChanges"
+        class="teacher-muted"
+      >выгружается сохранённая версия</span>
+    </div>
+
+    <UiAlert
+      v-if="exportError"
+      variant="danger"
+      :message="exportError"
+    />
+
+    <div
       v-if="preview"
       class="lecture-body-editor__preview"
     >
@@ -207,6 +279,7 @@ function insertRecognized(mode) {
 }
 
 .lecture-body-editor__tools,
+.lecture-body-editor__export,
 .lecture-body-editor__scan-actions {
   display: flex;
   align-items: center;

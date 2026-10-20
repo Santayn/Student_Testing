@@ -77,6 +77,7 @@ class AiPipelineIntegrationTests {
     @Autowired private AiJobWorker worker;
     @Autowired private AiJobService jobService;
     @Autowired private ResponseReviewService reviewService;
+    @Autowired private AiUsageReportService usageReportService;
     @Autowired private LectureScanService lectureScanService;
     @Autowired private PresentationOutlineService outlineService;
     @Autowired private PresentationBuildService buildService;
@@ -159,6 +160,27 @@ class AiPipelineIntegrationTests {
         QuestionResponse response = responseRepository.findById(submitted.responseId()).orElseThrow();
         assertThat(response.getReviewStatus()).isEqualTo(ResponseReview.NEEDS_TEACHER);
         assertThat(response.getGradedBy()).isEqualTo(ResponseReview.GRADED_BY_AUTO);
+    }
+
+    @Test
+    void usageReportCountsGradingTokens() {
+        SERVER.respond(request -> LoopbackAiServer.Response.ok(LoopbackAiServer.chat(
+                "{\"score\": 1, \"verdict\": \"correct\", \"confidence\": 0.9}"
+        )));
+        AiUsageReportService.Usage before = usageReportService.report(null, null).total();
+        submitTextAnswer("ОЗУ — это память компьютера для запущенных программ");
+
+        worker.runReadyJobsNow();
+
+        AiUsageReportService.Report report = usageReportService.report(null, null);
+        assertThat(report.total().jobs()).isEqualTo(before.jobs() + 1);
+        assertThat(report.total().tokens()).isEqualTo(before.tokens() + 150);
+        assertThat(report.byType()).anySatisfy(type -> {
+            assertThat(type.title()).isEqualTo("Проверка ответов");
+            assertThat(type.usage().tokens()).isGreaterThanOrEqualTo(150);
+        });
+        // Тест без автора: расход относится к «тестам администратора».
+        assertThat(report.byUser()).anySatisfy(user -> assertThat(user.personId()).isNull());
     }
 
     @Test

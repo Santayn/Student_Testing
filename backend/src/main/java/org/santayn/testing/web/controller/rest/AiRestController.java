@@ -14,7 +14,6 @@ import org.santayn.testing.service.ai.AiImageClient;
 import org.santayn.testing.service.ai.AiJobService;
 import org.santayn.testing.service.ai.AiOcrService;
 import org.santayn.testing.service.ai.AiProperties;
-import org.santayn.testing.service.ai.AiUsageService;
 import org.santayn.testing.service.ai.ImageGenerationService;
 import org.santayn.testing.service.ai.ImageSearchService;
 import org.santayn.testing.service.ai.LectureScanService;
@@ -51,7 +50,6 @@ public class AiRestController {
 
     private final AiProperties properties;
     private final AiJobService jobService;
-    private final AiUsageService usageService;
     private final AiOcrService ocrService;
     private final AiImageClient imageClient;
     private final AiFileStorage fileStorage;
@@ -66,7 +64,6 @@ public class AiRestController {
 
     public AiRestController(AiProperties properties,
                             AiJobService jobService,
-                            AiUsageService usageService,
                             AiOcrService ocrService,
                             AiImageClient imageClient,
                             AiFileStorage fileStorage,
@@ -80,7 +77,6 @@ public class AiRestController {
                             CurrentUserAccessService accessService) {
         this.properties = properties;
         this.jobService = jobService;
-        this.usageService = usageService;
         this.ocrService = ocrService;
         this.imageClient = imageClient;
         this.fileStorage = fileStorage;
@@ -94,11 +90,10 @@ public class AiRestController {
         this.accessService = accessService;
     }
 
-    /** Что из ИИ доступно — клиенты показывают только работающие кнопки. */
+    /** Что из ИИ доступно — клиенты показывают только работающие кнопки. Расход — в отчёте администратора. */
     @GetMapping("/status")
     public AiStatusResponse status() {
         boolean enabled = properties.textEnabled();
-        AiUsageService.Usage usage = usageService.currentMonth();
         return new AiStatusResponse(
                 enabled,
                 properties.normalizedProvider(),
@@ -107,8 +102,7 @@ public class AiRestController {
                 ocrService.engine(),
                 enabled,
                 imageClient.isAvailable(),
-                imageSearchService.isAvailable(),
-                new UsageResponse(usage.tokens(), usage.tokenLimit(), usage.ocrPages(), usage.imagesGenerated())
+                imageSearchService.isAvailable()
         );
     }
 
@@ -237,11 +231,7 @@ public class AiRestController {
                                    String ocrEngine,
                                    boolean presentation,
                                    boolean imageGeneration,
-                                   boolean imageSearch,
-                                   UsageResponse usage) {
-    }
-
-    public record UsageResponse(long tokens, long tokenLimit, long ocrPages, long imagesGenerated) {
+                                   boolean imageSearch) {
     }
 
     public record CriteriaSuggestionRequest(@NotBlank @Size(max = 2000) String question,

@@ -70,6 +70,19 @@ class SecurityAccessRegressionTests {
     }
 
     @Test
+    void aiUsageIsVisibleOnlyToAdminsAndAuditors() throws Exception {
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-usage").with(user("teacher").roles("TEACHER")))
+                .andExpect(status().isForbidden());
+        assertStudentForbidden(HttpMethod.GET, "/api/v1/admin/ai-usage");
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-usage").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total.jobs").exists());
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-usage")
+                        .with(user("auditor").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ai.usage.read"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void studentCannotCreateDatabaseBackup() throws Exception {
         assertStudentForbidden(HttpMethod.POST, "/api/v1/admin/database-backups");
     }

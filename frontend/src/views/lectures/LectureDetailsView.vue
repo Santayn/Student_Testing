@@ -21,6 +21,7 @@ import {
 } from '@/utils/apiErrorPresentation'
 
 import LectureMarkdown from '@/components/lectures/LectureMarkdown.vue'
+import { saveBlobResponse } from '@/utils/fileDownload'
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
 
 import {
@@ -444,6 +445,27 @@ function responseFilename(
   )
 }
 
+const exportingFormat = ref('')
+
+/** Текст лекции файлом PDF или Word. */
+async function exportLectureText(format) {
+  if (exportingFormat.value) {
+    return
+  }
+
+  exportingFormat.value = format
+  error.value = ''
+
+  try {
+    const response = await learningApi.exportLectureText(lectureId.value, format)
+    saveBlobResponse(response, `lecture.${format}`)
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError, 'Не удалось скачать текст лекции.')
+  } finally {
+    exportingFormat.value = ''
+  }
+}
+
 async function downloadMaterial(
   material
 ) {
@@ -681,6 +703,19 @@ onMounted(loadLecture)
         v-if="lecture.body"
         title="Текст лекции"
       >
+        <template #actions>
+          <UiButton
+            v-for="format in ['pdf', 'docx']"
+            :key="format"
+            variant="secondary"
+            size="sm"
+            icon="pi pi-download"
+            :label="format.toUpperCase()"
+            :loading="exportingFormat === format"
+            :disabled="Boolean(exportingFormat)"
+            @click="exportLectureText(format)"
+          />
+        </template>
         <LectureMarkdown :source="lecture.body" />
       </UiCard>
 

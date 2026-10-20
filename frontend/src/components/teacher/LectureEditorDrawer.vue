@@ -41,6 +41,7 @@ defineProps({
   fileInputKey: { type: Number, default: 0 },
   loadingMaterials: { type: Boolean, default: false },
   deletingMaterialId: { type: [Number, String], default: null },
+  savedBody: { type: String, default: '' },
 })
 
 const emit = defineEmits([
@@ -51,6 +52,7 @@ const emit = defineEmits([
   'remove-pending-file',
   'download-material',
   'request-delete-material',
+  'materials-changed',
   'close',
   'save',
 ])
@@ -129,9 +131,11 @@ defineExpose({
         <LectureBodyEditor
           v-model="form.body"
           :lecture-id="form.id"
+          :saved-body="savedBody"
           :disabled="saving"
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'body')"
           @update:model-value="emit('field-change', 'body')"
+          @materials-changed="emit('materials-changed')"
         />
 
         <section class="teacher-lecture-form-section">

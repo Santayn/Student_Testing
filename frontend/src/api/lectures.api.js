@@ -64,6 +64,26 @@ export const lecturesApi = {
     )
   },
 
+  /** Текст лекции файлом: format — docx | pdf. */
+  exportText(lectureId, format) {
+    return http.get(
+      `/lectures/${lectureId}/text/export`,
+      {
+        params: { format },
+        responseType: 'blob',
+        timeout: API_TIMEOUTS.fileTransfer,
+      }
+    )
+  },
+
+  saveTextAsMaterial(lectureId, format) {
+    return http.post(
+      `/lectures/${lectureId}/text/materials`,
+      null,
+      { params: { format } }
+    )
+  },
+
   removeMaterial(lectureId, materialId) {
     return http.delete(
       `/lectures/${lectureId}/materials/${materialId}`

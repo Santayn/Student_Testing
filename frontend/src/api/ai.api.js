@@ -69,4 +69,9 @@ export const aiApi = {
   generateImage(data) {
     return http.post('/ai/images/generate', data)
   },
+
+  /** Расход ИИ — только администраторам (право ai.usage.read). */
+  getUsageReport(params = {}, config = {}) {
+    return http.get('/admin/ai-usage', { ...config, params })
+  },
 }

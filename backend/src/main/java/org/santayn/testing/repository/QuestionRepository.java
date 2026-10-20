@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
@@ -46,4 +47,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     @Query("select coalesce(max(q.ordinal), 0) from Question q where q.topicId = :topicId and q.testId is null")
     int findMaxOrdinalByTopicId(@Param("topicId") Integer topicId);
+
+    long countByCourseLectureId(Integer courseLectureId);
+
+    long countByTopicIdIn(Collection<Integer> topicIds);
 }

@@ -213,6 +213,10 @@ const {
 
 const lectureId = computed(() => form.id)
 
+const savedLectureBody = computed(() => (
+  lectures.value.find((lecture) => Number(lecture.id) === Number(form.id))?.body ?? ''
+))
+
 const {
   materials,
   pendingFiles,
@@ -660,7 +664,9 @@ onMounted(async () => {
       @field-change="clearFormFieldError(formFieldErrors, formError, $event)"
       @files-change="setPendingFiles"
       @remove-pending-file="removePendingFile"
+      :saved-body="savedLectureBody"
       @download-material="downloadMaterial"
+      @materials-changed="loadMaterials()"
       @request-delete-material="requestDeleteMaterial"
       @close="requestLectureDrawerClose"
       @save="saveLecture"
