@@ -53,6 +53,4 @@ public interface TestAssignmentRepository extends JpaRepository<TestAssignment, 
     boolean existsByTestIdAndCourseLectureIdAndIdNot(Integer testId, Integer courseLectureId, Integer id);
 
     boolean existsByTestIdAndTeachingAssignmentIdAndIdNot(Integer testId, Integer teachingAssignmentId, Integer id);
-
-    long countByCourseLectureId(Integer courseLectureId);
 }

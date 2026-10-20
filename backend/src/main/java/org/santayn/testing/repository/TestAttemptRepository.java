@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface TestAttemptRepository extends JpaRepository<TestAttempt, Integer> {
@@ -20,6 +21,8 @@ public interface TestAttemptRepository extends JpaRepository<TestAttempt, Intege
     List<TestAttempt> findByTestAssignmentIdAndPersonId(Integer testAssignmentId, Integer personId);
 
     long countByTestAssignmentIdAndPersonId(Integer testAssignmentId, Integer personId);
+
+    long countByTestAssignmentIdIn(Collection<Integer> testAssignmentIds);
 
     @Query("""
             select attempt

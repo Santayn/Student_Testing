@@ -48,7 +48,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("select coalesce(max(q.ordinal), 0) from Question q where q.topicId = :topicId and q.testId is null")
     int findMaxOrdinalByTopicId(@Param("topicId") Integer topicId);
 
-    long countByCourseLectureId(Integer courseLectureId);
-
-    long countByTopicIdIn(Collection<Integer> topicIds);
+    @Query("select count(item) from Question item where item.courseLectureId = :lectureId or item.topicId in :topicIds")
+    long countByLectureOrTopics(@Param("lectureId") Integer lectureId, @Param("topicIds") Collection<Integer> topicIds);
 }

@@ -1,26 +1,59 @@
 package org.santayn.testing.service;
 
 import lombok.RequiredArgsConstructor;
+import org.santayn.testing.models.ai.AiJobType;
 import org.santayn.testing.models.lecture.Lecture;
+import org.santayn.testing.models.lecture.LectureAssignment;
 import org.santayn.testing.models.subject.SubjectMembership;
+import org.santayn.testing.models.test.TestAssignment;
+import org.santayn.testing.models.topic.Topic;
+import org.santayn.testing.repository.AiJobRepository;
 import org.santayn.testing.repository.CourseVersionRepository;
+import org.santayn.testing.repository.LectureAssignmentRepository;
 import org.santayn.testing.repository.LectureRepository;
+import org.santayn.testing.repository.LectureTestLinkRepository;
+import org.santayn.testing.repository.QuestionRepository;
+import org.santayn.testing.repository.StudentLectureProgressRepository;
 import org.santayn.testing.repository.SubjectMembershipRepository;
+import org.santayn.testing.repository.TestAssignmentRepository;
+import org.santayn.testing.repository.TestAttemptRepository;
+import org.santayn.testing.repository.TestQuestionSelectionRuleRepository;
 import org.santayn.testing.repository.TestRepository;
+import org.santayn.testing.repository.TopicRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class LectureService {
 
+    /** Типы ИИ-задач, у которых targetId — id лекции. */
+    private static final List<String> LECTURE_AI_JOB_TYPES = List.of(
+            AiJobType.LECTURE_SCAN,
+            AiJobType.PRESENTATION_OUTLINE,
+            AiJobType.PRESENTATION_BUILD,
+            AiJobType.IMAGE_GENERATION
+    );
+
     private final LectureRepository lectureRepository;
     private final CourseVersionRepository courseVersionRepository;
     private final SubjectMembershipRepository subjectMembershipRepository;
     private final TestRepository testRepository;
     private final LectureTestLinkService lectureTestLinkService;
+    private final LectureMaterialService lectureMaterialService;
+    private final LectureTestLinkRepository lectureTestLinkRepository;
+    private final LectureAssignmentRepository lectureAssignmentRepository;
+    private final StudentLectureProgressRepository studentLectureProgressRepository;
+    private final TopicRepository topicRepository;
+    private final QuestionRepository questionRepository;
+    private final TestAssignmentRepository testAssignmentRepository;
+    private final TestAttemptRepository testAttemptRepository;
+    private final TestQuestionSelectionRuleRepository selectionRuleRepository;
+    private final AiJobRepository aiJobRepository;
 
     @Transactional(readOnly = true)
     public List<Lecture> findAll(Integer subjectId, Integer subjectMembershipId, Integer courseVersionId) {
@@ -168,10 +201,66 @@ public class LectureService {
         return lecture;
     }
 
+    /**
+     * Удаляет лекцию вместе с тем, что принадлежит только ей: материалами (файлы стираются после коммита),
+     * связями с тестами и их назначениями через лекцию, выдачами группам с прогрессом студентов и темами.
+     * Вопросы в банке лекции, правила отбора вопросов в тестах и попытки студентов по тестам лекции
+     * удалением лекции не трогаются: при их наличии удаление запрещено.
+     */
     @Transactional
     public void delete(Integer id) {
         Lecture lecture = get(id);
+        List<Topic> topics = topicRepository.findByCourseLectureIdOrderByOrdinalAsc(id);
+        // Назначения со scope «лекция» создаются автоматически при привязке теста к лекции.
+        List<TestAssignment> testAssignments = testAssignmentRepository.findByCourseLectureId(id);
+        requireLectureDeletable(id, topics.stream().map(Topic::getId).toList(), testAssignments);
+
+        lectureMaterialService.deleteAllForLecture(id);
+        lectureTestLinkRepository.deleteByCourseLectureId(id);
+        testAssignmentRepository.deleteAll(testAssignments);
+        List<LectureAssignment> assignments = lectureAssignmentRepository.findByCourseLectureId(id);
+        if (!assignments.isEmpty()) {
+            studentLectureProgressRepository.deleteByLectureAssignmentIdIn(
+                    assignments.stream().map(LectureAssignment::getId).toList()
+            );
+            lectureAssignmentRepository.deleteAll(assignments);
+        }
+        topicRepository.deleteAll(topics);
+
+        Long targetId = id.longValue();
+        aiJobRepository.failQueuedByTypesAndTargetId(LECTURE_AI_JOB_TYPES, targetId, "Лекция удалена.", Instant.now());
+        aiJobRepository.clearTargetId(LECTURE_AI_JOB_TYPES, targetId);
+
         lectureRepository.delete(lecture);
+    }
+
+    private void requireLectureDeletable(Integer lectureId,
+                                         List<Integer> topicIds,
+                                         List<TestAssignment> testAssignments) {
+        long questions = questionRepository.countByLectureOrTopics(lectureId, topicIds);
+        long selectionRules = selectionRuleRepository.countByLectureOrTopics(lectureId, topicIds);
+        long attempts = testAssignments.isEmpty()
+                ? 0
+                : testAttemptRepository.countByTestAssignmentIdIn(
+                        testAssignments.stream().map(TestAssignment::getId).toList()
+                );
+
+        List<String> reasons = new ArrayList<>();
+        if (questions > 0) {
+            reasons.add("в банке вопросов лекции и её тем есть вопросы (" + questions
+                    + ") — удалите их или перенесите в другую тему");
+        }
+        if (selectionRules > 0) {
+            reasons.add("тесты отбирают вопросы из этой лекции или её тем (правил: " + selectionRules
+                    + ") — измените правила отбора в тестах");
+        }
+        if (attempts > 0) {
+            reasons.add("студенты уже проходили тесты, открытые через эту лекцию (попыток: " + attempts
+                    + ") — результаты удаляются только вместе с тестом");
+        }
+        if (!reasons.isEmpty()) {
+            throw new AuthConflictException("Нельзя удалить лекцию: " + String.join("; ", reasons) + ".");
+        }
     }
 
     private LecturePlacement resolvePlacement(Integer subjectId,
