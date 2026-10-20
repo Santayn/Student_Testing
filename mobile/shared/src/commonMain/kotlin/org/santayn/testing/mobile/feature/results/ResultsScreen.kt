@@ -68,6 +68,8 @@ import org.santayn.testing.mobile.domain.score
 import org.santayn.testing.mobile.domain.sortedByName
 import org.santayn.testing.mobile.feature.tests.AnswerView
 import org.santayn.testing.mobile.navigation.AppNavigator
+import org.santayn.testing.mobile.data.model.ResultItemDto
+import org.santayn.testing.mobile.data.model.ReviewStatus
 
 /*
  * Результаты — views/results/ResultsView.vue, composables/results.
@@ -353,6 +355,21 @@ private fun SummaryCard(data: ResultDataDto, teacherMode: Boolean, testSelected:
     }
 }
 
+/** Состояние проверки свободного ответа и комментарии ИИ и преподавателя. */
+@Composable
+private fun ReviewDetails(item: ResultItemDto, teacherMode: Boolean) {
+    val status = item.reviewStatus
+    val showStatus = if (teacherMode) status != null && status != "none" else item.reviewPending
+    if (showStatus) {
+        StatusChip(
+            if (teacherMode) ReviewStatus.title(status) else "Ответ ещё проверяется",
+            if (status == ReviewStatus.NEEDS_TEACHER) Tone.WARNING else Tone.INFO,
+        )
+    }
+    item.teacherComment?.takeIf { it.isNotBlank() }?.let { Banner(it, Tone.PRIMARY, title = "Комментарий преподавателя") }
+    item.aiFeedback?.takeIf { it.isNotBlank() }?.let { Banner(it, Tone.INFO, title = "Комментарий ИИ") }
+}
+
 /** Попытка с раскрывающимися ответами (components/results/ResultAttemptCard.vue). */
 @Composable
 private fun AttemptCard(attempt: ResultAttemptDto, showStudent: Boolean) {
@@ -413,6 +430,7 @@ private fun AttemptCard(attempt: ResultAttemptDto, showStudent: Boolean) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    ReviewDetails(item, teacherMode = showStudent)
                 }
             }
         }

@@ -62,16 +62,28 @@
 | `APP_DATABASE_BACKUP_SCHEMA` | пусто | ограничение схемой |
 | `APP_DATABASE_BACKUP_INCLUDE_CLEAN` | `true` | clean statements |
 
-## Local LLM
+## ИИ
 
 | Переменная | Default | Назначение |
 |---|---|---|
-| `APP_TEXT_ANSWER_LOCAL_LLM_ENABLED` | `false` | включить evaluator |
-| `APP_TEXT_ANSWER_LOCAL_LLM_ENDPOINT` | `http://127.0.0.1:11434/api/generate` | endpoint |
-| `APP_TEXT_ANSWER_LOCAL_LLM_MODEL` | `qwen2.5:1.5b-instruct` | модель |
-| `APP_TEXT_ANSWER_LOCAL_LLM_TIMEOUT_SECONDS` | `12` | timeout |
+| `APP_AI_PROVIDER` | `none` | `none`, `yandex`, `gigachat`, `openai` |
+| `APP_AI_API_KEY` | пусто | ключ API (GigaChat — ключ авторизации) |
+| `APP_AI_FOLDER_ID` | пусто | каталог Yandex Cloud |
+| `APP_AI_BASE_URL` | по провайдеру | адрес API, например Ollama `http://host.docker.internal:11434/v1` |
+| `APP_AI_AUTH_SCHEME` | по провайдеру | `Api-Key` у Yandex, иначе `Bearer` |
+| `APP_AI_TIMEOUT_SECONDS` | `90` | timeout запроса к модели |
+| `APP_AI_MONTHLY_TOKEN_LIMIT` | `20000000` | токенов в месяц, `0` — без лимита |
+| `APP_AI_MODEL_GRADING` | `aliceai-llm-flash` | проверка ответов и критерии |
+| `APP_AI_MODEL_LECTURE` | `aliceai-llm-flash` | разметка сканов |
+| `APP_AI_MODEL_PRESENTATION` | `aliceai-llm` | план презентации |
+| `APP_AI_MODEL_IMAGE` | `aliceai-image-art-3.0` | картинки |
+| `APP_AI_GRADING_ENABLED` | `true` | проверка свободных ответов |
+| `APP_AI_GRADING_REVIEW_THRESHOLD` | `0.7` | ниже — ответ уходит преподавателю |
+| `APP_AI_OCR_PROVIDER` | пусто | `yandex`, `tesseract`, `none`; пусто — по провайдеру |
+| `APP_AI_IMAGE_GENERATION_ENABLED` | `true` | генерация картинок |
+| `APP_AI_IMAGE_SEARCH_ENABLED` | `true` | поиск в Wikimedia Commons и Openverse |
 
-Эти параметры теперь явно пробрасываются Compose в backend container.
+Compose хранит файлы задач ИИ в volume `ai-files` (`APP_AI_STORAGE_DIR=/app/uploads/ai`). Подробно: [ИИ](../../technical/details/ai.md).
 
 ## Frontend build/dev (`VITE_*`)
 

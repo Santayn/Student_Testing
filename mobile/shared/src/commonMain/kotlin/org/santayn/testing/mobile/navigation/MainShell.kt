@@ -81,6 +81,7 @@ import org.santayn.testing.mobile.feature.teacher.QuestionsScreen
 import org.santayn.testing.mobile.feature.teacher.TestEditorScreen
 import org.santayn.testing.mobile.feature.teacher.TopicsScreen
 import org.santayn.testing.mobile.feature.teacher.WorkloadScreen
+import org.santayn.testing.mobile.feature.teacher.ReviewScreen
 import org.santayn.testing.mobile.feature.tests.TestScreen
 
 /** Навигационные действия, доступные экранам. */
@@ -155,6 +156,7 @@ private fun AppNavHost(nav: NavHostController, navigator: AppNavigator, role: Wo
         composable<TeacherLecturesRoute> { LectureManagementScreen(it.toRoute(), role, navigator) }
         composable<TeacherCoursesRoute> { CourseTemplatesScreen(it.toRoute(), role, navigator) }
         composable<TeacherWorkloadRoute> { WorkloadScreen(navigator) }
+        composable<TeacherReviewRoute> { ReviewScreen(navigator) }
 
         composable<AdminStructureRoute> {
             MenuHubScreen("Академическая структура", Menus.adminStructure, navigator)

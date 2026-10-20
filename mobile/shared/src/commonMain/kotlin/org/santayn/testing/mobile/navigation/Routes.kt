@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Domain
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryBooks
@@ -55,6 +56,7 @@ import org.santayn.testing.mobile.core.session.WorkspaceRole
 @Serializable data class TeacherLecturesRoute(val subjectId: Int? = null, val courseVersionId: Int? = null)
 @Serializable data class TeacherCoursesRoute(val subjectId: Int? = null)
 @Serializable data object TeacherWorkloadRoute
+@Serializable data object TeacherReviewRoute
 
 // Администратор
 @Serializable data object AdminStructureRoute
@@ -113,6 +115,7 @@ object Menus {
         MenuEntry("Создать тест", "Мастер создания теста и назначения группам", Icons.Default.PlaylistAddCheck, TeacherTestCreateRoute()),
         MenuEntry("Лекции", "Лекции, материалы и привязка тестов", Icons.Default.LibraryBooks, TeacherLecturesRoute()),
         MenuEntry("Шаблоны курса", "Шаблоны и версии курса", Icons.Default.CollectionsBookmark, TeacherCoursesRoute()),
+        MenuEntry("Проверка ответов", "Свободные ответы, которые нужно посмотреть", Icons.Default.FactCheck, TeacherReviewRoute),
     )
 
     val teacherWorkload = MenuEntry("Моя нагрузка", "Назначенная учебная нагрузка", Icons.Default.Work, TeacherWorkloadRoute)

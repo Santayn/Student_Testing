@@ -304,6 +304,19 @@ class ResultsApi(private val api: ApiClient) {
 
     suspend fun getStudentData(subjectId: Int? = null, testId: Int? = null): ResultDataDto =
         api.get("/results/student/data", mapOf("subjectId" to subjectId, "testId" to testId))
+
+    /** Очередь «Проверка ответов»: status — needs_teacher | ai_pending | ai_graded | teacher_confirmed | all. */
+    suspend fun getReviewQueue(status: String): ReviewQueueDto =
+        api.get("/results/teacher/review", mapOf("status" to status))
+
+    suspend fun gradeResponse(responseId: Long, awardedPoints: Double, comment: String?): ReviewItemDto =
+        api.put("/results/teacher/responses/$responseId/grade", GradeResponseRequest(awardedPoints, comment))
+
+    suspend fun acceptResponse(responseId: Long): ReviewItemDto =
+        api.postEmpty("/results/teacher/responses/$responseId/accept")
+
+    suspend fun regradeResponse(responseId: Long): ReviewItemDto =
+        api.postEmpty("/results/teacher/responses/$responseId/ai-regrade")
 }
 
 class DatabaseBackupsApi(private val api: ApiClient) {
@@ -312,4 +325,26 @@ class DatabaseBackupsApi(private val api: ApiClient) {
 
     suspend fun restore(file: UploadFile): RestoreResultDto =
         api.postMultipart("/admin/database-backups/restore", "file", listOf(file))
+}
+
+/** ИИ для преподавателя: статус, фоновые задачи, подсказка критериев, распознавание сканов лекций. */
+class AiApi(private val api: ApiClient) {
+    suspend fun getStatus(): AiStatusDto = api.get("/ai/status")
+
+    suspend fun getJob(jobId: Long): AiJobDto = api.get("/ai/jobs/$jobId")
+
+    suspend fun suggestCriteria(question: String, correctAnswer: String?, points: Double?): CriteriaSuggestionDto =
+        api.post(
+            "/ai/questions/criteria-suggestion",
+            CriteriaSuggestionRequest(question, correctAnswer, points),
+            ApiTimeouts.SUBMIT_ATTEMPT_MS,
+        )
+
+    suspend fun scanLecture(files: List<UploadFile>, lectureId: Int?, attachOriginals: Boolean): AiJobDto =
+        api.postMultipart(
+            "/ai/lecture-scans",
+            "files",
+            files,
+            mapOf("lectureId" to lectureId, "attachOriginals" to attachOriginals),
+        )
 }

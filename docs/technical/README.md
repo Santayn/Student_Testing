@@ -74,6 +74,8 @@ Axios interceptors, preflight refresh, retry после `401`, single-flight ref
 
 ### [Оценивание текстовых ответов](./details/text-answer-grading.md)
 
+### [ИИ: проверка ответов, сканы лекций, презентации](./details/ai.md)
+
 Детерминированная проверка текстовых ответов и опциональный локальный LLM с безопасным fallback.
 
 ### [Обработка ошибок](./details/error-handling.md)

@@ -1,6 +1,8 @@
 package org.santayn.testing.mobile.feature.learning
 
 import androidx.compose.foundation.layout.Box
+import org.santayn.testing.mobile.domain.markdownPlainText
+import org.santayn.testing.mobile.core.ui.MarkdownView
 import org.santayn.testing.mobile.core.ui.AppTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.draw.clip
@@ -429,6 +431,16 @@ fun LectureScreen(route: LectureRoute, navigator: AppNavigator) {
         LoadStateContent(state, onRetry = { vm.load() }, refreshing = refreshing, onRefresh = { vm.load(true) }) { data ->
             ScreenList(contentPadding = screenPadding(padding)) {
                 item { LectureHero(data.lecture) }
+
+                val body = data.lecture.body?.takeIf { it.isNotBlank() }
+                if (body != null) {
+                    item {
+                        SectionTitle("Текст лекции") {
+                            SpeakButton(key = "lecture-body-${data.lecture.id}", text = { markdownPlainText(body) })
+                        }
+                    }
+                    item { AppCard { MarkdownView(body) } }
+                }
 
                 item { SectionTitle("Материалы") }
                 if (data.materialsError != null) item { Banner(data.materialsError, Tone.DANGER) }

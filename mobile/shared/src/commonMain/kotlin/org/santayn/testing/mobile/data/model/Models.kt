@@ -308,6 +308,8 @@ data class LectureDto(
     val contentFolderKey: String? = null,
     val linkedTestId: Int? = null,
     val publicVisible: Boolean = false,
+    /** Текст лекции в Markdown. */
+    val body: String? = null,
 )
 
 @Serializable
@@ -321,6 +323,8 @@ data class LectureRequest(
     val contentFolderKey: String,
     val linkedTestId: Int?,
     val publicVisible: Boolean,
+    /** null — не менять текст лекции, пустая строка — удалить. */
+    val body: String? = null,
 )
 
 @Serializable
@@ -369,6 +373,7 @@ data class TestDto(
     val duration: String? = null,
     val attemptsAllowed: Int = 1,
     val questionCount: Int = 0,
+    val showAiFeedback: Boolean = true,
 )
 
 @Serializable
@@ -379,6 +384,7 @@ data class TestRequest(
     val attemptsAllowed: Int,
     val questionCount: Int,
     val selectionRules: List<SelectionRuleRequest>,
+    val showAiFeedback: Boolean? = null,
 )
 
 @Serializable
@@ -469,6 +475,8 @@ data class QuestionDto(
     val correctAnswer: String? = null,
     val matchingPairs: List<MatchingPairDto> = emptyList(),
     val active: Boolean = true,
+    /** Критерии оценивания свободного ответа. */
+    val gradingCriteria: String? = null,
 )
 
 @Serializable
@@ -489,6 +497,7 @@ data class QuestionRequest(
     val ordinal: Int,
     val correctAnswer: String?,
     val matchingPairs: List<MatchingPairDto>?,
+    val gradingCriteria: String? = null,
 )
 
 @Serializable
@@ -502,6 +511,8 @@ data class QuestionUpdateRequest(
     val correctAnswer: String?,
     val matchingPairs: List<MatchingPairDto>?,
     val active: Boolean,
+    /** null — не менять критерии, пустая строка — удалить. */
+    val gradingCriteria: String? = null,
 )
 
 @Serializable
@@ -551,6 +562,7 @@ data class PublicLectureDto(
     val title: String = "",
     val description: String? = null,
     val publicVisible: Boolean = true,
+    val body: String? = null,
 )
 
 @Serializable
@@ -620,6 +632,8 @@ data class SubmitAttemptResponse(
     val correctCount: Int = 0,
     val totalCount: Int = 0,
     val details: List<SubmitDetailDto> = emptyList(),
+    /** Сколько ответов ещё проверяют ИИ или преподаватель: балл предварительный. */
+    val pendingReviewCount: Int = 0,
 )
 
 @Serializable
@@ -628,6 +642,7 @@ data class SubmitDetailDto(
     val givenAnswer: String? = null,
     val correctAnswer: String? = null,
     val correct: Boolean = false,
+    val pendingReview: Boolean = false,
 )
 
 // endregion
@@ -722,7 +737,18 @@ data class ResultItemDto(
     val awardedPoints: Double? = null,
     val gradingStatus: String? = null,
     val gradingNote: String? = null,
-)
+    val responseId: Long? = null,
+    val questionType: Int = 0,
+    /** none | ai_pending | needs_teacher | ai_graded | teacher_confirmed */
+    val reviewStatus: String? = null,
+    val gradedBy: String? = null,
+    val aiFeedback: String? = null,
+    val teacherComment: String? = null,
+    val aiConfidence: Double? = null,
+) {
+    val reviewPending: Boolean
+        get() = reviewStatus == ReviewStatus.AI_PENDING || reviewStatus == ReviewStatus.NEEDS_TEACHER
+}
 
 // endregion
 
@@ -735,5 +761,91 @@ data class RestoreResultDto(
     val sizeBytes: Long = 0,
     val restoredAtUtc: String? = null,
 )
+
+// endregion
+
+// region AI
+
+object ReviewStatus {
+    const val AI_PENDING = "ai_pending"
+    const val NEEDS_TEACHER = "needs_teacher"
+    const val AI_GRADED = "ai_graded"
+    const val TEACHER_CONFIRMED = "teacher_confirmed"
+    const val ALL = "all"
+
+    fun title(status: String?): String = when (status) {
+        AI_PENDING -> "Проверяет ИИ"
+        NEEDS_TEACHER -> "Нужна проверка"
+        AI_GRADED -> "Оценено ИИ"
+        TEACHER_CONFIRMED -> "Проверено"
+        else -> "Без проверки"
+    }
+}
+
+@Serializable
+data class AiStatusDto(
+    val enabled: Boolean = false,
+    val provider: String? = null,
+    val grading: Boolean = false,
+    val lectureScan: Boolean = false,
+    val ocrEngine: String? = null,
+    val presentation: Boolean = false,
+    val imageGeneration: Boolean = false,
+    val imageSearch: Boolean = false,
+)
+
+@Serializable
+data class AiJobDto(
+    val id: Long,
+    val type: String = "",
+    /** queued | running | done | failed */
+    val status: String = "queued",
+    val progress: String? = null,
+    val error: String? = null,
+    val result: kotlinx.serialization.json.JsonObject? = null,
+) {
+    val active: Boolean get() = status == "queued" || status == "running"
+}
+
+@Serializable
+data class CriteriaSuggestionRequest(val question: String, val correctAnswer: String?, val points: Double?)
+
+@Serializable
+data class CriteriaSuggestionDto(val criteria: String = "")
+
+@Serializable
+data class ReviewQueueDto(
+    val items: List<ReviewItemDto> = emptyList(),
+    val counts: Map<String, Long> = emptyMap(),
+)
+
+@Serializable
+data class ReviewItemDto(
+    val responseId: Long,
+    val attemptId: Int? = null,
+    val testId: Int? = null,
+    val testName: String? = null,
+    val studentName: String? = null,
+    val questionType: Int = 0,
+    val questionText: String? = null,
+    val questionPoints: Double? = null,
+    val correctAnswer: String? = null,
+    val gradingCriteria: String? = null,
+    val answerText: String? = null,
+    val awardedPoints: Double? = null,
+    val correct: Boolean = false,
+    val reviewStatus: String? = null,
+    val gradedBy: String? = null,
+    val aiConfidence: Double? = null,
+    val aiFeedback: String? = null,
+    val matched: List<String> = emptyList(),
+    val missing: List<String> = emptyList(),
+    val suspicious: Boolean = false,
+    val teacherComment: String? = null,
+    val completedAt: String? = null,
+)
+
+@Serializable
+data class GradeResponseRequest(val awardedPoints: Double, val comment: String?)
 
 // endregion

@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Quiz
@@ -72,6 +73,7 @@ import org.santayn.testing.mobile.core.ui.SwitchRow
 import org.santayn.testing.mobile.core.ui.Tone
 import org.santayn.testing.mobile.core.ui.screenPadding
 import org.santayn.testing.mobile.core.util.formatNumber
+import org.santayn.testing.mobile.data.api.AiApi
 import org.santayn.testing.mobile.data.api.QuestionsApi
 import org.santayn.testing.mobile.data.api.TopicsApi
 import org.santayn.testing.mobile.data.model.MatchingPairDto
@@ -82,6 +84,7 @@ import org.santayn.testing.mobile.data.model.QuestionRequest
 import org.santayn.testing.mobile.data.model.QuestionType
 import org.santayn.testing.mobile.data.model.QuestionUpdateRequest
 import org.santayn.testing.mobile.data.model.TopicDto
+import org.santayn.testing.mobile.domain.AiFeatures
 import org.santayn.testing.mobile.domain.matchingPairsValidationMessage
 import org.santayn.testing.mobile.domain.normalizeMatchingPairs
 import org.santayn.testing.mobile.navigation.AppNavigator
@@ -101,6 +104,7 @@ data class QuestionForm(
     val correctAnswer: String = "",
     val pairs: List<MatchingPairDto> = listOf(MatchingPairDto(1), MatchingPairDto(2)),
     val active: Boolean = true,
+    val gradingCriteria: String = "",
 )
 
 data class OptionForm(
@@ -130,6 +134,7 @@ data class QuestionsUiState(
     val importFile: PlatformFile? = null,
     val importing: Boolean = false,
     val importResult: String? = null,
+    val suggestingCriteria: Boolean = false,
 )
 
 class QuestionsViewModel(
@@ -137,11 +142,14 @@ class QuestionsViewModel(
     val subjects: TeacherSubjectsHolder,
     private val topicsApi: TopicsApi,
     private val questionsApi: QuestionsApi,
+    private val aiApi: AiApi,
+    val ai: AiFeatures,
 ) : BaseViewModel() {
     private val _state = MutableStateFlow(QuestionsUiState())
     val state = _state.asStateFlow()
 
     init {
+        ai.ensureLoaded()
         launchSafe {
             subjects.load(preferredSubjectId = route.subjectId)
             loadTopics(route.topicId)
@@ -212,6 +220,7 @@ class QuestionsViewModel(
                     correctAnswer = q.correctAnswer.orEmpty(),
                     pairs = q.matchingPairs.sortedBy { p -> p.ordinal }.ifEmpty { listOf(MatchingPairDto(1), MatchingPairDto(2)) },
                     active = q.active,
+                    gradingCriteria = q.gradingCriteria.orEmpty(),
                 ),
                 formError = null,
                 options = emptyList(),
@@ -247,14 +256,18 @@ class QuestionsViewModel(
             subjects.ensureSelectedActive()
             val correct = if (form.type == QuestionType.TEXT) form.correctAnswer.trim().ifBlank { null } else null
             val pairs = if (form.type == QuestionType.MATCHING) normalizeMatchingPairs(form.pairs) else emptyList()
+            // Пустая строка удаляет критерии; сервер хранит их только у вопросов со свободным ответом.
+            val criteria = if (form.type == QuestionType.TEXT) form.gradingCriteria.trim() else ""
             val saved = if (form.id == null) {
                 questionsApi.create(
-                    QuestionRequest(null, null, topicId, form.type, form.question.trim(), points, ordinal!!, correct, pairs)
+                    QuestionRequest(null, null, topicId, form.type, form.question.trim(), points, ordinal!!, correct, pairs, criteria)
                 )
             } else {
                 questionsApi.update(
                     form.id,
-                    QuestionUpdateRequest(null, topicId, form.type, form.question.trim(), points, ordinal!!, correct, pairs, form.active),
+                    QuestionUpdateRequest(
+                        null, topicId, form.type, form.question.trim(), points, ordinal!!, correct, pairs, form.active, criteria,
+                    ),
                 )
             }
             val wasCreate = form.id == null
@@ -266,6 +279,25 @@ class QuestionsViewModel(
                 loadOptions(saved.id)
             } else if (!QuestionType.usesOptions(saved.type)) {
                 closeForm()
+            }
+        }
+    }
+
+    /** ИИ предлагает критерии оценивания по тексту вопроса и эталону. */
+    fun suggestCriteria() {
+        val form = _state.value.form ?: return
+        if (form.question.isBlank() || form.correctAnswer.isBlank() || _state.value.suggestingCriteria) return
+        _state.update { it.copy(suggestingCriteria = true, formError = null) }
+        launchSafe(onError = { e ->
+            _state.update { it.copy(suggestingCriteria = false, formError = e.userMessage("Не удалось получить критерии от ИИ")) }
+        }) {
+            val suggestion = aiApi.suggestCriteria(
+                form.question.trim(),
+                form.correctAnswer.trim(),
+                form.points.replace(',', '.').toDoubleOrNull(),
+            )
+            _state.update { s ->
+                s.copy(suggestingCriteria = false, form = s.form?.copy(gradingCriteria = suggestion.criteria))
             }
         }
     }
@@ -495,11 +527,26 @@ private fun QuestionEditor(form: QuestionForm, state: QuestionsUiState, vm: Ques
                 description = "Скрытые вопросы не попадают в новые попытки")
         }
         when (form.type) {
-            QuestionType.TEXT -> FormField(
-                form.correctAnswer, { v -> vm.updateForm { it.copy(correctAnswer = v) } }, "Правильный ответ",
-                singleLine = false, minLines = 2,
-                supportingText = "Можно указать несколько допустимых вариантов через символ | или с новой строки.",
-            )
+            QuestionType.TEXT -> {
+                FormField(
+                    form.correctAnswer, { v -> vm.updateForm { it.copy(correctAnswer = v) } }, "Правильный ответ",
+                    singleLine = false, minLines = 2,
+                    supportingText = "Можно указать несколько допустимых вариантов через символ | или с новой строки.",
+                )
+                FormField(
+                    form.gradingCriteria, { v -> vm.updateForm { it.copy(gradingCriteria = v) } }, "Критерии оценивания",
+                    singleLine = false, minLines = 3, maxLength = 4000,
+                )
+                val aiStatus by vm.ai.status.collectAsState()
+                if (aiStatus?.enabled == true) {
+                    AppOutlinedButton(
+                        if (state.suggestingCriteria) "ИИ составляет критерии…" else "Предложить критерии",
+                        onClick = vm::suggestCriteria,
+                        enabled = !state.suggestingCriteria && form.question.isNotBlank() && form.correctAnswer.isNotBlank(),
+                        icon = Icons.Default.AutoAwesome,
+                    )
+                }
+            }
             QuestionType.MATCHING -> MatchingPairsEditor(form.pairs) { pairs -> vm.updateForm { it.copy(pairs = pairs) } }
             else -> OptionsSection(form, state, vm)
         }

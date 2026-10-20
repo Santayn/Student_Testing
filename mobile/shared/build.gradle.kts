@@ -53,6 +53,8 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.tink.android)
             implementation(libs.koin.android)
+            // Системный сканер документов: обрезка, выравнивание, несколько страниц (скан лекции).
+            implementation(libs.mlkit.document.scanner)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
