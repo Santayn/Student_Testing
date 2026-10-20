@@ -15,6 +15,7 @@ export function questionToForm(question) {
     points: Number(question?.points ?? 1),
     ordinal: Number(question?.ordinal ?? 1),
     correctAnswer: question?.correctAnswer ?? '',
+    gradingCriteria: question?.gradingCriteria ?? '',
     matchingPairs: ensureMatchingPairRows(
       question?.matchingPairs,
       Number(question?.type ?? 1) === 3 ? 2 : 0
@@ -72,6 +73,10 @@ export function useQuestionEditorState({
 
     if (!Number.isInteger(ordinal) || ordinal <= 0) {
       return { field: 'ordinal', message: 'Порядковый номер должен быть целым числом больше нуля.' }
+    }
+
+    if (isTextType.value && String(overlay.form.gradingCriteria ?? '').length > 4000) {
+      return { field: 'gradingCriteria', message: 'Критерии оценивания не могут быть длиннее 4000 символов.' }
     }
 
     if (isMatchingType.value) {

@@ -10,6 +10,7 @@ export const NAV_KEYS = Object.freeze({
   TEACHER_TOPICS: 'teacher-topics',
   TEACHER_COURSES: 'teacher-courses',
   TEACHER_WORKLOAD: 'teacher-workload',
+  TEACHER_REVIEW: 'teacher-review',
 
   ADMIN_USERS: 'admin-users',
   ADMIN_ROLES: 'admin-roles',
@@ -91,6 +92,13 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
     label: 'Моя нагрузка',
     icon: 'pi pi-calendar',
     routeName: 'teacher-workload',
+  },
+
+  [NAV_KEYS.TEACHER_REVIEW]: {
+    key: NAV_KEYS.TEACHER_REVIEW,
+    label: 'Проверка ответов',
+    icon: 'pi pi-check-square',
+    routeName: 'teacher-review',
   },
 
   [NAV_KEYS.ADMIN_USERS]: {
@@ -194,6 +202,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
           label: 'Мои предметы',
         },
         NAV_KEYS.RESULTS,
+        NAV_KEYS.TEACHER_REVIEW,
       ],
     },
     {
@@ -229,6 +238,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       items: [
         NAV_KEYS.HOME,
         NAV_KEYS.RESULTS,
+        NAV_KEYS.TEACHER_REVIEW,
       ],
     },
     {
@@ -444,6 +454,17 @@ export const BREADCRUMB_CONFIG = Object.freeze({
     { destination: NAV_KEYS.TEACHER_LECTURES },
   ],
 
+  'teacher-lecture-presentation': [
+    { destination: NAV_KEYS.TEACHER_LECTURES },
+    {
+      key: 'presentation',
+      label: 'Презентация',
+      routeName: 'teacher-lecture-presentation',
+      paramsFrom: ['lectureId'],
+      requires: ['lectureId'],
+    },
+  ],
+
   'teacher-topics': [
     { destination: NAV_KEYS.TEACHER_TOPICS },
   ],
@@ -454,6 +475,10 @@ export const BREADCRUMB_CONFIG = Object.freeze({
 
   'teacher-workload': [
     { destination: NAV_KEYS.TEACHER_WORKLOAD },
+  ],
+
+  'teacher-review': [
+    { destination: NAV_KEYS.TEACHER_REVIEW },
   ],
 
   'admin-users': [

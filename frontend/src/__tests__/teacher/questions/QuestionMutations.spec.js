@@ -103,6 +103,7 @@ describe('question mutations', () => {
       ordinal: 3,
       correctAnswer: 'Ответ',
       matchingPairs: [],
+      gradingCriteria: '',
     })
     expect(state.openEdit).toHaveBeenCalledWith(saved)
     expect(state.clearOptions).toHaveBeenCalled()
@@ -156,6 +157,7 @@ describe('question mutations', () => {
       ordinal: 5,
       correctAnswer: null,
       matchingPairs: [],
+      gradingCriteria: '',
       active: false,
     })
     expect(state.finishSaving).toHaveBeenCalledWith({

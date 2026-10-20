@@ -70,6 +70,21 @@ export const teacherRoutes = [
   },
 
   {
+    path: '/teacher/lectures/:lectureId/presentation',
+    name: 'teacher-lecture-presentation',
+
+    component: () =>
+      import(
+        '@/views/teacher/LecturePresentationView.vue'
+      ),
+
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_LECTURES,
+      'teacher-lecture-presentation'
+    ),
+  },
+
+  {
     path: '/teacher/topics',
     name: 'teacher-topics',
 
@@ -96,6 +111,21 @@ export const teacherRoutes = [
     meta: navigationMeta(
       NAV_KEYS.TEACHER_COURSES,
       'teacher-courses'
+    ),
+  },
+
+  {
+    path: '/teacher/review',
+    name: 'teacher-review',
+
+    component: () =>
+      import(
+        '@/views/results/ReviewQueueView.vue'
+      ),
+
+    meta: navigationMeta(
+      NAV_KEYS.TEACHER_REVIEW,
+      'teacher-review'
     ),
   },
 

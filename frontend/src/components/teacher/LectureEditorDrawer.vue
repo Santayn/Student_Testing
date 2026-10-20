@@ -12,6 +12,7 @@ import {
   UiTextarea,
 } from '@/components/ui'
 
+import LectureBodyEditor from '@/components/teacher/LectureBodyEditor.vue'
 import LectureMaterialsManager from '@/components/teacher/LectureMaterialsManager.vue'
 
 import {
@@ -124,6 +125,14 @@ defineExpose({
             hint="Группа, которой администратор выдал версию в учебной нагрузке, видит только лекции этой версии (если ей не назначены отдельные лекции)."
           />
         </section>
+
+        <LectureBodyEditor
+          v-model="form.body"
+          :lecture-id="form.id"
+          :disabled="saving"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'body')"
+          @update:model-value="emit('field-change', 'body')"
+        />
 
         <section class="teacher-lecture-form-section">
           <div class="teacher-lecture-form-section__heading">

@@ -6,6 +6,10 @@ export const lecturesApi = {
     return http.get('/lectures', { ...config, params })
   },
 
+  getOne(lectureId, config = {}) {
+    return http.get(`/lectures/${lectureId}`, config)
+  },
+
   create(data) {
     return http.post('/lectures', data)
   },

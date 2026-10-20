@@ -20,6 +20,7 @@ import {
   presentApiError,
 } from '@/utils/apiErrorPresentation'
 
+import LectureMarkdown from '@/components/lectures/LectureMarkdown.vue'
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
 
 import {
@@ -674,6 +675,13 @@ onMounted(loadLecture)
             />
           </div>
         </div>
+      </UiCard>
+
+      <UiCard
+        v-if="lecture.body"
+        title="Текст лекции"
+      >
+        <LectureMarkdown :source="lecture.body" />
       </UiCard>
 
       <UiCard

@@ -68,8 +68,11 @@ import {
   useAuthStore,
 } from '@/stores/auth'
 
+import { useAiStatus } from '@/composables/ai/useAiStatus'
+
 const route = useRoute()
 const authStore = useAuthStore()
+const { aiStatus } = useAiStatus()
 
 const {
   loadingSubjects,
@@ -175,6 +178,7 @@ function lectureToForm(lecture = null) {
     id: lecture?.id ?? null,
     title: lecture?.title ?? '',
     description: lecture?.description ?? '',
+    body: lecture?.body ?? '',
     publicVisible: lecture ? Boolean(lecture.publicVisible) : true,
     testIds: lecture
       ? lectureTests(lecture.id).map((test) => Number(test.id))
@@ -609,6 +613,15 @@ onMounted(async () => {
                 icon="pi pi-pencil"
                 label="Изменить"
                 @click="openEditLecture(lecture)"
+              />
+
+              <UiButton
+                v-if="aiStatus?.presentation"
+                variant="secondary"
+                size="sm"
+                icon="pi pi-sparkles"
+                label="Презентация"
+                :to="{ name: 'teacher-lecture-presentation', params: { lectureId: lecture.id } }"
               />
 
               <UiButton
