@@ -162,7 +162,7 @@ internal fun zachetTokens(): DesignTokens {
 }
 ```
 
-`enum class DesignTheme`: `ZACHET(title = "Зачёт", description = "Тёмная игровая тема: крупные кнопки и прогресс")`.
+`enum class DesignTheme`: `ZACHET(title = "Зачёт")`.
 
 Формы стандартных Material-компонентов выводятся из этих токенов сами (README, раздел 1, таблица `appShapes()`):
 чипы-фильтры — 10dp, поля и меню — 14dp, плавающая кнопка `AppFab` — 18dp, как кнопки. «Объём» (`buttonDepth`)

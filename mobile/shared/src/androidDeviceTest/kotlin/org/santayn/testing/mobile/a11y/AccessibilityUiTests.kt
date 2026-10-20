@@ -315,7 +315,7 @@ class AccessibilityUiTests(private val design: DesignTheme) {
     fun displaySettingsPassAtfAndUseProperRoles() {
         themed { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { DisplaySettings() } }
         rule.onRoot().tryPerformAccessibilityChecks()
-        rule.onNodeWithText("Тема").assert(isHeading())
+        rule.onNodeWithText("Светлая или тёмная").assert(isHeading())
         rule.onNodeWithText("Крупный").assert(roleIs(Role.RadioButton)).performClick().assertIsSelected()
         rule.onNodeWithText("Высокий контраст").assert(roleIs(Role.Switch)).assertIsOff()
         rule.onNodeWithText("Высокий контраст").performScrollTo().performClick()

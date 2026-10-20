@@ -28,20 +28,11 @@ import org.santayn.testing.mobile.core.ui.StatusColors
  * Как добавить тему: recommendations/mobile-design-themes/README.md.
  */
 
-/** Темы оформления. Порядок = порядок в настройках. */
-enum class DesignTheme(val title: String, val description: String) {
-    POLYTECH(
-        title = "Политех",
-        description = "Фирменный стиль КубГТУ: синий, крупные заголовки, плитки",
-    ),
-    KAFEDRA(
-        title = "Кафедра",
-        description = "Спокойный академический стиль: списки и много воздуха",
-    ),
-    ZACHET(
-        title = "Зачёт",
-        description = "Тёмная игровая тема: крупные кнопки и прогресс",
-    ),
+/** Темы оформления. Порядок = порядок в настройках; там показывается только [title]. */
+enum class DesignTheme(val title: String) {
+    POLYTECH(title = "Политех"),
+    KAFEDRA(title = "Кафедра"),
+    ZACHET(title = "Зачёт"),
     ;
 
     companion object {

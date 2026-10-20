@@ -44,7 +44,7 @@
    главная студента, шапка лекции, шапка итога теста. Для них у каждой темы свой Composable.
 
 Поверх темы всегда работают пользовательские настройки (их **не** трогать):
-- «Тема»: как в системе / светлая / тёмная — тема обязана иметь и светлую, и тёмную палитру;
+- «Светлая или тёмная»: как в системе / светлая / тёмная — тема обязана иметь и светлую, и тёмную палитру;
 - «Высокий контраст» — общая палитра для всех тем (`Theme.kt`), формы и шрифты остаются от темы, у карточек включается рамка;
 - «Размер текста» ×1 / ×1.25 / ×1.5 поверх системного шрифта — вёрстка темы обязана выдерживать ×1.5 при системном ×1.3.
 
@@ -107,7 +107,7 @@ mobile/shared/src/androidDeviceTest/.../a11y/AccessibilityUiTests.kt — UI-те
    curl -L -o mobile/shared/src/commonMain/composeResources/font/golos_text.ttf "https://github.com/google/fonts/raw/main/ofl/golostext/GolosText%5Bwght%5D.ttf"
    ```
    Проверьте, что это TTF (первые байты `00 01 00 00`), а не HTML-страница. Ресурс станет `Res.font.golos_text`.
-3. **Enum.** В `DesignTheme` добавьте значение с `title` и `description` (они показываются в настройках).
+3. **Enum.** В `DesignTheme` добавьте значение с `title` (в настройках показывается только название, без описания).
 4. **Тема.** Создайте `core/ui/design/<Name>Theme.kt` по образцу `PolytechTheme.kt`: `lightColorScheme`,
    `darkColorScheme`, два `StatusColors`, два `BrandColors`, `<Name>Palette`, `<name>Tokens()`.
    Шрифт — через `variableFont(Res.font.xxx, listOf(...весов))` из `PolytechTheme.kt`.

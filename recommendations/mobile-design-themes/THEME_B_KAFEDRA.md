@@ -168,7 +168,7 @@ internal fun kafedraTokens(): DesignTokens {
 }
 ```
 
-`enum class DesignTheme`: `KAFEDRA(title = "Кафедра", description = "Спокойный академический стиль: списки и много воздуха")`.
+`enum class DesignTheme`: `KAFEDRA(title = "Кафедра")`.
 
 Эти токены сами задают формы стандартных Material-компонентов (README, раздел 1, таблица `appShapes()`):
 чипы-фильтры получат 8dp, поля и меню — 12dp, плавающая кнопка (`AppFab`) — 12dp, как кнопки. Отдельно их
