@@ -31,6 +31,7 @@ import {
   UiUnsavedChangesConfirm,
 } from '@/components/ui'
 
+import GradingCriteriaField from '@/components/questions/GradingCriteriaField.vue'
 import MatchingPairsEditor from '@/components/questions/MatchingPairsEditor.vue'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
@@ -755,6 +756,17 @@ onMounted(async () => {
             label="Правильный ответ"
             hint="Можно указать несколько допустимых вариантов через символ | или с новой строки."
             maxlength="2000"
+          />
+
+          <GradingCriteriaField
+            v-if="isTextType"
+            v-model="form.gradingCriteria"
+            :question="form.question"
+            :correct-answer="form.correctAnswer"
+            :points="form.points"
+            :disabled="savingQuestion"
+            :error="apiFieldError({ fieldErrors: formFieldErrors }, 'gradingCriteria')"
+            @update:model-value="clearFormFieldError(formFieldErrors, formError, 'gradingCriteria')"
           />
 
           <MatchingPairsEditor

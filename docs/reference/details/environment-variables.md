@@ -44,14 +44,27 @@
 | `APP_DATABASE_BACKUP_SCHEMA` | пусто |
 | `APP_DATABASE_BACKUP_INCLUDE_CLEAN` | `true` |
 
-## Local LLM
+## AI
 
 | Variable | Default |
 |---|---|
-| `APP_TEXT_ANSWER_LOCAL_LLM_ENABLED` | `false` |
-| `APP_TEXT_ANSWER_LOCAL_LLM_ENDPOINT` | `http://127.0.0.1:11434/api/generate` |
-| `APP_TEXT_ANSWER_LOCAL_LLM_MODEL` | `qwen2.5:1.5b-instruct` |
-| `APP_TEXT_ANSWER_LOCAL_LLM_TIMEOUT_SECONDS` | `12` |
+| `APP_AI_PROVIDER` | `none` |
+| `APP_AI_API_KEY` | пусто |
+| `APP_AI_FOLDER_ID` | пусто |
+| `APP_AI_BASE_URL` | по провайдеру |
+| `APP_AI_AUTH_SCHEME` | по провайдеру |
+| `APP_AI_TIMEOUT_SECONDS` | `90` |
+| `APP_AI_MONTHLY_TOKEN_LIMIT` | `20000000` |
+| `APP_AI_MODEL_GRADING` | `aliceai-llm-flash` |
+| `APP_AI_MODEL_LECTURE` | `aliceai-llm-flash` |
+| `APP_AI_MODEL_PRESENTATION` | `aliceai-llm` |
+| `APP_AI_MODEL_IMAGE` | `aliceai-image-art-3.0` |
+| `APP_AI_GRADING_ENABLED` | `true` |
+| `APP_AI_GRADING_REVIEW_THRESHOLD` | `0.7` |
+| `APP_AI_OCR_PROVIDER` | пусто |
+| `APP_AI_IMAGE_GENERATION_ENABLED` | `true` |
+| `APP_AI_IMAGE_SEARCH_ENABLED` | `true` |
+| `APP_AI_STORAGE_DIR` | `uploads/ai` |
 
 ## Frontend build/dev
 

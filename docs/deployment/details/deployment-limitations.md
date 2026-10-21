@@ -38,9 +38,9 @@ Schema развивается через Hibernate `ddl-auto` и общий `sch
 
 Встроенный backup сохраняет PostgreSQL, но не `lecture-uploads`.
 
-### Local LLM и Docker host
+### ИИ и сеть
 
-Backend разрешает LLM endpoint только на `localhost`, `127.0.0.1` или `::1`. Внутри Docker `127.0.0.1` относится к самому backend container, а не к host. Обычная схема «Ollama на host + backend в Docker» поэтому без изменения реализации не работает.
+ИИ работает через внешний API (Yandex AI Studio, GigaChat) или OpenAI-совместимый сервер. Backend-контейнеру нужен исходящий HTTPS к провайдеру и, для поиска картинок, к `commons.wikimedia.org`, `upload.wikimedia.org` и `api.openverse.org`. Ollama на компьютере с Docker доступна как `http://host.docker.internal:11434/v1`.
 
 ## Конфигурационные ограничения
 

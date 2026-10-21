@@ -284,8 +284,8 @@ fun AdminTeacherSubjectsScreen(navigator: AppNavigator) {
             onDismissRequest = { vm.askAdd(null) },
             title = { Text("Назначить «${subject.name}»?") },
             text = { FormField(notes, { notes = it }, "Примечание (необязательно)", singleLine = false, minLines = 2) },
-            confirmButton = { AppButton(onClick = { vm.confirmAdd(notes) }) { Text("Назначить") } },
-            dismissButton = { AppOutlinedButton(onClick = { vm.askAdd(null) }) { Text("Отмена") } },
+            confirmButton = { AppButton("Назначить", onClick = { vm.confirmAdd(notes) }) },
+            dismissButton = { AppOutlinedButton("Отмена", onClick = { vm.askAdd(null) }) },
         )
     }
     state.removing?.let {

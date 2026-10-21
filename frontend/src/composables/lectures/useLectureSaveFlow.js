@@ -247,6 +247,8 @@ export function useLectureSaveFlow({
         ),
       linkedTestId: null,
       publicVisible: Boolean(form.publicVisible),
+      // Текст лекции в Markdown; пустая строка удаляет текст.
+      body: String(form.body ?? ''),
     }
 
     const payloadSignature = lectureCoreSignature(payload)

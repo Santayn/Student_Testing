@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.santayn.testing.service.LectureMaterialService;
 import org.santayn.testing.service.LectureTestLinkService;
 import org.santayn.testing.service.CurrentUserAccessService;
+import org.santayn.testing.service.lecture.LectureTextExportService;
 import org.santayn.testing.web.dto.platform.ApiResponses;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -27,13 +28,16 @@ public class LectureContentRestController {
     private final LectureTestLinkService lectureTestLinkService;
     private final LectureMaterialService lectureMaterialService;
     private final CurrentUserAccessService accessService;
+    private final LectureTextExportService lectureTextExportService;
 
     public LectureContentRestController(LectureTestLinkService lectureTestLinkService,
                                         LectureMaterialService lectureMaterialService,
-                                        CurrentUserAccessService accessService) {
+                                        CurrentUserAccessService accessService,
+                                        LectureTextExportService lectureTextExportService) {
         this.lectureTestLinkService = lectureTestLinkService;
         this.lectureMaterialService = lectureMaterialService;
         this.accessService = accessService;
+        this.lectureTextExportService = lectureTextExportService;
     }
 
     @GetMapping("/{id}/tests")
@@ -98,6 +102,23 @@ public class LectureContentRestController {
                 .contentType(mediaType)
                 .contentLength(storedMaterial.material().getSizeBytes())
                 .body(resource);
+    }
+
+    @GetMapping("/{lectureId}/text/export")
+    public ResponseEntity<byte[]> exportText(@PathVariable Integer lectureId,
+                                             @RequestParam(defaultValue = "docx") String format,
+                                             Authentication authentication) {
+        accessService.requireLectureOwner(authentication, lectureId);
+        return LectureTextExportService.download(lectureTextExportService.export(lectureId, format));
+    }
+
+    @PostMapping("/{lectureId}/text/materials")
+    public List<ApiResponses.LectureMaterialResponse> saveTextAsMaterial(@PathVariable Integer lectureId,
+                                                                         @RequestParam(defaultValue = "docx") String format,
+                                                                         Authentication authentication) {
+        accessService.requireLectureOwner(authentication, lectureId);
+        lectureTextExportService.saveAsMaterial(lectureId, format);
+        return ApiResponses.list(lectureMaterialService.findByLectureId(lectureId), ApiResponses::lectureMaterial);
     }
 
     public record LectureTestsRequest(List<Integer> testIds) {

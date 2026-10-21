@@ -26,3 +26,12 @@ app:
       secret: test-secret-that-is-at-least-32-characters-long
   storage:
     lecture-materials-dir: target/test-lecture-materials
+  ai:
+    provider: none
+    storage:
+      dir: target/test-ai
+    worker:
+      # Тесты запускают очередь явно через AiJobWorker.runReadyJobsNow().
+      enabled: false
+    ocr:
+      provider: none

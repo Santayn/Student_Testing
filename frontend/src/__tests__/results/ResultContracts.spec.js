@@ -148,6 +148,7 @@ describe('student result contracts', () => {
       score: 5,
       correctCount: 1,
       totalCount: 2,
+      pendingReviewCount: 0,
       details: [
         {
           questionText: '2 + 2?',

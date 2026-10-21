@@ -191,7 +191,8 @@ public final class ApiResponses {
                 item.getDescription(),
                 item.getContentFolderKey(),
                 item.getLinkedTestId(),
-                item.isPublicVisible()
+                item.isPublicVisible(),
+                item.getBody()
         );
     }
 
@@ -292,7 +293,8 @@ public final class ApiResponses {
                 item.getDescription(),
                 item.getDuration(),
                 item.getAttemptsAllowed(),
-                item.getQuestionCount()
+                item.getQuestionCount(),
+                item.isShowAiFeedback()
         );
     }
 
@@ -308,7 +310,8 @@ public final class ApiResponses {
                 item.getOrdinal(),
                 item.getCorrectAnswer(),
                 matchingPairs(item),
-                item.isActive()
+                item.isActive(),
+                item.getGradingCriteria()
         );
     }
 
@@ -463,7 +466,7 @@ public final class ApiResponses {
 
     public record LectureResponse(Integer id, Integer subjectId, Integer subjectMembershipId, Integer courseVersionId,
                                   int ordinal, String title, String description, String contentFolderKey,
-                                  Integer linkedTestId, boolean publicVisible) {
+                                  Integer linkedTestId, boolean publicVisible, String body) {
     }
 
     public record LectureMaterialResponse(Integer id,
@@ -506,13 +509,13 @@ public final class ApiResponses {
     }
 
     public record TestResponse(Integer id, String title, String description, LocalTime duration,
-                               int attemptsAllowed, int questionCount) {
+                               int attemptsAllowed, int questionCount, boolean showAiFeedback) {
     }
 
     public record QuestionResponseDto(Long id, Integer testId, Integer courseLectureId, Integer topicId, int type,
                                       String question, BigDecimal points, int ordinal, String correctAnswer,
                                       List<MatchingPairResponse> matchingPairs,
-                                      boolean active) {
+                                      boolean active, String gradingCriteria) {
     }
 
     public record QuestionOptionResponse(Long id, Long testQuestionId, String text, int ordinal, boolean correct) {

@@ -108,6 +108,35 @@ Vue Router history mode поддерживается через:
 try_files $uri $uri/ /index.html;
 ```
 
+## ИИ: ключи API
+
+Проверка свободных ответов, подсказка критериев, распознавание сканов лекций и презентации работают через внешний ИИ-сервис. Без ключа проект запускается как обычно — кнопки ИИ просто скрыты. Выгрузка текста лекции в DOCX/PDF ключа не требует.
+
+Нужен **один ключ** — `APP_AI_API_KEY`. Сейчас используется Groq; ключ выдаёт руководитель проекта. Добавьте в корневой `.env` (он в `.gitignore`, **не коммитьте ключ** ни в `.env.example`, ни в код, ни в документацию):
+
+```env
+APP_AI_PROVIDER=openai
+APP_AI_BASE_URL=https://api.groq.com/openai/v1
+APP_AI_API_KEY=<ключ Groq>
+APP_AI_MODEL_GRADING=qwen/qwen3.8-27b
+APP_AI_MODEL_LECTURE=qwen/qwen3.8-27b
+APP_AI_MODEL_PRESENTATION=openai/gpt-oss-120b
+APP_AI_IMAGE_GENERATION_ENABLED=false
+```
+
+Затем `docker compose up -d --build backend`. Проверка: под преподавателем `GET /api/v1/ai/status` возвращает `"enabled": true`.
+
+| Что | Нужен ключ? | Где взять |
+|---|---|---|
+| Тексты: проверка, критерии, разметка сканов, план презентации | да, `APP_AI_API_KEY` | Groq (выдаёт руководитель) или другой провайдер — см. [ИИ](docs/technical/details/ai.md#провайдеры) |
+| Распознавание текста со сканов | нет | Tesseract встроен в Docker-образ бэкенда |
+| Поиск картинок (Wikimedia Commons, Openverse) | нет | — |
+| Генерация картинок | ключ провайдера с `/images/generations` (у Groq нет — выключено) | — |
+| Yandex AI Studio (альтернатива) | `APP_AI_API_KEY` + `APP_AI_FOLDER_ID` | Yandex Cloud |
+| GigaChat (альтернатива) | `APP_AI_API_KEY` (ключ авторизации) | developers.sber.ru |
+
+Мобильному приложению ключи не нужны — оно ходит в ИИ только через бэкенд. Все переменные: [переменные окружения](docs/deployment/details/environment-variables.md). Сценарии ручной проверки: [тест-кейсы ИИ](docs/testing/details/ai-test-cases.md).
+
 ## Мобильное приложение
 
 Нативный клиент для Android и iOS (Kotlin Multiplatform + Compose Multiplatform) лежит в папке `mobile/`.

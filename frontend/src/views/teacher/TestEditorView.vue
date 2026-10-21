@@ -735,6 +735,12 @@ onMounted(async () => {
               step="1"
             />
           </div>
+
+          <UiCheckbox
+            v-model="form.showAiFeedback"
+            class="teacher-test-ai-feedback"
+            label="Показывать студентам комментарий ИИ к свободным ответам"
+          />
         </UiCard>
 
         <UiCard title="Шаг 4 · Публикация и доступ">

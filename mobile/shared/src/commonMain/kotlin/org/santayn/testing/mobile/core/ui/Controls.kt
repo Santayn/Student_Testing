@@ -321,24 +321,35 @@ private fun androidx.compose.foundation.shape.CornerBasedShape.takeIfPill() = Ro
 
 /** Флажок: квадрат со скруглением формы плиток темы; выбранный — заливка и галочка. */
 @Composable
-fun AppCheckboxIndicator(checked: Boolean, enabled: Boolean = true, size: Dp = 24.dp) {
+fun AppCheckboxIndicator(
+    checked: Boolean,
+    enabled: Boolean = true,
+    size: Dp = 24.dp,
+    color: Color = MaterialTheme.colorScheme.primary,
+    checkColor: Color = MaterialTheme.colorScheme.onPrimary,
+) {
     val scheme = MaterialTheme.colorScheme
-    val fill by animateColorAsState(if (checked) (if (enabled) scheme.primary else scheme.outlineVariant) else Color.Transparent)
+    val fill by animateColorAsState(if (checked) (if (enabled) color else scheme.outlineVariant) else Color.Transparent)
     val shape = RoundedCornerShape(size / 4)
     Box(
         Modifier.size(size).clip(shape).background(fill)
             .border(if (checked) 0.dp else 2.dp, if (enabled) scheme.outline else scheme.outlineVariant, shape),
         contentAlignment = Alignment.Center,
     ) {
-        if (checked) Icon(Icons.Default.Check, null, tint = scheme.onPrimary, modifier = Modifier.size(size * 0.75f))
+        if (checked) Icon(Icons.Default.Check, null, tint = checkColor, modifier = Modifier.size(size * 0.75f))
     }
 }
 
 /** Радио: кольцо; выбранное — толстое кольцо цвета темы с точкой. */
 @Composable
-fun AppRadioIndicator(selected: Boolean, enabled: Boolean = true, size: Dp = 24.dp) {
+fun AppRadioIndicator(
+    selected: Boolean,
+    enabled: Boolean = true,
+    size: Dp = 24.dp,
+    color: Color = MaterialTheme.colorScheme.primary,
+) {
     val scheme = MaterialTheme.colorScheme
-    val ring by animateColorAsState(if (selected) (if (enabled) scheme.primary else scheme.outlineVariant) else if (enabled) scheme.outline else scheme.outlineVariant)
+    val ring by animateColorAsState(if (selected) (if (enabled) color else scheme.outlineVariant) else if (enabled) scheme.outline else scheme.outlineVariant)
     val dot by animateDpAsState(if (selected) size * 0.42f else 0.dp)
     Box(Modifier.size(size).clip(CircleShape).border(2.dp, ring, CircleShape), contentAlignment = Alignment.Center) {
         Box(Modifier.size(dot).clip(CircleShape).background(ring))

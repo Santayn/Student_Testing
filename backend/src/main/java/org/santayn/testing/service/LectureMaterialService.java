@@ -1,6 +1,8 @@
 package org.santayn.testing.service;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureMaterial;
 import org.santayn.testing.repository.LectureMaterialRepository;
@@ -8,6 +10,8 @@ import org.santayn.testing.repository.LectureRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +29,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class LectureMaterialService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(LectureMaterialService.class);
 
     private final LectureRepository lectureRepository;
     private final LectureMaterialRepository lectureMaterialRepository;
@@ -75,15 +81,85 @@ public class LectureMaterialService {
         return saved;
     }
 
+    /** Сохраняет файл, созданный сервером (например, презентацию), как материал лекции. */
+    @Transactional
+    public LectureMaterial saveGenerated(Integer lectureId, String fileName, String contentType, byte[] content) {
+        Lecture lecture = requireLecture(lectureId);
+        String originalName = normalizeOriginalFileName(fileName);
+        Path lectureDir = lectureDirectory(lecture.getId());
+        Path target = lectureDir.resolve(UUID.randomUUID() + "-" + originalName).normalize();
+        if (!target.startsWith(lectureDir)) {
+            throw new IllegalArgumentException("Invalid file path.");
+        }
+        try {
+            Files.write(target, content);
+        } catch (IOException error) {
+            throw new IllegalStateException("Failed to save lecture file: " + originalName, error);
+        }
+        LectureMaterial material = new LectureMaterial();
+        material.setCourseLectureId(lecture.getId());
+        material.setFileName(originalName);
+        material.setStoredPath(materialsRoot().relativize(target).toString().replace('\\', '/'));
+        material.setContentType(contentType);
+        material.setSizeBytes(content.length);
+        material.setUploadedAtUtc(Instant.now());
+        return lectureMaterialRepository.save(material);
+    }
+
     @Transactional
     public void delete(Integer lectureId, Integer materialId) {
         LectureMaterial material = lectureMaterialRepository.findByIdAndCourseLectureId(materialId, lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture material not found: " + materialId));
         lectureMaterialRepository.delete(material);
-        try {
-            Files.deleteIfExists(resolveMaterialPath(material));
-        } catch (IOException error) {
-            throw new IllegalStateException("Failed to delete lecture file: " + material.getFileName(), error);
+        deleteFilesAfterCommit(List.of(resolveMaterialPath(material)), null);
+    }
+
+    /**
+     * Удаляет все материалы лекции в текущей транзакции. Файлы стираются только после коммита:
+     * при откате строки вернутся, и файлы для них должны остаться на диске.
+     */
+    @Transactional
+    public void deleteAllForLecture(Integer lectureId) {
+        List<LectureMaterial> materials = lectureMaterialRepository.findByCourseLectureIdOrderByIdAsc(lectureId);
+        List<Path> files = new ArrayList<>();
+        for (LectureMaterial material : materials) {
+            try {
+                files.add(resolveMaterialPath(material));
+            } catch (IllegalArgumentException error) {
+                LOGGER.warn("Skipping lecture material {} with invalid stored path", material.getId());
+            }
+        }
+        lectureMaterialRepository.deleteAll(materials);
+        deleteFilesAfterCommit(files, materialsRoot().resolve("lecture-" + lectureId).normalize());
+    }
+
+    private void deleteFilesAfterCommit(List<Path> files, Path directoryToRemoveIfEmpty) {
+        Runnable cleanup = () -> {
+            for (Path file : files) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException error) {
+                    // Строка уже удалена: оставшийся файл — только мусор на диске, ошибку запросу не возвращаем.
+                    LOGGER.warn("Failed to delete lecture material file {}", file, error);
+                }
+            }
+            if (directoryToRemoveIfEmpty != null) {
+                try {
+                    Files.deleteIfExists(directoryToRemoveIfEmpty);
+                } catch (IOException error) {
+                    // Каталог не пуст (посторонние файлы) или занят — оставляем.
+                }
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanup.run();
+                }
+            });
+        } else {
+            cleanup.run();
         }
     }
 

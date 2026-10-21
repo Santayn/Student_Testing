@@ -23,6 +23,7 @@ import org.santayn.testing.mobile.domain.ContextCache
 import org.santayn.testing.mobile.domain.StudentContextLoader
 import org.santayn.testing.mobile.domain.TeacherContextLoader
 import org.santayn.testing.mobile.domain.AttemptDraftStore
+import org.santayn.testing.mobile.domain.AiFeatures
 import org.santayn.testing.mobile.domain.TeacherSubjectSelection
 
 /** Платформенные зависимости: хранилища, наблюдатель сети, синтез речи (Context на Android). */
@@ -62,6 +63,8 @@ val apiModule = module {
     singleOf(::LearningApi)
     singleOf(::ResultsApi)
     singleOf(::DatabaseBackupsApi)
+    singleOf(::AiApi)
+    singleOf(::AiFeatures)
     singleOf(::StudentContextLoader)
     singleOf(::TeacherContextLoader)
 }

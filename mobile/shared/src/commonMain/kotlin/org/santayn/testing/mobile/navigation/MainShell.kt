@@ -81,6 +81,7 @@ import org.santayn.testing.mobile.feature.teacher.QuestionsScreen
 import org.santayn.testing.mobile.feature.teacher.TestEditorScreen
 import org.santayn.testing.mobile.feature.teacher.TopicsScreen
 import org.santayn.testing.mobile.feature.teacher.WorkloadScreen
+import org.santayn.testing.mobile.feature.teacher.ReviewScreen
 import org.santayn.testing.mobile.feature.tests.TestScreen
 
 /** Навигационные действия, доступные экранам. */
@@ -155,6 +156,7 @@ private fun AppNavHost(nav: NavHostController, navigator: AppNavigator, role: Wo
         composable<TeacherLecturesRoute> { LectureManagementScreen(it.toRoute(), role, navigator) }
         composable<TeacherCoursesRoute> { CourseTemplatesScreen(it.toRoute(), role, navigator) }
         composable<TeacherWorkloadRoute> { WorkloadScreen(navigator) }
+        composable<TeacherReviewRoute> { ReviewScreen(navigator) }
 
         composable<AdminStructureRoute> {
             MenuHubScreen("Академическая структура", Menus.adminStructure, navigator)
@@ -176,7 +178,7 @@ private fun AppNavHost(nav: NavHostController, navigator: AppNavigator, role: Wo
 
 /** Нижняя навигация главных вкладок в стиле темы (DesignTokens.navBar). */
 @Composable
-private fun AppNavigationBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect: (BottomTab) -> Unit) {
+internal fun AppNavigationBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect: (BottomTab) -> Unit) {
     // При крупном шрифте подписи не помещаются — показываем подпись только у активной вкладки.
     val roomyText = LocalDensity.current.fontScale <= 1.3f
     when (Design.tokens.navBar) {
@@ -194,6 +196,7 @@ private fun AppNavigationBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect
             }
         }
         NavBarStyle.FLOATING_PILL -> FloatingPillBar(tabs, selectedIndex, onSelect, showSelectedLabel = true)
+        NavBarStyle.FLOATING_ICONS -> FloatingIconsBar(tabs, selectedIndex, onSelect)
         NavBarStyle.TAB_BAR -> Column {
             // Подпись растёт со шрифтом только до 13dp: иначе «Результаты» не помещается в пятую часть экрана.
             val labelSize = with(LocalDensity.current) { minOf(11.sp.toDp(), 13.dp).toSp() }
@@ -226,6 +229,51 @@ private fun AppNavigationBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Плавающая панель из иконок (тема «Зачёт»): активная вкладка — скруглённый квадрат цвета highlight.
+ * Подписей на экране нет, поэтому у каждой вкладки есть название для TalkBack.
+ */
+@Composable
+private fun FloatingIconsBar(tabs: List<BottomTab>, selectedIndex: Int, onSelect: (BottomTab) -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = if (Design.tokens.cardBorder) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp)
+            .fillMaxWidth()
+            .heightIn(min = 68.dp),
+    ) {
+        Row(
+            Modifier.selectableGroup().padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEachIndexed { index, tab ->
+                val selected = index == selectedIndex
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier
+                            .size(width = 56.dp, height = 48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (selected) Design.brand.highlight else Color.Transparent)
+                            .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(tab) })
+                            .semantics(mergeDescendants = true) { contentDescription = tab.label },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            tab.icon,
+                            contentDescription = null,
+                            tint = if (selected) Design.brand.onHighlight else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             }
         }

@@ -84,6 +84,20 @@ import org.santayn.testing.mobile.domain.ContextCache
 import org.santayn.testing.mobile.feature.learning.MaterialRow
 import org.santayn.testing.mobile.navigation.AppNavigator
 import org.santayn.testing.mobile.navigation.TeacherLecturesRoute
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.TextButton
+import io.github.vinceglb.filekit.dialogs.compose.rememberCameraPickerLauncher
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import org.santayn.testing.mobile.core.network.UploadFile
+import org.santayn.testing.mobile.core.platform.rememberDocumentScanner
+import org.santayn.testing.mobile.core.ui.AppButton
+import org.santayn.testing.mobile.core.ui.CheckRow
+import org.santayn.testing.mobile.core.ui.MarkdownView
+import org.santayn.testing.mobile.data.api.AiApi
+import org.santayn.testing.mobile.domain.AiFeatures
 
 /*
  * Лекции преподавателя — views/teacher/LectureManagementView.vue, components/teacher/LectureEditorDrawer.vue,
@@ -99,6 +113,18 @@ data class LectureForm(
     val pendingFiles: List<PlatformFile> = emptyList(),
     /** Версия курса, в которую входит лекция; null — лекция предмета без версии. */
     val courseVersionId: Int? = null,
+    /** Текст лекции в Markdown. */
+    val body: String = "",
+)
+
+/** Распознавание скана лекции: снятые страницы, ход задачи ИИ и готовый текст. */
+data class LectureScanState(
+    val pages: List<UploadFile> = emptyList(),
+    val attachOriginals: Boolean = true,
+    val running: Boolean = false,
+    val progress: String? = null,
+    val error: String? = null,
+    val result: String? = null,
 )
 
 /** Версия курса для выбора: «Шаблон · vN». */
@@ -130,6 +156,8 @@ data class LecturesUiState(
     val deleteBusy: Boolean = false,
     val versions: List<CourseVersionOption> = emptyList(),
     val versionFilter: VersionFilter = VersionFilter.All,
+    val scan: LectureScanState? = null,
+    val bodyPreview: Boolean = false,
 )
 
 enum class PublishFilter(val label: String) { ALL("Все"), PUBLISHED("Опубликованные"), HIDDEN("Скрытые") }
@@ -141,6 +169,8 @@ class LectureManagementViewModel(
     private val testsApi: TestsApi,
     private val coursesApi: CoursesApi,
     private val cache: ContextCache,
+    private val aiApi: AiApi,
+    val ai: AiFeatures,
 ) : BaseViewModel() {
     private val _state = MutableStateFlow(
         LecturesUiState(versionFilter = route.courseVersionId?.let { VersionFilter.Version(it) } ?: VersionFilter.All),
@@ -148,6 +178,7 @@ class LectureManagementViewModel(
     val state = _state.asStateFlow()
 
     init {
+        ai.ensureLoaded()
         launchSafe {
             subjects.load(preferredSubjectId = route.subjectId)
             load()
@@ -215,9 +246,12 @@ class LectureManagementViewModel(
                 form = LectureForm(
                     lecture.id, lecture.title, lecture.description.orEmpty(), lecture.publicVisible, testIds,
                     courseVersionId = lecture.courseVersionId,
+                    body = lecture.body.orEmpty(),
                 ),
                 formError = null,
                 materials = emptyList(),
+                scan = null,
+                bodyPreview = false,
             )
         }
         loadMaterials(lecture.id)
@@ -230,7 +264,65 @@ class LectureManagementViewModel(
 
     fun updateForm(transform: (LectureForm) -> LectureForm) = _state.update { s -> s.copy(form = s.form?.let(transform)) }
 
-    fun closeForm() = _state.update { it.copy(form = null, formError = null) }
+    fun closeForm() = _state.update { it.copy(form = null, formError = null, scan = null, bodyPreview = false) }
+
+    fun toggleBodyPreview() = _state.update { it.copy(bodyPreview = !it.bodyPreview) }
+
+    // region скан лекции
+
+    fun toggleScan() = _state.update { it.copy(scan = if (it.scan == null) LectureScanState() else null) }
+
+    private fun updateScan(transform: (LectureScanState) -> LectureScanState) =
+        _state.update { s -> s.copy(scan = s.scan?.let(transform)) }
+
+    fun addScanPages(pages: List<UploadFile>) {
+        if (pages.isNotEmpty()) updateScan { it.copy(pages = it.pages + pages, error = null, result = null) }
+    }
+
+    fun addScanFiles(files: List<PlatformFile>?) {
+        if (files.isNullOrEmpty()) return
+        launchSafe(onError = { e -> updateScan { it.copy(error = e.userMessage("Не удалось прочитать файл")) } }) {
+            addScanPages(files.map { it.toUploadFile() })
+        }
+    }
+
+    fun removeScanPage(index: Int) = updateScan { it.copy(pages = it.pages.filterIndexed { i, _ -> i != index }) }
+
+    fun setAttachOriginals(value: Boolean) = updateScan { it.copy(attachOriginals = value) }
+
+    fun scanError(message: String) = updateScan { it.copy(error = message) }
+
+    fun startScan() {
+        val scan = _state.value.scan ?: return
+        if (scan.pages.isEmpty() || scan.running) return
+        val lectureId = _state.value.form?.id
+        updateScan { it.copy(running = true, progress = "Загружаю страницы…", error = null, result = null) }
+        launchSafe(onError = { e ->
+            updateScan { it.copy(running = false, progress = null, error = e.userMessage("Не удалось распознать скан")) }
+        }) {
+            val started = aiApi.scanLecture(scan.pages, lectureId, lectureId != null && scan.attachOriginals)
+            val done = ai.awaitJob(started) { progress -> updateScan { it.copy(progress = progress ?: "Распознаю…") } }
+            if (done.status == "done") {
+                val markdown = done.result?.get("markdown")?.jsonPrimitive?.contentOrNull.orEmpty().trim()
+                updateScan { it.copy(running = false, progress = null, result = markdown) }
+                if (lectureId != null && scan.attachOriginals) loadMaterials(lectureId)
+            } else {
+                updateScan { it.copy(running = false, progress = null, error = done.error ?: "Скан не распознан") }
+            }
+        }
+    }
+
+    /** Вставляет распознанный текст в текст лекции: заменяет или дописывает в конец. */
+    fun insertScanResult(append: Boolean) {
+        val recognized = _state.value.scan?.result ?: return
+        updateForm { form ->
+            val current = form.body.trim()
+            form.copy(body = if (append && current.isNotEmpty()) "$current\n\n$recognized" else recognized)
+        }
+        _state.update { it.copy(scan = null) }
+    }
+
+    // endregion
 
     fun addFiles(files: List<PlatformFile>?) {
         if (files.isNullOrEmpty()) return
@@ -261,6 +353,8 @@ class LectureManagementViewModel(
                 contentFolderKey = existing?.contentFolderKey ?: "lecture-${form.id ?: nowKey()}-${slug(form.title)}",
                 linkedTestId = null,
                 publicVisible = form.publicVisible,
+                // Пустая строка удаляет текст лекции.
+                body = form.body,
             )
             val lecture = if (form.id == null) lecturesApi.create(request) else lecturesApi.update(form.id, request)
             // Лекция сохранена: дальше — связи с тестами и файлы (частичный успех показываем отдельно).
@@ -457,6 +551,85 @@ fun LectureManagementScreen(route: TeacherLecturesRoute, role: WorkspaceRole, na
     }
 }
 
+/** Текст лекции: Markdown, просмотр и распознавание скана (камера, сканер документов, файлы). */
+@Composable
+private fun LectureBodySection(form: LectureForm, state: LecturesUiState, vm: LectureManagementViewModel) {
+    val aiStatus by vm.ai.status.collectAsState()
+    SectionTitle("Текст лекции") {
+        if (form.body.isNotBlank()) {
+            TextButton(onClick = vm::toggleBodyPreview) { Text(if (state.bodyPreview) "Править" else "Просмотр") }
+        }
+    }
+    if (aiStatus?.lectureScan == true) {
+        AppOutlinedButton(
+            if (state.scan == null) "Распознать скан" else "Скрыть распознавание",
+            onClick = vm::toggleScan,
+            icon = Icons.Default.DocumentScanner,
+        )
+    }
+    state.scan?.let { scan -> LectureScanPanel(scan, form, vm) }
+    if (state.bodyPreview && form.body.isNotBlank()) {
+        AppCard { MarkdownView(form.body) }
+    } else {
+        FormField(
+            form.body, { v -> vm.updateForm { it.copy(body = v) } }, "Markdown",
+            singleLine = false, minLines = 6,
+            supportingText = "## Заголовок, - пункт, **жирный**, таблицы через |",
+        )
+    }
+}
+
+@Composable
+private fun LectureScanPanel(scan: LectureScanState, form: LectureForm, vm: LectureManagementViewModel) {
+    val scanner = rememberDocumentScanner(onResult = vm::addScanPages, onError = vm::scanError)
+    val camera = rememberCameraPickerLauncher { file -> if (file != null) vm.addScanFiles(listOf(file)) }
+    val files = rememberFilePickerLauncher(
+        type = FileKitType.File(listOf("jpg", "jpeg", "png", "pdf")),
+        mode = FileKitMode.Multiple(),
+    ) { picked -> vm.addScanFiles(picked) }
+    AppCard {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (scanner != null) {
+                AppOutlinedButton("Сканировать", onClick = scanner, enabled = !scan.running, icon = Icons.Default.DocumentScanner)
+            }
+            AppOutlinedButton("Камера", onClick = { camera.launch() }, enabled = !scan.running, icon = Icons.Default.PhotoCamera)
+            AppOutlinedButton("Файлы", onClick = { files.launch() }, enabled = !scan.running, icon = Icons.Default.AttachFile)
+        }
+        scan.pages.forEachIndexed { index, page ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(8.dp))
+                Text("Страница ${index + 1} · ${page.name}", Modifier.weight(1f))
+                IconButton(onClick = { vm.removeScanPage(index) }, enabled = !scan.running) {
+                    Icon(Icons.Default.Close, "Убрать страницу ${index + 1}")
+                }
+            }
+        }
+        if (form.id != null) {
+            CheckRow("Прикрепить сканы к материалам лекции", scan.attachOriginals, vm::setAttachOriginals, enabled = !scan.running)
+        }
+        AppButton(
+            scan.progress ?: "Распознать",
+            onClick = vm::startScan,
+            enabled = scan.pages.isNotEmpty() && !scan.running,
+            icon = Icons.Default.AutoAwesome,
+        )
+        scan.error?.let { Banner(it, Tone.DANGER) }
+        scan.result?.let { recognized ->
+            AppCard(containerColor = MaterialTheme.colorScheme.surfaceVariant) { MarkdownView(recognized) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppButton(
+                    if (form.body.isBlank()) "Вставить в текст лекции" else "Заменить текст",
+                    onClick = { vm.insertScanResult(append = false) },
+                )
+                if (form.body.isNotBlank()) {
+                    AppOutlinedButton("Добавить в конец", onClick = { vm.insertScanResult(append = true) })
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: LectureManagementViewModel) {
     val picker = rememberFilePickerLauncher(type = FileKitType.File(), mode = FileKitMode.Multiple()) { files -> vm.addFiles(files) }
@@ -489,6 +662,8 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
             placeholder = if (state.subjectTests.isEmpty()) "У предмета нет тестов" else "Не выбраны",
         )
 
+        LectureBodySection(form, state, vm)
+
         SectionTitle("Материалы")
         if (form.id != null && state.materials.isEmpty()) {
             Text("Материалы не загружены.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -519,10 +694,7 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
                 }
             }
         }
-        AppOutlinedButton(onClick = { picker.launch() }) {
-            Icon(Icons.Default.AttachFile, null)
-            Text(" Добавить файлы")
-        }
+        AppOutlinedButton("Добавить файлы", onClick = { picker.launch() }, icon = Icons.Default.AttachFile)
         Text("Максимальный размер файла — 50 МБ.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 

@@ -836,6 +836,12 @@ onBeforeUnmount(() => {
           message="Тест завершён. Результат сохранён."
         />
 
+        <UiAlert
+          v-if="resultData.pendingReviewCount"
+          variant="info"
+          :message="`Ответов на проверке: ${resultData.pendingReviewCount}. Свободные ответы проверяются по смыслу — итоговый балл может измениться, он появится в «Моих результатах».`"
+        />
+
         <UiStatGrid class="test-result__summary">
           <UiStat
             label="Правильных ответов"
@@ -884,6 +890,11 @@ onBeforeUnmount(() => {
                   `Вопрос ${index + 1}`
                 }}
               </strong>
+              <UiTag
+                v-if="detail.reviewPending"
+                variant="info"
+                value="Проверяется"
+              />
             </div>
 
             <dl class="test-result-detail__data">

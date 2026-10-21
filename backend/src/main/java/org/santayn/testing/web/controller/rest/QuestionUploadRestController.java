@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionTypeSupport;
 import org.santayn.testing.service.CurrentUserAccessService;
 import org.santayn.testing.service.QuestionService;
@@ -78,7 +79,7 @@ public class QuestionUploadRestController {
         accessService.requireQuestionContextOwner(
                 authentication, request.topicId(), request.courseLectureId(), request.testId()
         );
-        return ApiResponses.question(questionService.create(
+        Question question = questionService.create(
                 request.testId(),
                 request.courseLectureId(),
                 request.topicId(),
@@ -88,7 +89,11 @@ public class QuestionUploadRestController {
                 request.ordinal(),
                 request.correctAnswer(),
                 matchingPairs(request.matchingPairs())
-        ));
+        );
+        if (request.gradingCriteria() != null) {
+            question = questionService.updateGradingCriteria(question.getId(), request.gradingCriteria());
+        }
+        return ApiResponses.question(question);
     }
 
     @PutMapping("/{questionId}")
@@ -104,7 +109,7 @@ public class QuestionUploadRestController {
                 && questionService.get(questionId).getTestId() == null) {
             throw new AccessDeniedException("Teacher question cannot be detached from its owned topic or lecture.");
         }
-        return ApiResponses.question(questionService.update(
+        Question question = questionService.update(
                 questionId,
                 request.courseLectureId(),
                 request.topicId(),
@@ -115,7 +120,12 @@ public class QuestionUploadRestController {
                 request.correctAnswer(),
                 matchingPairs(request.matchingPairs()),
                 request.active()
-        ));
+        );
+        // null — старый клиент не знает о критериях: оставляем как есть.
+        if (request.gradingCriteria() != null) {
+            question = questionService.updateGradingCriteria(questionId, request.gradingCriteria());
+        }
+        return ApiResponses.question(question);
     }
 
     @GetMapping("/options/{optionId}")
@@ -157,7 +167,8 @@ public class QuestionUploadRestController {
             BigDecimal points,
             @Positive int ordinal,
             @Size(max = 4000) String correctAnswer,
-            List<@Valid MatchingPairRequest> matchingPairs
+            List<@Valid MatchingPairRequest> matchingPairs,
+            @Size(max = 4000) String gradingCriteria
     ) {
     }
 
@@ -170,7 +181,8 @@ public class QuestionUploadRestController {
             @Positive int ordinal,
             @Size(max = 4000) String correctAnswer,
             List<@Valid MatchingPairRequest> matchingPairs,
-            boolean active
+            boolean active,
+            @Size(max = 4000) String gradingCriteria
     ) {
     }
 

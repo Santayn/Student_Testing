@@ -19,6 +19,7 @@ import org.santayn.testing.mobile.feature.teacher.TeacherSubjectsHolder
 import org.santayn.testing.mobile.feature.teacher.TestEditorViewModel
 import org.santayn.testing.mobile.feature.teacher.TopicsViewModel
 import org.santayn.testing.mobile.feature.teacher.WorkloadViewModel
+import org.santayn.testing.mobile.feature.teacher.ReviewViewModel
 import org.santayn.testing.mobile.navigation.TeacherCoursesRoute
 import org.santayn.testing.mobile.navigation.TeacherLecturesRoute
 import org.santayn.testing.mobile.navigation.TeacherQuestionsRoute
@@ -45,18 +46,19 @@ val viewModelModule = module {
         TopicsViewModel(route.subjectId, get { parametersOf(role) }, get(), get())
     }
     viewModel { (route: TeacherQuestionsRoute, role: WorkspaceRole) ->
-        QuestionsViewModel(route, get { parametersOf(role) }, get(), get())
+        QuestionsViewModel(route, get { parametersOf(role) }, get(), get(), get(), get())
     }
     viewModel { (route: TeacherTestCreateRoute, role: WorkspaceRole) ->
         TestEditorViewModel(route, get { parametersOf(role) }, get(), get(), get(), get(), get(), get())
     }
     viewModel { (route: TeacherLecturesRoute, role: WorkspaceRole) ->
-        LectureManagementViewModel(route, get { parametersOf(role) }, get(), get(), get(), get())
+        LectureManagementViewModel(route, get { parametersOf(role) }, get(), get(), get(), get(), get(), get())
     }
     viewModel { (route: TeacherCoursesRoute, role: WorkspaceRole) ->
         CourseTemplatesViewModel(route, get { parametersOf(role) }, get(), get(), get(), get(), get())
     }
     viewModelOf(::WorkloadViewModel)
+    viewModelOf(::ReviewViewModel)
 
     // Администратор
     viewModelOf(::FacultiesViewModel)

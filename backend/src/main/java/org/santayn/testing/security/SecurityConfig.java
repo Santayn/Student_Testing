@@ -84,6 +84,15 @@ public class SecurityConfig {
             "questions.manage", "QUESTIONS.MANAGE"
     };
 
+    private static final String[] AI_USAGE_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "ai.usage.read", "AI.USAGE.READ"
+    };
+
+    private static final String[] AI_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
+            "courses.manage", "COURSES.MANAGE", "questions.manage", "QUESTIONS.MANAGE"
+    };
+
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http,
@@ -138,6 +147,8 @@ public class SecurityConfig {
                                         "/api/v1/admin/database-backups/restore"
                                 )
                                 .hasAnyAuthority(STRICT_ADMIN_AUTHORITIES)
+                                .requestMatchers("/api/v1/admin/ai-usage", "/api/v1/admin/ai-usage/**")
+                                .hasAnyAuthority(AI_USAGE_AUTHORITIES)
                                 .requestMatchers("/api/v1/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers("/api/v1/tests/attempts/**", "/api/v1/tests/responses/**")
                                 .hasAnyAuthority(ADMIN_AUTHORITIES)
@@ -149,6 +160,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/v1/courses/**").hasAnyAuthority(COURSE_WRITE_AUTHORITIES)
                                 .requestMatchers("/api/v1/lectures/**").hasAnyAuthority(COURSE_WRITE_AUTHORITIES)
                                 .requestMatchers("/api/v1/results/teacher/**").hasAnyAuthority(TEST_WRITE_AUTHORITIES)
+                                .requestMatchers("/api/v1/ai/**").hasAnyAuthority(AI_AUTHORITIES)
                                 .requestMatchers("/api/v1/results/student/**").authenticated()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/memberships/**").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers(HttpMethod.PUT, "/api/v1/memberships/**").hasAnyAuthority(ADMIN_AUTHORITIES)

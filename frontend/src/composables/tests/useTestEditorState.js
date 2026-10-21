@@ -38,6 +38,7 @@ export function useTestEditorState({
     description: '',
     questionCount: 1,
     attemptsAllowed: 1,
+    showAiFeedback: true,
     textQuestionCount: 0,
     singleAnswerQuestionCount: 0,
     multipleAnswerQuestionCount: 0,
@@ -82,6 +83,8 @@ export function useTestEditorState({
           Number(
             form.value.attemptsAllowed
           ),
+        showAiFeedback:
+          Boolean(form.value.showAiFeedback),
         textQuestionCount:
           Number(
             form.value.textQuestionCount

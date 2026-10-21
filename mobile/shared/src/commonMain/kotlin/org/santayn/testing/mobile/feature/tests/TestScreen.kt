@@ -646,6 +646,16 @@ private fun TestResultScreen(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         ) {
             item { ResultHero(title = title, result = result, onBack = onBack) }
+            if (result.pendingReviewCount > 0) {
+                item {
+                    Banner(
+                        "Ответов на проверке: ${result.pendingReviewCount}. Свободные ответы проверяются по смыслу — " +
+                            "итоговый балл может измениться, он появится в «Результатах».",
+                        Tone.INFO,
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                }
+            }
             if (result.details.isNotEmpty()) {
                 item { SectionTitle("Разбор ответов", modifier = Modifier.padding(horizontal = 20.dp)) }
             }
@@ -670,6 +680,7 @@ private fun TestResultScreen(
                     Spacer(Modifier.size(4.dp))
                     Text(detail.questionText.orEmpty(), style = MaterialTheme.typography.titleSmall)
                     AnswerView(detail.givenAnswer, detail.correctAnswer)
+                    if (detail.pendingReview) StatusChip("Проверяется", Tone.INFO)
                 }
             }
             item {

@@ -266,6 +266,10 @@ defineProps({
   border: 0;
 }
 
+.teacher-test-ai-feedback {
+  margin-top: 14px;
+}
+
 .teacher-field-label {
   margin-bottom: 6px;
 

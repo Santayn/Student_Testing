@@ -7,6 +7,8 @@ import org.santayn.testing.mobile.core.ui.colorsFor
 import org.santayn.testing.mobile.core.ui.design.DesignTheme
 import org.santayn.testing.mobile.core.ui.design.KafedraSubjectAccentsDark
 import org.santayn.testing.mobile.core.ui.design.KafedraSubjectAccentsLight
+import org.santayn.testing.mobile.core.ui.design.ZachetStreakTextDark
+import org.santayn.testing.mobile.core.ui.design.ZachetStreakTextLight
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.test.Test
@@ -56,6 +58,8 @@ class ContrastTests {
             "onHero/heroChip (чипы на панели)" to (b.onHero to b.heroChip),
             "onAccent/accent (акцентная кнопка, плитка)" to (b.onAccent to b.accent),
             "onHighlight/highlight (плитка)" to (b.onHighlight to b.highlight),
+            "accentOnSurface/surface (число в плитке итога, обводка выбранного ответа)" to (b.accentOnSurface to c.surface),
+            "surface/accentOnSurface (галочка выбранного ответа)" to (c.surface to b.accentOnSurface),
         )
     }
 
@@ -82,6 +86,20 @@ class ContrastTests {
         val failures = DesignTheme.entries.flatMap { theme ->
             check(theme, dark = false, highContrast = true, minimum = 7.0) +
                 check(theme, dark = true, highContrast = true, minimum = 7.0)
+        }
+        assertTrue(failures.isEmpty(), failures.joinToString("\n"))
+    }
+
+    /** Текст серии дней на главной «Зачёта» — на чипе цвета surface, в обоих режимах. */
+    @Test
+    fun zachetStreakTextIsReadable() {
+        val failures = listOf(
+            "тёмная" to (ZachetStreakTextDark to colorsFor(DesignTheme.ZACHET, dark = true, highContrast = false)),
+            "светлая" to (ZachetStreakTextLight to colorsFor(DesignTheme.ZACHET, dark = false, highContrast = false)),
+        ).mapNotNull { (mode, pair) ->
+            val (text, colors) = pair
+            val value = ratio(text, colors.scheme.surface)
+            if (value < 4.5) "Зачёт ($mode): текст серии = ${(value * 100).toInt() / 100.0} < 4.5" else null
         }
         assertTrue(failures.isEmpty(), failures.joinToString("\n"))
     }

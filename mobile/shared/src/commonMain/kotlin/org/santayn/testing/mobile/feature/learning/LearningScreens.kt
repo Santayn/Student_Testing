@@ -1,6 +1,8 @@
 package org.santayn.testing.mobile.feature.learning
 
 import androidx.compose.foundation.layout.Box
+import org.santayn.testing.mobile.domain.markdownPlainText
+import org.santayn.testing.mobile.core.ui.MarkdownView
 import org.santayn.testing.mobile.core.ui.AppTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.draw.clip
@@ -47,6 +49,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.santayn.testing.mobile.core.files.formatFileSize
 import org.santayn.testing.mobile.core.files.openWithDefaultApp
+import org.santayn.testing.mobile.core.files.saveToCache
 import org.santayn.testing.mobile.core.files.OfflineFiles
 import org.santayn.testing.mobile.core.network.ApiException
 import org.santayn.testing.mobile.core.ui.SpeakButton
@@ -405,6 +408,24 @@ class LectureViewModel(
         }
     }
 
+    /** Формат текста лекции, который сейчас скачивается (docx/pdf). */
+    private val _exporting = MutableStateFlow<String?>(null)
+    val exporting = _exporting.asStateFlow()
+
+    fun exportText(format: String) {
+        if (_exporting.value != null) return
+        _exporting.value = format
+        launchSafe(onError = { error ->
+            _exporting.value = null
+            toast("Не удалось скачать файл: ${error.userMessage()}")
+        }) {
+            val file = learning.exportLectureText(lectureId, format).saveToCache()
+            _exporting.value = null
+            runCatching { openWithDefaultApp(file) }
+                .onFailure { toast("Файл сохранён, но нет приложения для его открытия") }
+        }
+    }
+
     private fun markSaved(materialId: Int) {
         _state.update { current ->
             if (current is LoadState.Ready) {
@@ -422,6 +443,7 @@ fun LectureScreen(route: LectureRoute, navigator: AppNavigator) {
     CollectMessages(vm)
     val state by vm.state.collectAsState()
     val downloading by vm.downloading.collectAsState()
+    val exporting by vm.exporting.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val lecture = (state as? LoadState.Ready)?.data?.lecture
     // Название лекции — в шапке экрана (LectureHero), в верхней панели — курс.
@@ -429,6 +451,31 @@ fun LectureScreen(route: LectureRoute, navigator: AppNavigator) {
         LoadStateContent(state, onRetry = { vm.load() }, refreshing = refreshing, onRefresh = { vm.load(true) }) { data ->
             ScreenList(contentPadding = screenPadding(padding)) {
                 item { LectureHero(data.lecture) }
+
+                val body = data.lecture.body?.takeIf { it.isNotBlank() }
+                if (body != null) {
+                    item {
+                        SectionTitle("Текст лекции") {
+                            SpeakButton(key = "lecture-body-${data.lecture.id}", text = { markdownPlainText(body) })
+                        }
+                    }
+                    item { AppCard { MarkdownView(body) } }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("pdf", "docx").forEach { format ->
+                                BusyButton(
+                                    text = format.uppercase(),
+                                    onClick = { vm.exportText(format) },
+                                    modifier = Modifier.weight(1f),
+                                    busy = exporting == format,
+                                    enabled = exporting == null,
+                                    outlined = true,
+                                    icon = Icons.Default.Download,
+                                )
+                            }
+                        }
+                    }
+                }
 
                 item { SectionTitle("Материалы") }
                 if (data.materialsError != null) item { Banner(data.materialsError, Tone.DANGER) }

@@ -10,12 +10,30 @@ function safeStats(stats) {
   }
 }
 
+const PENDING_REVIEW_STATUSES = new Set([
+  'ai_pending',
+  'needs_teacher',
+])
+
+function optionalText(value) {
+  const text = typeof value === 'string' ? value.trim() : ''
+  return text || undefined
+}
+
 function safeStudentResultItem(item) {
   return {
     questionText:
       item?.questionText ?? '',
     givenAnswer:
       item?.givenAnswer ?? '',
+    // Ответ ещё проверяют ИИ или преподаватель — баллы могут измениться.
+    reviewPending:
+      PENDING_REVIEW_STATUSES.has(item?.reviewStatus) || undefined,
+    // Комментарии к ответу самого студента: что упущено. Правильный ответ не раскрывают.
+    aiFeedback:
+      optionalText(item?.aiFeedback),
+    teacherComment:
+      optionalText(item?.teacherComment),
   }
 }
 
@@ -79,6 +97,8 @@ function safeStudentSubmitDetail(detail) {
       detail?.questionText ?? '',
     givenAnswer:
       detail?.givenAnswer ?? '',
+    reviewPending:
+      detail?.pendingReview === true || undefined,
   }
 }
 
@@ -94,6 +114,8 @@ export function sanitizeStudentSubmitResult(data) {
       source.correctCount ?? 0,
     totalCount:
       source.totalCount ?? 0,
+    pendingReviewCount:
+      source.pendingReviewCount ?? 0,
     details: Array.isArray(
       source.details
     )

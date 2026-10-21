@@ -101,6 +101,8 @@ export function useTestEditorSaveFlow({
         Number(
           form.value.attemptsAllowed
         ) || 1,
+      showAiFeedback:
+        form.value.showAiFeedback !== false,
       questionCount:
         Number(
           form.value.questionCount

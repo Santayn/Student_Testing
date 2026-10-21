@@ -65,6 +65,7 @@ import org.santayn.testing.mobile.data.model.TestRequest
 import org.santayn.testing.mobile.data.model.TopicDto
 import org.santayn.testing.mobile.navigation.AppNavigator
 import org.santayn.testing.mobile.navigation.TeacherTestCreateRoute
+import org.santayn.testing.mobile.core.ui.SwitchRow
 
 /*
  * Мастер создания теста — views/teacher/TestEditorView.vue,
@@ -90,6 +91,7 @@ data class TestForm(
     val singleCount: String = "0",
     val multipleCount: String = "0",
     val matchingCount: String = "0",
+    val showAiFeedback: Boolean = true,
     val status: Int = TestAssignmentStatus.ACTIVE,
     val availableFrom: LocalDate? = null,
     val availableUntil: LocalDate? = null,
@@ -279,6 +281,7 @@ class TestEditorViewModel(
                             ordinal = 1,
                         )
                     ),
+                    showAiFeedback = f.showAiFeedback,
                 )
             )
             val requests = when (s.target) {
@@ -434,6 +437,11 @@ fun TestEditorScreen(route: TeacherTestCreateRoute, role: WorkspaceRole, navigat
                     val automatic = ((f.questionCount.toIntOrNull() ?: 0) - vm.fixedCount(f)).coerceAtLeast(0)
                     Text("Фиксировано по типам: ${vm.fixedCount(f)}. Остальные случайно: $automatic.",
                         style = MaterialTheme.typography.bodySmall)
+                    SwitchRow(
+                        "Показывать студентам комментарий ИИ к свободным ответам",
+                        f.showAiFeedback,
+                        { v -> vm.updateForm { it.copy(showAiFeedback = v) } },
+                    )
                 }
             }
             item {

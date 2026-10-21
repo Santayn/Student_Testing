@@ -12,6 +12,7 @@ import {
   UiTextarea,
 } from '@/components/ui'
 
+import LectureBodyEditor from '@/components/teacher/LectureBodyEditor.vue'
 import LectureMaterialsManager from '@/components/teacher/LectureMaterialsManager.vue'
 
 import {
@@ -40,6 +41,7 @@ defineProps({
   fileInputKey: { type: Number, default: 0 },
   loadingMaterials: { type: Boolean, default: false },
   deletingMaterialId: { type: [Number, String], default: null },
+  savedBody: { type: String, default: '' },
 })
 
 const emit = defineEmits([
@@ -50,6 +52,7 @@ const emit = defineEmits([
   'remove-pending-file',
   'download-material',
   'request-delete-material',
+  'materials-changed',
   'close',
   'save',
 ])
@@ -124,6 +127,16 @@ defineExpose({
             hint="Группа, которой администратор выдал версию в учебной нагрузке, видит только лекции этой версии (если ей не назначены отдельные лекции)."
           />
         </section>
+
+        <LectureBodyEditor
+          v-model="form.body"
+          :lecture-id="form.id"
+          :saved-body="savedBody"
+          :disabled="saving"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'body')"
+          @update:model-value="emit('field-change', 'body')"
+          @materials-changed="emit('materials-changed')"
+        />
 
         <section class="teacher-lecture-form-section">
           <div class="teacher-lecture-form-section__heading">
