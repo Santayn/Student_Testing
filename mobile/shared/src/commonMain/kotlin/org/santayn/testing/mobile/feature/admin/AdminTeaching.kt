@@ -685,6 +685,7 @@ private fun AssignmentEditor(form: AssignmentForm, state: TeachingState, vm: Tea
         onSave = vm::save,
         busy = state.saving,
         error = state.formError,
+        snapshot = form,
     ) {
         SelectField("Предмет", state.facultySubjects.map { SelectOption(it.id, it.name) }, form.subjectId,
             { id -> vm.updateForm { it.copy(subjectId = id) } }, required = true)

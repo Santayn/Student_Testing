@@ -506,6 +506,7 @@ private fun QuestionEditor(form: QuestionForm, state: QuestionsUiState, vm: Ques
         onSave = vm::saveQuestion,
         busy = state.saving,
         error = state.formError,
+        snapshot = form,
     ) {
         FormField(form.question, { v -> vm.updateForm { it.copy(question = v) } }, "Текст вопроса",
             singleLine = false, minLines = 3, maxLength = 2000, required = true)

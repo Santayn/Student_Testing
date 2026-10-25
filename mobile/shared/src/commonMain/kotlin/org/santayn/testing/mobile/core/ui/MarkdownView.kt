@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -103,27 +104,29 @@ private fun MarkdownBlock(block: MdBlock) {
 @Composable
 private fun MarkdownTable(table: MdBlock.Table) {
     val colors = MaterialTheme.colorScheme
-    Box(
+    val columns = (listOf(table.header) + table.rows).maxOf { it.size }.coerceAtLeast(1)
+    BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(8.dp))
-            .horizontalScroll(rememberScrollState()),
+            .border(1.dp, colors.outlineVariant, RoundedCornerShape(8.dp)),
     ) {
-        Column {
+        // Колонки одной ширины: строки выровнены и заполняют рамку; не помещаются — таблица прокручивается.
+        val cellWidth = maxOf(maxWidth / columns, MIN_TABLE_CELL_WIDTH)
+        Column(Modifier.horizontalScroll(rememberScrollState())) {
             (listOf(table.header) + table.rows).forEachIndexed { rowIndex, row ->
-                if (rowIndex > 0) HorizontalDivider(color = colors.outlineVariant)
+                if (rowIndex > 0) HorizontalDivider(Modifier.width(cellWidth * columns), color = colors.outlineVariant)
                 Row(
                     Modifier.background(if (rowIndex == 0) colors.surfaceVariant else colors.surface),
                 ) {
-                    row.forEach { cell ->
+                    repeat(columns) { column ->
                         Text(
-                            inlineText(cell),
+                            inlineText(row.getOrElse(column) { emptyList() }),
                             style = if (rowIndex == 0) {
                                 MaterialTheme.typography.labelLarge
                             } else {
                                 MaterialTheme.typography.bodyMedium
                             },
-                            modifier = Modifier.widthIn(min = 96.dp, max = 220.dp).padding(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.width(cellWidth).padding(horizontal = 10.dp, vertical = 8.dp),
                         )
                     }
                 }
@@ -131,6 +134,8 @@ private fun MarkdownTable(table: MdBlock.Table) {
         }
     }
 }
+
+private val MIN_TABLE_CELL_WIDTH = 120.dp
 
 @Composable
 private fun inlineText(nodes: List<MdInline>): AnnotatedString {

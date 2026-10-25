@@ -77,6 +77,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1282,6 +1283,9 @@ fun AppButton(
 
 /**
  * Полноэкранный редактор в диалоге (замена Drawer'ов веба).
+ *
+ * [snapshot] — данные формы (data class). Если они отличаются от открытых или последних сохранённых,
+ * закрытие крестиком или кнопкой «Назад» спрашивает, бросить ли изменения (как в вебе).
  */
 @Composable
 fun EditorDialog(
@@ -1292,10 +1296,43 @@ fun EditorDialog(
     busy: Boolean = false,
     saveEnabled: Boolean = true,
     error: String? = null,
+    snapshot: Any? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val currentSnapshot by rememberUpdatedState(snapshot)
+    val currentError by rememberUpdatedState(error)
+    var baseline by remember { mutableStateOf(snapshot) }
+    var wasBusy by remember { mutableStateOf(busy) }
+    // Успешное сохранение (busy → false без ошибки) — новая точка отсчёта: диалог может остаться открытым.
+    LaunchedEffect(busy) {
+        if (wasBusy && !busy && currentError == null) baseline = currentSnapshot
+        wasBusy = busy
+    }
+    val dirty = snapshot != null && snapshot != baseline
+    var confirmClose by remember { mutableStateOf(false) }
+    val requestClose = {
+        when {
+            busy -> Unit
+            dirty -> confirmClose = true
+            else -> onDismiss()
+        }
+    }
+    if (confirmClose) {
+        ConfirmDialog(
+            title = "Есть несохранённые изменения",
+            message = "Если закрыть форму сейчас, внесённые изменения будут потеряны.",
+            confirmText = "Закрыть без сохранения",
+            dismissText = "Продолжить редактирование",
+            destructive = true,
+            onConfirm = {
+                confirmClose = false
+                onDismiss()
+            },
+            onDismiss = { confirmClose = false },
+        )
+    }
     Dialog(
-        onDismissRequest = { if (!busy) onDismiss() },
+        onDismissRequest = requestClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -1305,7 +1342,7 @@ fun EditorDialog(
                         Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = onDismiss, enabled = !busy) {
+                        IconButton(onClick = requestClose, enabled = !busy) {
                             Icon(Icons.Default.Clear, contentDescription = "Закрыть")
                         }
                         Text(

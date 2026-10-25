@@ -302,7 +302,7 @@ fun AdminUsersScreen(navigator: AppNavigator) {
         val f = form!!
         val selectedRoles = data.roles.filter { it.id in f.roleIds }
         val effectivePermissions = selectedRoles.flatMap { it.permissions }.map { it.name }.distinct().sorted()
-        EditorDialog(title = f.user.login, onDismiss = { vm.open(null) }, onSave = vm::save, busy = busy, error = if (person == null) err else null) {
+        EditorDialog(title = f.user.login, onDismiss = { vm.open(null) }, onSave = vm::save, busy = busy, error = if (person == null) err else null, snapshot = f) {
             Text("Логин: ${f.user.login}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SwitchRow("Учётная запись активна", f.active, { v -> vm.update { it.copy(active = v) } },
                 description = "Заблокированный пользователь не сможет войти")
@@ -338,6 +338,7 @@ fun AdminUsersScreen(navigator: AppNavigator) {
             onSave = vm::savePerson,
             busy = busy,
             error = err,
+            snapshot = p,
         ) {
             FormField(p.lastName, { v -> vm.updatePerson { it.copy(lastName = v) } }, "Фамилия", required = true)
             FormField(p.firstName, { v -> vm.updatePerson { it.copy(firstName = v) } }, "Имя", required = true)
@@ -474,7 +475,7 @@ fun AdminRolesScreen(navigator: AppNavigator) {
     val data = (state as? LoadState.Ready)?.data
     editing?.let { (role, ids) ->
         var search by remember { mutableStateOf("") }
-        EditorDialog(title = "Права: ${role.name}", onDismiss = { vm.edit(null) }, onSave = vm::savePermissions, busy = busy) {
+        EditorDialog(title = "Права: ${role.name}", onDismiss = { vm.edit(null) }, onSave = vm::savePermissions, busy = busy, snapshot = ids) {
             Text("Набор прав роли будет полностью заменён отмеченными.", style = MaterialTheme.typography.bodySmall)
             SearchField(search, { search = it })
             data?.permissions.orEmpty().filter { search.isBlank() || it.name.contains(search.trim(), true) }.forEach { p ->

@@ -259,6 +259,7 @@ private fun <T> DictionaryScreen(
             onSave = vm::save,
             busy = state.saving,
             error = state.formError,
+            snapshot = form,
         ) {
             FormField(form.name, { v -> vm.update { it.copy(name = v) } }, "Название", required = true, maxLength = 200)
             if (showCode) FormField(form.code, { v -> vm.update { it.copy(code = v) } }, "Код", maxLength = 50)
