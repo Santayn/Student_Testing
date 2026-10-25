@@ -3,6 +3,7 @@ import {
   onScopeDispose,
   reactive,
   ref,
+  watch,
 } from 'vue'
 
 import {
@@ -33,6 +34,8 @@ export const REVIEW_STATUS_LABELS = Object.freeze({
  * или не смог оценить, плюс оценки ИИ для выборочного просмотра. Преподаватель
  * подтверждает оценку, ставит свои баллы или отправляет ответ на повторную проверку.
  */
+const PENDING_POLL_MS = 4000
+
 export function useReviewQueue() {
   const status = ref('needs_teacher')
   const items = ref([])
@@ -47,9 +50,11 @@ export function useReviewQueue() {
   const busyResponseId = ref(null)
   const request = createAbortableRequestGuard()
 
-  async function load() {
+  async function load({ silent = false } = {}) {
     const { requestId, signal } = request.begin()
-    loading.value = true
+    if (!silent) {
+      loading.value = true
+    }
     error.value = ''
 
     try {
@@ -131,8 +136,29 @@ export function useReviewQueue() {
     )
   }
 
+  // Пока ИИ проверяет ответы, очередь обновляется сама — новая оценка появляется без «Обновить».
+  let pollTimer = null
+
+  function schedulePoll() {
+    clearTimeout(pollTimer)
+    pollTimer = null
+    if (counts.ai_pending > 0) {
+      pollTimer = setTimeout(async () => {
+        if (!busyResponseId.value) {
+          await load({ silent: true })
+        }
+        schedulePoll()
+      }, PENDING_POLL_MS)
+    }
+  }
+
+  watch(() => counts.ai_pending, schedulePoll)
+
   if (getCurrentScope()) {
-    onScopeDispose(() => request.invalidate())
+    onScopeDispose(() => {
+      clearTimeout(pollTimer)
+      request.invalidate()
+    })
   }
 
   return {

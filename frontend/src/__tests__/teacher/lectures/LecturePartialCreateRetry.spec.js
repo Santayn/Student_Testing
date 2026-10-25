@@ -34,6 +34,8 @@ const state = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => state.route,
+  matchedRouteKey: Symbol('matchedRouteKey'),
+  onBeforeRouteLeave: () => {},
 }))
 
 vi.mock('@/composables/teacher/useTeacherSubjects', () => ({

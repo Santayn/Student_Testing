@@ -53,6 +53,7 @@ const emit = defineEmits([
   'download-material',
   'request-delete-material',
   'materials-changed',
+  'attach-scans',
   'close',
   'save',
 ])
@@ -136,6 +137,7 @@ defineExpose({
           :error="apiFieldError({ fieldErrors: formFieldErrors }, 'body')"
           @update:model-value="emit('field-change', 'body')"
           @materials-changed="emit('materials-changed')"
+          @attach-scans="emit('attach-scans', $event)"
         />
 
         <section class="teacher-lecture-form-section">

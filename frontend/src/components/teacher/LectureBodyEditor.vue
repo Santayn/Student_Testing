@@ -31,7 +31,7 @@ const props = defineProps({
   error: { type: String, default: '' },
 })
 
-const emit = defineEmits(['update:modelValue', 'materials-changed'])
+const emit = defineEmits(['update:modelValue', 'materials-changed', 'attach-scans'])
 
 const exporting = ref('')
 const exportError = ref('')
@@ -94,9 +94,10 @@ async function startScan() {
 
   recognized.value = ''
   const done = await scanJob.track(
+    // Сканы прикрепляются к материалам при сохранении лекции, а не при распознавании.
     aiApi.scanLecture(scanFiles.value, {
       lectureId: props.lectureId ? Number(props.lectureId) : null,
-      attachOriginals: Boolean(props.lectureId) && attachOriginals.value,
+      attachOriginals: false,
     })
   )
 
@@ -111,6 +112,9 @@ function insertRecognized(mode) {
     ? `${current}\n\n${recognized.value}`
     : recognized.value
   emit('update:modelValue', next)
+  if (attachOriginals.value && scanFiles.value.length) {
+    emit('attach-scans', [...scanFiles.value])
+  }
   scanOpen.value = false
   resetScan()
 }
@@ -155,7 +159,6 @@ function insertRecognized(mode) {
       />
 
       <UiCheckbox
-        v-if="lectureId"
         v-model="attachOriginals"
         label="Прикрепить сканы к материалам лекции"
         :disabled="scanJob.busy.value"

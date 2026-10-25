@@ -228,6 +228,7 @@ const {
   deletingMaterialId,
   materialDeleteError,
   setPendingFiles,
+  addScanFiles,
   removePendingFile,
   requestDeleteMaterial,
   closeMaterialDeleteDialog,
@@ -663,6 +664,7 @@ onMounted(async () => {
       @dismiss-error="formError = ''"
       @field-change="clearFormFieldError(formFieldErrors, formError, $event)"
       @files-change="setPendingFiles"
+      @attach-scans="addScanFiles"
       @remove-pending-file="removePendingFile"
       :saved-body="savedLectureBody"
       @download-material="downloadMaterial"

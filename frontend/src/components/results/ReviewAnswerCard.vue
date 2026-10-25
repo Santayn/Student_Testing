@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  onBeforeUnmount,
   ref,
   watch,
 } from 'vue'
@@ -20,19 +21,29 @@ const props = defineProps({
   aiAvailable: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['grade', 'accept', 'regrade'])
+const emit = defineEmits(['grade', 'accept', 'regrade', 'dirty-change'])
 
 const points = ref('')
 const comment = ref('')
 
+// Поля сбрасываются, только когда изменились данные на сервере: фоновое обновление очереди
+// не должно стирать то, что преподаватель уже ввёл.
 watch(
-  () => props.item,
-  (item) => {
-    points.value = item?.awardedPoints ?? ''
-    comment.value = item?.teacherComment ?? ''
+  () => [props.item?.responseId, props.item?.awardedPoints, props.item?.teacherComment],
+  () => {
+    points.value = props.item?.awardedPoints ?? ''
+    comment.value = props.item?.teacherComment ?? ''
   },
   { immediate: true }
 )
+
+const dirty = computed(() => (
+  String(points.value ?? '') !== String(props.item?.awardedPoints ?? '')
+  || String(comment.value ?? '').trim() !== String(props.item?.teacherComment ?? '').trim()
+))
+
+watch(dirty, (value) => emit('dirty-change', value), { immediate: true })
+onBeforeUnmount(() => emit('dirty-change', false))
 
 const statusVariant = computed(() => {
   switch (props.item.reviewStatus) {

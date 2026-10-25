@@ -637,6 +637,12 @@
     line-height: 1.4;
   }
 
+  .st-ui-card.p-card,
+  .st-ui-card.p-card .p-card-body,
+  .st-ui-card.p-card .p-card-content {
+    min-width: 0;
+  }
+
   .st-ui-card.p-card {
     color: var(--st-text);
     background: var(--st-surface);

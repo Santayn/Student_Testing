@@ -22,6 +22,8 @@ import {
 
 import LectureMarkdown from '@/components/lectures/LectureMarkdown.vue'
 import { saveBlobResponse } from '@/utils/fileDownload'
+import { markdownPlainText } from '@/utils/markdown'
+import { useSpeech } from '@/composables/shared/useSpeech'
 import LecturesPageShell from '@/components/lectures/LecturesPageShell.vue'
 
 import {
@@ -447,6 +449,13 @@ function responseFilename(
 
 const exportingFormat = ref('')
 
+const speech = useSpeech()
+const speakingBody = computed(() => speech.speakingKey.value === 'lecture-body')
+
+function toggleBodySpeech() {
+  speech.toggle('lecture-body', markdownPlainText(lecture.value?.body ?? ''))
+}
+
 /** Текст лекции файлом PDF или Word. */
 async function exportLectureText(format) {
   if (exportingFormat.value) {
@@ -705,6 +714,15 @@ onMounted(loadLecture)
       >
         <template #actions>
           <UiButton
+            v-if="speech.supported"
+            variant="secondary"
+            size="sm"
+            :icon="speakingBody ? 'pi pi-stop-circle' : 'pi pi-volume-up'"
+            :label="speakingBody ? 'Остановить чтение' : 'Прочитать вслух'"
+            :aria-pressed="speakingBody ? 'true' : 'false'"
+            @click="toggleBodySpeech"
+          />
+          <UiButton
             v-for="format in ['pdf', 'docx']"
             :key="format"
             variant="secondary"
@@ -716,6 +734,13 @@ onMounted(loadLecture)
             @click="exportLectureText(format)"
           />
         </template>
+        <UiAlert
+          v-if="speech.problem.value"
+          variant="warning"
+          :message="speech.problem.value"
+          closable
+          @close="speech.problem.value = ''"
+        />
         <LectureMarkdown :source="lecture.body" />
       </UiCard>
 
