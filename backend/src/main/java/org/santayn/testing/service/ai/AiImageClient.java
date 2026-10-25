@@ -68,7 +68,10 @@ public class AiImageClient {
             endpoints.headers().forEach(builder::header);
             HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 != 2) {
-                throw new AiUnavailableException(OpenAiCompatibleChatClient.describeError(response.statusCode()));
+                throw new AiUnavailableException(
+                        OpenAiCompatibleChatClient.describeError(response.statusCode()),
+                        OpenAiCompatibleChatClient.isRetryable(response.statusCode())
+                );
             }
             JsonNode data = objectMapper.readTree(response.body()).path("data");
             String encoded = data.isArray() && !data.isEmpty() ? data.get(0).path("b64_json").asText("") : "";

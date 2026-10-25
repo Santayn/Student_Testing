@@ -48,6 +48,7 @@ public class AiProperties {
     private Grading grading = new Grading();
     private Ocr ocr = new Ocr();
     private Images images = new Images();
+    private Presentation presentation = new Presentation();
     private GigaChat gigachat = new GigaChat();
     private Worker worker = new Worker();
     private Storage storage = new Storage();
@@ -103,6 +104,16 @@ public class AiProperties {
         private boolean generationEnabled = true;
         private boolean searchEnabled = true;
         private String size = "1024x1024";
+    }
+
+    @Getter
+    @Setter
+    public static class Presentation {
+        /**
+         * Сколько символов текста лекции и материалов уходит модели для плана.
+         * Groq на бесплатном тарифе принимает до 8000 токенов в минуту (≈ 20 000 символов по-русски).
+         */
+        private int maxSourceChars = 60_000;
     }
 
     @Getter

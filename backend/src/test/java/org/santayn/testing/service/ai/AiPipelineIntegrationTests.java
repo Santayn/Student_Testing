@@ -224,6 +224,7 @@ class AiPipelineIntegrationTests {
         SERVER.respond(request -> LoopbackAiServer.Response.ok(LoopbackAiServer.chat("""
                 {"title": "Базы данных", "subtitle": "Введение",
                  "slides": [
+                   {"layout": "section", "title": "Базы данных"},
                    {"layout": "bullets", "title": "Таблицы", "bullets": ["Строки", "Столбцы"], "notes": "Пример.",
                     "image": {"mode": "search", "query": "database table"}},
                    {"layout": "unknown", "title": "Ключи", "bullets": ["Первичный", "Внешний"]}
@@ -249,6 +250,24 @@ class AiPipelineIntegrationTests {
         List<LectureMaterial> materials = lectureMaterialService.findByLectureId(lecture.getId());
         assertThat(materials).extracting(LectureMaterial::getFileName)
                 .containsExactlyInAnyOrder("Презентация — Базы данных.pptx", "Презентация — Базы данных.pdf");
+    }
+
+    @Test
+    void oversizedRequestFailsAtOnceWithoutRetries() {
+        Lecture lecture = new Lecture();
+        lecture.setTitle("Сети");
+        lecture.setContentFolderKey("ai-test-" + System.nanoTime());
+        lecture.setBody("Модель OSI описывает уровни сетевого взаимодействия. ".repeat(20));
+        lecture = lectureRepository.saveAndFlush(lecture);
+        SERVER.respond(request -> new LoopbackAiServer.Response(413, "{\"error\": {\"message\": \"Request too large\"}}"));
+
+        AiJob job = outlineService.enqueue(null, lecture.getId(), 6, null);
+        worker.runReadyJobsNow();
+
+        AiJob failed = jobService.get(job.getId());
+        assertThat(failed.getStatus()).isEqualTo(AiJobStatus.FAILED);
+        assertThat(failed.getAttempts()).isEqualTo(1);
+        assertThat(failed.getError()).contains("413").contains("APP_AI_PRESENTATION_MAX_SOURCE_CHARS");
     }
 
     private Submitted submitTextAnswer(String answer) {

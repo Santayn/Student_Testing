@@ -2,6 +2,7 @@ package org.santayn.testing.service.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
+import org.santayn.testing.service.lecture.LectureTextExportService;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -83,10 +84,28 @@ class AiJsonAndVerdictTests {
     @Test
     void imageFetcherAllowsOnlyKnownHttpsHosts() {
         assertThat(RemoteImageFetcher.isAllowed("https://upload.wikimedia.org/a.jpg")).isTrue();
+        assertThat(RemoteImageFetcher.isAllowed("https://thumb.wikimedia.org/wikipedia/commons/thumb/a.jpg/1280px-a.jpg")).isTrue();
         assertThat(RemoteImageFetcher.isAllowed("https://api.openverse.org/v1/images/1/thumb/")).isTrue();
         assertThat(RemoteImageFetcher.isAllowed("http://upload.wikimedia.org/a.jpg")).isFalse();
         assertThat(RemoteImageFetcher.isAllowed("https://169.254.169.254/latest")).isFalse();
         assertThat(RemoteImageFetcher.isAllowed("https://upload.wikimedia.org.evil.com/a.jpg")).isFalse();
         assertThat(RemoteImageFetcher.isAllowed("https://user@upload.wikimedia.org/a.jpg")).isFalse();
+    }
+
+    @Test
+    void onlyTransientProviderErrorsAreRetried() {
+        assertThat(OpenAiCompatibleChatClient.isRetryable(429)).isTrue();
+        assertThat(OpenAiCompatibleChatClient.isRetryable(503)).isTrue();
+        assertThat(OpenAiCompatibleChatClient.isRetryable(413)).isFalse();
+        assertThat(OpenAiCompatibleChatClient.isRetryable(401)).isFalse();
+        assertThat(OpenAiCompatibleChatClient.describeError(413)).contains("APP_AI_PRESENTATION_MAX_SOURCE_CHARS");
+    }
+
+    @Test
+    void lectureTextExportsAreRecognisedByFileName() {
+        assertThat(LectureTextExportService.isTextExportOf("Индексы: B-дерево", "Индексы B-дерево.pdf")).isTrue();
+        assertThat(LectureTextExportService.isTextExportOf("Индексы: B-дерево", "Индексы B-дерево.docx")).isTrue();
+        assertThat(LectureTextExportService.isTextExportOf("Индексы: B-дерево", "scan.pdf")).isFalse();
+        assertThat(LectureTextExportService.isTextExportOf(null, "Лекция.pdf")).isTrue();
     }
 }
