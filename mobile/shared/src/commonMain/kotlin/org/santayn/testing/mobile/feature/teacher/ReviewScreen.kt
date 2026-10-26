@@ -19,6 +19,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import org.santayn.testing.mobile.core.ui.rememberUnsavedChangesGuard
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -129,10 +133,18 @@ fun ReviewScreen(navigator: AppNavigator) {
     CollectMessages(vm)
     val state by vm.state.collectAsState()
     val aiStatus by vm.ai.status.collectAsState()
+    // Ответы с введёнными, но не сохранёнными баллами или комментарием.
+    val dirtyResponses = remember { mutableStateMapOf<Long, Boolean>() }
+    val requestBack = rememberUnsavedChangesGuard(
+        dirty = state.items.any { dirtyResponses[it.responseId] == true },
+        onLeave = navigator::back,
+        title = "Есть несохранённые оценки",
+        message = "Введённые баллы и комментарии не сохранены и будут потеряны.",
+    )
 
     AppScreen(
         title = "Проверка ответов",
-        onBack = navigator::back,
+        onBack = requestBack,
         actions = { IconButton(onClick = vm::load) { Icon(Icons.Default.Refresh, "Обновить") } },
     ) { padding ->
         ScreenList(contentPadding = screenPadding(padding)) {
@@ -167,6 +179,7 @@ fun ReviewScreen(navigator: AppNavigator) {
                         busy = state.busyResponseId == item.responseId,
                         aiAvailable = aiStatus?.grading == true,
                         vm = vm,
+                        onDirtyChange = { dirty -> dirtyResponses[item.responseId] = dirty },
                     )
                 }
             }
@@ -175,9 +188,17 @@ fun ReviewScreen(navigator: AppNavigator) {
 }
 
 @Composable
-private fun ReviewCard(item: ReviewItemDto, busy: Boolean, aiAvailable: Boolean, vm: ReviewViewModel) {
+private fun ReviewCard(
+    item: ReviewItemDto,
+    busy: Boolean,
+    aiAvailable: Boolean,
+    vm: ReviewViewModel,
+    onDirtyChange: (Boolean) -> Unit,
+) {
     var points by rememberSaveable(item.responseId, item.awardedPoints) { mutableStateOf(formatNumber(item.awardedPoints ?: 0.0)) }
-    var comment by rememberSaveable(item.responseId) { mutableStateOf(item.teacherComment.orEmpty()) }
+    var comment by rememberSaveable(item.responseId, item.teacherComment) { mutableStateOf(item.teacherComment.orEmpty()) }
+    val dirty = points != formatNumber(item.awardedPoints ?: 0.0) || comment.trim() != item.teacherComment.orEmpty().trim()
+    LaunchedEffect(dirty) { onDirtyChange(dirty) }
     AppCard {
         Text(item.studentName ?: "Студент", style = MaterialTheme.typography.titleMedium)
         Text(item.testName.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

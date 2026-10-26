@@ -173,3 +173,32 @@ export function parseMarkdown(markdown) {
 
   return blocks
 }
+
+function inlinePlain(nodes) {
+  return (nodes ?? []).map((node) => (
+    node.children ? inlinePlain(node.children) : node.text ?? ''
+  )).join('')
+}
+
+function sentence(text) {
+  const value = String(text ?? '').trim()
+  return !value || /[.!?…:;]$/.test(value) ? value : `${value}.`
+}
+
+/** Текст лекции без разметки — для чтения вслух: блоки разделены точками, код пропускается. */
+export function markdownPlainText(markdown) {
+  return parseMarkdown(markdown).flatMap((block) => {
+    switch (block.type) {
+      case 'heading':
+      case 'paragraph':
+      case 'quote':
+        return [sentence(inlinePlain(block.children))]
+      case 'list':
+        return block.items.map((item) => sentence(inlinePlain(item)))
+      case 'table':
+        return [block.header, ...block.rows].map((row) => sentence(row.map(inlinePlain).join(', ')))
+      default:
+        return []
+    }
+  }).filter(Boolean).join('\n')
+}

@@ -44,6 +44,8 @@ class LectureTextExporterTests {
             String text = extractor.getText();
             assertThat(text).contains("Лекция 1", "Оперативная память", "энергозависимая", "int x = 1;");
             assertThat(document.getTables()).hasSize(1);
+            assertThat(document.getTables().get(0).getCTTbl().getTblGrid().sizeOfGridColArray())
+                    .isEqualTo(document.getTables().get(0).getRow(0).getTableCells().size());
             assertThat(document.getTables().get(0).getRow(1).getCell(0).getText()).isEqualTo("ОЗУ");
             assertThat(document.getParagraphs())
                     .filteredOn(paragraph -> paragraph.getCTP().isSetPPr() && paragraph.getCTP().getPPr().isSetOutlineLvl())

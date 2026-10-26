@@ -34,6 +34,7 @@ import org.santayn.testing.mobile.core.network.userMessage
 import org.santayn.testing.mobile.core.session.WorkspaceRole
 import org.santayn.testing.mobile.core.ui.AppCard
 import org.santayn.testing.mobile.core.ui.AppScreen
+import org.santayn.testing.mobile.core.ui.rememberUnsavedChangesGuard
 import org.santayn.testing.mobile.core.ui.Banner
 import org.santayn.testing.mobile.core.ui.BaseViewModel
 import org.santayn.testing.mobile.core.ui.BusyButton
@@ -124,6 +125,12 @@ class TestEditorViewModel(
 ) : BaseViewModel() {
     private val _state = MutableStateFlow(TestEditorUiState(form = defaultForm()))
     val state = _state.asStateFlow()
+
+    /** Форма, с которой начато создание теста (после создания — снова пустая). */
+    private var baselineForm = _state.value.form
+
+    /** Параметры теста введены, но тест не создан. */
+    fun hasUnsavedChanges(s: TestEditorUiState) = !s.saving && s.form != baselineForm
 
     init {
         launchSafe {
@@ -332,7 +339,7 @@ class TestEditorViewModel(
                             "«${s.versions.firstOrNull { it.version.id == s.versionId }?.label}»: его получат все группы, " +
                             "которым выдана эта версия. "
                     } + "Привяжите его к лекции в разделе «Лекции», чтобы студенты увидели тест.",
-                    form = defaultForm(),
+                    form = defaultForm().also { form -> baselineForm = form },
                     selectedGroups = emptySet(),
                 )
             }
@@ -350,7 +357,14 @@ fun TestEditorScreen(route: TeacherTestCreateRoute, role: WorkspaceRole, navigat
     val f = state.form
     val counts = vm.counts(state.questions)
 
-    AppScreen(title = "Создать тест", onBack = navigator::back) { padding ->
+    val requestBack = rememberUnsavedChangesGuard(
+        dirty = vm.hasUnsavedChanges(state),
+        onLeave = navigator::back,
+        title = "Тест не создан",
+        message = "Введённые параметры теста будут потеряны.",
+    )
+
+    AppScreen(title = "Создать тест", onBack = requestBack) { padding ->
         ScreenList(contentPadding = screenPadding(padding)) {
             item {
                 StepCard("1. Предмет, группы и тема") {

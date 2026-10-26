@@ -40,7 +40,7 @@ Schema развивается через Hibernate `ddl-auto` и общий `sch
 
 ### ИИ и сеть
 
-ИИ работает через внешний API (Yandex AI Studio, GigaChat) или OpenAI-совместимый сервер. Backend-контейнеру нужен исходящий HTTPS к провайдеру и, для поиска картинок, к `commons.wikimedia.org`, `upload.wikimedia.org` и `api.openverse.org`. Ollama на компьютере с Docker доступна как `http://host.docker.internal:11434/v1`.
+ИИ работает через внешний API (Yandex AI Studio, GigaChat) или OpenAI-совместимый сервер. Backend-контейнеру нужен исходящий HTTPS к провайдеру и, для поиска картинок, к `commons.wikimedia.org`, `upload.wikimedia.org`, `thumb.wikimedia.org` и `api.openverse.org`. Ollama на компьютере с Docker доступна как `http://host.docker.internal:11434/v1`.
 
 ## Конфигурационные ограничения
 

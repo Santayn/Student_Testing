@@ -1,4 +1,17 @@
-import { computed, reactive, ref, toRaw } from 'vue'
+import {
+  computed,
+  getCurrentInstance,
+  inject,
+  onBeforeUnmount,
+  reactive,
+  ref,
+  toRaw,
+} from 'vue'
+
+import {
+  matchedRouteKey,
+  onBeforeRouteLeave,
+} from 'vue-router'
 
 function cloneValue(value) {
   if (typeof structuredClone === 'function') {
@@ -82,6 +95,48 @@ export function useOverlayForm(options = {}) {
     isOpen.value = true
   }
 
+  // Уход со страницы (меню, «Назад» браузера) при открытой изменённой форме
+  // спрашивает о том же, что и закрытие формы; ответ решает судьбу перехода.
+  let pendingLeave = null
+
+  function settleLeave(allow) {
+    if (!pendingLeave) return
+    const resolve = pendingLeave
+    pendingLeave = null
+    resolve(allow)
+  }
+
+  function hasUnsavedOpenForm() {
+    return isOpen.value && dirty.value && !saving.value
+  }
+
+  function handleBeforeUnload(event) {
+    if (!hasUnsavedOpenForm()) return
+    event.preventDefault()
+    event.returnValue = ''
+  }
+
+  if (getCurrentInstance()) {
+    // Гард маршрута — только в компонентах внутри router-view (в юнит-тестах роутера может не быть).
+    if (inject(matchedRouteKey, null)) {
+      onBeforeRouteLeave(() => {
+        if (!hasUnsavedOpenForm()) return true
+        settleLeave(false)
+        confirmCloseVisible.value = true
+        return new Promise((resolve) => {
+          pendingLeave = resolve
+        })
+      })
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload)
+      onBeforeUnmount(() => {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+        settleLeave(false)
+      })
+    }
+  }
+
   function requestClose() {
     if (saving.value) return false
     if (dirty.value) {
@@ -100,10 +155,12 @@ export function useOverlayForm(options = {}) {
   function discardAndClose() {
     replaceReactive(form, JSON.parse(baseline.value))
     closeImmediately()
+    settleLeave(true)
   }
 
   function continueEditing() {
     confirmCloseVisible.value = false
+    settleLeave(false)
   }
 
   function beginSaving() {

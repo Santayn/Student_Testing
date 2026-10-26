@@ -107,9 +107,16 @@ class AndroidTextSpeaker(context: Context) : TextSpeaker {
         val engine = tts ?: return fail(SpeechProblem.NO_ENGINE)
         if (isMuted()) _problem.value = SpeechProblem.MUTED
         val params = Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC) }
-        if (engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, key) == TextToSpeech.ERROR) {
-            log.w { "speak() returned ERROR on $currentEngine" }
-            fail(SpeechProblem.FAILED)
+        // Длинный текст — частями в очередь; последняя часть несёт сам ключ, по ней чтение и заканчивается.
+        val parts = splitForSpeech(text, (TextToSpeech.getMaxSpeechInputLength() - SPEECH_LENGTH_MARGIN).coerceAtLeast(500))
+        parts.forEachIndexed { index, part ->
+            val utteranceId = if (index == parts.lastIndex) key else "$key$PART_SEPARATOR$index"
+            val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            if (engine.speak(part, mode, params, utteranceId) == TextToSpeech.ERROR) {
+                log.w { "speak() returned ERROR on $currentEngine (part ${index + 1}/${parts.size})" }
+                engine.stop()
+                return fail(SpeechProblem.FAILED)
+            }
         }
     }
 
@@ -180,7 +187,7 @@ class AndroidTextSpeaker(context: Context) : TextSpeaker {
     }
 
     private fun failed(utteranceId: String?, errorCode: Int) {
-        if (_speakingKey.value != utteranceId) return
+        if (_speakingKey.value != utteranceId?.substringBefore(PART_SEPARATOR)) return
         log.w { "Utterance error $errorCode on $currentEngine" }
         // Голос выбран, но его данные ещё не скачаны (Google TTS) — та же беда, что «нет русского голоса».
         if (errorCode == TextToSpeech.ERROR_NOT_INSTALLED_YET) foundEngineWithoutRussian = currentEngine
@@ -198,5 +205,7 @@ class AndroidTextSpeaker(context: Context) : TextSpeaker {
 
     private companion object {
         const val GOOGLE_TTS = "com.google.android.tts"
+        const val PART_SEPARATOR = "#part-"
+        const val SPEECH_LENGTH_MARGIN = 100
     }
 }

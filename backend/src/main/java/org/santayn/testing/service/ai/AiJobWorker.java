@@ -129,11 +129,16 @@ public class AiJobWorker {
             jobService.markDone(id, result, context.drain());
         } catch (Exception error) {
             String message = userMessage(error);
-            if (!(error instanceof AiUnavailableException) && !(error instanceof IllegalArgumentException)) {
+            if (error instanceof AiUnavailableException) {
+                // Ответ провайдера (лимит, 5xx, не тот формат) — без стека, но с причиной: иначе повторы не объяснить.
+                LOGGER.warn("AI job {} ({}) attempt {} failed: {}", id, job.getType(), job.getAttempts(), message);
+            } else if (!(error instanceof IllegalArgumentException)) {
                 LOGGER.warn("AI job {} ({}) failed", id, job.getType(), error);
             }
             // Ошибка во входных данных не исправится повтором.
-            int maxAttempts = error instanceof IllegalArgumentException ? 0 : handler.maxAttempts();
+            boolean permanent = error instanceof IllegalArgumentException
+                    || (error instanceof AiUnavailableException unavailable && !unavailable.isRetryable());
+            int maxAttempts = permanent ? 0 : handler.maxAttempts();
             boolean requeued = jobService.markFailed(id, message, context.drain(), maxAttempts);
             if (!requeued) {
                 try {

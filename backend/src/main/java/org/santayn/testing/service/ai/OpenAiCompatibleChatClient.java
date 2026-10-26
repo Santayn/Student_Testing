@@ -60,7 +60,7 @@ public class OpenAiCompatibleChatClient implements AiChatClient {
             endpoints.headers().forEach(builder::header);
             HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 != 2) {
-                throw new AiUnavailableException(describeError(response.statusCode()));
+                throw new AiUnavailableException(describeError(response.statusCode()), isRetryable(response.statusCode()));
             }
             return parse(response.body());
         } catch (AiUnavailableException error) {
@@ -108,13 +108,22 @@ public class OpenAiCompatibleChatClient implements AiChatClient {
 
     static String describeError(int status) {
         return switch (status) {
-            case 401, 403 -> "Провайдер ИИ отклонил ключ доступа (код " + status + "). Проверьте APP_AI_API_KEY.";
+            case 401 -> "Провайдер ИИ отклонил ключ доступа (код 401). Проверьте APP_AI_API_KEY.";
+            case 403 -> "Провайдер ИИ отказал в доступе (код 403): проверьте APP_AI_API_KEY и что провайдер"
+                    + " доступен из сети сервера (некоторые API блокируют отдельные страны и VPN).";
             case 404 -> "Провайдер ИИ не нашёл модель или адрес API (код 404). Проверьте настройки моделей.";
+            case 413 -> "Слишком много текста для модели ИИ (код 413): сократите материалы лекции"
+                    + " или уменьшите APP_AI_PRESENTATION_MAX_SOURCE_CHARS.";
             case 429 -> "Провайдер ИИ временно ограничил частоту запросов. Попробуйте позже.";
             default -> status >= 500
                     ? "Провайдер ИИ временно недоступен (код " + status + ")."
                     : "Провайдер ИИ отклонил запрос (код " + status + ").";
         };
+    }
+
+    /** Лимит частоты и сбои сервера проходят сами; остальные отказы (ключ, модель, размер) — нет. */
+    static boolean isRetryable(int status) {
+        return status == 408 || status == 429 || status >= 500;
     }
 
     /** Удобный вызов: системная инструкция + сообщение пользователя. */

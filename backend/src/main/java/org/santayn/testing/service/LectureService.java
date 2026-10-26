@@ -248,7 +248,7 @@ public class LectureService {
         List<String> reasons = new ArrayList<>();
         if (questions > 0) {
             reasons.add("в банке вопросов лекции и её тем есть вопросы (" + questions
-                    + ") — удалите их или перенесите в другую тему");
+                    + ") — перенесите их в тему другой лекции");
         }
         if (selectionRules > 0) {
             reasons.add("тесты отбирают вопросы из этой лекции или её тем (правил: " + selectionRules

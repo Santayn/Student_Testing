@@ -16,11 +16,13 @@ import {
   UiLoadingState,
   UiSelect,
   UiTextarea,
+  UiUnsavedChangesConfirm,
 } from '@/components/ui'
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import { useAiStatus } from '@/composables/ai/useAiStatus'
+import { useUnsavedNavigationGuard } from '@/composables/shared/useUnsavedNavigationGuard'
 import {
   SLIDE_IMAGE_OPTIONS,
   SLIDE_LAYOUT_OPTIONS,
@@ -43,6 +45,7 @@ const {
   buildJob,
   builtResult,
   hasOutline,
+  unsavedOutline,
   load,
   generateOutline,
   addSlide,
@@ -55,6 +58,12 @@ const {
   build,
   downloadBuilt,
 } = useLecturePresentation(lectureId)
+
+const {
+  confirmVisible: leaveConfirmVisible,
+  continueEditing,
+  discardAndNavigate,
+} = useUnsavedNavigationGuard(unsavedOutline)
 
 const imageModeOptions = computed(() => SLIDE_IMAGE_OPTIONS.filter((option) => {
   if (option.value === 'search') return aiStatus.value?.imageSearch !== false
@@ -408,6 +417,14 @@ onMounted(load)
         compact
       />
     </template>
+    <UiUnsavedChangesConfirm
+      v-model="leaveConfirmVisible"
+      title="Презентация не собрана"
+      message="План слайдов и правки будут потеряны."
+      discard-label="Уйти без сборки"
+      @continue="continueEditing"
+      @discard="discardAndNavigate"
+    />
   </TeacherPageShell>
 </template>
 

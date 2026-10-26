@@ -294,7 +294,7 @@ public class PublicLearningRestController {
             throw new AccessDeniedException("Test attempt does not belong to current user.");
         }
         if (attempt.getStatus() != 1) {
-            throw new IllegalArgumentException("Test attempt is not in progress: " + attemptId);
+            throw new IllegalArgumentException("Попытка уже завершена.");
         }
 
         List<Long> selectedQuestionIds = testService.findResponses(attemptId)
@@ -377,7 +377,7 @@ public class PublicLearningRestController {
                 .filter(this::isActiveStudentMembership)
                 .toList();
         if (memberships.isEmpty()) {
-            throw new IllegalArgumentException("Current user has no active student group.");
+            throw new IllegalArgumentException("Вы не состоите в учебной группе — обратитесь к администратору.");
         }
 
         LinkedHashMap<Integer, TeachingAssignment> assignmentsById = new LinkedHashMap<>();
@@ -433,7 +433,7 @@ public class PublicLearningRestController {
                 .map(assignment -> subjectIdOf(context, assignment))
                 .anyMatch(subjectId::equals);
         if (!hasAccess) {
-            throw new IllegalArgumentException("Subject is not assigned to current student: " + subjectId);
+            throw new AccessDeniedException("Предмет вам не назначен.");
         }
     }
 
@@ -441,7 +441,7 @@ public class PublicLearningRestController {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture not found: " + lectureId));
         if (!hasLectureAccess(context, lecture)) {
-            throw new IllegalArgumentException("Lecture is not assigned to current student: " + lectureId);
+            throw new AccessDeniedException("Лекция вам не назначена.");
         }
         return lecture;
     }
@@ -450,7 +450,7 @@ public class PublicLearningRestController {
         TestAssignment assignment = testAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + assignmentId));
         if (!hasTestAssignmentAccess(context, assignment)) {
-            throw new IllegalArgumentException("Test assignment is not available for current student: " + assignmentId);
+            throw new AccessDeniedException("Тест вам не назначен.");
         }
         return assignment;
     }

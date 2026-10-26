@@ -10,6 +10,7 @@ import org.santayn.testing.models.lecture.Lecture;
 import org.santayn.testing.models.lecture.LectureMaterial;
 import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.service.LectureMaterialService;
+import org.santayn.testing.service.lecture.LectureTextExportService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,7 +27,6 @@ import java.util.Set;
 @Service
 public class PresentationOutlineService implements AiJobHandler {
 
-    static final int MAX_SOURCE_CHARS = 60_000;
     static final int MIN_SOURCE_CHARS = 300;
     static final Set<String> LAYOUTS = Set.of("bullets", "two_columns", "process", "section", "quote");
 
@@ -135,16 +135,20 @@ public class PresentationOutlineService implements AiJobHandler {
         if (lecture == null) {
             return null;
         }
+        int maxChars = Math.max(MIN_SOURCE_CHARS, properties.getPresentation().getMaxSourceChars());
         StringBuilder text = new StringBuilder();
         appendSection(text, "Описание", lecture.getDescription());
         appendSection(text, "Текст лекции", lecture.getBody());
         for (LectureMaterial material : lectureMaterialService.findByLectureId(lectureId)) {
-            if (text.length() >= MAX_SOURCE_CHARS) {
+            if (text.length() >= maxChars) {
                 break;
             }
             String fileName = material.getFileName() == null ? "" : material.getFileName();
             if (fileName.toLowerCase(Locale.ROOT).startsWith("презентация")) {
                 continue; // не пересказываем собственные сгенерированные презентации
+            }
+            if (LectureTextExportService.isTextExportOf(lecture.getTitle(), fileName)) {
+                continue; // DOCX/PDF из текста лекции — тот же текст, он уже в источнике
             }
             LectureMaterialService.StoredLectureMaterial stored;
             try {
@@ -154,7 +158,7 @@ public class PresentationOutlineService implements AiJobHandler {
             }
             appendSection(text, "Файл «" + fileName + "»", textExtractor.extract(stored.path(), fileName));
         }
-        String value = text.length() > MAX_SOURCE_CHARS ? text.substring(0, MAX_SOURCE_CHARS) : text.toString();
+        String value = text.length() > maxChars ? text.substring(0, maxChars) : text.toString();
         return new Source(lecture.getTitle(), value.trim());
     }
 
@@ -191,12 +195,20 @@ public class PresentationOutlineService implements AiJobHandler {
             image.put("query", textOr(slide.path("image").path("query"), "", 100));
             image.put("prompt", textOr(slide.path("image").path("prompt"), "", AiImageClient.MAX_PROMPT_LENGTH));
             normalized.set("image", image);
+            if (slides.isEmpty() && repeatsTitle(normalized, outline.path("title").asText(""))) {
+                continue; // слайд-раздел с названием презентации сразу после титульного — дубль
+            }
             slides.add(normalized);
         }
         if (slides.isEmpty()) {
             throw new AiUnavailableException("ИИ не составил ни одного слайда. Попробуйте ещё раз.");
         }
         return outline;
+    }
+
+    private static boolean repeatsTitle(JsonNode slide, String presentationTitle) {
+        return "section".equals(slide.path("layout").asText())
+                && slide.path("title").asText("").trim().equalsIgnoreCase(presentationTitle.trim());
     }
 
     private ObjectNode column(JsonNode node) {

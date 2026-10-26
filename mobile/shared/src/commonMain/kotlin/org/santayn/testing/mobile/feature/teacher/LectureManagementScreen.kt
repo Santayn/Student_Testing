@@ -111,6 +111,8 @@ data class LectureForm(
     val publicVisible: Boolean = false,
     val testIds: Set<Int> = emptySet(),
     val pendingFiles: List<PlatformFile> = emptyList(),
+    /** Распознанные сканы, которые прикрепятся к материалам при сохранении лекции. */
+    val pendingScans: List<UploadFile> = emptyList(),
     /** Версия курса, в которую входит лекция; null — лекция предмета без версии. */
     val courseVersionId: Int? = null,
     /** Текст лекции в Markdown. */
@@ -300,12 +302,12 @@ class LectureManagementViewModel(
         launchSafe(onError = { e ->
             updateScan { it.copy(running = false, progress = null, error = e.userMessage("Не удалось распознать скан")) }
         }) {
-            val started = aiApi.scanLecture(scan.pages, lectureId, lectureId != null && scan.attachOriginals)
+            // Сканы прикрепляются при сохранении лекции (см. insertScanResult), а не при распознавании.
+            val started = aiApi.scanLecture(scan.pages, lectureId, false)
             val done = ai.awaitJob(started) { progress -> updateScan { it.copy(progress = progress ?: "Распознаю…") } }
             if (done.status == "done") {
                 val markdown = done.result?.get("markdown")?.jsonPrimitive?.contentOrNull.orEmpty().trim()
                 updateScan { it.copy(running = false, progress = null, result = markdown) }
-                if (lectureId != null && scan.attachOriginals) loadMaterials(lectureId)
             } else {
                 updateScan { it.copy(running = false, progress = null, error = done.error ?: "Скан не распознан") }
             }
@@ -314,10 +316,14 @@ class LectureManagementViewModel(
 
     /** Вставляет распознанный текст в текст лекции: заменяет или дописывает в конец. */
     fun insertScanResult(append: Boolean) {
-        val recognized = _state.value.scan?.result ?: return
+        val scan = _state.value.scan ?: return
+        val recognized = scan.result ?: return
         updateForm { form ->
             val current = form.body.trim()
-            form.copy(body = if (append && current.isNotEmpty()) "$current\n\n$recognized" else recognized)
+            form.copy(
+                body = if (append && current.isNotEmpty()) "$current\n\n$recognized" else recognized,
+                pendingScans = if (scan.attachOriginals) form.pendingScans + scan.pages else form.pendingScans,
+            )
         }
         _state.update { it.copy(scan = null) }
     }
@@ -360,8 +366,8 @@ class LectureManagementViewModel(
             // Лекция сохранена: дальше — связи с тестами и файлы (частичный успех показываем отдельно).
             _state.update { it.copy(form = it.form?.copy(id = lecture.id)) }
             lecturesApi.setTests(lecture.id, form.testIds.toList())
-            if (form.pendingFiles.isNotEmpty()) {
-                val uploads = form.pendingFiles.map { it.toUploadFile() }
+            if (form.pendingFiles.isNotEmpty() || form.pendingScans.isNotEmpty()) {
+                val uploads = form.pendingFiles.map { it.toUploadFile() } + form.pendingScans
                 lecturesApi.uploadMaterials(lecture.id, uploads)
             }
             cache.invalidate()
@@ -605,9 +611,7 @@ private fun LectureScanPanel(scan: LectureScanState, form: LectureForm, vm: Lect
                 }
             }
         }
-        if (form.id != null) {
-            CheckRow("Прикрепить сканы к материалам лекции", scan.attachOriginals, vm::setAttachOriginals, enabled = !scan.running)
-        }
+        CheckRow("Прикрепить сканы к материалам лекции", scan.attachOriginals, vm::setAttachOriginals, enabled = !scan.running)
         AppButton(
             scan.progress ?: "Распознать",
             onClick = vm::startScan,
@@ -639,6 +643,7 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
         onSave = vm::save,
         busy = state.saving,
         error = state.formError,
+        snapshot = form,
     ) {
         FormField(form.title, { v -> vm.updateForm { it.copy(title = v) } }, "Название", required = true, maxLength = 200)
         FormField(form.description, { v -> vm.updateForm { it.copy(description = v) } }, "Описание",
@@ -678,6 +683,21 @@ private fun LectureEditor(form: LectureForm, state: LecturesUiState, vm: Lecture
                     IconButton(onClick = { vm.askDeleteMaterial(material) }) { Icon(Icons.Default.Delete, "Удалить файл") }
                 },
             )
+        }
+        form.pendingScans.forEachIndexed { index, page ->
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(page.name)
+                        Text("Будет загружен при сохранении", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { vm.updateForm { it.copy(pendingScans = it.pendingScans.filterIndexed { i, _ -> i != index }) } }) {
+                        Icon(Icons.Default.Close, "Убрать")
+                    }
+                }
+            }
         }
         form.pendingFiles.forEach { file ->
             AppCard {

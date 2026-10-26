@@ -14,6 +14,7 @@ import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblGrid;
 import org.santayn.testing.service.lecture.MarkdownDocument.Block;
 import org.santayn.testing.service.lecture.MarkdownDocument.Span;
 import org.santayn.testing.service.lecture.MarkdownDocument.Style;
@@ -36,6 +37,9 @@ import java.util.Map;
  */
 @Component
 public class LectureTextExporter {
+
+    /** Ширина текста страницы Word по умолчанию (Letter без полей по 1 дюйму), twips. */
+    private static final int DOCX_TEXT_WIDTH_TWIPS = 9360;
 
     public byte[] toDocx(String title, String markdown) {
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -90,6 +94,18 @@ public class LectureTextExporter {
             int columns = table.header().size();
             XWPFTable docxTable = document.createTable(table.rows().size() + 1, columns);
             docxTable.setWidth("100%");
+            // Сетка колонок обязательна для WPS и LibreOffice: без неё таблица сжимается по содержимому.
+            int columnWidth = DOCX_TEXT_WIDTH_TWIPS / Math.max(1, columns);
+            CTTblGrid grid = docxTable.getCTTbl().getTblGrid() != null
+                    ? docxTable.getCTTbl().getTblGrid()
+                    : docxTable.getCTTbl().addNewTblGrid();
+            while (grid.sizeOfGridColArray() > 0) {
+                grid.removeGridCol(0);
+            }
+            for (int column = 0; column < columns; column++) {
+                grid.addNewGridCol().setW(BigInteger.valueOf(columnWidth));
+            }
+            docxTable.getRows().forEach(row -> row.getTableCells().forEach(cell -> cell.setWidth(String.valueOf(columnWidth))));
             fillRow(docxTable, 0, table.header(), true);
             for (int row = 0; row < table.rows().size(); row++) {
                 fillRow(docxTable, row + 1, table.rows().get(row), false);

@@ -82,6 +82,7 @@
 | `APP_AI_OCR_PROVIDER` | пусто | `yandex`, `tesseract`, `none`; пусто — по провайдеру |
 | `APP_AI_IMAGE_GENERATION_ENABLED` | `true` | генерация картинок |
 | `APP_AI_IMAGE_SEARCH_ENABLED` | `true` | поиск в Wikimedia Commons и Openverse |
+| `APP_AI_PRESENTATION_MAX_SOURCE_CHARS` | `60000` | сколько символов текста лекции и материалов уходит модели для плана презентации; для бесплатного Groq — `20000` |
 
 Рекомендуемая настройка (Groq) и какие ключи где нужны — в [README → ИИ: ключи API](../../../README.md#ии-ключи-api). Ключ хранится только в локальном `.env`.
 

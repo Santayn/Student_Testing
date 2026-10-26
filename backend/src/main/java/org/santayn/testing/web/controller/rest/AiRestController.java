@@ -48,6 +48,8 @@ import java.util.Objects;
 @RequestMapping("/api/v1/ai")
 public class AiRestController {
 
+    static final String IMAGE_SOURCES_UNAVAILABLE_HEADER = "X-Image-Sources-Unavailable";
+
     private final AiProperties properties;
     private final AiJobService jobService;
     private final AiOcrService ocrService;
@@ -184,9 +186,15 @@ public class AiRestController {
     }
 
     @GetMapping("/images/search")
-    public List<ImageSearchService.FoundImage> searchImages(@RequestParam("q") String query,
-                                                            @RequestParam(defaultValue = "8") int limit) {
-        return imageSearchService.search(query, limit);
+    public ResponseEntity<List<ImageSearchService.FoundImage>> searchImages(@RequestParam("q") String query,
+                                                                            @RequestParam(defaultValue = "8") int limit) {
+        ImageSearchService.SearchResult result = imageSearchService.search(query, limit);
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        if (!result.unavailableSources().isEmpty()) {
+            // Список картинок остаётся прежним ответом; какие банки не ответили — в заголовке.
+            response.header(IMAGE_SOURCES_UNAVAILABLE_HEADER, String.join(",", result.unavailableSources()));
+        }
+        return response.body(result.images());
     }
 
     /** Превью найденной картинки через сервер: браузер не ходит на внешние сайты (CSP img-src 'self'). */

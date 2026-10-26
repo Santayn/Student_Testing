@@ -21,6 +21,8 @@ public class RemoteImageFetcher {
 
     static final Set<String> ALLOWED_HOSTS = Set.of(
             "upload.wikimedia.org",
+            // С 2026 г. Commons отдаёт превью (thumburl) с отдельного хоста.
+            "thumb.wikimedia.org",
             "api.openverse.org"
     );
     static final String USER_AGENT = "StudentTesting/1.0 (university learning platform)";

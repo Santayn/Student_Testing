@@ -122,7 +122,10 @@ APP_AI_MODEL_GRADING=qwen/qwen3.8-27b
 APP_AI_MODEL_LECTURE=qwen/qwen3.8-27b
 APP_AI_MODEL_PRESENTATION=openai/gpt-oss-120b
 APP_AI_IMAGE_GENERATION_ENABLED=false
+APP_AI_PRESENTATION_MAX_SOURCE_CHARS=20000
 ```
+
+Бесплатный тариф Groq принимает до 8000 токенов в минуту на модель (примерно 20 000 символов русского текста), поэтому объём материалов для презентации ограничен. При массовой проверке ответов (группа сдаёт тест одновременно) запросы упираются в этот лимит и выполняются с повторами — проверка растягивается на минуты; для реальной эксплуатации нужен платный тариф Groq (Dev Tier) или другой провайдер.
 
 Затем `docker compose up -d --build backend`. Проверка: под преподавателем `GET /api/v1/ai/status` возвращает `"enabled": true`.
 

@@ -441,6 +441,7 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
             onSave = vm::saveTemplate,
             busy = state.saving,
             error = state.formError,
+            snapshot = form,
         ) {
             FormField(form.name, { v -> vm.updateTemplateForm { it.copy(name = v) } }, "Название", required = true)
             SwitchRow("Видим другим преподавателям", form.publicVisible, { v -> vm.updateTemplateForm { it.copy(publicVisible = v) } })
@@ -453,6 +454,7 @@ fun CourseTemplatesScreen(route: TeacherCoursesRoute, role: WorkspaceRole, navig
             onSave = vm::saveVersion,
             busy = state.saving,
             error = state.formError,
+            snapshot = form,
         ) {
             FormField(form.versionNumber, { v -> vm.updateVersionForm { it.copy(versionNumber = v.filter(Char::isDigit)) } },
                 "Номер версии", keyboardType = KeyboardType.Number, required = true)

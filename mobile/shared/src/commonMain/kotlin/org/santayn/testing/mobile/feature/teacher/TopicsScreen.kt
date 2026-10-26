@@ -276,6 +276,7 @@ fun TopicsScreen(route: TeacherTopicsRoute, role: WorkspaceRole, navigator: AppN
             onSave = vm::save,
             busy = state.saving,
             error = state.formError,
+            snapshot = form,
         ) {
             FormField(form.ordinal, { v -> vm.updateForm { it.copy(ordinal = v.filter(Char::isDigit)) } },
                 "Порядковый номер", keyboardType = KeyboardType.Number, required = true)

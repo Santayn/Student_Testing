@@ -40,7 +40,7 @@ public class LectureTextExportService {
         if (body == null || body.isBlank()) {
             throw new IllegalArgumentException("У лекции нет текста — сначала заполните его.");
         }
-        String title = lecture.getTitle() == null || lecture.getTitle().isBlank() ? "Лекция" : lecture.getTitle().trim();
+        String title = exportTitle(lecture.getTitle());
         String baseName = safeFileName(title);
         return switch (normalizeFormat(format)) {
             case "pdf" -> new ExportedFile(exporter.toPdf(title, body), baseName + ".pdf", MediaType.APPLICATION_PDF_VALUE);
@@ -72,6 +72,19 @@ public class LectureTextExportService {
             throw new IllegalArgumentException("Формат должен быть docx или pdf.");
         }
         return value;
+    }
+
+    /** Файл материалов — выгрузка текста этой же лекции (повторно читать его как источник незачем). */
+    public static boolean isTextExportOf(String lectureTitle, String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        String baseName = safeFileName(exportTitle(lectureTitle));
+        return fileName.equalsIgnoreCase(baseName + ".pdf") || fileName.equalsIgnoreCase(baseName + ".docx");
+    }
+
+    private static String exportTitle(String title) {
+        return title == null || title.isBlank() ? "Лекция" : title.trim();
     }
 
     static String safeFileName(String value) {

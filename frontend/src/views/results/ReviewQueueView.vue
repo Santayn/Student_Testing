@@ -2,6 +2,7 @@
 import {
   computed,
   onMounted,
+  reactive,
   ref,
   watch,
 } from 'vue'
@@ -15,12 +16,14 @@ import {
   UiSelect,
   UiStat,
   UiStatGrid,
+  UiUnsavedChangesConfirm,
 } from '@/components/ui'
 
 import ReviewAnswerCard from '@/components/results/ReviewAnswerCard.vue'
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 
 import { useAiStatus } from '@/composables/ai/useAiStatus'
+import { useUnsavedNavigationGuard } from '@/composables/shared/useUnsavedNavigationGuard'
 import {
   REVIEW_STATUS_OPTIONS,
   useReviewQueue,
@@ -43,11 +46,29 @@ const { aiStatus } = useAiStatus()
 
 const notice = ref({ type: 'info', message: '' })
 
+// Ответы, в которых введены, но не сохранены баллы или комментарий.
+const dirtyResponses = reactive(new Set())
+const hasUnsavedGrades = computed(() => dirtyResponses.size > 0)
+
+function trackDirty(responseId, dirty) {
+  if (dirty) {
+    dirtyResponses.add(responseId)
+  } else {
+    dirtyResponses.delete(responseId)
+  }
+}
+
+const {
+  confirmVisible: leaveConfirmVisible,
+  continueEditing: continueReviewing,
+  discardAndNavigate,
+} = useUnsavedNavigationGuard(hasUnsavedGrades)
+
 const aiAvailable = computed(() => Boolean(aiStatus.value?.grading))
 
 const emptyText = computed(() => (
   status.value === 'needs_teacher'
-    ? 'Все ответы проверены — здесь появятся ответы, в оценке которых ИИ не уверен.'
+    ? 'Все ответы проверены.'
     : 'В этом разделе пока нет ответов.'
 ))
 
@@ -67,10 +88,7 @@ onMounted(load)
 </script>
 
 <template>
-  <TeacherPageShell
-    title="Проверка ответов"
-    subtitle="Свободные ответы, в оценке которых ИИ не уверен или которые он не смог проверить."
-  >
+  <TeacherPageShell title="Проверка ответов">
     <template #actions>
       <UiButton
         size="sm"
@@ -141,6 +159,7 @@ onMounted(load)
             :key="item.responseId"
             :item="item"
             :busy="busyResponseId === item.responseId"
+            @dirty-change="trackDirty(item.responseId, $event)"
             :ai-available="aiAvailable"
             @grade="handle(grade(item, $event.points, $event.comment))"
             @accept="handle(accept(item))"
@@ -149,6 +168,14 @@ onMounted(load)
         </div>
       </div>
     </UiCard>
+    <UiUnsavedChangesConfirm
+      v-model="leaveConfirmVisible"
+      title="Есть несохранённые оценки"
+      message="Введённые баллы и комментарии не сохранены и будут потеряны."
+      discard-label="Уйти без сохранения"
+      @continue="continueReviewing"
+      @discard="discardAndNavigate"
+    />
   </TeacherPageShell>
 </template>
 

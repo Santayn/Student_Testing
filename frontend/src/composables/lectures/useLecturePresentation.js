@@ -4,6 +4,7 @@ import {
   onScopeDispose,
   reactive,
   ref,
+  watch,
 } from 'vue'
 
 import {
@@ -97,6 +98,15 @@ function slideFromForm(slide) {
   }
 }
 
+const SOURCE_NAMES = { wikimedia: 'Wikimedia Commons', openverse: 'Openverse' }
+
+/** Банки картинок, которые не ответили на поиск (заголовок X-Image-Sources-Unavailable). */
+function unavailableSources(response) {
+  const header = response?.headers?.['x-image-sources-unavailable'] ?? ''
+  return String(header).split(',').map((name) => name.trim()).filter(Boolean)
+    .map((name) => SOURCE_NAMES[name] ?? name)
+}
+
 /**
  * Мастер презентации по лекции: план от ИИ → правка слайдов и выбор картинок →
  * сборка PPTX/PDF в материалы лекции.
@@ -128,6 +138,13 @@ export function useLecturePresentation(lectureId) {
   const imageScope = effectScope(true)
 
   const hasOutline = computed(() => outline.slides.length > 0)
+
+  // План, изменённый после последней сборки (или ещё не собранный), потеряется при уходе со страницы.
+  const changedSinceBuild = ref(false)
+  const unsavedOutline = computed(() => hasOutline.value && changedSinceBuild.value)
+  watch(outline, () => {
+    changedSinceBuild.value = true
+  }, { deep: true })
 
   async function load() {
     loading.value = true
@@ -202,8 +219,11 @@ export function useLecturePresentation(lectureId) {
       const response = await aiApi.searchImages(query)
       const found = Array.isArray(response?.data) ? response.data : []
       slide.image.results = found.map((item) => reactive({ ...item, previewUrl: '', failed: false }))
+      const unavailable = unavailableSources(response)
       if (!found.length) {
-        slide.image.error = 'Ничего не найдено — попробуйте другие слова, лучше по-английски.'
+        slide.image.error = unavailable.length
+          ? `${unavailable.join(' и ')} сейчас не ${unavailable.length > 1 ? 'отвечают' : 'отвечает'} — повторите поиск позже.`
+          : 'Ничего не найдено — попробуйте другие слова, лучше по-английски.'
       }
       // Превью грузятся в фоне: часть банков отвечает медленно, искать снова можно сразу.
       slide.image.results.forEach(async (result) => {
@@ -298,6 +318,9 @@ export function useLecturePresentation(lectureId) {
       })
     )
     builtResult.value = done?.result ?? null
+    if (builtResult.value) {
+      changedSinceBuild.value = false
+    }
   }
 
   async function downloadBuilt(materialId, fileName) {
@@ -343,6 +366,7 @@ export function useLecturePresentation(lectureId) {
     buildJob,
     builtResult,
     hasOutline,
+    unsavedOutline,
     load,
     generateOutline,
     addSlide,

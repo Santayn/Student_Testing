@@ -13,8 +13,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -26,7 +30,22 @@ import java.util.concurrent.TimeUnit;
 public class ImageSearchService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ImageSearchService.class);
-    private static final long SOURCE_TIMEOUT_SECONDS = 9;
+    private static final Duration PRIMARY_TIMEOUT = Duration.ofSeconds(6);
+    private static final Duration SECONDARY_TIMEOUT = Duration.ofSeconds(8);
+    private static final Duration SECONDARY_GRACE = Duration.ofMillis(2500);
+    private static final Duration SOURCE_COOLDOWN = Duration.ofMinutes(5);
+    private static final Duration CACHE_TTL = Duration.ofMinutes(15);
+    private static final int CACHE_SIZE = 200;
+
+    private final Map<String, CachedSearch> cache = Collections.synchronizedMap(
+            new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, CachedSearch> eldest) {
+                    return size() > CACHE_SIZE;
+                }
+            }
+    );
+    private volatile Instant openverseSkipUntil = Instant.EPOCH;
 
     private final AiProperties properties;
     private final HttpClient httpClient;
@@ -42,7 +61,12 @@ public class ImageSearchService {
         return properties.getImages().isSearchEnabled();
     }
 
-    public List<FoundImage> search(String query, int limit) {
+    /**
+     * Wikimedia — основной источник (отвечает за секунду), Openverse — дополнительный: после ответа
+     * Wikimedia ему даётся не больше пары секунд. Не ответивший Openverse пропускается следующие
+     * 5 минут, чтобы каждый поиск не ждал таймаута. Полные ответы кэшируются на 15 минут.
+     */
+    public SearchResult search(String query, int limit) {
         if (!isAvailable()) {
             throw new AiUnavailableException("Поиск картинок выключен.");
         }
@@ -51,16 +75,50 @@ public class ImageSearchService {
             throw new IllegalArgumentException("Введите, что искать.");
         }
         int perSource = Math.max(2, Math.min(12, limit) / 2);
-        // Банки опрашиваются параллельно: медленный (Openverse отвечает до 15 с) не задерживает быстрый.
-        CompletableFuture<List<FoundImage>> wikimedia = CompletableFuture
-                .supplyAsync(() -> safe(() -> wikimedia(normalized, perSource)))
-                .completeOnTimeout(List.of(), SOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        CompletableFuture<List<FoundImage>> openverse = CompletableFuture
-                .supplyAsync(() -> safe(() -> openverse(normalized, perSource)))
-                .completeOnTimeout(List.of(), SOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        List<FoundImage> results = new ArrayList<>(wikimedia.join());
-        results.addAll(openverse.join());
-        return results;
+        String cacheKey = normalized.toLowerCase(java.util.Locale.ROOT) + "|" + perSource;
+        CachedSearch cached = cache.get(cacheKey);
+        if (cached != null && cached.expiresAt().isAfter(Instant.now())) {
+            return cached.result();
+        }
+
+        long startedAt = System.nanoTime();
+        boolean askOpenverse = Instant.now().isAfter(openverseSkipUntil);
+        CompletableFuture<Outcome> wikimedia = CompletableFuture
+                .supplyAsync(() -> outcome(() -> wikimedia(normalized, perSource)));
+        CompletableFuture<Outcome> openverse = askOpenverse
+                ? CompletableFuture.supplyAsync(() -> outcome(() -> openverse(normalized, perSource)))
+                : CompletableFuture.completedFuture(Outcome.FAILED);
+
+        Outcome wikimediaOutcome = wikimedia
+                .completeOnTimeout(Outcome.FAILED, PRIMARY_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
+                .join();
+        long elapsedMs = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+        // Wikimedia ничего не дал — ждём Openverse дольше, иначе только короткую «доборку».
+        long waitMs = wikimediaOutcome.images().isEmpty()
+                ? SECONDARY_TIMEOUT.toMillis() - elapsedMs
+                : SECONDARY_GRACE.toMillis();
+        Outcome openverseOutcome = openverse
+                .completeOnTimeout(Outcome.FAILED, Math.max(0, waitMs), TimeUnit.MILLISECONDS)
+                .join();
+        if (askOpenverse && !openverseOutcome.ok()) {
+            openverseSkipUntil = Instant.now().plus(SOURCE_COOLDOWN);
+            LOGGER.info("Openverse did not answer in time; skipping it for {} min.", SOURCE_COOLDOWN.toMinutes());
+        }
+
+        List<FoundImage> images = new ArrayList<>(wikimediaOutcome.images());
+        images.addAll(openverseOutcome.images());
+        List<String> unavailable = new ArrayList<>();
+        if (!wikimediaOutcome.ok()) {
+            unavailable.add("wikimedia");
+        }
+        if (!openverseOutcome.ok()) {
+            unavailable.add("openverse");
+        }
+        SearchResult result = new SearchResult(List.copyOf(images), List.copyOf(unavailable));
+        if (unavailable.isEmpty()) {
+            cache.put(cacheKey, new CachedSearch(result, Instant.now().plus(CACHE_TTL)));
+        }
+        return result;
     }
 
     List<FoundImage> wikimedia(String query, int limit) throws Exception {
@@ -128,17 +186,28 @@ public class ImageSearchService {
         return objectMapper.readTree(response.body());
     }
 
-    private static List<FoundImage> safe(SearchCall call) {
+    private static Outcome outcome(SearchCall call) {
         try {
-            return call.run();
+            return new Outcome(call.run(), true);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            return List.of();
+            return Outcome.FAILED;
         } catch (Exception error) {
             // Один банк недоступен — показываем результаты другого.
             LOGGER.info("Image search source failed: {}", error.getMessage());
-            return List.of();
+            return Outcome.FAILED;
         }
+    }
+
+    private record Outcome(List<FoundImage> images, boolean ok) {
+        static final Outcome FAILED = new Outcome(List.of(), false);
+    }
+
+    private record CachedSearch(SearchResult result, Instant expiresAt) {
+    }
+
+    /** unavailableSources — банки, которые не ответили: интерфейс говорит об этом, а не «ничего не найдено». */
+    public record SearchResult(List<FoundImage> images, List<String> unavailableSources) {
     }
 
     static String stripHtml(String value) {

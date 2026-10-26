@@ -47,6 +47,30 @@ enum class SpeechProblem {
     FAILED,
 }
 
+/**
+ * Делит длинный текст на части не длиннее [maxLength] — синтезатор Android принимает до 4000 символов
+ * за раз, а текст лекции бывает длиннее. Режет по абзацам, затем по предложениям, затем по пробелам.
+ */
+fun splitForSpeech(text: String, maxLength: Int): List<String> {
+    require(maxLength > 0)
+    val parts = mutableListOf<String>()
+    var rest = text.trim()
+    while (rest.length > maxLength) {
+        val window = rest.substring(0, maxLength + 1)
+        val cut = listOf(
+            window.lastIndexOf('\n'),
+            SENTENCE_END.findAll(window).lastOrNull()?.let { it.range.last + 1 } ?: -1,
+            window.lastIndexOf(' '),
+        ).firstOrNull { it > maxLength / 2 } ?: maxLength
+        rest.substring(0, cut).trim().takeIf { it.isNotEmpty() }?.let(parts::add)
+        rest = rest.substring(cut).trim()
+    }
+    if (rest.isNotEmpty()) parts += rest
+    return parts
+}
+
+private val SENTENCE_END = Regex("""[.!?…](?=\s)""")
+
 /** Заглушка для тестов и превью. */
 class SilentSpeaker : TextSpeaker {
     override val speakingKey = MutableStateFlow<String?>(null)
