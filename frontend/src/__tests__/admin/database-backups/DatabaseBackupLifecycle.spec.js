@@ -62,7 +62,7 @@ describe('database backup lifecycle', () => {
     expect(state.creating.value).toBe(false)
   })
 
-  it('keeps blob error code and message for backup UI presentation', async () => {
+  it('localizes blob backup errors while retaining code and traceId', async () => {
     const api = {
       create: vi.fn().mockRejectedValue({
         response: {
@@ -72,6 +72,7 @@ describe('database backup lifecycle', () => {
               code: 'database_backup_failed',
               message: 'pg_dump failed',
               details: [],
+              traceId: 'backup-trace-lifecycle',
             }),
           ]),
         },
@@ -91,8 +92,14 @@ describe('database backup lifecycle', () => {
     expect(state.failure.value).toMatchObject({
       status: 503,
       code: 'database_backup_failed',
-      message: 'pg_dump failed',
+      traceId: 'backup-trace-lifecycle',
     })
+    expect(state.failure.value.message).toContain(
+      'резервного копирования'
+    )
+    expect(state.failure.value.message).not.toContain(
+      'pg_dump'
+    )
   })
 
   it('validates restore file before any mutation', async () => {

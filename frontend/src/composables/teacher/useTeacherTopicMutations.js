@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 
 import {
-  API_ERROR_CODES,
   topicsApi,
 } from '@/api'
 
@@ -206,12 +205,8 @@ export function useTeacherTopicMutations({
           context: 'delete',
           fallback:
             'Не удалось удалить тему.',
-          codeMessages: {
-            [API_ERROR_CODES.TOPIC_HAS_DEPENDENCIES]:
-              'Тема используется вопросами, тестами или другими связанными данными и не может быть удалена.',
-          },
           conflictMessage:
-            'Тема используется вопросами, тестами или другими связанными данными и не может быть удалена.',
+            'Не удалось удалить тему: операция конфликтует с существующими данными. Проверьте связанные записи.',
           forbiddenMessage:
             'Недостаточно прав для удаления темы.',
           notFoundMessage:

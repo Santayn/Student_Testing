@@ -29,9 +29,10 @@ describe('API error presentation contract', () => {
   it('routes structured form validation to field errors', () => {
     const result = presentApiError(
       responseError(
-        422,
+        400,
         {
-          message: 'Проверьте данные',
+          code: 'validation_failed',
+          message: 'Validation error',
           details: [
             {
               field: 'name',

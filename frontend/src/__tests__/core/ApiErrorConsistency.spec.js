@@ -10,6 +10,7 @@ import {
   apiRetryAfterSeconds,
   isApiBadRequest,
   isApiConflict,
+  isApiCanceled,
   isApiForbidden,
   isApiNetworkError,
   isApiNotFound,
@@ -116,12 +117,12 @@ describe('API error consistency helpers', () => {
           409,
           {
             code:
-              'GROUP_HAS_DEPENDENCIES',
+              'conflict',
           }
         )
       )
     ).toBe(
-      'GROUP_HAS_DEPENDENCIES'
+      'conflict'
     )
 
     expect(
@@ -154,12 +155,12 @@ describe('API error consistency helpers', () => {
     const normalized =
       normalizeApiError(
         responseError(
-          422,
+          400,
           {
             code:
-              'VALIDATION_ERROR',
+              'validation_failed',
             message:
-              'Проверьте данные',
+              'Validation error',
             details: [
               {
                 field: 'name',
@@ -183,12 +184,12 @@ describe('API error consistency helpers', () => {
 
     expect(
       normalized.status
-    ).toBe(422)
+    ).toBe(400)
 
     expect(
       normalized.code
     ).toBe(
-      'VALIDATION_ERROR'
+      'validation_failed'
     )
 
     expect(
@@ -206,7 +207,7 @@ describe('API error consistency helpers', () => {
     expect(
       normalized.message
     ).toContain(
-      'Проверьте данные'
+      'Проверьте введённые данные'
     )
   })
 
@@ -275,6 +276,89 @@ describe('API error consistency helpers', () => {
     expect(
       normalized.isTimeout
     ).toBe(false)
+  })
+
+  it('does not classify canceled requests as network errors', () => {
+    const canceled = {
+      isAxiosError: true,
+      config: {},
+      code: 'ERR_CANCELED',
+    }
+
+    expect(isApiCanceled(canceled)).toBe(true)
+    expect(isApiNetworkError(canceled)).toBe(false)
+    expect(normalizeApiError(canceled)).toMatchObject({
+      isCanceled: true,
+      isNetworkError: false,
+      message: 'Запрос отменён',
+    })
+  })
+
+  it('localizes standard backend errors and retains traceId', () => {
+    const forbidden = normalizeApiError(responseError(403, {
+      code: 'forbidden',
+      message: 'Not enough permissions.',
+      details: [],
+      traceId: 'test-trace-403',
+    }))
+
+    expect(forbidden).toMatchObject({
+      status: 403,
+      code: 'forbidden',
+      traceId: 'test-trace-403',
+      message: 'Недостаточно прав для выполнения операции.',
+    })
+
+    const serverFailure = normalizeApiError(responseError(500, {
+      code: 'internal_error',
+      message: 'Unexpected server error',
+      traceId: 'test-trace-500',
+    }))
+
+    expect(serverFailure.message).toBe(
+      'На сервере произошла ошибка. Попробуйте позже.'
+    )
+    expect(serverFailure.traceId).toBe('test-trace-500')
+  })
+
+  it('distinguishes AI and backup service failures, preserving upload limits', () => {
+    expect(normalizeApiError(responseError(503, {
+      code: 'ai_unavailable',
+      message: 'Provider unavailable',
+    })).message).toContain('Сервис ИИ')
+
+    expect(normalizeApiError(responseError(503, {
+      code: 'database_backup_failed',
+      message: 'Backup failed',
+    })).message).toContain('резервного копирования')
+
+    expect(normalizeApiError(responseError(413, {
+      code: 'payload_too_large',
+      message: 'Размер загружаемых файлов превышает допустимый лимит: до 50 МБ на файл.',
+    })).message).toContain('50 МБ')
+  })
+
+  it('protects the UI from proxy HTML responses', () => {
+    const proxyError = responseError(502, '<html><body>Bad Gateway</body></html>', {
+      'content-type': 'text/html; charset=UTF-8',
+    })
+
+    expect(normalizeApiError(proxyError).message).toBe(
+      'Сервер временно недоступен. Попробуйте позже.'
+    )
+  })
+
+  it('normalizes 400 validation_failed details into field errors', () => {
+    const result = normalizeApiError(responseError(400, {
+      code: 'validation_failed',
+      message: 'Validation error',
+      traceId: 'validation-trace',
+      details: [{ field: 'title', issue: 'Название обязательно' }],
+    }))
+
+    expect(result.message).toBe('Проверьте введённые данные: title: Название обязательно')
+    expect(result.fieldErrors).toEqual({ title: ['Название обязательно'] })
+    expect(result.traceId).toBe('validation-trace')
   })
 
   it('does not classify ordinary JavaScript errors as network failures', () => {

@@ -17,7 +17,7 @@ function source(relativePath) {
 }
 
 describe('runtime error consistency', () => {
-  it('uses the shared code-first presentation contract for destructive CRUD errors', () => {
+  it('uses the shared presentation contract without invented dependency codes', () => {
     const faculties = source('views/admin/FacultiesView.vue')
     const subjects = source('views/admin/SubjectsAdminView.vue')
     const groups = source('views/admin/GroupsView.vue')
@@ -25,31 +25,15 @@ describe('runtime error consistency', () => {
     for (const view of [faculties, subjects, groups]) {
       expect(view).toContain('presentApiError(')
       expect(view).toContain("context: 'delete'")
-      expect(view).toContain('codeMessages:')
       expect(view).toContain('conflictMessage:')
       expect(view).toContain('forbiddenMessage:')
       expect(view).toContain('notFoundMessage:')
     }
 
-    expect(faculties).toContain(
-      'API_ERROR_CODES.FACULTY_HAS_DEPENDENCIES'
-    )
-    expect(subjects).toContain(
-      'API_ERROR_CODES.SUBJECT_HAS_DEPENDENCIES'
-    )
-    expect(groups).toContain(
-      'API_ERROR_CODES.GROUP_HAS_DEPENDENCIES'
-    )
-
-    expect(faculties).toContain(
-      'Факультет используется связанными группами'
-    )
-    expect(subjects).toContain(
-      'Предмет используется факультетами, лекциями, тестами'
-    )
-    expect(groups).toContain(
-      'Группа используется назначениями, участниками, результатами'
-    )
+    for (const view of [faculties, subjects, groups]) {
+      expect(view).not.toContain('HAS_DEPENDENCIES')
+      expect(view).toContain('операция конфликтует с существующими данными')
+    }
   })
 
   it('clears stale entities and reports a dedicated route-resource state', () => {

@@ -99,6 +99,7 @@ describe('database backup utilities', () => {
         code: 'database_backup_failed',
         message: 'pg_dump unavailable',
         details: [],
+        traceId: 'backup-trace-utils',
       }),
     ], {
       type: 'application/json',
@@ -118,8 +119,14 @@ describe('database backup utilities', () => {
     expect(normalized).toMatchObject({
       status: 503,
       code: 'database_backup_failed',
-      message: 'pg_dump unavailable',
+      traceId: 'backup-trace-utils',
     })
+    expect(normalized.message).toContain(
+      'резервного копирования'
+    )
+    expect(normalized.message).not.toContain(
+      'pg_dump'
+    )
   })
 
   it('formats file metadata for the admin workspace', () => {

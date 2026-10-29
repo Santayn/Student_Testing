@@ -146,6 +146,27 @@ describe('lecture save flow', () => {
     expect(h.notice.value.message).toBe('Лекция создана.')
   })
 
+  it('keeps the partial-create recovery message for dependent validation errors', async () => {
+    const h = createHarness()
+    h.api.setTests.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          code: 'validation_failed',
+          message: 'Validation error',
+          details: [{ field: 'testIds', issue: 'Некорректные ссылки' }],
+        },
+      },
+    })
+
+    await h.saveLecture()
+
+    expect(h.partialCreatePending.value).toBe(true)
+    expect(h.form.id).toBe(100)
+    expect(h.formError.value).toContain('Лекция уже создана')
+    expect(h.formFieldErrors.value).toEqual({})
+  })
+
   it('keeps pending files after upload failure and retries on the same lecture', async () => {
     const file = { name: 'notes.pdf' }
     const h = createHarness({ files: [file] })
@@ -212,6 +233,40 @@ describe('lecture save flow', () => {
       })
     )
     expect(h.notice.value.message).toBe('Лекция обновлена.')
+    expect(h.partialCreatePending.value).toBe(false)
+  })
+
+  it('maps backend validation_failed details to lecture form fields', async () => {
+    const h = createHarness({ existingLecture: {
+      id: 27,
+      title: 'Тема',
+      ordinal: 1,
+      contentFolderKey: 'lecture-27',
+    } })
+    h.api.update.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          code: 'validation_failed',
+          message: 'Validation error',
+          details: [
+            { field: 'title', issue: 'Укажите другое название' },
+            { field: 'description', issue: 'Слишком длинное описание' },
+          ],
+          traceId: 'lecture-validation',
+        },
+      },
+    })
+
+    await h.saveLecture()
+
+    expect(h.formFieldErrors.value).toEqual({
+      title: ['Укажите другое название'],
+      description: ['Слишком длинное описание'],
+    })
+    expect(h.formError.value).toBe('Проверьте выделенные поля.')
+    expect(h.failSaving).toHaveBeenCalledTimes(1)
+    expect(h.form.id).toBe(27)
     expect(h.partialCreatePending.value).toBe(false)
   })
 

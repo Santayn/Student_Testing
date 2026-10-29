@@ -31,30 +31,30 @@ describe('machine-readable API error-code contract', () => {
   it('keeps stable frontend error-code constants', () => {
     expect(
       API_ERROR_CODES
-        .GROUP_HAS_DEPENDENCIES
+        .CONFLICT
     ).toBe(
-      'GROUP_HAS_DEPENDENCIES'
+      'conflict'
     )
 
     expect(
       API_ERROR_CODES
-        .VALIDATION_ERROR
+        .VALIDATION_FAILED
     ).toBe(
-      'VALIDATION_ERROR'
+      'validation_failed'
     )
   })
 
   it('resolves a message by exact machine-readable code', () => {
     expect(
       apiErrorCodeMessage(
-        'GROUP_HAS_DEPENDENCIES',
+        API_ERROR_CODES.CONFLICT,
         {
-          GROUP_HAS_DEPENDENCIES:
-            'Группа используется.',
+          [API_ERROR_CODES.CONFLICT]:
+            'Обнаружен конфликт данных.',
         }
       )
     ).toBe(
-      'Группа используется.'
+      'Обнаружен конфликт данных.'
     )
   })
 
@@ -65,7 +65,7 @@ describe('machine-readable API error-code contract', () => {
           409,
           {
             code:
-              'GROUP_HAS_DEPENDENCIES',
+              API_ERROR_CODES.CONFLICT,
             message:
               'Generic conflict',
           }
@@ -73,8 +73,8 @@ describe('machine-readable API error-code contract', () => {
         {
           context: 'delete',
           codeMessages: {
-            GROUP_HAS_DEPENDENCIES:
-              'Группа используется связанными данными.',
+            [API_ERROR_CODES.CONFLICT]:
+              'Операция конфликтует с данными.',
           },
           conflictMessage:
             'Конфликт данных.',
@@ -82,7 +82,7 @@ describe('machine-readable API error-code contract', () => {
       )
 
     expect(result.message).toBe(
-      'Группа используется связанными данными.'
+      'Операция конфликтует с данными.'
     )
   })
 
@@ -123,7 +123,7 @@ describe('machine-readable API error-code contract', () => {
         {
           context: 'form',
           codeMessages: {
-            VALIDATION_ERROR:
+            [API_ERROR_CODES.VALIDATION_FAILED]:
               'Проверьте данные.',
           },
         }

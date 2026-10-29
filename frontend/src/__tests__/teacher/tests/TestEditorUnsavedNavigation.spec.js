@@ -131,8 +131,12 @@ describe('TestEditor unsaved navigation integration', () => {
   })
 
   it('keeps browser unload handling inside the shared composable', () => {
-    expect(guardSource).toContain(
-      "window.addEventListener(\n      'beforeunload'"
+    // Verify both listener wiring and cleanup, regardless of indentation.
+    expect(guardSource).toMatch(
+      /window\.addEventListener\(\s*['"]beforeunload['"]\s*,\s*handleBeforeUnload\s*\)/
+    )
+    expect(guardSource).toMatch(
+      /window\.removeEventListener\(\s*['"]beforeunload['"]\s*,\s*handleBeforeUnload\s*\)/
     )
     expect(guardSource).toContain(
       'event.preventDefault()'

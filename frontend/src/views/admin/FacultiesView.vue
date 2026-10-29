@@ -25,7 +25,6 @@ import {
 } from '@/components/ui'
 
 import {
-  API_ERROR_CODES,
   facultiesApi,
 } from '@/api'
 
@@ -309,12 +308,8 @@ async function deleteFaculty() {
       {
         context: 'delete',
         fallback: 'Не удалось удалить факультет',
-        codeMessages: {
-          [API_ERROR_CODES.FACULTY_HAS_DEPENDENCIES]:
-            'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.',
-        },
         conflictMessage:
-          'Факультет используется связанными группами, предметами или другими данными и не может быть удалён.',
+          'Не удалось удалить факультет: операция конфликтует с существующими данными. Проверьте связанные записи.',
         forbiddenMessage:
           'Недостаточно прав для удаления факультета.',
         notFoundMessage:

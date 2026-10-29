@@ -1,3 +1,5 @@
+import { API_ERROR_CODES } from './errorCodes'
+
 function validationDetails(payload) {
   if (!Array.isArray(payload?.details)) {
     return ''
@@ -116,7 +118,7 @@ export function apiErrorStatus(error) {
       error?.response?.status
     )
 
-  return Number.isInteger(status)
+  return Number.isInteger(status) && status >= 100 && status <= 599
     ? status
     : null
 }
@@ -227,6 +229,10 @@ export function isApiTimeout(error) {
   )
 }
 
+export function isApiCanceled(error) {
+  return error?.code === 'ERR_CANCELED' || error?.__CANCEL__ === true
+}
+
 export function isApiNetworkError(error) {
   const isAxiosError =
     error?.isAxiosError === true ||
@@ -235,8 +241,107 @@ export function isApiNetworkError(error) {
   return Boolean(
     isAxiosError &&
     !error?.response &&
-    !isApiTimeout(error)
+    !isApiTimeout(error) &&
+    !isApiCanceled(error)
   )
+}
+
+// These messages come from ApiExceptionHandler and carry no user-facing
+// meaning beyond their machine-readable code. Localize them without hiding
+// domain-specific details sent by other endpoints.
+const STANDARD_MESSAGES = Object.freeze({
+  [API_ERROR_CODES.VALIDATION_FAILED]: 'Проверьте введённые данные',
+  [API_ERROR_CODES.UNAUTHORIZED]: 'Необходима авторизация. Войдите в систему.',
+  [API_ERROR_CODES.FORBIDDEN]: 'Недостаточно прав для выполнения операции.',
+  [API_ERROR_CODES.NOT_FOUND]: 'Запрошенные данные не найдены.',
+  [API_ERROR_CODES.CONFLICT]: 'Операция конфликтует с существующими данными.',
+  [API_ERROR_CODES.INTERNAL_ERROR]: 'На сервере произошла ошибка. Попробуйте позже.',
+  [API_ERROR_CODES.AI_UNAVAILABLE]: 'Сервис ИИ временно недоступен. Попробуйте позже.',
+  [API_ERROR_CODES.DATABASE_BACKUP_FAILED]: 'Не удалось выполнить операцию резервного копирования. Попробуйте позже.',
+})
+
+function isHtmlResponse(error, payload) {
+  const contentType = String(responseHeader(error, 'Content-Type') ?? '')
+    .toLowerCase()
+
+  if (contentType.includes('text/html')) {
+    return true
+  }
+
+  return typeof payload === 'string' &&
+    /<\s*(?:!doctype\s+html|html|head|body|title|h[1-6])\b/i.test(payload)
+}
+
+function readableBackendMessage(payload) {
+  const message =
+    payload?.message ||
+    payload?.detail ||
+    payload?.title ||
+    payload?.error_description ||
+    (typeof payload?.error === 'string' ? payload.error : '')
+
+  return typeof message === 'string' ? message.trim() : ''
+}
+
+function resolveBackendMessage(error, fallback) {
+  const payload = responsePayload(error)
+  const code = apiErrorCode(error)
+  const status = apiErrorStatus(error)
+
+  if (isHtmlResponse(error, payload)) {
+    return status >= 500
+      ? 'Сервер временно недоступен. Попробуйте позже.'
+      : fallback
+  }
+
+  if (typeof payload === 'string') {
+    return payload.trim() || fallback
+  }
+
+  const message = readableBackendMessage(payload)
+
+  // An internal error should never expose its raw technical description.
+  if (code === API_ERROR_CODES.INTERNAL_ERROR) {
+    return STANDARD_MESSAGES[code]
+  }
+
+  // Preserve meaningful server-specific messages (including upload limits).
+  if (code === API_ERROR_CODES.PAYLOAD_TOO_LARGE) {
+    return message || 'Размер загружаемых файлов превышает допустимый лимит.'
+  }
+
+  if (code === API_ERROR_CODES.BAD_REQUEST) {
+    if (/^Malformed request body$/i.test(message)) {
+      return 'Некорректный формат запроса.'
+    }
+    if (/^Missing request parameter:/i.test(message)) {
+      return 'Не указан обязательный параметр запроса.'
+    }
+    if (/^Invalid value for parameter:/i.test(message)) {
+      return 'Некорректное значение параметра запроса.'
+    }
+    return message || 'Проверьте параметры запроса.'
+  }
+
+  // The exception handler's default conflict message does not indicate
+  // which relation (if any) is responsible. Never infer dependencies from 409.
+  if (code === API_ERROR_CODES.CONFLICT) {
+    return !message || message === 'The request conflicts with existing data.'
+      ? STANDARD_MESSAGES[code]
+      : message
+  }
+
+  // The backend emits English technical messages for these codes. The
+  // concrete page can still override the text with presentApiError().
+  if (code && STANDARD_MESSAGES[code]) {
+    return STANDARD_MESSAGES[code]
+  }
+
+  if (status >= 500 && (!message || /^Unexpected server error$/i.test(message))) {
+    return 'Сервер временно недоступен. Попробуйте позже.'
+  }
+
+  return message || fallback
 }
 
 export function getApiErrorMessage(
@@ -245,59 +350,27 @@ export function getApiErrorMessage(
 ) {
   if (!error) return fallback
 
+  if (isApiCanceled(error)) {
+    return 'Запрос отменён'
+  }
+
   if (isApiTimeout(error)) {
     return 'Сервер слишком долго отвечает'
   }
 
-  /*
-   * Важно отличать Axios network error от обычной
-   * JavaScript-ошибки клиента.
-   *
-   * Раньше TypeError вроде:
-   *   learningApi.submitAttempt is not a function
-   * попадал сюда же и показывался как:
-   *   «Не удалось связаться с сервером».
-   */
+  // Transport failures and ordinary client-side errors are distinct.
   if (isApiNetworkError(error)) {
     return 'Не удалось связаться с сервером'
   }
 
   if (!error.response) {
-    return (
-      error?.message ||
-      fallback
-    )
+    return error?.message || fallback
   }
 
-  const payload =
-    responsePayload(error)
+  const message = resolveBackendMessage(error, fallback)
+  const details = validationDetails(responsePayload(error))
 
-  if (
-    typeof payload === 'string' &&
-    payload.trim()
-  ) {
-    return payload
-  }
-
-  const details =
-    validationDetails(payload)
-
-  const baseMessage =
-    payload?.message ||
-    payload?.detail ||
-    payload?.title ||
-    payload?.error_description ||
-    (
-      typeof payload?.error ===
-      'string'
-        ? payload.error
-        : ''
-    ) ||
-    fallback
-
-  return details
-    ? `${baseMessage}: ${details}`
-    : baseMessage
+  return details ? `${message}: ${details}` : message
 }
 
 export function normalizeApiError(
@@ -313,6 +386,11 @@ export function normalizeApiError(
 
     code:
       apiErrorCode(error),
+
+    traceId:
+      typeof payload?.traceId === 'string' && payload.traceId.trim()
+        ? payload.traceId.trim()
+        : null,
 
     message:
       getApiErrorMessage(
@@ -335,5 +413,8 @@ export function normalizeApiError(
 
     isNetworkError:
       isApiNetworkError(error),
+
+    isCanceled:
+      isApiCanceled(error),
   }
 }

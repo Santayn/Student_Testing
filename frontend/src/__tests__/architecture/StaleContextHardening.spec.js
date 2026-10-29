@@ -93,11 +93,13 @@ describe('stale context hardening', () => {
     expect(view.match(/const targetFacultyId/g))
       .toHaveLength(2)
 
+    // Assert the captured context is passed to mutations without coupling
+    // these checks to Prettier's indentation or line wrapping.
     expect(view)
-      .toContain('facultiesApi.addSubject(\n            targetFacultyId,')
+      .toMatch(/facultiesApi\.addSubject\(\s*targetFacultyId\s*,\s*subjectId\s*\)/)
 
     expect(view)
-      .toContain('facultiesApi.removeSubject(\n            targetFacultyId,')
+      .toMatch(/facultiesApi\.removeSubject\(\s*targetFacultyId\s*,\s*subjectId\s*\)/)
 
     expect(view)
       .toContain(':disabled="loading || saving"')
@@ -131,7 +133,7 @@ describe('stale context hardening', () => {
       .toContain('`group:${groupId}`')
 
     expect(loader)
-      .toContain('groupsApi.getById(\n                    groupId\n                  )')
+      .toMatch(/groupsApi\.getById\(\s*groupId\s*\)/)
 
     expect(loader)
       .not.toContain('groupsApi.getById(groupId, { signal })')

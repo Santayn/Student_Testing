@@ -25,7 +25,6 @@ import {
 } from '@/components/ui'
 
 import {
-  API_ERROR_CODES,
   groupsApi,
 } from '@/api'
 
@@ -359,12 +358,8 @@ async function deleteGroup() {
       {
         context: 'delete',
         fallback: 'Не удалось удалить группу',
-        codeMessages: {
-          [API_ERROR_CODES.GROUP_HAS_DEPENDENCIES]:
-            'Группа используется назначениями, участниками, результатами или другими связанными данными и не может быть удалена.',
-        },
         conflictMessage:
-          'Группа используется назначениями, участниками, результатами или другими связанными данными и не может быть удалена.',
+          'Не удалось удалить группу: операция конфликтует с существующими данными. Проверьте связанные записи.',
         forbiddenMessage:
           'Недостаточно прав для удаления группы.',
         notFoundMessage:

@@ -25,7 +25,6 @@ import {
 } from '@/components/ui'
 
 import {
-  API_ERROR_CODES,
   subjectsApi,
 } from '@/api'
 
@@ -297,12 +296,8 @@ async function deleteSubject() {
       {
         context: 'delete',
         fallback: 'Не удалось удалить предмет',
-        codeMessages: {
-          [API_ERROR_CODES.SUBJECT_HAS_DEPENDENCIES]:
-            'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.',
-        },
         conflictMessage:
-          'Предмет используется факультетами, лекциями, тестами или другими связанными данными и не может быть удалён.',
+          'Не удалось удалить предмет: операция конфликтует с существующими данными. Проверьте связанные записи.',
         forbiddenMessage:
           'Недостаточно прав для удаления предмета.',
         notFoundMessage:

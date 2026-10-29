@@ -59,6 +59,13 @@ describe('auth-specific error messages', () => {
 
     expect(
       getAuthErrorMessage(
+        { code: 'ETIMEDOUT', isAxiosError: true, config: {} },
+        'login'
+      )
+    ).toContain('слишком долго')
+
+    expect(
+      getAuthErrorMessage(
         {
           isAxiosError: true,
           config: {},

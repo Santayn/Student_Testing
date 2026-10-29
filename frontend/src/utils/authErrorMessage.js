@@ -1,13 +1,4 @@
-function isNetworkError(error) {
-  const isAxiosError =
-    error?.isAxiosError === true ||
-    Boolean(error?.config)
-
-  return Boolean(
-    isAxiosError &&
-    !error?.response
-  )
-}
+import { isApiNetworkError, isApiTimeout } from '@/api/error'
 
 function responseStatus(error) {
   const status = Number(
@@ -36,11 +27,11 @@ export function getAuthErrorMessage(
   error,
   operation = 'generic'
 ) {
-  if (error?.code === 'ECONNABORTED') {
+  if (isApiTimeout(error)) {
     return 'Сервер слишком долго отвечает. Попробуйте ещё раз.'
   }
 
-  if (isNetworkError(error)) {
+  if (isApiNetworkError(error)) {
     return 'Не удалось связаться с сервером. Проверьте подключение и повторите попытку.'
   }
 

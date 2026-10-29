@@ -12,6 +12,7 @@ export {
   getApiErrorMessage,
   isApiBadRequest,
   isApiConflict,
+  isApiCanceled,
   isApiForbidden,
   isApiNetworkError,
   isApiNotFound,

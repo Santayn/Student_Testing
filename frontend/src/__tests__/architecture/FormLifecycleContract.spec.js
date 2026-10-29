@@ -111,8 +111,22 @@ describe('form lifecycle contract', () => {
     expect(lectureDrawer).toContain(
       "emit('field-change', 'title')"
     )
+    // Field errors are now normalized from the backend's `details[]` array.
+    // Keep this contract independent of the old local helper name.
     expect(lectureSave).toContain(
-      'structuredFieldErrors'
+      'normalizeApiError(error).fieldErrors'
+    )
+    expect(lectureSave).toContain(
+      'Object.keys(fieldErrors).length'
+    )
+    expect(lectureSave).toContain(
+      'formFieldErrors.value ='
+    )
+    expect(lectureSave).toContain(
+      'focusFormErrors?.()'
+    )
+    expect(lectureSave).toContain(
+      '!createdLectureNeedsFollowUp'
     )
     expect(lectureSave).toContain(
       'FORM_FIELD_ERROR_SUMMARY'

@@ -1,3 +1,4 @@
+import { normalizeApiError } from '@/api/error'
 import { computed, ref } from 'vue'
 import { listFromResponse } from '@/utils/apiData'
 import {
@@ -34,43 +35,6 @@ export function useLectureSaveFlow({
   getApiErrorMessage,
 }) {
   const partialCreateState = ref(null)
-
-  function structuredFieldErrors(error) {
-    const details =
-      error?.response?.data?.details
-
-    if (!details) {
-      return {}
-    }
-
-    if (
-      details &&
-      typeof details === 'object' &&
-      !Array.isArray(details)
-    ) {
-      const result = {}
-
-      for (const [field, value] of Object.entries(details)) {
-        const messages = Array.isArray(value)
-          ? value
-          : value == null
-            ? []
-            : [value]
-
-        const normalized = messages
-          .map((item) => String(item ?? '').trim())
-          .filter(Boolean)
-
-        if (normalized.length) {
-          result[field] = normalized
-        }
-      }
-
-      return result
-    }
-
-    return {}
-  }
 
   const partialCreatePending = computed(() => Boolean(
     partialCreateState.value &&
@@ -325,9 +289,12 @@ export function useLectureSaveFlow({
             : 'Не удалось создать лекцию'
 
       const fieldErrors =
-        structuredFieldErrors(error)
+        normalizeApiError(error).fieldErrors
 
+      // Dependent failures (test links / materials) must keep the retry
+      // instruction visible even when the server returns validation details.
       if (
+        !createdLectureNeedsFollowUp &&
         Object.keys(fieldErrors).length
       ) {
         formFieldErrors.value =
