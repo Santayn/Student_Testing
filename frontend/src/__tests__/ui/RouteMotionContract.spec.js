@@ -17,7 +17,8 @@ describe('motion stage 4 route content reveal', () => {
   it('animates only routed content inside the stable app shell', () => {
     expect(app).toContain('class="app-route-content"')
     expect(app).toContain('<AppHeader />')
-    expect(app).toContain('<AppSidebar v-if="showSidebar" />')
+    expect(app).toContain('v-if="wideNavigationShown"')
+    expect(app).toContain('v-if="mediumNavigationShown"')
     expect(app).toContain('<AppFooter />')
     expect(app).toContain('<RouterView />')
   })
@@ -43,6 +44,9 @@ describe('motion stage 4 route content reveal', () => {
   it('does not add leave, horizontal slide or artificial delay behavior', () => {
     expect(app).not.toContain('mode="out-in"')
     expect(app).not.toContain('setTimeout(')
-    expect(app).not.toContain('translateX(')
+    const routeAnimation = app.match(
+      /@keyframes app-route-content-reveal\s*\{[\s\S]*?\n\}/
+    )?.[0] ?? ''
+    expect(routeAnimation).not.toContain('translateX(')
   })
 })

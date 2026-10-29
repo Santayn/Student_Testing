@@ -32,6 +32,9 @@ import {
 import {
   useLayoutStore,
 } from '@/stores/layout'
+import {
+  useNavigationUiStore,
+} from '@/stores/navigationUi'
 
 import {
   renderBootstrapFailure,
@@ -77,6 +80,8 @@ async function bootstrap() {
 
   // Initialize viewport context once; view-specific widths use ResizeObserver.
   useLayoutStore().init()
+  // Restore user visibility choices before the first navigation render.
+  useNavigationUiStore().init()
 
   const authStore =
     useAuthStore()

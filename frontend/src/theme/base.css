@@ -11,6 +11,9 @@ html[data-theme='dark'] {
 html {
   background: var(--st-page-bg);
   color: var(--st-text);
+  /* Keep the viewport width unchanged when a modal locks page scrolling.
+   * The native document scrollbar remains browser-controlled. */
+  scrollbar-gutter: stable;
 }
 
 html,
@@ -94,5 +97,20 @@ body {
 
 .st-scrollbar--shell::-webkit-scrollbar-thumb:hover {
   background: var(--st-scrollbar-shell-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* Only the sidebar uses a softer thumb; other shell scrollers keep their contrast. */
+.st-scrollbar--sidebar {
+  scrollbar-color: var(--st-scrollbar-sidebar-thumb) transparent;
+}
+
+.st-scrollbar--sidebar::-webkit-scrollbar-thumb {
+  background: var(--st-scrollbar-sidebar-thumb);
+  background-clip: padding-box;
+}
+
+.st-scrollbar--sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--st-scrollbar-sidebar-thumb-hover);
   background-clip: padding-box;
 }

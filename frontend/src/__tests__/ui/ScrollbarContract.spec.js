@@ -65,6 +65,23 @@ describe('scrollbar design contract', () => {
     expect(breadcrumb).toContain('st-scrollbar')
   })
 
+  it('keeps the sidebar collapse control fixed above its independently scrolling menu', () => {
+    expect(sidebar).toMatch(/class="app-sidebar__toolbar"[\s\S]*?class="app-sidebar__collapse"/)
+    expect(sidebar).toContain('class="app-sidebar__nav st-scrollbar st-scrollbar--shell st-scrollbar--sidebar"')
+    expect(sidebar).toMatch(/\.app-sidebar__toolbar\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/)
+    expect(sidebar).toMatch(/\.app-sidebar__nav\s*\{[^}]*overflow-y:\s*auto;/)
+    expect(sidebar).toMatch(/\.app-sidebar\s*\{[^}]*overflow:\s*hidden;/)
+  })
+
+  it('uses translucent theme-derived scrollbar colors only inside the sidebar', () => {
+    expect(tokens).toContain('--st-scrollbar-sidebar-thumb: color-mix(')
+    expect(tokens).toContain('--st-scrollbar-sidebar-thumb-hover: color-mix(')
+    expect(base).toContain('.st-scrollbar--sidebar {')
+    expect(base).toContain('scrollbar-color: var(--st-scrollbar-sidebar-thumb) transparent')
+    expect(base).toContain('.st-scrollbar--sidebar::-webkit-scrollbar-thumb:hover')
+    expect(base).not.toMatch(/html::?-webkit-scrollbar|body::?-webkit-scrollbar/)
+  })
+
   it('covers common PrimeVue and table internal scrollers', () => {
     expect(foundation).toContain(
       '.p-select-list-container::-webkit-scrollbar'

@@ -20,6 +20,8 @@ import {
 import {
   getActiveNavigationKey,
   getWorkspaceNavigation,
+  getWorkspaceNavigationNodes,
+  buildNavigationNodes,
   resolveBreadcrumbs,
 } from '@/navigation/navigation'
 
@@ -58,6 +60,35 @@ describe('workspace navigation config', () => {
       NAV_KEYS.RESULTS,
       NAV_KEYS.PROFILE,
     ])
+  })
+
+  it('uses root links for singleton groups without changing canonical routes', () => {
+    const expectedLinks = {
+      STUDENT: [NAV_KEYS.PROFILE],
+      TEACHER: [NAV_KEYS.TEACHER_WORKLOAD, NAV_KEYS.PROFILE],
+      ADMIN: [NAV_KEYS.PROFILE],
+    }
+
+    for (const role of Object.keys(expectedLinks)) {
+      const nodes = getWorkspaceNavigationNodes(role)
+      expect(nodes.filter((node) => node.type === 'link').map((node) => node.key))
+        .toEqual(expectedLinks[role])
+      expect(nodes.filter((node) => node.type === 'group').every((node) => node.items.length > 1))
+        .toBe(true)
+      expect(nodes.flatMap((node) => node.type === 'link' ? [node.key] : node.items.map((item) => item.key)))
+        .toEqual(getWorkspaceNavigation(role).flatMap((section) => section.items.map((item) => item.key)))
+    }
+  })
+
+  it('ignores empty groups and retains labels and routes on direct links', () => {
+    const route = { name: 'profile' }
+    const nodes = buildNavigationNodes([
+      { key: 'empty', label: 'Empty', items: [] },
+      { key: 'single', label: 'Account', items: [{ key: 'profile', label: 'Профиль', icon: 'pi pi-user', route }] },
+    ])
+    expect(nodes).toEqual([{
+      type: 'link', key: 'profile', label: 'Профиль', icon: 'pi pi-user', route,
+    }])
   })
 
   it('supports workspace-specific labels without duplicating destinations', () => {

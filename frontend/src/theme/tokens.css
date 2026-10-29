@@ -70,6 +70,9 @@ html[data-theme='light'] {
   --st-scrollbar-thumb-hover: #94a3b8;
   --st-scrollbar-shell-thumb: #475569;
   --st-scrollbar-shell-thumb-hover: #64748b;
+  /* Sidebar-only translucent shades, derived from the active theme. */
+  --st-scrollbar-sidebar-thumb: color-mix(in srgb, var(--st-scrollbar-shell-thumb) 65%, transparent);
+  --st-scrollbar-sidebar-thumb-hover: color-mix(in srgb, var(--st-scrollbar-shell-thumb-hover) 82%, transparent);
 
   /* Semantic */
   --st-success: #16a34a;
@@ -92,7 +95,6 @@ html[data-theme='light'] {
   /* Geometry */
   --st-header-height: 64px;
   --st-sidebar-width: 256px;
-  --st-sidebar-collapsed-width: 72px;
   --st-control-height-sm: 34px;
   --st-control-height: 40px;
   --st-control-height-lg: 46px;

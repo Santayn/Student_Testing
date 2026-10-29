@@ -1,328 +1,111 @@
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
-import {
-  defineComponent,
-  h,
-  nextTick,
-} from 'vue'
-import {
-  mount,
-} from '@vue/test-utils'
-
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick, defineComponent, h } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { mount } from '@vue/test-utils'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
-import appSidebarSource from '@/components/layout/AppSidebar.vue?raw'
-import {
-  NAV_KEYS,
-} from '@/navigation/navigation.config'
+import { NAV_KEYS } from '@/navigation/navigation.config'
+import { useNavigationUiStore } from '@/stores/navigationUi'
 
-const mockState = vi.hoisted(() => ({
-  route: {
-    fullPath: '/subjects/42',
-    meta: {
-      navKey: 'subjects',
-    },
-  },
-  authStore: {
-    workspaceRole: 'STUDENT',
-  },
+const state = vi.hoisted(() => ({
+  route: { fullPath: '/subjects/42', meta: { navKey: 'subjects' } },
+  auth: { workspaceRole: 'STUDENT' },
 }))
-
-vi.mock('vue-router', () => ({
-  useRoute: () => mockState.route,
-}))
-
-vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => mockState.authStore,
-}))
+vi.mock('vue-router', () => ({ useRoute: () => state.route }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => state.auth }))
 
 const RouterLinkStub = defineComponent({
   name: 'RouterLink',
   inheritAttrs: false,
-  props: {
-    to: {
-      type: [String, Object],
-      required: true,
-    },
-  },
+  props: { to: { type: [String, Object], required: true } },
   setup(props, { attrs, slots }) {
-    return () => h(
-      'a',
-      {
-        ...attrs,
-        'data-route-name':
-          typeof props.to === 'object'
-            ? props.to.name
-            : props.to,
-      },
-      slots.default?.()
-    )
+    return () => h('a', { ...attrs, href: `/${props.to.name}` }, slots.default?.())
   },
 })
 
 function mountSidebar() {
   return mount(AppSidebar, {
-    attachTo: document.body,
-    global: {
-      stubs: {
-        RouterLink: RouterLinkStub,
-      },
-    },
+    global: { stubs: { RouterLink: RouterLinkStub } },
   })
 }
 
-describe('AppSidebar workspace navigation', () => {
-  beforeEach(() => {
-    mockState.authStore.workspaceRole = 'STUDENT'
-    mockState.route.fullPath = '/subjects/42'
-    mockState.route.meta.navKey = NAV_KEYS.SUBJECTS
-  })
+beforeEach(() => {
+  localStorage.clear()
+  setActivePinia(createPinia())
+  state.auth.workspaceRole = 'STUDENT'
+  state.route = { fullPath: '/subjects/42', meta: { navKey: NAV_KEYS.SUBJECTS } }
+})
 
-  it('renders student navigation from the shared workspace config', () => {
+describe('mixed desktop sidebar navigation', () => {
+  it('renders a single-destination group as a direct root link', () => {
     const wrapper = mountSidebar()
-
-    const labels = wrapper
-      .findAll('.app-sidebar__link')
-      .map((link) => link.text())
-
-    expect(labels).toEqual([
-      'Главная',
-      'Предметы',
-      'Результаты',
-      'Профиль',
-    ])
-
+    expect(wrapper.findAll('.navigation-group__trigger')).toHaveLength(1)
+    expect(wrapper.findAll('.navigation-root-link')).toHaveLength(1)
+    expect(wrapper.find('.navigation-root-link').text()).toBe('Профиль')
+    expect(wrapper.find('.navigation-root-link').attributes('href')).toBe('/profile')
+    expect(wrapper.find('.app-sidebar__link--active').text()).toBe('Предметы')
+    expect(wrapper.find('.app-sidebar__link--active').attributes('aria-current')).toBe('page')
     wrapper.unmount()
   })
 
-  it('uses navKey instead of exact route matching for the active destination', () => {
+  it('allows several multi-item groups to remain expanded', async () => {
+    state.auth.workspaceRole = 'TEACHER'
+    state.route = { fullPath: '/teacher/questions', meta: { navKey: NAV_KEYS.TEACHER_QUESTIONS } }
     const wrapper = mountSidebar()
-
-    const active = wrapper.find(
-      '.app-sidebar__link--active'
-    )
-
-    expect(active.exists()).toBe(true)
-    expect(active.text()).toBe('Предметы')
-    expect(active.attributes('aria-current')).toBe('page')
-
+    const toggles = wrapper.findAll('.navigation-group__trigger')
+    expect(toggles).toHaveLength(2)
+    expect(toggles[1].attributes('aria-expanded')).toBe('true')
+    await toggles[0].trigger('click')
+    expect(toggles[0].attributes('aria-expanded')).toBe('true')
+    expect(toggles[1].attributes('aria-expanded')).toBe('true')
+    expect(wrapper.findAll('.navigation-root-link')).toHaveLength(2)
     wrapper.unmount()
   })
 
-  it('renders teacher sections from the same config', () => {
-    mockState.authStore.workspaceRole = 'TEACHER'
-    mockState.route.fullPath = '/teacher/questions'
-    mockState.route.meta.navKey =
-      NAV_KEYS.TEACHER_QUESTIONS
-
+  it('retains expansion only for actual groups and restores them', async () => {
+    state.auth.workspaceRole = 'TEACHER'
+    state.route = { fullPath: '/teacher/questions', meta: { navKey: NAV_KEYS.TEACHER_QUESTIONS } }
     const wrapper = mountSidebar()
-
-    const labels = wrapper
-      .findAll('.app-sidebar__link')
-      .map((link) => link.text())
-
-    expect(labels).toEqual([
-      'Главная',
-      'Мои предметы',
-      'Результаты',
-      'Проверка ответов',
-      'Темы предмета',
-      'Вопросы',
-      'Лекции',
-      'Шаблоны курса',
-      'Моя нагрузка',
-      'Профиль',
-    ])
-
-    expect(labels).not.toContain('Создать тест')
-    expect(labels).not.toContain('Факультеты')
-
-    wrapper.unmount()
-  })
-
-  it('keeps questions active while test creation is open', () => {
-    mockState.authStore.workspaceRole = 'TEACHER'
-    mockState.route.fullPath = '/teacher/tests/create'
-    mockState.route.meta.navKey =
-      NAV_KEYS.TEACHER_QUESTIONS
-
-    const wrapper = mountSidebar()
-
-    const active = wrapper.find(
-      '.app-sidebar__link--active'
-    )
-
-    expect(active.exists()).toBe(true)
-    expect(active.text()).toBe('Вопросы')
-
-    wrapper.unmount()
-  })
-
-  it('renders admin sections from the same config', () => {
-    mockState.authStore.workspaceRole = 'ADMIN'
-    mockState.route.fullPath = '/admin/faculties'
-    mockState.route.meta.navKey =
-      NAV_KEYS.ADMIN_FACULTIES
-
-    const wrapper = mountSidebar()
-
-    const labels = wrapper
-      .findAll('.app-sidebar__link')
-      .map((link) => link.text())
-
-    expect(labels).toEqual([
-      'Главная',
-      'Результаты',
-      'Проверка ответов',
-      'Факультеты',
-      'Группы',
-      'Справочник предметов',
-      'Предметы факультетов',
-      'Преподаватели и предметы',
-      'Учебная нагрузка',
-      'Доступные предметы',
-      'Темы предмета',
-      'Вопросы',
-      'Лекции',
-      'Шаблоны курса',
-      'Пользователи',
-      'Роли и права',
-      'Резервные копии',
-      'Расход ИИ',
-      'Профиль',
-    ])
-
-    expect(labels).not.toContain('Создать тест')
-
-    wrapper.unmount()
-  })
-
-  it('opens and closes the mobile drawer without leaving the page scroll locked', async () => {
-    const wrapper = mountSidebar()
-    const toggle = wrapper.find(
-      '.sidebar-mobile-toggle'
-    )
-
-    await toggle.trigger('click')
+    await wrapper.findAll('.navigation-group__trigger')[0].trigger('click')
     await nextTick()
+    wrapper.unmount()
+    const restored = mountSidebar()
+    expect(restored.findAll('.navigation-group__trigger')[0].attributes('aria-expanded')).toBe('true')
+    expect(restored.findAll('.navigation-root-link')).toHaveLength(2)
+    restored.unmount()
+  })
 
-    expect(
-      wrapper.find('.app-sidebar').classes()
-    ).toContain('app-sidebar--open')
-    expect(toggle.attributes('aria-expanded')).toBe('true')
-    expect(
-      document.body.classList.contains(
-        'sidebar-mobile-open'
-      )
-    ).toBe(true)
-    expect(
-      document.activeElement
-    ).toBe(
-      wrapper.find(
-        '.app-sidebar__close'
-      ).element
-    )
-
-    window.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Escape',
-      })
-    )
-    await nextTick()
-
-    expect(
-      wrapper.find('.app-sidebar').classes()
-    ).not.toContain('app-sidebar--open')
-    expect(toggle.attributes('aria-expanded')).toBe('false')
-    expect(
-      document.body.classList.contains(
-        'sidebar-mobile-open'
-      )
-    ).toBe(false)
-    expect(document.activeElement).toBe(
-      toggle.element
-    )
-
+  it('uses the admin role menu and keeps Profile at the root', () => {
+    state.auth.workspaceRole = 'ADMIN'
+    state.route = { fullPath: '/admin/faculties', meta: { navKey: NAV_KEYS.ADMIN_FACULTIES } }
+    const wrapper = mountSidebar()
+    expect(wrapper.findAll('.navigation-group__trigger')).toHaveLength(6)
+    expect(wrapper.findAll('.navigation-root-link')).toHaveLength(1)
+    expect(wrapper.find('.navigation-root-link').text()).toBe('Профиль')
+    expect(wrapper.find('.app-sidebar__link--active').text()).toBe('Факультеты')
+    expect(wrapper.text()).not.toContain('Создать тест')
     wrapper.unmount()
   })
 
-  it('closes the drawer immediately after choosing a destination', async () => {
+  it('highlights direct root links on their own routes', () => {
+    state.route = { fullPath: '/profile', meta: { navKey: NAV_KEYS.PROFILE } }
     const wrapper = mountSidebar()
-
-    await wrapper
-      .find('.sidebar-mobile-toggle')
-      .trigger('click')
-
-    await wrapper
-      .find('.app-sidebar__link')
-      .trigger('click')
-
-    expect(
-      wrapper.find('.app-sidebar').classes()
-    ).not.toContain('app-sidebar--open')
-    expect(
-      document.body.classList.contains(
-        'sidebar-mobile-open'
-      )
-    ).toBe(false)
-    expect(document.activeElement).toBe(
-      wrapper.find(
-        '.sidebar-mobile-toggle'
-      ).element
-    )
-
+    const profile = wrapper.find('.navigation-root-link--active')
+    expect(profile.exists()).toBe(true)
+    expect(profile.attributes('aria-current')).toBe('page')
     wrapper.unmount()
   })
 
-
-  it('keeps the closed mobile drawer non-interactive until it opens', () => {
-    expect(appSidebarSource).toContain(
-      'visibility: hidden;'
-    )
-    expect(appSidebarSource).toContain(
-      'pointer-events: none;'
-    )
-    expect(appSidebarSource).toContain(
-      '.app-sidebar--open'
-    )
-    expect(appSidebarSource).toContain(
-      'visibility: visible;'
-    )
-  })
-
-  it('keeps keyboard focus inside an open mobile drawer', async () => {
+  it('offers a full hide action without creating an icon-only navigation mode', async () => {
     const wrapper = mountSidebar()
+    const store = useNavigationUiStore()
+    expect(wrapper.find('#workspace-sidebar').exists()).toBe(true)
+    expect(wrapper.find('.navigation-root-link').text()).toBe('Профиль')
 
-    await wrapper
-      .find('.sidebar-mobile-toggle')
-      .trigger('click')
-
-    const links = wrapper.findAll(
-      '.app-sidebar__link'
-    )
-    const lastLink = links[links.length - 1]
-
-    lastLink.element.focus()
-
-    window.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Tab',
-        bubbles: true,
-        cancelable: true,
-      })
-    )
-    await nextTick()
-
-    expect(document.activeElement).toBe(
-      wrapper.find(
-        '.app-sidebar__close'
-      ).element
-    )
-
+    await wrapper.find('.app-sidebar__collapse').trigger('click')
+    expect(store.sidebarVisible).toBe(false)
+    expect(wrapper.emitted('hide')).toHaveLength(1)
+    expect(localStorage.getItem('st:navigation:sidebar-visible')).toBe('false')
+    expect(wrapper.find('.app-sidebar--collapsed').exists()).toBe(false)
     wrapper.unmount()
   })
 

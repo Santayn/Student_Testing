@@ -338,6 +338,28 @@ export function getWorkspaceNavigation(
   )
 }
 
+/**
+ * Convert the canonical grouped menu into presentation nodes.
+ * A section with a single destination is a direct root link, not a disclosure.
+ * This keeps route definitions and permissions in one place for all surfaces.
+ */
+export function buildNavigationNodes(sections) {
+  return sections.flatMap((section) => {
+    const items = section.items ?? []
+
+    if (items.length === 0) return []
+    if (items.length === 1) {
+      return [{ ...items[0], type: 'link' }]
+    }
+
+    return [{ ...section, type: 'group' }]
+  })
+}
+
+export function getWorkspaceNavigationNodes(workspaceRole) {
+  return buildNavigationNodes(getWorkspaceNavigation(workspaceRole))
+}
+
 export function getActiveNavigationKey(
   route
 ) {
