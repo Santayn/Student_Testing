@@ -30,6 +30,10 @@ import {
 } from '@/stores/theme'
 
 import {
+  useLayoutStore,
+} from '@/stores/layout'
+
+import {
   renderBootstrapFailure,
 } from '@/utils/bootstrapFailure'
 
@@ -70,6 +74,9 @@ async function bootstrap() {
     useThemeStore()
 
   themeStore.init()
+
+  // Initialize viewport context once; view-specific widths use ResizeObserver.
+  useLayoutStore().init()
 
   const authStore =
     useAuthStore()

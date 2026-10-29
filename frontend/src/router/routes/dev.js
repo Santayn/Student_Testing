@@ -1,5 +1,14 @@
 export const devRoutes = [
   {
+    path: '/responsive-layout-preview',
+    name: 'responsive-layout-preview',
+
+    component: () =>
+      import('@/views/dev/ResponsiveLayoutPreviewView.vue'),
+
+    meta: { public: true },
+  },
+  {
     path: '/font-preview',
     name: 'font-preview',
 

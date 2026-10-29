@@ -101,6 +101,25 @@ for (const [path, source] of sources) {
       errors.push(`${relativeSource(path)}: unresolved internal import ${specifier}`)
     }
   }
+  // A static Vite glob creates lazy import edges that the literal-import
+  // matcher above cannot see. This convention is intentionally constrained
+  // to the responsive presentation directory rather than trusting arbitrary
+  // dynamically constructed paths as reachable.
+  const viewGlob =
+    /\bimport\.meta\.glob\(\s*['"]\/src\/views\/\*\*\/presentations\/\*\.\{compact,medium,wide,shared\}\.vue['"]/g
+
+  if (viewGlob.test(source)) {
+    for (const candidate of productionFiles) {
+      if (
+        /^views\/.+\/presentations\/[^/]+\.(compact|medium|wide|shared)\.vue$/.test(
+          relativeSource(candidate)
+        )
+      ) {
+        imports.add(candidate)
+      }
+    }
+  }
+
   graph.set(path, imports)
 }
 
