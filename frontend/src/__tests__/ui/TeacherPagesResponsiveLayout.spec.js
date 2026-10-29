@@ -26,9 +26,14 @@ const subjectDetails = source(
 const topicLibrary = source(
   'views', 'teacher', 'TopicLibraryView.vue'
 )
-const questions = source(
-  'views', 'teacher', 'QuestionsView.vue'
-)
+const questions = [
+  source('views', 'teacher', 'QuestionsView.vue'),
+  source('composables', 'questions', 'useQuestionsWorkspace.js'),
+  source('views', 'teacher', 'questions', 'QuestionsContext.vue'),
+  source('views', 'teacher', 'questions', 'QuestionsBank.vue'),
+  source('views', 'teacher', 'questions', 'QuestionsList.vue'),
+  source('views', 'teacher', 'questions', 'QuestionsOverlays.vue'),
+].join('\n')
 const testEditor = source(
   'views', 'teacher', 'TestEditorView.vue'
 )

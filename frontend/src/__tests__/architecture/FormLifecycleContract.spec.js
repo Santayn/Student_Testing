@@ -73,9 +73,10 @@ describe('form lifecycle contract', () => {
   )
 
   it('extends field-error lifecycle to question and lecture editors', () => {
-    const questions = source(
-      'views/teacher/QuestionsView.vue'
-    )
+    const questions = [
+      source('composables/questions/useQuestionsWorkspace.js'),
+      source('views/teacher/questions/QuestionsOverlays.vue'),
+    ].join('\n')
     const questionMutations = source(
       'composables/questions/useQuestionMutations.js'
     )

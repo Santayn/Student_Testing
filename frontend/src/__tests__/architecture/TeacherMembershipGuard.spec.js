@@ -166,7 +166,7 @@ describe('teacher membership mutation guard', () => {
       'await ensureSelectedMembershipActive()'
     )
 
-    const questionsView = source('views/teacher/QuestionsView.vue')
+    const questionsView = source('composables/questions/useQuestionsWorkspace.js')
     const questionMutations = source('composables/questions/useQuestionMutations.js')
 
     expect(questionsView).toContain(

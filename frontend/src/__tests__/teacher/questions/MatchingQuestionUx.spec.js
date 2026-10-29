@@ -28,9 +28,7 @@ function source(...parts) {
 describe('matching question user experience', () => {
   it('edits matching questions as explicit pairs instead of developer text syntax', () => {
     const questions = source(
-      'views',
-      'teacher',
-      'QuestionsView.vue'
+      'views', 'teacher', 'questions', 'QuestionsOverlays.vue'
     )
     const editor = source(
       'components',

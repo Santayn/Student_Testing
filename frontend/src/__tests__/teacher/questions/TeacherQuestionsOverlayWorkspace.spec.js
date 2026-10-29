@@ -9,16 +9,19 @@ import {
   it,
 } from 'vitest'
 
-const questions = readFileSync(
-  resolve(
-    process.cwd(),
-    'src',
-    'views',
-    'teacher',
-    'QuestionsView.vue'
-  ),
-  'utf8'
-)
+function source(...segments) {
+  return readFileSync(resolve(process.cwd(), 'src', ...segments), 'utf8')
+}
+
+// The page is now a thin container; check the full workspace contract.
+const questions = [
+  source('views', 'teacher', 'QuestionsView.vue'),
+  source('composables', 'questions', 'useQuestionsWorkspace.js'),
+  source('views', 'teacher', 'questions', 'QuestionsContext.vue'),
+  source('views', 'teacher', 'questions', 'QuestionsBank.vue'),
+  source('views', 'teacher', 'questions', 'QuestionsList.vue'),
+  source('views', 'teacher', 'questions', 'QuestionsOverlays.vue'),
+].join('\n')
 
 const questionEditorState = readFileSync(
   resolve(
