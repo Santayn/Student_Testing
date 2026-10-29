@@ -10,6 +10,7 @@ export const NAV_KEYS = Object.freeze({
   TEACHER_TOPICS: 'teacher-topics',
   TEACHER_COURSES: 'teacher-courses',
   TEACHER_WORKLOAD: 'teacher-workload',
+  TEACHER_REVIEW: 'teacher-review',
 
   ADMIN_USERS: 'admin-users',
   ADMIN_ROLES: 'admin-roles',
@@ -20,6 +21,7 @@ export const NAV_KEYS = Object.freeze({
   ADMIN_TEACHER_SUBJECTS: 'admin-teacher-subjects',
   ADMIN_TEACHING: 'admin-teaching',
   ADMIN_DATABASE_BACKUPS: 'admin-database-backups',
+  ADMIN_AI_USAGE: 'admin-ai-usage',
 })
 
 export const NAVIGATION_DESTINATIONS = Object.freeze({
@@ -93,6 +95,13 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
     routeName: 'teacher-workload',
   },
 
+  [NAV_KEYS.TEACHER_REVIEW]: {
+    key: NAV_KEYS.TEACHER_REVIEW,
+    label: 'Проверка ответов',
+    icon: 'pi pi-check-square',
+    routeName: 'teacher-review',
+  },
+
   [NAV_KEYS.ADMIN_USERS]: {
     key: NAV_KEYS.ADMIN_USERS,
     label: 'Пользователи',
@@ -155,6 +164,13 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
     icon: 'pi pi-database',
     routeName: 'admin-database-backups',
   },
+
+  [NAV_KEYS.ADMIN_AI_USAGE]: {
+    key: NAV_KEYS.ADMIN_AI_USAGE,
+    label: 'Расход ИИ',
+    icon: 'pi pi-chart-line',
+    routeName: 'admin-ai-usage',
+  },
 })
 
 /*
@@ -194,6 +210,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
           label: 'Мои предметы',
         },
         NAV_KEYS.RESULTS,
+        NAV_KEYS.TEACHER_REVIEW,
       ],
     },
     {
@@ -229,6 +246,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       items: [
         NAV_KEYS.HOME,
         NAV_KEYS.RESULTS,
+        NAV_KEYS.TEACHER_REVIEW,
       ],
     },
     {
@@ -276,6 +294,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       label: 'Система',
       items: [
         NAV_KEYS.ADMIN_DATABASE_BACKUPS,
+        NAV_KEYS.ADMIN_AI_USAGE,
       ],
     },
     {
@@ -444,6 +463,17 @@ export const BREADCRUMB_CONFIG = Object.freeze({
     { destination: NAV_KEYS.TEACHER_LECTURES },
   ],
 
+  'teacher-lecture-presentation': [
+    { destination: NAV_KEYS.TEACHER_LECTURES },
+    {
+      key: 'presentation',
+      label: 'Презентация',
+      routeName: 'teacher-lecture-presentation',
+      paramsFrom: ['lectureId'],
+      requires: ['lectureId'],
+    },
+  ],
+
   'teacher-topics': [
     { destination: NAV_KEYS.TEACHER_TOPICS },
   ],
@@ -454,6 +484,10 @@ export const BREADCRUMB_CONFIG = Object.freeze({
 
   'teacher-workload': [
     { destination: NAV_KEYS.TEACHER_WORKLOAD },
+  ],
+
+  'teacher-review': [
+    { destination: NAV_KEYS.TEACHER_REVIEW },
   ],
 
   'admin-users': [
@@ -490,5 +524,9 @@ export const BREADCRUMB_CONFIG = Object.freeze({
 
   'admin-database-backups': [
     { destination: NAV_KEYS.ADMIN_DATABASE_BACKUPS },
+  ],
+
+  'admin-ai-usage': [
+    { destination: NAV_KEYS.ADMIN_AI_USAGE },
   ],
 })

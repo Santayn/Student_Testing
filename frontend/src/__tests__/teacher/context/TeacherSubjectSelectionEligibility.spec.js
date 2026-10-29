@@ -94,7 +94,7 @@ describe('teacher subject selection eligibility', () => {
 
     expect(
       context.membershipOptions.value.map((item) => item.value)
-    ).toEqual([1, 3])
+    ).toEqual(['1', '3'])
 
     expect(context.selectedMembershipId.value).toBe('')
   })

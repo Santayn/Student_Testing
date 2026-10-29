@@ -16,6 +16,8 @@ const PAGE_TITLES = Object.freeze({
   'teacher-topics': 'Темы предмета',
   'teacher-courses': 'Шаблоны курса',
   'teacher-workload': 'Моя нагрузка',
+  'teacher-review': 'Проверка ответов',
+  'teacher-lecture-presentation': 'Презентация по лекции',
 
   'admin-users': 'Пользователи',
   'admin-roles': 'Роли и права',
@@ -26,6 +28,7 @@ const PAGE_TITLES = Object.freeze({
   'admin-teacher-subjects': 'Преподаватели и предметы',
   'admin-teaching': 'Учебная нагрузка',
   'admin-database-backups': 'Резервные копии',
+  'admin-ai-usage': 'Расход ИИ',
 
   about: 'О приложении',
   login: 'Вход',

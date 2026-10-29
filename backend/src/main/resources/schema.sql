@@ -306,3 +306,57 @@ ALTER TABLE "Tests"
 
 CREATE INDEX IF NOT EXISTS "IX_Tests_AuthorPersonId"
     ON "Tests" ("AuthorPersonId");
+
+CREATE TABLE IF NOT EXISTS "AiJobs" (
+    "Id" bigserial PRIMARY KEY,
+    "Type" varchar(40) NOT NULL,
+    "Status" integer NOT NULL DEFAULT 1,
+    "OwnerPersonId" integer REFERENCES "People" ("Id") ON DELETE SET NULL,
+    "TargetId" bigint,
+    "InputJson" text,
+    "ResultJson" text,
+    "ProgressText" varchar(300),
+    "Error" varchar(2000),
+    "Attempts" integer NOT NULL DEFAULT 0,
+    "InputTokens" bigint NOT NULL DEFAULT 0,
+    "OutputTokens" bigint NOT NULL DEFAULT 0,
+    "OcrPages" integer NOT NULL DEFAULT 0,
+    "ImagesGenerated" integer NOT NULL DEFAULT 0,
+    "CreatedAtUtc" timestamptz NOT NULL DEFAULT now(),
+    "AvailableAtUtc" timestamptz NOT NULL DEFAULT now(),
+    "StartedAtUtc" timestamptz,
+    "FinishedAtUtc" timestamptz
+    );
+
+CREATE INDEX IF NOT EXISTS "IX_AiJobs_Status_AvailableAt"
+    ON "AiJobs" ("Status", "AvailableAtUtc");
+
+CREATE INDEX IF NOT EXISTS "IX_AiJobs_CreatedAt"
+    ON "AiJobs" ("CreatedAtUtc");
+
+CREATE INDEX IF NOT EXISTS "IX_AiJobs_Type_Target"
+    ON "AiJobs" ("Type", "TargetId");
+
+ALTER TABLE "CourseLectures"
+    ADD COLUMN IF NOT EXISTS "Body" text;
+
+ALTER TABLE "Tests"
+    ADD COLUMN IF NOT EXISTS "ShowAiFeedback" boolean NOT NULL DEFAULT true;
+
+ALTER TABLE "TestQuestions"
+    ADD COLUMN IF NOT EXISTS "GradingCriteria" varchar(4000);
+
+ALTER TABLE "QuestionResponses"
+    ADD COLUMN IF NOT EXISTS "ReviewStatus" integer,
+    ADD COLUMN IF NOT EXISTS "GradedBy" integer,
+    ADD COLUMN IF NOT EXISTS "AiScore" numeric(5, 4),
+    ADD COLUMN IF NOT EXISTS "AiConfidence" numeric(5, 4),
+    ADD COLUMN IF NOT EXISTS "AiFeedback" varchar(2000),
+    ADD COLUMN IF NOT EXISTS "AiDetailsJson" text,
+    ADD COLUMN IF NOT EXISTS "TeacherComment" varchar(2000),
+    ADD COLUMN IF NOT EXISTS "GradedByPersonId" integer REFERENCES "People" ("Id") ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS "GradedAtUtc" timestamptz;
+
+CREATE INDEX IF NOT EXISTS "IX_QuestionResponses_ReviewStatus"
+    ON "QuestionResponses" ("ReviewStatus")
+    WHERE "ReviewStatus" IN (1, 2, 3);

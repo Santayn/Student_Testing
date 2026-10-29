@@ -77,6 +77,35 @@ export const resultsApi = {
     )
   },
 
+  getReviewQueue(params = {}, config = {}) {
+    return http.get(
+      '/results/teacher/review',
+      {
+        ...config,
+        params,
+      }
+    )
+  },
+
+  gradeResponse(responseId, data) {
+    return http.put(
+      `/results/teacher/responses/${responseId}/grade`,
+      data
+    )
+  },
+
+  acceptResponse(responseId) {
+    return http.post(
+      `/results/teacher/responses/${responseId}/accept`
+    )
+  },
+
+  regradeResponse(responseId) {
+    return http.post(
+      `/results/teacher/responses/${responseId}/ai-regrade`
+    )
+  },
+
   async getStudentData(params = {}, config = {}) {
     const response = await http.get(
       '/results/student/data',

@@ -15,6 +15,7 @@ import lombok.Setter;
 import org.santayn.testing.models.test.TestAttempt;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -50,4 +51,41 @@ public class QuestionResponse {
 
     @Column(name = "`AwardedPoints`", precision = 8, scale = 2)
     private BigDecimal awardedPoints;
+
+    /** Состояние проверки: {@link ResponseReview}. null у старых ответов — то же, что NONE. */
+    @Column(name = "`ReviewStatus`")
+    private Integer reviewStatus;
+
+    /** Кто поставил баллы: {@link ResponseReview#GRADED_BY_AUTO} и т. д. */
+    @Column(name = "`GradedBy`")
+    private Integer gradedBy;
+
+    /** Доля баллов по мнению ИИ, 0..1. */
+    @Column(name = "`AiScore`", precision = 5, scale = 4)
+    private BigDecimal aiScore;
+
+    /** Уверенность ИИ в оценке, 0..1. */
+    @Column(name = "`AiConfidence`", precision = 5, scale = 4)
+    private BigDecimal aiConfidence;
+
+    /** Комментарий ИИ для студента: чего не хватило в ответе. */
+    @Column(name = "`AiFeedback`", length = 2000)
+    private String aiFeedback;
+
+    /** Засчитанные и пропущенные критерии: {"matched": [...], "missing": [...], "suspicious": bool}. */
+    @Column(name = "`AiDetailsJson`", columnDefinition = "text")
+    private String aiDetailsJson;
+
+    @Column(name = "`TeacherComment`", length = 2000)
+    private String teacherComment;
+
+    @Column(name = "`GradedByPersonId`")
+    private Integer gradedByPersonId;
+
+    @Column(name = "`GradedAtUtc`")
+    private Instant gradedAtUtc;
+
+    public int reviewStatusOrNone() {
+        return reviewStatus == null ? ResponseReview.NONE : reviewStatus;
+    }
 }

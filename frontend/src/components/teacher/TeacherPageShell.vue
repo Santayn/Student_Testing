@@ -256,6 +256,20 @@ defineProps({
   background: var(--st-border);
 }
 
+/* Группа радиокнопок без рамки fieldset (например, «Кому назначить тест»). */
+.teacher-assign-target {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  border: 0;
+}
+
+.teacher-test-ai-feedback {
+  margin-top: 14px;
+}
+
 .teacher-field-label {
   margin-bottom: 6px;
 

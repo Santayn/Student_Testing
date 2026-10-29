@@ -27,6 +27,9 @@ export function useTestEditorState({
   selectedMembership,
   selectedTopicId,
   selectedGroupIds,
+  // 'groups' — назначение на нагрузку групп (scope 4), 'version' — на версию курса (scope 2).
+  assignmentTarget = ref('groups'),
+  selectedCourseVersionId = ref(''),
   topics,
   questions,
 }) {
@@ -35,6 +38,7 @@ export function useTestEditorState({
     description: '',
     questionCount: 1,
     attemptsAllowed: 1,
+    showAiFeedback: true,
     textQuestionCount: 0,
     singleAnswerQuestionCount: 0,
     multipleAnswerQuestionCount: 0,
@@ -63,6 +67,8 @@ export function useTestEditorState({
             selectedTopicId.value ?? ''
           ),
         groupIds,
+        assignmentTarget: assignmentTarget.value,
+        courseVersionId: String(selectedCourseVersionId.value ?? ''),
       },
       form: {
         title:
@@ -77,6 +83,8 @@ export function useTestEditorState({
           Number(
             form.value.attemptsAllowed
           ),
+        showAiFeedback:
+          Boolean(form.value.showAiFeedback),
         textQuestionCount:
           Number(
             form.value.textQuestionCount
@@ -276,7 +284,11 @@ export function useTestEditorState({
       return 'Выберите предмет и тему.'
     }
 
-    if (!selectedGroupIds.value.length) {
+    if (assignmentTarget.value === 'version') {
+      if (!selectedCourseVersionId.value) {
+        return 'Выберите версию курса.'
+      }
+    } else if (!selectedGroupIds.value.length) {
       return 'Выберите хотя бы одну группу.'
     }
 

@@ -234,7 +234,8 @@ export function useLectureSaveFlow({
     const payload = {
       subjectId: Number(selectedSubject.value.id),
       subjectMembershipId: Number(selectedMembership.value.id),
-      courseVersionId: null,
+      // 0 / пусто — лекция предмета без версии курса.
+      courseVersionId: Number(form.courseVersionId) || null,
       ordinal: editingLecture?.ordinal || nextOrdinal(),
       title: String(form.title).trim(),
       description: String(form.description ?? '').trim() || null,
@@ -246,6 +247,8 @@ export function useLectureSaveFlow({
         ),
       linkedTestId: null,
       publicVisible: Boolean(form.publicVisible),
+      // Текст лекции в Markdown; пустая строка удаляет текст.
+      body: String(form.body ?? ''),
     }
 
     const payloadSignature = lectureCoreSignature(payload)

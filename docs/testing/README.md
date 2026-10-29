@@ -31,6 +31,11 @@
 - [Попытки и конкурентность](./details/attempt-and-concurrency-testing.md) — attempt limits, locking и concurrency regression.
 - [Тестовые данные и fixtures](./details/test-data-and-fixtures.md) — DataLoader, H2 fixtures и ограничения demo data.
 
+## ИИ и выгрузка лекций
+
+- [Тест-кейсы ИИ](./details/ai-test-cases.md) — что, где и как проверять: критерии, автопроверка, скан лекции, DOCX/PDF, презентации, расход ИИ, мобилка.
+- [Отчёт о проверке ИИ — 24.10.2026](./details/ai-test-report-2026-10-24.md) — результаты прохождения тест-кейсов на `master` после PR #6: 3 ошибки, замечания, что не проверено.
+
 ## Системные проверки и регрессия
 
 - [API/system smoke](./details/api-system-smoke.md) — `full-system-smoke.ps1`, охват и текущая несинхронность с API.

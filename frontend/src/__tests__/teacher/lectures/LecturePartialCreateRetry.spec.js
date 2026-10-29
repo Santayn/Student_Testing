@@ -34,10 +34,17 @@ const state = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => state.route,
+  matchedRouteKey: Symbol('matchedRouteKey'),
+  onBeforeRouteLeave: () => {},
 }))
 
 vi.mock('@/composables/teacher/useTeacherSubjects', () => ({
   useTeacherSubjects: () => state.teacher,
+}))
+
+// Версии курса не участвуют в сценарии повторного сохранения — у предмета их нет.
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ isAdminMode: false, personId: 7 }),
 }))
 
 vi.mock('@/api', () => ({
@@ -53,6 +60,10 @@ vi.mock('@/api', () => ({
   },
   testsApi: {
     getAll: state.api.testsAll,
+  },
+  coursesApi: {
+    getTemplates: () => Promise.resolve({ data: [] }),
+    getVersions: () => Promise.resolve({ data: [] }),
   },
 }))
 

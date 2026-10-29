@@ -6,6 +6,10 @@ export const lecturesApi = {
     return http.get('/lectures', { ...config, params })
   },
 
+  getOne(lectureId, config = {}) {
+    return http.get(`/lectures/${lectureId}`, config)
+  },
+
   create(data) {
     return http.post('/lectures', data)
   },
@@ -57,6 +61,26 @@ export const lecturesApi = {
         responseType: 'blob',
         timeout: API_TIMEOUTS.fileTransfer,
       }
+    )
+  },
+
+  /** Текст лекции файлом: format — docx | pdf. */
+  exportText(lectureId, format) {
+    return http.get(
+      `/lectures/${lectureId}/text/export`,
+      {
+        params: { format },
+        responseType: 'blob',
+        timeout: API_TIMEOUTS.fileTransfer,
+      }
+    )
+  },
+
+  saveTextAsMaterial(lectureId, format) {
+    return http.post(
+      `/lectures/${lectureId}/text/materials`,
+      null,
+      { params: { format } }
     )
   },
 

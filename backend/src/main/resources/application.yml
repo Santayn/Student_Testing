@@ -40,12 +40,32 @@ app:
     psql-path: ${APP_DATABASE_BACKUP_PSQL_PATH:psql}
     schema: ${APP_DATABASE_BACKUP_SCHEMA:}
     include-clean: ${APP_DATABASE_BACKUP_INCLUDE_CLEAN:true}
-  text-answer-grading:
-    local-llm:
-      enabled: ${APP_TEXT_ANSWER_LOCAL_LLM_ENABLED:false}
-      endpoint: ${APP_TEXT_ANSWER_LOCAL_LLM_ENDPOINT:http://127.0.0.1:11434/api/generate}
-      model: ${APP_TEXT_ANSWER_LOCAL_LLM_MODEL:qwen2.5:1.5b-instruct}
-      timeout-seconds: ${APP_TEXT_ANSWER_LOCAL_LLM_TIMEOUT_SECONDS:12}
+  ai:
+    provider: ${APP_AI_PROVIDER:none}
+    base-url: ${APP_AI_BASE_URL:}
+    api-key: ${APP_AI_API_KEY:}
+    folder-id: ${APP_AI_FOLDER_ID:}
+    auth-scheme: ${APP_AI_AUTH_SCHEME:}
+    timeout-seconds: ${APP_AI_TIMEOUT_SECONDS:90}
+    monthly-token-limit: ${APP_AI_MONTHLY_TOKEN_LIMIT:20000000}
+    models:
+      grading: ${APP_AI_MODEL_GRADING:aliceai-llm-flash}
+      lecture: ${APP_AI_MODEL_LECTURE:aliceai-llm-flash}
+      presentation: ${APP_AI_MODEL_PRESENTATION:aliceai-llm}
+      image: ${APP_AI_MODEL_IMAGE:aliceai-image-art-3.0}
+    grading:
+      enabled: ${APP_AI_GRADING_ENABLED:true}
+      review-threshold: ${APP_AI_GRADING_REVIEW_THRESHOLD:0.7}
+    ocr:
+      provider: ${APP_AI_OCR_PROVIDER:}
+      tesseract-path: ${APP_AI_OCR_TESSERACT_PATH:tesseract}
+    images:
+      generation-enabled: ${APP_AI_IMAGE_GENERATION_ENABLED:true}
+      search-enabled: ${APP_AI_IMAGE_SEARCH_ENABLED:true}
+    presentation:
+      max-source-chars: ${APP_AI_PRESENTATION_MAX_SOURCE_CHARS:60000}
+    storage:
+      dir: ${APP_AI_STORAGE_DIR:uploads/ai}
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

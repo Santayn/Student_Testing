@@ -1,0 +1,1407 @@
+package org.santayn.testing.mobile.core.ui
+
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import org.santayn.testing.mobile.core.ui.design.Design
+import org.santayn.testing.mobile.core.ui.design.SectionTitleStyle
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+
+// region Global snackbar
+
+/** Глобальный хост уведомлений (аналог UiToastHost). */
+val LocalSnackbarHostState = staticCompositionLocalOf { SnackbarHostState() }
+
+// endregion
+
+// region Screen scaffold
+
+/**
+ * Каркас экрана: верхняя панель с заголовком, кнопкой «Назад» и действиями.
+ */
+@Composable
+fun AppScreen(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    subtitle: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val barColor = if (Design.tokens.topBarOnBackground) {
+        MaterialTheme.colorScheme.background
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    // Крупный заголовок — только на главных вкладках и пока он помещается: при очень крупном шрифте
+    // две строки не влезают в развёрнутую панель, тогда остаётся обычная.
+    val largeTitle = onBack == null && Design.tokens.largeTopLevelTitle && LocalDensity.current.fontScale <= 1.3f
+    val titleContent: @Composable () -> Unit = {
+        // Заголовок экрана — heading: по заголовкам можно перемещаться жестами TalkBack/VoiceOver.
+        Column(Modifier.semantics(mergeDescendants = true) { heading() }) {
+            if (largeTitle) {
+                // Одна строка: длинный заголовок («Академическая структура») уменьшается, а не переносится.
+                val style = LocalTextStyle.current
+                Text(
+                    title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    autoSize = TextAutoSize.StepBased(
+                        minFontSize = minOf(20f, style.fontSize.value).sp,
+                        maxFontSize = style.fontSize,
+                        stepSize = 1.sp,
+                    ),
+                )
+            } else {
+                Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+    val scrollBehavior = if (largeTitle) TopAppBarDefaults.exitUntilCollapsedScrollBehavior() else null
+    Scaffold(
+        modifier = if (scrollBehavior != null) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier,
+        topBar = {
+            Column {
+            if (scrollBehavior != null) {
+                // Развёрнутый заголовок LargeTopAppBar берёт стиль headlineMedium, свёрнутый — titleLarge.
+                val expandedTitle = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em,
+                )
+                MaterialTheme(typography = MaterialTheme.typography.copy(headlineMedium = expandedTitle)) {
+                    LargeTopAppBar(
+                        title = titleContent,
+                        actions = actions,
+                        // Ниже стандартных 64/152dp: над заголовком нет пустой полосы, строка 38sp помещается.
+                        collapsedHeight = 56.dp,
+                        expandedHeight = 120.dp,
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
+                        scrollBehavior = scrollBehavior,
+                    )
+                }
+            } else {
+            TopAppBar(
+                title = titleContent,
+                navigationIcon = {
+                    if (onBack != null) {
+                        AppIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Назад", onClick = onBack)
+                    }
+                },
+                actions = actions,
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor),
+            )
+            }
+            NetworkBanner()
+            }
+        },
+        snackbarHost = { SnackbarHost(LocalSnackbarHostState.current) },
+        floatingActionButton = floatingActionButton,
+        bottomBar = bottomBar,
+        containerColor = MaterialTheme.colorScheme.background,
+        content = content,
+    )
+}
+
+/**
+ * Кнопка-иконка в стиле темы: в «Политехе» — в круглой подложке цвета surface.
+ * [label] обязателен: это подпись для TalkBack/VoiceOver.
+ */
+@Composable
+fun AppIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color? = null) {
+    val colors = if (Design.tokens.iconButtonsOnSurface) {
+        IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surface)
+    } else {
+        IconButtonDefaults.iconButtonColors()
+    }
+    val shape = Design.tokens.iconButtonShape
+    if (shape != null) {
+        IconButton(onClick = onClick, modifier = modifier.padding(horizontal = 4.dp), colors = colors, shape = shape) {
+            Icon(icon, contentDescription = label, tint = tint ?: androidx.compose.material3.LocalContentColor.current)
+        }
+    } else {
+        IconButton(onClick = onClick, modifier = modifier.padding(horizontal = 4.dp), colors = colors) {
+            Icon(icon, contentDescription = label, tint = tint ?: androidx.compose.material3.LocalContentColor.current)
+        }
+    }
+}
+
+// endregion
+
+// region Load states
+
+@Composable
+fun LoadingState(modifier: Modifier = Modifier, message: String? = null) {
+    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            if (message != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+/**
+ * Ошибка загрузки. Если причина — связь, показывает «Нет подключения» / «Сервер недоступен»
+ * с подсказкой; данные перезагрузятся сами при восстановлении связи (см. [LoadStateContent]).
+ */
+@Composable
+fun ErrorState(
+    message: String,
+    modifier: Modifier = Modifier,
+    title: String = "Не удалось загрузить данные",
+    onRetry: (() -> Unit)? = null,
+) {
+    val offline = offlineCopy(currentNetworkState())
+    val shownTitle = offline?.title ?: title
+    val shownMessage = if (offline != null && (message == offline.title || message.startsWith("Сервер недоступен"))) {
+        offline.hint
+    } else {
+        message
+    }
+    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        ) {
+            Icon(
+                offline?.icon ?: Icons.Default.ErrorOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(40.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                shownTitle,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() },
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                shownMessage,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            if (onRetry != null) {
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onRetry, shape = Design.tokens.buttonShape) { Text("Повторить") }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    message: String? = null,
+    icon: ImageVector = Icons.Default.Inbox,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Box(modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() },
+            )
+            if (message != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+            if (action != null) {
+                Spacer(Modifier.height(16.dp))
+                action()
+            }
+        }
+    }
+}
+
+/** Состояние загрузки данных экрана. */
+sealed interface LoadState<out T> {
+    data object Loading : LoadState<Nothing>
+    data class Error(val message: String) : LoadState<Nothing>
+    data class Ready<T>(val data: T) : LoadState<T>
+}
+
+val <T> LoadState<T>.dataOrNull: T? get() = (this as? LoadState.Ready<T>)?.data
+
+/**
+ * Отрисовка [LoadState] с pull-to-refresh.
+ *
+ * Когда связь с сервером восстанавливается, ошибка перезагружается автоматически,
+ * а уже показанные данные обновляются (если [refreshOnReconnect]).
+ */
+@Composable
+fun <T> LoadStateContent(
+    state: LoadState<T>,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
+    refreshOnReconnect: Boolean = true,
+    content: @Composable (T) -> Unit,
+) {
+    val current by rememberUpdatedState(state)
+    ReloadOnReconnect {
+        when (current) {
+            is LoadState.Error -> onRetry()
+            is LoadState.Ready -> if (refreshOnReconnect) (onRefresh ?: onRetry)()
+            LoadState.Loading -> Unit
+        }
+    }
+    when (state) {
+        LoadState.Loading -> LoadingState(modifier)
+        is LoadState.Error -> ErrorState(state.message, modifier, onRetry = onRetry)
+        is LoadState.Ready -> {
+            if (onRefresh != null) {
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = onRefresh,
+                    modifier = modifier.fillMaxSize(),
+                ) { content(state.data) }
+            } else {
+                Box(modifier.fillMaxSize()) { content(state.data) }
+            }
+        }
+    }
+}
+
+/** Стандартный список экрана с отступами. */
+@Composable
+fun ScreenList(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
+    content: LazyListScope.() -> Unit,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
+}
+
+// endregion
+
+// region Cards & text blocks
+
+@Composable
+fun AppCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val tokens = Design.tokens
+    val colors = CardDefaults.cardColors(containerColor = containerColor)
+    val border = if (tokens.cardBorder) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
+    val cardModifier = modifier.fillMaxWidth().depth(tokens.cardDepth, tokens.cardShape, MaterialTheme.colorScheme.outlineVariant)
+    if (onClick != null) {
+        Card(
+            onClick = onClick,
+            modifier = cardModifier,
+            shape = tokens.cardShape,
+            colors = colors,
+            border = border,
+        ) { Column(Modifier.padding(16.dp), content = content) }
+    } else {
+        Card(modifier = cardModifier, shape = tokens.cardShape, colors = colors, border = border) {
+            Column(Modifier.padding(16.dp), content = content)
+        }
+    }
+}
+
+/** Карточка-ссылка: иконка, заголовок, описание, стрелка. */
+@Composable
+fun NavCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    description: String? = null,
+    icon: ImageVector? = null,
+    trailing: @Composable (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    AppCard(modifier = modifier, onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Box(
+                    Modifier.size(44.dp).clip(Design.tokens.tileShape)
+                        .background(AppTheme.status.primarySoft),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = null, tint = AppTheme.status.primarySoftText)
+                }
+                Spacer(Modifier.width(12.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                if (!description.isNullOrBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+    Row(
+        modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val (style, color) = when (Design.tokens.sectionTitle) {
+            SectionTitleStyle.DISPLAY -> MaterialTheme.typography.titleMedium.copy(
+                fontFamily = Design.tokens.displayFont,
+                fontWeight = FontWeight.SemiBold,
+            ) to MaterialTheme.colorScheme.onBackground
+            SectionTitleStyle.CAPS -> MaterialTheme.typography.labelLarge.copy(
+                letterSpacing = 0.08.em,
+            ) to MaterialTheme.colorScheme.onSurfaceVariant
+            SectionTitleStyle.BOLD -> MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+            ) to MaterialTheme.colorScheme.onBackground
+        }
+        Text(
+            if (Design.tokens.sectionTitle == SectionTitleStyle.CAPS) text.uppercase() else text,
+            style = style,
+            color = color,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
+        action?.invoke()
+    }
+}
+
+/** Пара «подпись: значение». */
+@Composable
+fun InfoRow(label: String, value: String?, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(vertical = 4.dp).semantics(mergeDescendants = true) {}) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value?.takeIf { it.isNotBlank() } ?: "—", style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+enum class Tone { NEUTRAL, PRIMARY, SUCCESS, WARNING, DANGER, INFO }
+
+@Composable
+fun StatusChip(text: String, tone: Tone = Tone.NEUTRAL, modifier: Modifier = Modifier) {
+    val s = AppTheme.status
+    val (bg, fg) = when (tone) {
+        Tone.NEUTRAL -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        Tone.PRIMARY -> s.primarySoft to s.primarySoftText
+        Tone.SUCCESS -> s.successSoft to s.successText
+        Tone.WARNING -> s.warningSoft to s.warningText
+        Tone.DANGER -> s.dangerSoft to s.dangerText
+        Tone.INFO -> s.infoSoft to s.infoText
+    }
+    Surface(color = bg, contentColor = fg, shape = Design.tokens.chipShape, modifier = modifier) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            maxLines = 1,
+        )
+    }
+}
+
+/** Плашка-уведомление (UiAlert). */
+@Composable
+fun Banner(text: String, tone: Tone = Tone.INFO, modifier: Modifier = Modifier, title: String? = null) {
+    val s = AppTheme.status
+    val (bg, fg) = when (tone) {
+        Tone.SUCCESS -> s.successSoft to s.successText
+        Tone.WARNING -> s.warningSoft to s.warningText
+        Tone.DANGER -> s.dangerSoft to s.dangerText
+        Tone.PRIMARY -> s.primarySoft to s.primarySoftText
+        else -> s.infoSoft to s.infoText
+    }
+    val announce = tone == Tone.DANGER || tone == Tone.WARNING
+    Surface(
+        color = bg,
+        contentColor = fg,
+        shape = Design.tokens.cardShape,
+        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+            // Ошибки и предупреждения зачитываются сразу при появлении.
+            if (announce) liveRegion = LiveRegionMode.Polite
+        },
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            if (title != null) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(2.dp))
+            }
+            Text(text, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/**
+ * Ошибка загрузки части экрана с кнопкой «Повторить».
+ * Нужна, чтобы при сбое не показывать пустой список («нет данных»), которого на самом деле нет.
+ */
+@Composable
+fun RetryBanner(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Banner(message, Tone.DANGER, title = "Не удалось загрузить данные")
+        OutlinedButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp), shape = Design.tokens.buttonShape) { Text("Повторить") }
+    }
+}
+
+@Composable
+fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = Design.tokens.cardShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = if (Design.tokens.cardBorder) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+    ) {
+        Column(Modifier.padding(14.dp).semantics(mergeDescendants = true) {}) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+/** Сетка статистики по 2 в ряд. */
+@Composable
+fun StatGrid(items: List<Pair<String, String>>, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { (label, value) -> StatTile(label, value, Modifier.weight(1f)) }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+// endregion
+
+// region Inputs
+
+@Composable
+fun SearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Поиск",
+) {
+    AppTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = placeholder },
+        placeholder = placeholder,
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingIcon = if (value.isNotEmpty()) {
+            {
+                IconButton(onClick = { onValueChange("") }) {
+                    Icon(Icons.Default.Clear, contentDescription = "Очистить")
+                }
+            }
+        } else {
+            null
+        },
+    )
+}
+
+@Composable
+fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    error: String? = null,
+    supportingText: String? = null,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLength: Int? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    password: Boolean = false,
+    enabled: Boolean = true,
+    required: Boolean = false,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    placeholder: String? = null,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    imeAction: ImeAction = ImeAction.Default,
+) {
+    AppTextField(
+        value = value,
+        onValueChange = { if (maxLength == null || it.length <= maxLength) onValueChange(it) },
+        modifier = modifier,
+        label = label,
+        placeholder = placeholder,
+        required = required,
+        error = error,
+        supportingText = supportingText,
+        counter = if (maxLength != null && !singleLine) "${value.length}/$maxLength" else null,
+        singleLine = singleLine,
+        minLines = minLines,
+        enabled = enabled,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        keyboardActions = keyboardActions,
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = trailingIcon,
+    )
+}
+
+@Composable
+fun SwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    description: String? = null,
+    enabled: Boolean = true,
+) {
+    // Вся строка — один переключатель: TalkBack читает «название, вкл/выкл, переключатель».
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (description != null) {
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        AppSwitchIndicator(checked, enabled)
+    }
+}
+
+@Composable
+fun CheckRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    description: String? = null,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
+            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(vertical = 8.dp, horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppCheckboxIndicator(checked, enabled)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (description != null) {
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun RadioRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Design.tokens.tileShape)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppRadioIndicator(selected, enabled)
+        Spacer(Modifier.width(14.dp))
+        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * Вариант ответа отдельной карточкой (AnswerStyle.CARDS). Семантика как у [RadioRow]/[CheckRow]:
+ * одна карточка — один элемент с ролью «переключатель»/«флажок» и состоянием.
+ */
+@Composable
+fun AnswerOptionCard(
+    title: String,
+    selected: Boolean,
+    multiple: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val tokens = Design.tokens
+    val shape = tokens.cardShape
+    val accent = tokens.selectedAnswerUsesAccent
+    val selectedColor = if (accent) Design.brand.accentOnSurface else MaterialTheme.colorScheme.primary
+    val borderColor = if (selected) selectedColor else MaterialTheme.colorScheme.outlineVariant
+    val interaction = if (multiple) {
+        Modifier.toggleable(value = selected, enabled = enabled, role = Role.Checkbox, onValueChange = onToggle)
+    } else {
+        Modifier.selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onToggle(true) })
+    }
+    Surface(
+        shape = shape,
+        // В теме с акцентом выбранный ответ выделяется рамкой и индикатором цвета акцента, фон не меняется.
+        color = if (selected && !accent) AppTheme.status.primarySoft else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
+        modifier = modifier.fillMaxWidth().depth(tokens.cardDepth, shape, borderColor),
+    ) {
+        Row(
+            Modifier.clip(shape).then(interaction).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (multiple) {
+                AppCheckboxIndicator(selected, enabled, color = selectedColor, checkColor = if (accent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary)
+            } else {
+                AppRadioIndicator(selected, enabled, color = selectedColor)
+            }
+            Spacer(Modifier.width(14.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected && !accent) AppTheme.status.primarySoftText else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Вариант для [SelectField]. */
+data class SelectOption<T>(val value: T, val label: String, val description: String? = null)
+
+/**
+ * Поле выбора: по нажатию открывает панель снизу со списком и поиском.
+ * Заменяет UiSelect / PrimeVue Select.
+ */
+@Composable
+fun <T> SelectField(
+    label: String,
+    options: List<SelectOption<T>>,
+    selected: T?,
+    onSelect: (T?) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Не выбрано",
+    allowClear: Boolean = false,
+    enabled: Boolean = true,
+    error: String? = null,
+    required: Boolean = false,
+    searchable: Boolean = options.size > 7,
+    /** Подпись для программы чтения с экрана, если видимой [label] недостаточно. */
+    accessibilityLabel: String? = null,
+) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val selectedOption = options.firstOrNull { it.value == selected }
+    PickerField(
+        label = label,
+        valueText = selectedOption?.label,
+        placeholder = placeholder,
+        onClick = { open = true },
+        required = required,
+        error = error,
+        enabled = enabled,
+        modifier = modifier,
+        semanticsModifier = Modifier.semantics {
+            val spoken = accessibilityLabel ?: label
+            contentDescription = if (required) "$spoken, обязательное поле" else spoken
+            stateDescription = selectedOption?.label ?: placeholder
+            if (error != null) error(error)
+        },
+    )
+    if (open) {
+        PickerSheet(
+            title = label,
+            searchable = searchable,
+            onDismiss = { open = false },
+        ) { query ->
+            val filtered = options.filter { it.matches(query) }
+            if (allowClear && query.isBlank()) {
+                item {
+                    PickerRow("Не выбрано", null, selected == null, multiple = false) {
+                        onSelect(null)
+                        open = false
+                    }
+                }
+            }
+            items(filtered) { option ->
+                PickerRow(option.label, option.description, option.value == selected, multiple = false) {
+                    onSelect(option.value)
+                    open = false
+                }
+            }
+            if (filtered.isEmpty()) item { PickerEmpty() }
+        }
+    }
+}
+
+private fun SelectOption<*>.matches(query: String): Boolean =
+    query.isBlank() || label.contains(query.trim(), ignoreCase = true) || description?.contains(query.trim(), ignoreCase = true) == true
+
+/**
+ * Панель выбора снизу в стиле темы: заголовок, поиск, список; [footer] — кнопки (для множественного выбора).
+ * Содержимое списка строит [content] по строке поиска.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PickerSheet(
+    title: String,
+    searchable: Boolean,
+    onDismiss: () -> Unit,
+    footer: (@Composable () -> Unit)? = null,
+    content: androidx.compose.foundation.lazy.LazyListScope.(query: String) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = {
+            Box(
+                Modifier.padding(top = 10.dp, bottom = 4.dp).size(width = 40.dp, height = 5.dp)
+                    .clip(CircleShape).background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        },
+    ) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding()) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                )
+                AppIconButton(Icons.Default.Close, "Закрыть", onDismiss)
+            }
+            if (searchable) {
+                SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+            LazyColumn(
+                Modifier.weight(1f, fill = false).heightIn(max = 520.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) { content(query) }
+            if (footer != null) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { footer() }
+            } else {
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+/** Строка панели выбора: выбранная подсвечена фоном и отмечена индикатором (радио или флажок). */
+@Composable
+internal fun PickerRow(label: String, description: String?, checked: Boolean, multiple: Boolean, onClick: () -> Unit) {
+    val background = if (checked) AppTheme.status.primarySoft else Color.Transparent
+    val interaction = if (multiple) {
+        Modifier.toggleable(value = checked, role = Role.Checkbox, onValueChange = { onClick() })
+    } else {
+        Modifier.selectable(selected = checked, role = Role.RadioButton, onClick = onClick)
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Design.tokens.tileShape).background(background)
+            .then(interaction).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (multiple) AppCheckboxIndicator(checked) else AppRadioIndicator(checked)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (checked) AppTheme.status.primarySoftText else MaterialTheme.colorScheme.onSurface,
+            )
+            if (description != null) {
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickerEmpty() {
+    Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+}
+
+/** Множественный выбор: поле со списком выбранных + панель с флажками. */
+@Composable
+fun <T> MultiSelectField(
+    label: String,
+    options: List<SelectOption<T>>,
+    selected: Set<T>,
+    onChange: (Set<T>) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Не выбрано",
+    enabled: Boolean = true,
+    error: String? = null,
+) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val summary = options.filter { it.value in selected }.joinToString(", ") { it.label }
+    PickerField(
+        label = label,
+        valueText = summary.ifBlank { null },
+        placeholder = placeholder,
+        onClick = { open = true },
+        error = error,
+        enabled = enabled,
+        modifier = modifier,
+        semanticsModifier = Modifier.semantics {
+            contentDescription = label
+            stateDescription = summary.ifBlank { placeholder }
+            if (error != null) error(error)
+        },
+    )
+    if (open) {
+        var draft by remember { mutableStateOf(selected) }
+        PickerSheet(
+            title = label,
+            searchable = options.size > 7,
+            onDismiss = { open = false },
+            footer = {
+                BusyButton(
+                    if (draft.isEmpty()) "Готово" else "Готово · ${draft.size}",
+                    onClick = {
+                        onChange(draft)
+                        open = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+        ) { query ->
+            val filtered = options.filter { it.matches(query) }
+            items(filtered) { option ->
+                PickerRow(option.label, option.description, option.value in draft, multiple = true) {
+                    draft = if (option.value in draft) draft - option.value else draft + option.value
+                }
+            }
+            if (filtered.isEmpty()) item { PickerEmpty() }
+        }
+    }
+}
+
+// endregion
+
+// region Dialogs & buttons
+
+@Composable
+fun ConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String = "Подтвердить",
+    dismissText: String = "Отмена",
+    destructive: Boolean = false,
+    busy: Boolean = false,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !busy,
+                shape = Design.tokens.buttonShape,
+                modifier = Modifier.heightIn(min = 48.dp),
+                colors = if (destructive) {
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    )
+                } else {
+                    ButtonDefaults.buttonColors()
+                },
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColorOnButton())
+                } else {
+                    Text(confirmText)
+                }
+            }
+        },
+        dismissButton = {
+            AppOutlinedButton(dismissText, onClick = onDismiss, enabled = !busy)
+        },
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = MaterialTheme.colorScheme.surface,
+    )
+}
+
+@Composable
+private fun LocalContentColorOnButton(): Color = androidx.compose.material3.LocalContentColor.current
+
+/**
+ * «Объёмный» нижний край высотой [depth] (кнопки и карточки темы с depth > 0):
+ * под элементом рисуется та же форма темнее [base] и смещённая вниз. Место под край резервируется отступом.
+ */
+fun Modifier.depth(depth: Dp, shape: Shape, base: Color): Modifier =
+    if (depth <= 0.dp) {
+        this
+    } else {
+        this.padding(bottom = depth).drawBehind {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            translate(top = depth.toPx()) {
+                drawOutline(outline, color = lerp(base, Color.Black, 0.35f))
+            }
+        }
+    }
+
+/**
+ * Подпись кнопки. В теме с buttonLabelUppercase — прописными, крупнее и жирнее; программа чтения с экрана
+ * получает исходный текст: короткие слова в прописных TalkBack может читать по буквам («Д-А-Л-Е-Е»).
+ */
+@Composable
+private fun ButtonLabel(text: String, spoken: String = text) {
+    if (Design.tokens.buttonLabelUppercase) {
+        Text(
+            text.uppercase(),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clearAndSetSemantics { this.text = AnnotatedString(spoken) },
+        )
+    } else {
+        Text(text)
+    }
+}
+
+/**
+ * Кнопка с индикатором выполнения в стиле темы (форма, высота, «объёмный» край).
+ *
+ * @param outlined второстепенная кнопка с обводкой.
+ * @param accent главное действие экрана в акцентном цвете темы («Пройти тест»).
+ */
+@Composable
+fun BusyButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    busy: Boolean = false,
+    enabled: Boolean = true,
+    outlined: Boolean = false,
+    icon: ImageVector? = null,
+    accent: Boolean = false,
+) {
+    val tokens = Design.tokens
+    val content: @Composable RowScope.() -> Unit = {
+        if (busy) {
+            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = androidx.compose.material3.LocalContentColor.current)
+            Spacer(Modifier.width(8.dp))
+        } else if (icon != null) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+        }
+        ButtonLabel(text)
+    }
+    val active = enabled && !busy
+    val containerColor = when {
+        outlined -> Color.Transparent
+        accent -> Design.brand.accent
+        else -> MaterialTheme.colorScheme.primary
+    }
+    // Пока идёт операция, кнопка озвучивается как «выполняется».
+    val buttonModifier = modifier
+        .heightIn(min = maxOf(48.dp, tokens.buttonHeight))
+        .then(if (!outlined && active) Modifier.depth(tokens.buttonDepth, tokens.buttonShape, containerColor) else Modifier)
+        .semantics { if (busy) stateDescription = "выполняется" }
+    val padding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+    if (outlined) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = buttonModifier,
+            enabled = active,
+            shape = tokens.buttonShape,
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+            contentPadding = padding,
+            content = content,
+        )
+    } else {
+        Button(
+            onClick = onClick,
+            modifier = buttonModifier,
+            enabled = active,
+            shape = tokens.buttonShape,
+            colors = if (accent) {
+                ButtonDefaults.buttonColors(containerColor = Design.brand.accent, contentColor = Design.brand.onAccent)
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+            contentPadding = padding,
+            content = content,
+        )
+    }
+}
+
+/**
+ * Плавающая кнопка действия с подписью (форма — из темы).
+ * Собрана на FloatingActionButton, а не на ExtendedFloatingActionButton: у того текст не попадает в дерево
+ * доступности, и TalkBack читает «кнопка» без названия.
+ * [accessibilityLabel] уточняет короткий текст для TalkBack («Тема» → «Новая тема»); видимый текст должен входить в него.
+ */
+@Composable
+fun AppFab(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Default.Add,
+    accessibilityLabel: String = text,
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier.semantics { if (accessibilityLabel != text) contentDescription = accessibilityLabel },
+    ) {
+        Row(
+            Modifier.padding(start = 16.dp, end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null)
+            Spacer(Modifier.width(12.dp))
+            val uppercase = Design.tokens.buttonLabelUppercase
+            Text(
+                if (uppercase) text.uppercase() else text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (uppercase) FontWeight.ExtraBold else null,
+                modifier = when {
+                    accessibilityLabel != text -> Modifier.clearAndSetSemantics { }
+                    uppercase -> Modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }
+                    else -> Modifier
+                },
+            )
+        }
+    }
+}
+
+/** Второстепенная кнопка с обводкой в форме кнопок темы (вместо стандартного OutlinedButton). */
+@Composable
+fun AppOutlinedButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        enabled = enabled,
+        shape = Design.tokens.buttonShape,
+        border = BorderStroke(1.5.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant),
+    ) { IconAndLabel(text, icon) }
+}
+
+/** Значок и подпись кнопки; пробел перед подписью — отступ от значка. */
+@Composable
+private fun IconAndLabel(text: String, icon: ImageVector?) {
+    if (icon != null) {
+        Icon(icon, contentDescription = null)
+        ButtonLabel(" $text", spoken = text)
+    } else {
+        ButtonLabel(text)
+    }
+}
+
+/** Основная кнопка в форме кнопок темы (вместо стандартного Button). */
+@Composable
+fun AppButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+) {
+    val tokens = Design.tokens
+    val base = MaterialTheme.colorScheme.primary
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .heightIn(min = maxOf(48.dp, tokens.buttonHeight))
+            .then(if (enabled) Modifier.depth(tokens.buttonDepth, tokens.buttonShape, base) else Modifier),
+        enabled = enabled,
+        shape = tokens.buttonShape,
+    ) { IconAndLabel(text, icon) }
+}
+
+/**
+ * Полноэкранный редактор в диалоге (замена Drawer'ов веба).
+ *
+ * [snapshot] — данные формы (data class). Если они отличаются от открытых или последних сохранённых,
+ * закрытие крестиком или кнопкой «Назад» спрашивает, бросить ли изменения (как в вебе).
+ */
+@Composable
+fun EditorDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+    saveText: String = "Сохранить",
+    busy: Boolean = false,
+    saveEnabled: Boolean = true,
+    error: String? = null,
+    snapshot: Any? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val currentSnapshot by rememberUpdatedState(snapshot)
+    val currentError by rememberUpdatedState(error)
+    var baseline by remember { mutableStateOf(snapshot) }
+    var wasBusy by remember { mutableStateOf(busy) }
+    // Успешное сохранение (busy → false без ошибки) — новая точка отсчёта: диалог может остаться открытым.
+    LaunchedEffect(busy) {
+        if (wasBusy && !busy && currentError == null) baseline = currentSnapshot
+        wasBusy = busy
+    }
+    val dirty = snapshot != null && snapshot != baseline
+    var confirmClose by remember { mutableStateOf(false) }
+    val requestClose = {
+        when {
+            busy -> Unit
+            dirty -> confirmClose = true
+            else -> onDismiss()
+        }
+    }
+    if (confirmClose) {
+        ConfirmDialog(
+            title = "Есть несохранённые изменения",
+            message = "Если закрыть форму сейчас, внесённые изменения будут потеряны.",
+            confirmText = "Закрыть без сохранения",
+            dismissText = "Продолжить редактирование",
+            destructive = true,
+            onConfirm = {
+                confirmClose = false
+                onDismiss()
+            },
+            onDismiss = { confirmClose = false },
+        )
+    }
+    Dialog(
+        onDismissRequest = requestClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+    ) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize()) {
+                Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = requestClose, enabled = !busy) {
+                            Icon(Icons.Default.Clear, contentDescription = "Закрыть")
+                        }
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.weight(1f).semantics { heading() },
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        TextButton(onClick = onSave, enabled = saveEnabled && !busy) {
+                            if (busy) {
+                                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text(saveText)
+                            }
+                        }
+                    }
+                }
+                Column(
+                    Modifier.weight(1f).fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (error != null) Banner(error, Tone.DANGER)
+                    content()
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ThinDivider(modifier: Modifier = Modifier) = HorizontalDivider(modifier, color = MaterialTheme.colorScheme.outlineVariant)
+
+// endregion
+
+/** Отступы содержимого списка с учётом паддинга Scaffold. */
+fun screenPadding(inner: PaddingValues): PaddingValues = PaddingValues(
+    start = 16.dp,
+    end = 16.dp,
+    top = inner.calculateTopPadding() + 8.dp,
+    bottom = inner.calculateBottomPadding() + 24.dp,
+)
+
+/** Показ одноразовых сообщений ViewModel в общем снэкбаре. */
+@Composable
+fun CollectMessages(viewModel: BaseViewModel) {
+    val host = LocalSnackbarHostState.current
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        viewModel.messages.collect { host.showSnackbar(it) }
+    }
+}
+
+/** Временная заглушка экрана. */
+@Composable
+fun PlaceholderScreen(title: String, onBack: () -> Unit) {
+    AppScreen(title = title, onBack = onBack) { padding ->
+        Box(Modifier.padding(padding)) { EmptyState(title = "Раздел в разработке") }
+    }
+}

@@ -134,6 +134,21 @@ function statusVariant(row) {
   return 'danger'
 }
 
+const TEACHER_REVIEW_LABELS = {
+  ai_pending: 'Проверяет ИИ',
+  needs_teacher: 'Нужна проверка',
+  ai_graded: 'Оценено ИИ',
+  teacher_confirmed: 'Проверено преподавателем',
+}
+
+function reviewLabel(row) {
+  if (props.mode === 'teacher') {
+    return TEACHER_REVIEW_LABELS[row?.reviewStatus] ?? ''
+  }
+
+  return row?.reviewPending ? 'Ответ ещё проверяется' : ''
+}
+
 function formatDateTime(value) {
   try {
     return new Intl.DateTimeFormat(
@@ -195,11 +210,18 @@ function formatDateTime(value) {
               <strong>{{ row.questionText || '—' }}</strong>
             </div>
 
-            <UiTag
-              v-if="mode === 'teacher'"
-              :variant="statusVariant(row)"
-              :value="gradingStatusLabel(row)"
-            />
+            <div class="result-answer__tags">
+              <UiTag
+                v-if="reviewLabel(row)"
+                variant="info"
+                :value="reviewLabel(row)"
+              />
+              <UiTag
+                v-if="mode === 'teacher'"
+                :variant="statusVariant(row)"
+                :value="gradingStatusLabel(row)"
+              />
+            </div>
           </div>
 
           <ResultMatchingPairs
@@ -234,6 +256,20 @@ function formatDateTime(value) {
                 </strong>
               </div>
             </template>
+          </div>
+
+          <div
+            v-if="row.aiFeedback || row.teacherComment"
+            class="result-answer__feedback"
+          >
+            <p v-if="row.teacherComment">
+              <span>Комментарий преподавателя</span>
+              {{ row.teacherComment }}
+            </p>
+            <p v-if="row.aiFeedback">
+              <span>Комментарий ИИ</span>
+              {{ row.aiFeedback }}
+            </p>
           </div>
 
           <div
@@ -378,6 +414,35 @@ function formatDateTime(value) {
   border-radius: 8px;
 }
 
+.result-answer__tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.result-answer__feedback {
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  background: var(--st-primary-soft);
+  border-radius: 8px;
+}
+
+.result-answer__feedback p {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.result-answer__feedback span {
+  color: var(--st-primary-soft-text);
+  font-size: 11px;
+  font-weight: var(--st-font-weight-bold);
+}
+
 .result-answer__score {
   min-width: 0;
   padding: 10px;
@@ -415,9 +480,9 @@ function formatDateTime(value) {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .result-answer__heading :deep(.st-ui-tag) {
+  .result-answer__tags {
     grid-column: 1 / -1;
-    justify-self: start;
+    justify-content: flex-start;
   }
 
   .result-answer__data--teacher {

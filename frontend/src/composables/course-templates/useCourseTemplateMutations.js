@@ -5,6 +5,8 @@ import {
   getApiErrorMessage,
 } from '@/api'
 
+import { listFromResponse } from '@/utils/apiData'
+
 export function useCourseTemplateMutations({
   selectedSubjectId,
   selectedTemplateId,
@@ -24,6 +26,8 @@ export function useCourseTemplateMutations({
   notice,
 }) {
   const publishingVersionId = ref(null)
+  // Версия, публикацию которой нужно подтвердить: у шаблона уже есть опубликованная.
+  const publishConfirmTarget = ref(null)
 
   const deleteTarget = ref(null)
   const deleteConfirmVisible = ref(false)
@@ -119,6 +123,13 @@ export function useCourseTemplateMutations({
 
     try {
       await ensureSelectedMembershipActive()
+      // Шаблон с версиями backend не удаляет, а скрывает (publicVisible = false):
+      // сообщаем пользователю, что произошло на самом деле.
+      const hadVersions = await coursesApi
+        .getVersions(template.id)
+        .then((response) => listFromResponse(response).length > 0)
+        .catch(() => false)
+
       await coursesApi.removeTemplate(template.id)
 
       if (Number(templateOverlay.form.id) === Number(template.id)) {
@@ -133,7 +144,9 @@ export function useCourseTemplateMutations({
 
       notice.value = {
         type: 'success',
-        message: 'Шаблон удалён.',
+        message: hadVersions
+          ? 'Шаблон скрыт: у него есть версии, они и их лекции сохранены.'
+          : 'Шаблон удалён.',
       }
 
       deleteConfirmVisible.value = false
@@ -215,6 +228,33 @@ export function useCourseTemplateMutations({
     }
   }
 
+  /** Публикация снимает текущую опубликованную версию шаблона — сначала спрашиваем. */
+  function requestPublishVersion(version) {
+    const otherPublished = versions.value.some(
+      (item) => item.published && Number(item.id) !== Number(version.id)
+    )
+
+    if (!version.published && otherPublished) {
+      publishConfirmTarget.value = version
+      return
+    }
+
+    return publishVersion(version)
+  }
+
+  function cancelPublishVersion() {
+    publishConfirmTarget.value = null
+  }
+
+  async function confirmPublishVersion() {
+    const version = publishConfirmTarget.value
+    publishConfirmTarget.value = null
+
+    if (version) {
+      await publishVersion(version)
+    }
+  }
+
   async function publishVersion(version) {
     if (publishingVersionId.value !== null) {
       return false
@@ -276,5 +316,9 @@ export function useCourseTemplateMutations({
     deleteTemplate,
     saveVersion,
     publishVersion,
+    publishConfirmTarget,
+    requestPublishVersion,
+    cancelPublishVersion,
+    confirmPublishVersion,
   }
 }

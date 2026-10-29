@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Варианты дизайна</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700&family=Golos+Text:wght@400;500;600;700&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #E9EDF3; --text: #0E1F3D; --muted: #4B5563; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #15181E; --text: #E6E9EF; --muted: #A3ABB8; } }
+:root[data-theme="dark"] { --bg: #15181E; --text: #E6E9EF; --muted: #A3ABB8; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Onest', sans-serif; }
+header { padding: 32px 32px 0; }
+header h1 { margin: 0; font-family: 'Unbounded', sans-serif; font-size: 28px; }
+header p { margin: 8px 0 0; color: var(--muted); max-width: 900px; line-height: 1.5; }
+section { padding: 32px; }
+section h2 { margin: 0 0 20px; font-family: 'Unbounded', sans-serif; font-size: 20px; }
+.row { display: flex; gap: 32px; overflow-x: auto; padding-bottom: 12px; }
+figure { margin: 0; flex: none; }
+figcaption { font-size: 14px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+.phone { width: 390px; height: 844px; border-radius: 36px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+.phone a { color: inherit; }
+@media (max-width: 480px) { section, header { padding-left: 16px; padding-right: 16px; } .phone { transform: scale(0.85); transform-origin: top left; } }
+</style>
+</head>
+<body>
+<header>
+<h1>Мобилка КубГТУ — варианты дизайна</h1>
+<p>Три направления, в каждом путь студента: главная → лекция → вопрос теста → результат. Цвета и форма взяты с сайта kubstu.ru (бренд «Кубанский Политех»). Данные в макетах условные. Нажатия по кнопкам переходят к соседним экранам.</p>
+</header>
+<section><h2>A · «Политех» — фирменный стиль нового бренда</h2><div class="row"><figure id="s-main"><figcaption>Главная</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F1F9FF; font-family: 'Onest', sans-serif; color: #0B1630; display: flex; flex-direction: column">
+
+  <div style="background: #2E54DC; color: #FFFFFF; padding: 56px 20px 24px; border-radius: 0 0 32px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="width: 36px; height: 36px; border-radius: 10px; background: #FFFFFF; color: #2E54DC; display: flex; align-items: center; justify-content: center; font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 15px">[Л]</div>
+        <div style="font-size: 14px; font-weight: 600; line-height: 1.2">КубГТУ<br><span style="font-weight: 400; opacity: 0.85">Обучение</span></div>
+      </div>
+      <button aria-label="Уведомления" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,0.16); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 21h4"></path></svg>
+      </button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: 26px; line-height: 1.15">Привет, Анна</h1>
+      <div style="font-size: 15px; opacity: 0.9">ПИ-201 · 2 курс · Информационные системы</div>
+    </div>
+    <div style="background: #FFFFFF; color: #0B1630; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1D3CA8">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+        Ближайший тест · до 15 октября
+      </div>
+      <div style="font-size: 18px; font-weight: 600; line-height: 1.25">Устройства персонального компьютера</div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <div style="font-size: 14px; color: #4B5563">Информатика · 4 вопроса · 20 мин</div>
+        <button style="height: 44px; padding: 0 20px; border-radius: 22px; border: 0; background: #2E54DC; color: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer">Начать</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 20px 20px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+    <a href="#s-a-lecture" style="text-decoration: none; background: #11D56B; color: #06281A; border-radius: 20px; padding: 16px; min-height: 112px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"></path><path d="M8 8h6M8 12h6"></path></svg>
+      <div><div style="font-family: 'Unbounded', sans-serif; font-size: 24px; font-weight: 600">3</div><div style="font-size: 14px; font-weight: 600">предмета</div></div>
+    </a>
+    <a href="#s-a-result" style="text-decoration: none; background: #9BD5FF; color: #0B1630; border-radius: 20px; padding: 16px; min-height: 112px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+      <div><div style="font-family: 'Unbounded', sans-serif; font-size: 24px; font-weight: 600">50 %</div><div style="font-size: 14px; font-weight: 600">последний тест</div></div>
+    </a>
+  </div>
+
+  <div style="padding: 20px 20px 0; display: flex; align-items: baseline; justify-content: space-between">
+    <h2 style="margin: 0; font-family: 'Unbounded', sans-serif; font-size: 17px; font-weight: 600">Мои предметы</h2>
+    <a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none">Все</a>
+  </div>
+
+  <div style="padding: 12px 20px 0; display: flex; flex-direction: column; gap: 10px">
+    <a href="#s-a-lecture" style="text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 14px">
+      <div style="width: 44px; height: 44px; border-radius: 12px; background: #E3EAFF; color: #1D3CA8; display: flex; align-items: center; justify-content: center; font-weight: 700">Ин</div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 16px; font-weight: 600">Информатика</div><div style="font-size: 13px; color: #4B5563">2 лекции · 1 тест</div></div>
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+    </a>
+    <a href="#" style="text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 14px">
+      <div style="width: 44px; height: 44px; border-radius: 12px; background: #DDF8E8; color: #0B6B37; display: flex; align-items: center; justify-content: center; font-weight: 700">БД</div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 16px; font-weight: 600">Базы данных</div><div style="font-size: 13px; color: #4B5563">1 лекция</div></div>
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+    </a>
+  </div>
+
+  <nav aria-label="Основная навигация" style="position: absolute; left: 16px; right: 16px; bottom: 24px; height: 64px; background: #FFFFFF; border-radius: 32px; box-shadow: 0 8px 24px rgba(11, 22, 48, 0.12); display: flex; align-items: center; justify-content: space-around; padding: 0 8px">
+    <a href="#s-main" aria-current="page" style="text-decoration: none; height: 44px; padding: 0 16px; border-radius: 22px; background: #2E54DC; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Главная
+    </a>
+    <a href="#" aria-label="Предметы" style="width: 44px; height: 44px; border-radius: 22px; color: #374151; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"></path></svg>
+    </a>
+    <a href="#s-a-result" aria-label="Результаты" style="width: 44px; height: 44px; border-radius: 22px; color: #374151; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+    </a>
+    <a href="#" aria-label="Профиль" style="width: 44px; height: 44px; border-radius: 22px; color: #374151; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+    </a>
+  </nav>
+</div></div></figure><figure id="s-a-lecture"><figcaption>Лекция</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F9FF; font-family: 'Onest', sans-serif; color: #0B1630; display: flex; flex-direction: column; gap: 16px; padding: 48px 20px 24px">
+
+  <div style="display: flex; align-items: center; gap: 8px">
+    <a href="#s-main" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 22px; background: #FFFFFF; color: #0B1630; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+    </a>
+    <div style="font-size: 14px; color: #4B5563; font-weight: 500">Информатика</div>
+  </div>
+
+  <div style="background: #2E54DC; color: #FFFFFF; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; gap: 8px">
+      <span style="padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.18); font-size: 13px; font-weight: 600">Лекция 101</span>
+      <span style="padding: 6px 12px; border-radius: 999px; background: #11D56B; color: #06281A; font-size: 13px; font-weight: 600">Новая</span>
+    </div>
+    <h1 style="margin: 0; font-family: 'Unbounded', sans-serif; font-size: 22px; font-weight: 600; line-height: 1.2">Устройства персонального компьютера</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.45; opacity: 0.92">Память, процессор и устройства ввода-вывода: из чего состоит компьютер и как его части работают вместе.</p>
+    <button style="align-self: flex-start; height: 44px; padding: 0 18px; border-radius: 22px; border: 0; background: #FFFFFF; color: #1D3CA8; font-family: inherit; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path></svg>
+      Прочитать вслух
+    </button>
+  </div>
+
+  <h2 style="margin: 4px 0 0; font-family: 'Unbounded', sans-serif; font-size: 17px; font-weight: 600">Материалы</h2>
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 12px; display: flex; align-items: center; gap: 12px">
+      <div style="width: 64px; height: 48px; border-radius: 10px; background: #0B1630; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"></path></svg>
+      </div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 15px; font-weight: 600">Запись лекции.mp4</div><div style="font-size: 13px; color: #0B6B37; font-weight: 500">28 МБ · сохранено на телефоне</div></div>
+    </div>
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 12px; display: flex; align-items: center; gap: 12px">
+      <div style="width: 64px; height: 48px; border-radius: 10px; background: #E3EAFF; color: #1D3CA8; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">PDF</div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 15px; font-weight: 600">Конспект лекции.pdf</div><div style="font-size: 13px; color: #4B5563">1,2 МБ</div></div>
+      <button aria-label="Скачать «Конспект лекции.pdf»" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #F1F9FF; color: #1D3CA8; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <h2 style="margin: 4px 0 0; font-family: 'Unbounded', sans-serif; font-size: 17px; font-weight: 600">Тест</h2>
+  <div style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 17px; font-weight: 600">Тест по теме лекции</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <span style="padding: 6px 12px; border-radius: 999px; background: #F1F9FF; font-size: 13px; font-weight: 500">4 вопроса</span>
+      <span style="padding: 6px 12px; border-radius: 999px; background: #F1F9FF; font-size: 13px; font-weight: 500">20 минут</span>
+      <span style="padding: 6px 12px; border-radius: 999px; background: #F1F9FF; font-size: 13px; font-weight: 500">Попыток: 2</span>
+    </div>
+    <a href="#s-a-test" style="text-decoration: none; height: 52px; border-radius: 26px; background: #11D56B; color: #06281A; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px">
+      Пройти тест
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+    </a>
+  </div>
+</div></div></figure><figure id="s-a-test"><figcaption>Вопрос теста</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F1F9FF; font-family: 'Onest', sans-serif; color: #0B1630; display: flex; flex-direction: column; gap: 18px; padding: 48px 20px 120px">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+    <a href="#s-a-lecture" aria-label="Выйти из теста" style="width: 44px; height: 44px; border-radius: 22px; background: #FFFFFF; color: #0B1630; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+    </a>
+    <div style="flex: 1; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Тест по теме лекции</div>
+    <div style="height: 36px; padding: 0 12px; border-radius: 18px; background: #FFFFFF; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+      17:42
+    </div>
+  </div>
+
+  <div role="img" aria-label="Вопрос 2 из 4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+    <div style="height: 8px; border-radius: 4px; background: #2E54DC"></div>
+    <div style="height: 8px; border-radius: 4px; background: #2E54DC"></div>
+    <div style="height: 8px; border-radius: 4px; background: #C9D6F5"></div>
+    <div style="height: 8px; border-radius: 4px; background: #C9D6F5"></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <span style="font-size: 14px; font-weight: 600; color: #1D3CA8">Вопрос 2 из 4 · один ответ</span>
+      <button aria-label="Прочитать вопрос вслух" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #FFFFFF; color: #1D3CA8; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path></svg>
+      </button>
+    </div>
+    <h1 style="margin: 0; font-family: 'Unbounded', sans-serif; font-size: 22px; font-weight: 600; line-height: 1.25">Какое устройство хранит данные постоянно?</h1>
+  </div>
+
+  <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+    <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Варианты ответа</legend>
+    <label style="background: #FFFFFF; border: 2px solid transparent; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 14px; font-size: 17px; font-weight: 500; cursor: pointer">
+      <input type="radio" name="q2" style="width: 22px; height: 22px; margin: 0; accent-color: #2E54DC">Оперативная память (RAM)
+    </label>
+    <label style="background: #FFFFFF; border: 2px solid #2E54DC; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 14px; font-size: 17px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 16px rgba(46, 84, 220, 0.16)">
+      <input type="radio" name="q2" checked style="width: 22px; height: 22px; margin: 0; accent-color: #2E54DC">Твердотельный накопитель (SSD)
+    </label>
+    <label style="background: #FFFFFF; border: 2px solid transparent; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 14px; font-size: 17px; font-weight: 500; cursor: pointer">
+      <input type="radio" name="q2" style="width: 22px; height: 22px; margin: 0; accent-color: #2E54DC">Процессор (CPU)
+    </label>
+  </fieldset>
+
+  <div style="font-size: 13px; color: #4B5563; display: flex; align-items: center; gap: 6px">
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B6B37" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+    Ответы сохраняются на телефоне — можно продолжить позже
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 32px; background: #FFFFFF; border-radius: 24px 24px 0 0; box-shadow: 0 -6px 20px rgba(11, 22, 48, 0.08); display: flex; gap: 12px">
+    <button style="height: 52px; padding: 0 22px; border-radius: 26px; border: 2px solid #C9D6F5; background: #FFFFFF; color: #0B1630; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer">Назад</button>
+    <a href="#s-a-result" style="flex: 1; text-decoration: none; height: 52px; border-radius: 26px; background: #2E54DC; color: #FFFFFF; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px">
+      Следующий вопрос
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+    </a>
+  </div>
+</div></div></figure><figure id="s-a-result"><figcaption>Результат</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F1F9FF; font-family: 'Onest', sans-serif; color: #0B1630; display: flex; flex-direction: column">
+
+  <div style="background: #2E54DC; color: #FFFFFF; padding: 56px 20px 28px; border-radius: 0 0 32px 32px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+    <div style="font-size: 14px; font-weight: 600; opacity: 0.9">Тест по теме лекции · попытка 1</div>
+    <div style="position: relative; width: 140px; height: 140px">
+      <svg role="img" aria-label="Результат 50 процентов" width="140" height="140" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="12"></circle>
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#11D56B" stroke-width="12" stroke-linecap="round" stroke-dasharray="163 327" transform="rotate(-90 60 60)"></circle>
+      </svg>
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+        <div style="font-family: 'Unbounded', sans-serif; font-size: 30px; font-weight: 600">50 %</div>
+      </div>
+    </div>
+    <h1 style="margin: 0; font-family: 'Unbounded', sans-serif; font-size: 22px; font-weight: 600">2 из 4 верно</h1>
+    <div style="display: flex; gap: 8px">
+      <span style="padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.18); font-size: 13px; font-weight: 600">2 балла из 4</span>
+      <span style="padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.18); font-size: 13px; font-weight: 600">Осталась 1 попытка</span>
+    </div>
+  </div>
+
+  <div style="padding: 20px; display: flex; flex-direction: column; gap: 10px">
+    <h2 style="margin: 0 0 4px; font-family: 'Unbounded', sans-serif; font-size: 17px; font-weight: 600">Разбор ответов</h2>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px">
+      <div style="width: 28px; height: 28px; flex: none; border-radius: 14px; background: #11D56B; color: #06281A; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><div style="font-size: 13px; font-weight: 600; color: #0B6B37">Вопрос 1 · верно</div><div style="font-size: 15px">Что расшифровывается как CPU?</div></div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px">
+      <div style="width: 28px; height: 28px; flex: none; border-radius: 14px; background: #11D56B; color: #06281A; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><div style="font-size: 13px; font-weight: 600; color: #0B6B37">Вопрос 2 · верно</div><div style="font-size: 15px">Какое устройство хранит данные постоянно?</div></div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px">
+      <div style="width: 28px; height: 28px; flex: none; border-radius: 14px; background: #FFE1DC; color: #9B1C0C; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><div style="font-size: 13px; font-weight: 600; color: #9B1C0C">Вопрос 3 · неверно</div><div style="font-size: 15px">Выберите устройства ввода</div><div style="font-size: 14px; color: #4B5563">Верно: клавиатура, мышь</div></div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px">
+      <div style="width: 28px; height: 28px; flex: none; border-radius: 14px; background: #FFE1DC; color: #9B1C0C; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><div style="font-size: 13px; font-weight: 600; color: #9B1C0C">Вопрос 4 · неверно</div><div style="font-size: 15px">Сопоставьте понятия</div><div style="font-size: 14px; color: #4B5563">Верно 1 из 2 пар</div></div>
+    </div>
+  </div>
+
+  <div style="padding: 0 20px; display: flex; gap: 12px; margin-top: auto; margin-bottom: 32px">
+    <a href="#s-a-lecture" style="flex: 1; text-decoration: none; height: 52px; border-radius: 26px; border: 2px solid #C9D6F5; box-sizing: border-box; background: #FFFFFF; color: #0B1630; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center">К лекции</a>
+    <a href="#s-main" style="flex: 1; text-decoration: none; height: 52px; border-radius: 26px; background: #2E54DC; color: #FFFFFF; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center">Все результаты</a>
+  </div>
+</div></div></figure></div></section><section><h2>B · «Кафедра» — спокойно, по-академически</h2><div class="row"><figure id="s-b-home"><figcaption>Главная</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F6F9; font-family: 'Golos Text', sans-serif; color: #0E1F3D; display: flex; flex-direction: column; gap: 20px; padding: 56px 16px 100px">
+
+  <div style="padding: 0 4px; display: flex; align-items: flex-start; justify-content: space-between">
+    <div>
+      <div style="font-size: 14px; color: #5B6678">Пятница, 10 октября</div>
+      <h1 style="margin: 2px 0 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em">Сегодня</h1>
+    </div>
+    <div aria-hidden="true" style="width: 44px; height: 44px; border-radius: 22px; background: #045BA7; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600">АС</div>
+  </div>
+
+  <a href="#s-b-lecture" style="text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #E3E8EF">
+    <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #045BA7">Срок до 15 октября</div>
+    <div style="font-size: 18px; font-weight: 600; line-height: 1.3">Тест: Устройства персонального компьютера</div>
+    <div style="font-size: 14px; color: #5B6678">Информатика · лекция 101 · 4 вопроса</div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #E3E8EF; overflow: hidden"><div style="width: 50%; height: 6px; background: #045BA7"></div></div>
+      <span style="font-size: 13px; color: #5B6678; font-variant-numeric: tabular-nums">2 / 4</span>
+    </div>
+  </a>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; padding: 0 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Предметы</h2>
+    <div style="background: #FFFFFF; border-radius: 14px; border: 1px solid #E3E8EF; overflow: hidden">
+      <a href="#s-b-lecture" style="text-decoration: none; color: inherit; min-height: 64px; padding: 0 16px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #E3E8EF">
+        <div style="width: 6px; height: 36px; border-radius: 3px; background: #045BA7"></div>
+        <div style="flex: 1"><div style="font-size: 16px; font-weight: 500">Информатика</div><div style="font-size: 13px; color: #5B6678">Иванов П. С. · 2 лекции</div></div>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A94A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+      </a>
+      <a href="#" style="text-decoration: none; color: inherit; min-height: 64px; padding: 0 16px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #E3E8EF">
+        <div style="width: 6px; height: 36px; border-radius: 3px; background: #0E8A6A"></div>
+        <div style="flex: 1"><div style="font-size: 16px; font-weight: 500">Базы данных</div><div style="font-size: 13px; color: #5B6678">Петрова Е. А. · 1 лекция</div></div>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A94A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+      </a>
+      <a href="#" style="text-decoration: none; color: inherit; min-height: 64px; padding: 0 16px; display: flex; align-items: center; gap: 14px">
+        <div style="width: 6px; height: 36px; border-radius: 3px; background: #B45309"></div>
+        <div style="flex: 1"><div style="font-size: 16px; font-weight: 500">Алгоритмы</div><div style="font-size: 13px; color: #5B6678">Сидоров А. В. · лекций пока нет</div></div>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A94A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+      </a>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; padding: 0 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Последний результат</h2>
+    <a href="#s-b-result" style="text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 14px; border: 1px solid #E3E8EF; min-height: 64px; padding: 0 16px; display: flex; align-items: center; gap: 14px">
+      <div style="flex: 1"><div style="font-size: 16px; font-weight: 500">Устройства ПК</div><div style="font-size: 13px; color: #5B6678">8 октября · попытка 1</div></div>
+      <div style="font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">2/4</div>
+    </a>
+  </section>
+
+  <nav aria-label="Основная навигация" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 8px 24px; background: rgba(255,255,255,0.96); border-top: 1px solid #E3E8EF; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+    <a href="#s-b-home" aria-current="page" style="text-decoration: none; color: #045BA7; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 600">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Сегодня
+    </a>
+    <a href="#" style="text-decoration: none; color: #5B6678; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 500">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"></path></svg>Предметы
+    </a>
+    <a href="#s-b-result" style="text-decoration: none; color: #5B6678; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 500">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Результаты
+    </a>
+    <a href="#" style="text-decoration: none; color: #5B6678; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 500">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Профиль
+    </a>
+  </nav>
+</div></div></figure><figure id="s-b-lecture"><figcaption>Лекция</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #FFFFFF; font-family: 'Golos Text', sans-serif; color: #0E1F3D; display: flex; flex-direction: column">
+
+  <div style="padding: 48px 8px 4px; display: flex; align-items: center; justify-content: space-between">
+    <a href="#s-b-home" style="text-decoration: none; height: 44px; padding: 0 8px; display: flex; align-items: center; gap: 2px; font-size: 16px; font-weight: 500; color: #045BA7">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Информатика
+    </a>
+    <button aria-label="Прочитать лекцию вслух" style="width: 44px; height: 44px; border: 0; background: transparent; color: #045BA7; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"></path></svg>
+    </button>
+  </div>
+
+  <article style="padding: 8px 20px 0; display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Лекция 101 · версия 1</div>
+    <h1 style="margin: 0; font-size: 28px; font-weight: 700; line-height: 1.2; letter-spacing: -0.015em">Устройства персонального компьютера</h1>
+    <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #24324F">Память, процессор и устройства ввода-вывода: из чего состоит компьютер и как его части работают вместе. Перед тестом посмотрите запись и конспект.</p>
+  </article>
+
+  <section style="padding: 24px 20px 0; display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Материалы</h2>
+    <div style="border-top: 1px solid #E3E8EF">
+      <div style="min-height: 64px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #E3E8EF">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#045BA7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m10 9 5 3-5 3z"></path></svg>
+        <div style="flex: 1"><div style="font-size: 16px; font-weight: 500">Запись лекции</div><div style="font-size: 13px; color: #0B6B4F">MP4 · 28 МБ · доступно без сети</div></div>
+      </div>
+      <div style="min-height: 64px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #E3E8EF">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#045BA7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>
+        <div style="flex: 1"><div style="font-size: 16px; font-weight: 500">Конспект лекции</div><div style="font-size: 13px; color: #5B6678">PDF · 1,2 МБ</div></div>
+        <button aria-label="Скачать конспект" style="width: 44px; height: 44px; border: 0; background: transparent; color: #045BA7; display: flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 24px 20px 0; display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Проверка знаний</h2>
+    <div style="background: #F4F6F9; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 17px; font-weight: 600">Тест по теме лекции</div>
+      <dl style="margin: 4px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <div><dt style="font-size: 12px; color: #5B6678">Вопросов</dt><dd style="margin: 0; font-size: 17px; font-weight: 600">4</dd></div>
+        <div><dt style="font-size: 12px; color: #5B6678">Время</dt><dd style="margin: 0; font-size: 17px; font-weight: 600">20 мин</dd></div>
+        <div><dt style="font-size: 12px; color: #5B6678">Попыток</dt><dd style="margin: 0; font-size: 17px; font-weight: 600">1 из 2</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div style="margin-top: auto; padding: 16px 20px 32px; border-top: 1px solid #E3E8EF">
+    <a href="#s-b-test" style="text-decoration: none; height: 52px; border-radius: 12px; background: #045BA7; color: #FFFFFF; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center">Начать тест</a>
+  </div>
+</div></div></figure><figure id="s-b-test"><figcaption>Вопрос теста</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #FFFFFF; font-family: 'Golos Text', sans-serif; color: #0E1F3D; display: flex; flex-direction: column">
+
+  <div style="padding: 48px 8px 0; display: flex; align-items: center; justify-content: space-between">
+    <a href="#s-b-lecture" style="text-decoration: none; height: 44px; padding: 0 12px; display: flex; align-items: center; font-size: 16px; font-weight: 500; color: #045BA7">Прервать</a>
+    <div style="font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums">Вопрос 4 из 4</div>
+    <div style="height: 44px; padding: 0 12px; display: flex; align-items: center; font-size: 15px; color: #5B6678; font-variant-numeric: tabular-nums">17:42</div>
+  </div>
+  <div role="img" aria-label="Пройдено 3 из 4 вопросов" style="margin: 8px 20px 0; height: 4px; border-radius: 2px; background: #E3E8EF; overflow: hidden"><div style="width: 75%; height: 4px; background: #045BA7"></div></div>
+
+  <div style="padding: 28px 20px 0; display: flex; flex-direction: column; gap: 8px">
+    <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Сопоставление</div>
+    <h1 style="margin: 0; font-size: 24px; font-weight: 600; line-height: 1.3">Сопоставьте понятия с их описанием</h1>
+    <p style="margin: 0; font-size: 15px; color: #5B6678">Для каждого понятия выберите одно описание.</p>
+  </div>
+
+  <div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="m1" style="font-size: 16px; font-weight: 600">Лекция</label>
+      <button id="m1" style="height: 52px; border-radius: 12px; border: 1px solid #045BA7; background: #F0F6FC; padding: 0 14px; font-family: inherit; font-size: 16px; color: #0E1F3D; display: flex; align-items: center; justify-content: space-between; cursor: pointer">
+        Раздел учебного курса
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#045BA7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="m2" style="font-size: 16px; font-weight: 600">Тема</label>
+      <button id="m2" style="height: 52px; border-radius: 12px; border: 1px solid #C5CEDB; background: #FFFFFF; padding: 0 14px; font-family: inherit; font-size: 16px; color: #5B6678; display: flex; align-items: center; justify-content: space-between; cursor: pointer">
+        Выберите описание
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B6678" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div style="margin: 20px 20px 0; padding: 12px 14px; border-radius: 12px; background: #F4F6F9; font-size: 14px; color: #24324F; display: flex; gap: 10px">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#045BA7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v5h1"></path></svg>
+    Каждое описание можно использовать один раз. Без ответа остался 1 вопрос.
+  </div>
+
+  <div style="margin-top: auto; padding: 16px 20px 32px; border-top: 1px solid #E3E8EF; display: flex; gap: 12px">
+    <button style="height: 52px; padding: 0 20px; border-radius: 12px; border: 1px solid #C5CEDB; background: #FFFFFF; color: #0E1F3D; font-family: inherit; font-size: 17px; font-weight: 500; cursor: pointer">Назад</button>
+    <a href="#s-b-result" style="flex: 1; text-decoration: none; height: 52px; border-radius: 12px; background: #045BA7; color: #FFFFFF; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center">Завершить тест</a>
+  </div>
+</div></div></figure><figure id="s-b-result"><figcaption>Результат</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #F4F6F9; font-family: 'Golos Text', sans-serif; color: #0E1F3D; display: flex; flex-direction: column; gap: 20px; padding: 56px 16px 32px">
+
+  <div style="padding: 0 4px; display: flex; flex-direction: column; gap: 4px">
+    <div style="font-size: 14px; color: #5B6678">Тест по теме лекции · попытка 1</div>
+    <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em">Тест завершён</h1>
+  </div>
+
+  <div style="background: #FFFFFF; border: 1px solid #E3E8EF; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: baseline; gap: 10px">
+      <div style="font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums">2<span style="color: #8A94A6">/4</span></div>
+      <div style="font-size: 16px; color: #5B6678">правильных ответов</div>
+    </div>
+    <div role="img" aria-label="2 верно, 2 неверно" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px">
+      <div style="height: 8px; border-radius: 2px; background: #0E8A6A"></div>
+      <div style="height: 8px; border-radius: 2px; background: #0E8A6A"></div>
+      <div style="height: 8px; border-radius: 2px; background: #C2410C"></div>
+      <div style="height: 8px; border-radius: 2px; background: #C2410C"></div>
+    </div>
+    <dl style="margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; border-top: 1px solid #E3E8EF; padding-top: 14px">
+      <div><dt style="font-size: 12px; color: #5B6678">Баллы</dt><dd style="margin: 0; font-size: 17px; font-weight: 600">2 из 4</dd></div>
+      <div><dt style="font-size: 12px; color: #5B6678">Время</dt><dd style="margin: 0; font-size: 17px; font-weight: 600">6 мин</dd></div>
+      <div><dt style="font-size: 12px; color: #5B6678">Осталось</dt><dd style="margin: 0; font-size: 17px; font-weight: 600">1 попытка</dd></div>
+    </dl>
+  </div>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; padding: 0 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6678">Разбор</h2>
+    <ol style="margin: 0; padding: 0; list-style: none; background: #FFFFFF; border: 1px solid #E3E8EF; border-radius: 14px; overflow: hidden">
+      <li style="padding: 14px 16px; border-bottom: 1px solid #E3E8EF; display: flex; gap: 12px">
+        <span style="font-size: 15px; color: #8A94A6; width: 18px; font-variant-numeric: tabular-nums">1</span>
+        <div style="flex: 1"><div style="font-size: 15px">Что расшифровывается как CPU?</div><div style="font-size: 13px; font-weight: 600; color: #0B6B4F">Верно</div></div>
+      </li>
+      <li style="padding: 14px 16px; border-bottom: 1px solid #E3E8EF; display: flex; gap: 12px">
+        <span style="font-size: 15px; color: #8A94A6; width: 18px; font-variant-numeric: tabular-nums">2</span>
+        <div style="flex: 1"><div style="font-size: 15px">Какое устройство хранит данные постоянно?</div><div style="font-size: 13px; font-weight: 600; color: #0B6B4F">Верно</div></div>
+      </li>
+      <li style="padding: 14px 16px; border-bottom: 1px solid #E3E8EF; display: flex; gap: 12px">
+        <span style="font-size: 15px; color: #8A94A6; width: 18px; font-variant-numeric: tabular-nums">3</span>
+        <div style="flex: 1"><div style="font-size: 15px">Выберите устройства ввода</div><div style="font-size: 13px; font-weight: 600; color: #A3330A">Неверно · верно: клавиатура, мышь</div></div>
+      </li>
+      <li style="padding: 14px 16px; display: flex; gap: 12px">
+        <span style="font-size: 15px; color: #8A94A6; width: 18px; font-variant-numeric: tabular-nums">4</span>
+        <div style="flex: 1"><div style="font-size: 15px">Сопоставьте понятия с их описанием</div><div style="font-size: 13px; font-weight: 600; color: #A3330A">Частично · 1 из 2 пар</div></div>
+      </li>
+    </ol>
+  </section>
+
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+    <a href="#s-b-home" style="text-decoration: none; height: 52px; border-radius: 12px; background: #045BA7; color: #FFFFFF; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center">Готово</a>
+    <a href="#s-b-lecture" style="text-decoration: none; height: 44px; border-radius: 12px; color: #045BA7; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center">Вернуться к лекции</a>
+  </div>
+</div></div></figure></div></section><section><h2>C · «Зачёт» — тёмный и игровой</h2><div class="row"><figure id="s-c-home"><figcaption>Главная</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #0A1A3F; font-family: 'Rubik', sans-serif; color: #FFFFFF; display: flex; flex-direction: column; gap: 18px; padding: 56px 20px 110px">
+
+  <div style="display: flex; align-items: center; justify-content: space-between">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div aria-hidden="true" style="width: 48px; height: 48px; border-radius: 16px; background: #9BD5FF; color: #0A1A3F; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px">АС</div>
+      <div><div style="font-size: 14px; color: #B4C2E3">ПИ-201</div><h1 style="margin: 0; font-size: 22px; font-weight: 700">Анна</h1></div>
+    </div>
+    <div style="height: 40px; padding: 0 14px; border-radius: 20px; background: #13285C; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="#FF9F43"><path d="M12 2c3.5 4.2 7 6.6 7 12a7 7 0 0 1-14 0c0-3.2 2-5.4 3.2-7.4.8 1.9 1.8 3 3 3.3C11 6.8 10.8 4.6 12 2z"></path></svg>
+      5 дней подряд
+    </div>
+  </div>
+
+  <a href="#s-c-lecture" style="text-decoration: none; color: inherit; background: #13285C; border-radius: 24px; padding: 18px; display: flex; align-items: center; gap: 16px; border-bottom: 5px solid #07122E">
+    <div style="position: relative; width: 76px; height: 76px; flex: none">
+      <svg role="img" aria-label="Пройдено 50 процентов предмета" width="76" height="76" viewBox="0 0 76 76">
+        <circle cx="38" cy="38" r="31" fill="none" stroke="#1F3A7A" stroke-width="9"></circle>
+        <circle cx="38" cy="38" r="31" fill="none" stroke="#11D56B" stroke-width="9" stroke-linecap="round" stroke-dasharray="97 195" transform="rotate(-90 38 38)"></circle>
+      </svg>
+      <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px">50%</div>
+    </div>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+      <div style="font-size: 13px; font-weight: 600; color: #11D56B; text-transform: uppercase; letter-spacing: 0.04em">Продолжить</div>
+      <div style="font-size: 19px; font-weight: 700">Информатика</div>
+      <div style="font-size: 14px; color: #B4C2E3">Следующий шаг: тест по лекции 101</div>
+    </div>
+  </a>
+
+  <h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 700">Задания на неделю</h2>
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <a href="#s-c-test" style="text-decoration: none; color: inherit; background: #13285C; border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; border-bottom: 4px solid #07122E">
+      <div style="width: 44px; height: 44px; border-radius: 14px; background: #11D56B; color: #04261A; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"></path></svg>
+      </div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 16px; font-weight: 600">Тест: устройства ПК</div><div style="font-size: 13px; color: #B4C2E3">до 15 октября · 4 вопроса</div></div>
+      <span style="padding: 6px 10px; border-radius: 10px; background: #2A1A06; color: #FFB86B; font-size: 13px; font-weight: 600">5 дней</span>
+    </a>
+    <a href="#s-c-lecture" style="text-decoration: none; color: inherit; background: #13285C; border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; border-bottom: 4px solid #07122E">
+      <div style="width: 44px; height: 44px; border-radius: 14px; background: #9BD5FF; color: #0A1A3F; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"></path></svg>
+      </div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 16px; font-weight: 600">Посмотреть запись лекции</div><div style="font-size: 13px; color: #B4C2E3">Информатика · 28 МБ</div></div>
+    </a>
+    <div style="background: #0F2150; border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; border: 2px dashed #26407F">
+      <div style="width: 44px; height: 44px; border-radius: 14px; background: #1B3573; color: #B4C2E3; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+      </div>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 16px; font-weight: 600; color: #DCE4F5">Базы данных</div><div style="font-size: 13px; color: #B4C2E3">Откроется после первой лекции</div></div>
+    </div>
+  </div>
+
+  <nav aria-label="Основная навигация" style="position: absolute; left: 16px; right: 16px; bottom: 24px; height: 68px; background: #13285C; border-radius: 24px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; padding: 0 8px">
+    <a href="#s-c-home" aria-current="page" style="text-decoration: none; margin: 0 auto; width: 56px; height: 48px; border-radius: 16px; background: #9BD5FF; color: #0A1A3F; display: flex; align-items: center; justify-content: center" aria-label="Главная">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>
+    </a>
+    <a href="#" aria-label="Предметы" style="margin: 0 auto; width: 56px; height: 48px; color: #B4C2E3; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"></path></svg>
+    </a>
+    <a href="#s-c-result" aria-label="Результаты" style="margin: 0 auto; width: 56px; height: 48px; color: #B4C2E3; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>
+    </a>
+    <a href="#" aria-label="Профиль" style="margin: 0 auto; width: 56px; height: 48px; color: #B4C2E3; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+    </a>
+  </nav>
+</div></div></figure><figure id="s-c-lecture"><figcaption>Лекция</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #0A1A3F; font-family: 'Rubik', sans-serif; color: #FFFFFF; display: flex; flex-direction: column; gap: 18px; padding: 48px 20px 32px">
+
+  <div style="display: flex; align-items: center; justify-content: space-between">
+    <a href="#s-c-home" aria-label="Назад" style="width: 44px; height: 44px; border-radius: 14px; background: #13285C; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+    </a>
+    <button aria-label="Прочитать лекцию вслух" style="width: 44px; height: 44px; border-radius: 14px; border: 0; background: #13285C; color: #9BD5FF; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path></svg>
+    </button>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="font-size: 14px; font-weight: 600; color: #9BD5FF">Информатика · лекция 101</div>
+    <h1 style="margin: 0; font-size: 28px; font-weight: 800; line-height: 1.15">Устройства персонального компьютера</h1>
+    <p style="margin: 0; font-size: 16px; line-height: 1.5; color: #DCE4F5">Память, процессор и устройства ввода-вывода: из чего состоит компьютер.</p>
+  </div>
+
+  <ol aria-label="Шаги лекции" style="margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0">
+    <li style="display: flex; gap: 14px">
+      <div style="display: flex; flex-direction: column; align-items: center">
+        <div style="width: 36px; height: 36px; border-radius: 18px; background: #11D56B; color: #04261A; display: flex; align-items: center; justify-content: center">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+        </div>
+        <div style="width: 3px; flex: 1; min-height: 24px; background: #11D56B"></div>
+      </div>
+      <div style="flex: 1; padding-bottom: 16px">
+        <div style="background: #13285C; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 16px; font-weight: 600">Запись лекции</div>
+          <div style="font-size: 13px; color: #B4C2E3">Просмотрено · 28 МБ на телефоне</div>
+        </div>
+      </div>
+    </li>
+    <li style="display: flex; gap: 14px">
+      <div style="display: flex; flex-direction: column; align-items: center">
+        <div style="width: 36px; height: 36px; border-radius: 18px; background: #11D56B; color: #04261A; display: flex; align-items: center; justify-content: center">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+        </div>
+        <div style="width: 3px; flex: 1; min-height: 24px; background: #26407F"></div>
+      </div>
+      <div style="flex: 1; padding-bottom: 16px">
+        <div style="background: #13285C; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 16px; font-weight: 600">Конспект лекции</div>
+          <div style="font-size: 13px; color: #B4C2E3">Открыт · PDF, 1,2 МБ</div>
+        </div>
+      </div>
+    </li>
+    <li style="display: flex; gap: 14px">
+      <div style="display: flex; flex-direction: column; align-items: center">
+        <div style="width: 36px; height: 36px; border-radius: 18px; border: 3px solid #9BD5FF; box-sizing: border-box; color: #9BD5FF; display: flex; align-items: center; justify-content: center; font-weight: 700">3</div>
+      </div>
+      <div style="flex: 1">
+        <div style="background: #13285C; border: 2px solid #9BD5FF; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 16px; font-weight: 600">Тест по теме лекции</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <span style="padding: 5px 10px; border-radius: 10px; background: #1B3573; font-size: 13px; font-weight: 500">4 вопроса</span>
+            <span style="padding: 5px 10px; border-radius: 10px; background: #1B3573; font-size: 13px; font-weight: 500">20 мин</span>
+            <span style="padding: 5px 10px; border-radius: 10px; background: #1B3573; font-size: 13px; font-weight: 500">2 попытки</span>
+          </div>
+        </div>
+      </div>
+    </li>
+  </ol>
+
+  <a href="#s-c-test" style="margin-top: auto; text-decoration: none; height: 58px; border-radius: 18px; background: #11D56B; color: #04261A; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; border-bottom: 5px solid #0A8F48; box-sizing: border-box">НАЧАТЬ ТЕСТ</a>
+</div></div></figure><figure id="s-c-test"><figcaption>Вопрос теста</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #0A1A3F; font-family: 'Rubik', sans-serif; color: #FFFFFF; display: flex; flex-direction: column; gap: 20px; padding: 48px 20px 32px">
+
+  <div style="display: flex; align-items: center; gap: 12px">
+    <a href="#s-c-lecture" aria-label="Выйти из теста" style="width: 44px; height: 44px; flex: none; border-radius: 14px; background: #13285C; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+    </a>
+    <div role="img" aria-label="Вопрос 3 из 4" style="flex: 1; height: 16px; border-radius: 8px; background: #1B3573; overflow: hidden"><div style="width: 62%; height: 16px; border-radius: 8px; background: #11D56B"></div></div>
+    <div style="font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums">3/4</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <span style="padding: 6px 12px; border-radius: 10px; background: #13285C; color: #9BD5FF; font-size: 14px; font-weight: 600">Несколько ответов</span>
+      <button aria-label="Прочитать вопрос вслух" style="width: 44px; height: 44px; border-radius: 14px; border: 0; background: #13285C; color: #9BD5FF; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path></svg>
+      </button>
+    </div>
+    <h1 style="margin: 0; font-size: 26px; font-weight: 800; line-height: 1.2">Выберите устройства ввода</h1>
+  </div>
+
+  <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+    <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Варианты ответа</legend>
+    <label style="min-height: 64px; box-sizing: border-box; background: #13285C; border: 2px solid #11D56B; border-bottom-width: 5px; border-radius: 18px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; font-size: 18px; font-weight: 600; cursor: pointer">
+      <input type="checkbox" checked style="width: 24px; height: 24px; margin: 0; accent-color: #11D56B">Клавиатура
+    </label>
+    <label style="min-height: 64px; box-sizing: border-box; background: #13285C; border: 2px solid #1F3A7A; border-bottom-width: 5px; border-radius: 18px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; font-size: 18px; font-weight: 500; cursor: pointer">
+      <input type="checkbox" style="width: 24px; height: 24px; margin: 0; accent-color: #11D56B">Монитор
+    </label>
+    <label style="min-height: 64px; box-sizing: border-box; background: #13285C; border: 2px solid #11D56B; border-bottom-width: 5px; border-radius: 18px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; font-size: 18px; font-weight: 600; cursor: pointer">
+      <input type="checkbox" checked style="width: 24px; height: 24px; margin: 0; accent-color: #11D56B">Мышь
+    </label>
+    <label style="min-height: 64px; box-sizing: border-box; background: #13285C; border: 2px solid #1F3A7A; border-bottom-width: 5px; border-radius: 18px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; font-size: 18px; font-weight: 500; cursor: pointer">
+      <input type="checkbox" style="width: 24px; height: 24px; margin: 0; accent-color: #11D56B">Принтер
+    </label>
+  </fieldset>
+
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+    <a href="#s-c-result" style="text-decoration: none; height: 58px; border-radius: 18px; background: #11D56B; color: #04261A; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; border-bottom: 5px solid #0A8F48; box-sizing: border-box">ДАЛЕЕ</a>
+    <div style="text-align: center; font-size: 13px; color: #B4C2E3">17:42 до конца · ответы сохраняются на телефоне</div>
+  </div>
+</div></div></figure><figure id="s-c-result"><figcaption>Результат</figcaption><div class="phone"><div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #0A1A3F; font-family: 'Rubik', sans-serif; color: #FFFFFF; display: flex; flex-direction: column; gap: 18px; padding: 64px 20px 32px">
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+    <div style="font-size: 15px; font-weight: 600; color: #9BD5FF">Тест по теме лекции</div>
+    <h1 style="margin: 0; font-size: 30px; font-weight: 800">Половина — уже зачёт!</h1>
+    <div style="font-size: 16px; color: #DCE4F5">2 из 4 верно · 2 балла из 4</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+    <div style="background: #13285C; border-radius: 18px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; border-bottom: 4px solid #07122E">
+      <div style="font-size: 26px; font-weight: 800; color: #11D56B">50%</div>
+      <div style="font-size: 13px; color: #B4C2E3">результат</div>
+    </div>
+    <div style="background: #13285C; border-radius: 18px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; border-bottom: 4px solid #07122E">
+      <div style="font-size: 26px; font-weight: 800; color: #9BD5FF">6:18</div>
+      <div style="font-size: 13px; color: #B4C2E3">время</div>
+    </div>
+    <div style="background: #13285C; border-radius: 18px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; border-bottom: 4px solid #07122E">
+      <div style="font-size: 26px; font-weight: 800; color: #FFB86B">6</div>
+      <div style="font-size: 13px; color: #B4C2E3">дней серия</div>
+    </div>
+  </div>
+
+  <h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 700">Ответы</h2>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+    <div style="background: #0E3B2A; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #7CF0B0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>Вопрос 1 · верно
+      </div>
+      <div style="font-size: 14px; color: #E6FFF1">Что такое CPU?</div>
+    </div>
+    <div style="background: #0E3B2A; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #7CF0B0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>Вопрос 2 · верно
+      </div>
+      <div style="font-size: 14px; color: #E6FFF1">Постоянная память</div>
+    </div>
+    <div style="background: #3D1A1A; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #FFA8A0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>Вопрос 3 · ошибка
+      </div>
+      <div style="font-size: 14px; color: #FFECEA">Верно: клавиатура, мышь</div>
+    </div>
+    <div style="background: #3D1A1A; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #FFA8A0">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>Вопрос 4 · частично
+      </div>
+      <div style="font-size: 14px; color: #FFECEA">1 из 2 пар</div>
+    </div>
+  </div>
+
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+    <a href="#s-c-lecture" style="text-decoration: none; height: 58px; border-radius: 18px; background: #9BD5FF; color: #0A1A3F; font-size: 17px; font-weight: 800; display: flex; align-items: center; justify-content: center; border-bottom: 5px solid #5BA8E0; box-sizing: border-box">ПОВТОРИТЬ ЛЕКЦИЮ</a>
+    <a href="#s-c-home" style="text-decoration: none; height: 52px; border-radius: 18px; background: #13285C; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center">На главную</a>
+  </div>
+</div></div></figure></div></section>
+</body>
+</html>

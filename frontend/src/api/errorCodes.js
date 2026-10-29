@@ -28,6 +28,9 @@ export const API_ERROR_CODES = Object.freeze({
 
   PAYLOAD_TOO_LARGE:
     'payload_too_large',
+
+  AI_UNAVAILABLE:
+    'ai_unavailable',
 })
 
 export function apiErrorCodeMessage(

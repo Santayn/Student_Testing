@@ -12,12 +12,14 @@ const {
   createTemplate,
   updateTemplate,
   removeTemplate,
+  getVersions,
   createVersion,
   updateVersion,
   publishVersion,
   unpublishVersion,
   getApiErrorMessage,
 } = vi.hoisted(() => ({
+  getVersions: vi.fn(),
   createTemplate: vi.fn(),
   updateTemplate: vi.fn(),
   removeTemplate: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock('@/api', () => ({
     createTemplate,
     updateTemplate,
     removeTemplate,
+    getVersions,
     createVersion,
     updateVersion,
     publishVersion,
@@ -165,6 +168,7 @@ describe('course template mutations', () => {
     const closeVersionDrawerImmediately = vi.fn()
     const loadTemplates = vi.fn().mockResolvedValue(undefined)
     removeTemplate.mockResolvedValue({})
+    getVersions.mockResolvedValue({ data: [] })
 
     const { state } = createState({
       selectedTemplateId,
@@ -183,6 +187,59 @@ describe('course template mutations', () => {
     expect(state.deleteConfirmVisible.value).toBe(false)
     expect(state.deleteTarget.value).toBeNull()
     expect(loadTemplates).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports a template with versions as hidden, not deleted (backend keeps it)', async () => {
+    removeTemplate.mockResolvedValue({})
+    getVersions.mockResolvedValue({ data: [{ id: 101 }] })
+    const notice = ref({ type: 'info', message: '' })
+    const { state } = createState({ notice })
+
+    state.requestDeleteTemplate({ id: 11, name: 'С версиями' })
+    await state.deleteTemplate()
+
+    expect(getVersions).toHaveBeenCalledWith(11)
+    expect(removeTemplate).toHaveBeenCalledWith(11)
+    expect(notice.value.message).toContain('Шаблон скрыт')
+  })
+
+  it('asks before publishing when another version of the template is published', async () => {
+    publishVersion.mockResolvedValue({})
+    const versions = ref([
+      { id: 101, versionNumber: 1, published: true },
+      { id: 102, versionNumber: 2, published: false },
+    ])
+    const { state } = createState({ versions })
+
+    state.requestPublishVersion(versions.value[1])
+
+    expect(state.publishConfirmTarget.value).toEqual(versions.value[1])
+    expect(publishVersion).not.toHaveBeenCalled()
+
+    await state.confirmPublishVersion()
+
+    expect(state.publishConfirmTarget.value).toBeNull()
+    expect(publishVersion).toHaveBeenCalledWith(102)
+  })
+
+  it('publishes without asking when no other version is published, and cancel keeps everything', async () => {
+    publishVersion.mockResolvedValue({})
+    const versions = ref([{ id: 102, versionNumber: 2, published: false }])
+    const { state } = createState({ versions })
+
+    await state.requestPublishVersion(versions.value[0])
+    expect(publishVersion).toHaveBeenCalledWith(102)
+
+    const other = createState({
+      versions: ref([
+        { id: 1, published: true },
+        { id: 2, published: false },
+      ]),
+    }).state
+    other.requestPublishVersion({ id: 2, published: false })
+    other.cancelPublishVersion()
+    expect(other.publishConfirmTarget.value).toBeNull()
+    expect(publishVersion).toHaveBeenCalledTimes(1)
   })
 
 

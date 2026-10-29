@@ -100,6 +100,11 @@ export function useQuestionMutations({
         type === 3
           ? normalizeMatchingPairs(form.matchingPairs)
           : [],
+      // Пустая строка — удалить критерии; сервер хранит их только у вопросов со свободным ответом.
+      gradingCriteria:
+        type === 4
+          ? String(form.gradingCriteria ?? '').trim()
+          : '',
     }
 
     beginSaving()

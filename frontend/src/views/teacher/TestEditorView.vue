@@ -1,5 +1,6 @@
 <script setup>
 import {
+  computed,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -26,12 +27,17 @@ import {
   UiEmptyState,
   UiLoadingState,
   UiInput,
+  UiRadio,
   UiSelect,
   UiTextarea,
   UiUnsavedChangesConfirm,
 } from '@/components/ui'
 
 import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
+
+import {
+  useSubjectCourseVersions,
+} from '@/composables/course-templates/useSubjectCourseVersions'
 
 import {
   useAuthStore,
@@ -68,6 +74,9 @@ import {
 
 const route = useRoute()
 const authStore = useAuthStore()
+
+const assignmentTarget = ref('groups')
+const selectedCourseVersionId = ref('')
 
 const {
   loadingSubjects,
@@ -117,9 +126,27 @@ const {
   selectedMembership,
   selectedTopicId,
   selectedGroupIds,
+  assignmentTarget,
+  selectedCourseVersionId,
   topics,
   questions,
 })
+
+const {
+  courseVersions,
+  loadingCourseVersions,
+  loadCourseVersions,
+  courseVersionById,
+} = useSubjectCourseVersions({
+  selectedSubjectId,
+  selectedMembership,
+  authStore,
+})
+
+const courseVersionOptions = computed(() => courseVersions.value.map((version) => ({
+  value: String(version.id),
+  label: `${version.label} — ${version.description}`,
+})))
 
 const {
   confirmVisible:
@@ -246,7 +273,9 @@ async function loadSubjectContext() {
   selectedTopicId.value = ''
   groupTargets.value = []
   selectedGroupIds.value = []
+  selectedCourseVersionId.value = ''
   questions.value = []
+  loadCourseVersions()
 
   const membershipId = Number(
     selectedMembership.value?.id ?? 0
@@ -431,6 +460,9 @@ const {
   selectedTopicId,
   selectedGroupIds,
   groupTargets,
+  assignmentTarget,
+  selectedCourseVersionId,
+  courseVersionLabel: (versionId) => courseVersionById(versionId)?.label ?? '',
   validationError,
   ensureSelectedMembershipActive,
   markEditorClean,
@@ -528,7 +560,38 @@ onMounted(async () => {
               :disabled="loadingSubjects || !membershipOptions.length"
             />
 
-            <div>
+            <fieldset class="teacher-assign-target">
+              <legend class="teacher-field-label">
+                Кому назначить тест
+              </legend>
+
+              <UiRadio
+                v-model="assignmentTarget"
+                name="test-assign-target"
+                value="groups"
+                label="Группам"
+                description="Назначение на учебную нагрузку выбранных групп."
+              />
+
+              <UiRadio
+                v-model="assignmentTarget"
+                name="test-assign-target"
+                value="version"
+                label="Версии курса"
+                description="Тест получат все группы, которым администратор выдал версию в учебной нагрузке, в том числе выданные позже."
+              />
+            </fieldset>
+
+            <UiSelect
+              v-if="assignmentTarget === 'version'"
+              v-model="selectedCourseVersionId"
+              label="Версия курса"
+              :options="courseVersionOptions"
+              :placeholder="loadingCourseVersions ? 'Загрузка версий...' : (courseVersionOptions.length ? 'Выберите версию' : 'У предмета нет версий курса')"
+              :disabled="!courseVersionOptions.length"
+            />
+
+            <div v-else>
               <span class="teacher-field-label">
                 Группы, которым назначается тест
               </span>
@@ -672,6 +735,12 @@ onMounted(async () => {
               step="1"
             />
           </div>
+
+          <UiCheckbox
+            v-model="form.showAiFeedback"
+            class="teacher-test-ai-feedback"
+            label="Показывать студентам комментарий ИИ к свободным ответам"
+          />
         </UiCard>
 
         <UiCard title="Шаг 4 · Публикация и доступ">

@@ -67,6 +67,18 @@ export const learningApi = {
     }
   },
 
+  /** Текст лекции файлом: format — pdf | docx. */
+  exportLectureText(lectureId, format) {
+    return http.get(
+      `/public/learning/lectures/${lectureId}/text/export`,
+      {
+        params: { format },
+        responseType: 'blob',
+        timeout: API_TIMEOUTS.fileTransfer,
+      }
+    )
+  },
+
   downloadMaterial(
     lectureId,
     materialId

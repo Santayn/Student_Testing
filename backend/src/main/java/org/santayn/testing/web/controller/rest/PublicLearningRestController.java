@@ -10,6 +10,7 @@ import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
 import org.santayn.testing.models.question.QuestionResponse;
 import org.santayn.testing.models.question.QuestionTypeSupport;
+import org.santayn.testing.models.question.ResponseReview;
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.subject.SubjectMembership;
 import org.santayn.testing.models.teacher.TeachingAssignment;
@@ -34,6 +35,7 @@ import org.santayn.testing.service.LectureMaterialService;
 import org.santayn.testing.service.LectureTestLinkService;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.service.UserRegisterService;
+import org.santayn.testing.service.lecture.LectureTextExportService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -88,6 +90,7 @@ public class PublicLearningRestController {
     private final LectureMaterialService lectureMaterialService;
     private final TestService testService;
     private final UserRegisterService userRegisterService;
+    private final LectureTextExportService lectureTextExportService;
 
     public PublicLearningRestController(CourseTemplateRepository courseTemplateRepository,
                                         CourseVersionRepository courseVersionRepository,
@@ -105,7 +108,8 @@ public class PublicLearningRestController {
                                         LectureTestLinkService lectureTestLinkService,
                                         LectureMaterialService lectureMaterialService,
                                         TestService testService,
-                                        UserRegisterService userRegisterService) {
+                                        UserRegisterService userRegisterService,
+                                        LectureTextExportService lectureTextExportService) {
         this.courseTemplateRepository = courseTemplateRepository;
         this.courseVersionRepository = courseVersionRepository;
         this.groupMembershipRepository = groupMembershipRepository;
@@ -123,6 +127,7 @@ public class PublicLearningRestController {
         this.lectureMaterialService = lectureMaterialService;
         this.testService = testService;
         this.userRegisterService = userRegisterService;
+        this.lectureTextExportService = lectureTextExportService;
     }
 
     @GetMapping("/subjects/{subjectId}")
@@ -220,6 +225,17 @@ public class PublicLearningRestController {
                 .body(resource);
     }
 
+    /** Текст лекции файлом Word или PDF. */
+    @GetMapping("/lectures/{lectureId}/text/export")
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> exportLectureText(@PathVariable Integer lectureId,
+                                                    @RequestParam(defaultValue = "pdf") String format,
+                                                    Authentication authentication) {
+        StudentLearningContext context = studentLearningContext(authentication);
+        requireAccessibleLecture(context, lectureId);
+        return LectureTextExportService.download(lectureTextExportService.export(lectureId, format));
+    }
+
     @GetMapping("/tests/{testId}")
     @Transactional(readOnly = true)
     public PublicTestResponse test(@PathVariable Integer testId, Authentication authentication) {
@@ -278,7 +294,7 @@ public class PublicLearningRestController {
             throw new AccessDeniedException("Test attempt does not belong to current user.");
         }
         if (attempt.getStatus() != 1) {
-            throw new IllegalArgumentException("Test attempt is not in progress: " + attemptId);
+            throw new IllegalArgumentException("Попытка уже завершена.");
         }
 
         List<Long> selectedQuestionIds = testService.findResponses(attemptId)
@@ -309,6 +325,7 @@ public class PublicLearningRestController {
 
         List<PublicSubmitDetailResponse> details = new ArrayList<>();
         int correctCount = 0;
+        int pendingReviewCount = 0;
 
         for (Long questionId : actualQuestionIds) {
             Integer submittedIndex = submittedQuestionIndexes.get(questionId);
@@ -328,16 +345,29 @@ public class PublicLearningRestController {
             if (Boolean.TRUE.equals(response.getCorrect())) {
                 correctCount++;
             }
+            boolean pendingReview = response.reviewStatusOrNone() == ResponseReview.AI_PENDING
+                    || response.reviewStatusOrNone() == ResponseReview.NEEDS_TEACHER;
+            if (pendingReview) {
+                pendingReviewCount++;
+            }
             details.add(new PublicSubmitDetailResponse(
                     question.getQuestion(),
                     givenAnswerDisplay(question, answer, selectedIds),
                     null,
-                    Boolean.TRUE.equals(response.getCorrect())
+                    Boolean.TRUE.equals(response.getCorrect()),
+                    pendingReview
             ));
         }
 
         TestAttempt completed = testService.completeAttempt(attempt.getId());
-        return new PublicSubmitResponse(attempt.getId(), completed.getScore(), correctCount, actualQuestionIds.size(), details);
+        return new PublicSubmitResponse(
+                attempt.getId(),
+                completed.getScore(),
+                correctCount,
+                actualQuestionIds.size(),
+                details,
+                pendingReviewCount
+        );
     }
 
     private StudentLearningContext studentLearningContext(Authentication authentication) {
@@ -347,7 +377,7 @@ public class PublicLearningRestController {
                 .filter(this::isActiveStudentMembership)
                 .toList();
         if (memberships.isEmpty()) {
-            throw new IllegalArgumentException("Current user has no active student group.");
+            throw new IllegalArgumentException("Вы не состоите в учебной группе — обратитесь к администратору.");
         }
 
         LinkedHashMap<Integer, TeachingAssignment> assignmentsById = new LinkedHashMap<>();
@@ -403,7 +433,7 @@ public class PublicLearningRestController {
                 .map(assignment -> subjectIdOf(context, assignment))
                 .anyMatch(subjectId::equals);
         if (!hasAccess) {
-            throw new IllegalArgumentException("Subject is not assigned to current student: " + subjectId);
+            throw new AccessDeniedException("Предмет вам не назначен.");
         }
     }
 
@@ -411,7 +441,7 @@ public class PublicLearningRestController {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture not found: " + lectureId));
         if (!hasLectureAccess(context, lecture)) {
-            throw new IllegalArgumentException("Lecture is not assigned to current student: " + lectureId);
+            throw new AccessDeniedException("Лекция вам не назначена.");
         }
         return lecture;
     }
@@ -420,7 +450,7 @@ public class PublicLearningRestController {
         TestAssignment assignment = testAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Test assignment not found: " + assignmentId));
         if (!hasTestAssignmentAccess(context, assignment)) {
-            throw new IllegalArgumentException("Test assignment is not available for current student: " + assignmentId);
+            throw new AccessDeniedException("Тест вам не назначен.");
         }
         return assignment;
     }
@@ -698,7 +728,8 @@ public class PublicLearningRestController {
                     lecture.getDescription(),
                     lecture.getContentFolderKey(),
                     lecture.getContentFolderKey(),
-                    lecture.isPublicVisible()
+                    lecture.isPublicVisible(),
+                    lecture.getBody()
             );
         }
 
@@ -720,7 +751,8 @@ public class PublicLearningRestController {
                 lecture.getDescription(),
                 lecture.getContentFolderKey(),
                 lecture.getContentFolderKey(),
-                lecture.isPublicVisible()
+                lecture.isPublicVisible(),
+                lecture.getBody()
         );
     }
 
@@ -843,7 +875,8 @@ public class PublicLearningRestController {
                                         String description,
                                         String content,
                                         String contentFolderKey,
-                                        boolean publicVisible) {
+                                        boolean publicVisible,
+                                        String body) {
     }
 
     public record PublicSubjectResponse(Integer id, String name, String description) {
@@ -897,16 +930,19 @@ public class PublicLearningRestController {
                                       List<List<Long>> selectedOptionIds) {
     }
 
+    /** pendingReviewCount — сколько ответов ещё проверяет ИИ или преподаватель: балл предварительный. */
     public record PublicSubmitResponse(Integer attemptId,
                                        BigDecimal score,
                                        int correctCount,
                                        int totalCount,
-                                       List<PublicSubmitDetailResponse> details) {
+                                       List<PublicSubmitDetailResponse> details,
+                                       int pendingReviewCount) {
     }
 
     public record PublicSubmitDetailResponse(String questionText,
                                              String givenAnswer,
                                              String correctAnswer,
-                                             boolean correct) {
+                                             boolean correct,
+                                             boolean pendingReview) {
     }
 }

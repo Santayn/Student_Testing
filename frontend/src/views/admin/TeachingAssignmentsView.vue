@@ -111,6 +111,7 @@ const {
   teacherOptionsForForm,
   filteredGroupsForCreate,
   courseVersionOptions,
+  courseVersionWarning,
   groupHasConflict,
   groupConflictDescription,
   assignmentValidationMessage,
@@ -502,6 +503,7 @@ onMounted(async () => {
       :teacher-options="teacherOptionsForForm"
       :load-type-options="loadTypeOptions"
       :course-version-options="courseVersionOptions"
+      :course-version-warning="courseVersionWarning"
       :group-options="groupOptions"
       :filtered-groups="filteredGroupsForCreate"
       :group-search-query="groupSearchQuery"

@@ -158,4 +158,19 @@ export const adminRoutes = [
       'admin-database-backups'
     ),
   },
+
+  {
+    path: '/admin/ai-usage',
+    name: 'admin-ai-usage',
+
+    component: () =>
+      import(
+        '@/views/admin/AiUsageView.vue'
+      ),
+
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_AI_USAGE,
+      'admin-ai-usage'
+    ),
+  },
 ]

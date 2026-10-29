@@ -12,10 +12,11 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl postgresql-client \
+        tesseract-ocr tesseract-ocr-rus fonts-dejavu-core fontconfig \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system studenttest \
     && useradd --system --gid studenttest --home-dir /app --shell /usr/sbin/nologin studenttest \
-    && mkdir -p /app/uploads/lecture-materials \
+    && mkdir -p /app/uploads/lecture-materials /app/uploads/ai \
     && chown -R studenttest:studenttest /app
 
 COPY --from=build /workspace/target/*.jar ./app.jar

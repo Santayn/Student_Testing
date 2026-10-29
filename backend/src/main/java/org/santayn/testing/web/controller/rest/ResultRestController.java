@@ -11,6 +11,7 @@ import org.santayn.testing.models.question.Question;
 import org.santayn.testing.models.question.QuestionOption;
 import org.santayn.testing.models.question.QuestionResponse;
 import org.santayn.testing.models.question.QuestionTypeSupport;
+import org.santayn.testing.models.question.ResponseReview;
 import org.santayn.testing.models.question.SelectedOption;
 import org.santayn.testing.models.subject.Subject;
 import org.santayn.testing.models.subject.SubjectMembership;
@@ -36,6 +37,7 @@ import org.santayn.testing.repository.TestAssignmentRepository;
 import org.santayn.testing.repository.TestAttemptRepository;
 import org.santayn.testing.repository.TestRepository;
 import org.santayn.testing.service.LectureTestLinkService;
+import org.santayn.testing.service.TeacherTestScopeService;
 import org.santayn.testing.service.TestService;
 import org.santayn.testing.service.TextAnswerEvaluator;
 import org.santayn.testing.service.UserRegisterService;
@@ -86,6 +88,7 @@ public class ResultRestController {
     private final LectureTestLinkService lectureTestLinkService;
     private final TestService testService;
     private final UserRegisterService userRegisterService;
+    private final TeacherTestScopeService teacherTestScopeService;
 
     public ResultRestController(SubjectMembershipRepository subjectMembershipRepository,
                                 SubjectRepository subjectRepository,
@@ -106,7 +109,8 @@ public class ResultRestController {
                                 SelectedOptionRepository selectedOptionRepository,
                                 LectureTestLinkService lectureTestLinkService,
                                 TestService testService,
-                                UserRegisterService userRegisterService) {
+                                UserRegisterService userRegisterService,
+                                TeacherTestScopeService teacherTestScopeService) {
         this.subjectMembershipRepository = subjectMembershipRepository;
         this.subjectRepository = subjectRepository;
         this.courseTemplateRepository = courseTemplateRepository;
@@ -127,6 +131,7 @@ public class ResultRestController {
         this.lectureTestLinkService = lectureTestLinkService;
         this.testService = testService;
         this.userRegisterService = userRegisterService;
+        this.teacherTestScopeService = teacherTestScopeService;
     }
 
     @GetMapping("/teacher/subjects")
@@ -327,6 +332,7 @@ public class ResultRestController {
         Map<Integer, String> testNameCache = new LinkedHashMap<>();
         Map<Integer, String> personNameCache = new LinkedHashMap<>();
         Map<Long, Question> questionCache = new LinkedHashMap<>();
+        Map<Integer, Boolean> aiFeedbackVisibleCache = new LinkedHashMap<>();
         List<ResultAttemptAggregate> attempts = new ArrayList<>();
         boolean filterByPersonContext = !teacherMode
                 || teacherPersonId != null
@@ -362,7 +368,13 @@ public class ResultRestController {
                     continue;
                 }
 
+                boolean showAiFeedback = teacherMode || aiFeedbackVisibleCache.computeIfAbsent(
+                        assignment.getTestId(),
+                        id -> testRepository.findById(id).map(Test::isShowAiFeedback).orElse(false)
+                );
                 results.add(new ResultItemResponse(
+                        response.getId(),
+                        question.getType(),
                         question.getQuestion(),
                         givenAnswerDisplay(response, question),
                         teacherMode ? correctAnswerDisplay(question) : null,
@@ -370,7 +382,12 @@ public class ResultRestController {
                         question.getPoints(),
                         response.getAwardedPoints(),
                         gradingStatus(response, question),
-                        teacherMode ? gradingNote(response, question) : null
+                        gradingNote(response, question, teacherMode),
+                        ResponseReview.name(response.reviewStatusOrNone()),
+                        ResponseReview.gradedByName(response.getGradedBy()),
+                        showAiFeedback ? response.getAiFeedback() : null,
+                        response.getTeacherComment(),
+                        teacherMode ? response.getAiConfidence() : null
                 ));
             }
 
@@ -465,11 +482,19 @@ public class ResultRestController {
         return "incorrect";
     }
 
-    private String gradingNote(QuestionResponse response, Question question) {
-        if (!requiresTextAnswerTeacherReview(response, question)) {
-            return null;
+    private String gradingNote(QuestionResponse response, Question question, boolean teacherMode) {
+        if (response.getReviewStatus() == null) {
+            // Ответы, сданные до появления статуса проверки.
+            return teacherMode && requiresTextAnswerTeacherReview(response, question) ? TEXT_ANSWER_REVIEW_NOTE : null;
         }
-        return TEXT_ANSWER_REVIEW_NOTE;
+        return switch (response.getReviewStatus()) {
+            case ResponseReview.AI_PENDING -> "Ответ проверяется ИИ — баллы пока предварительные.";
+            case ResponseReview.NEEDS_TEACHER -> teacherMode
+                    ? "Нужна проверка преподавателя."
+                    : "Ответ проверит преподаватель — баллы могут измениться.";
+            case ResponseReview.AI_GRADED -> teacherMode ? "Оценено ИИ." : null;
+            default -> null;
+        };
     }
 
     private boolean requiresTextAnswerTeacherReview(QuestionResponse response, Question question) {
@@ -678,21 +703,7 @@ public class ResultRestController {
     }
 
     private Set<Integer> teacherTestIds(Integer teacherPersonId) {
-        Set<Integer> ids = testRepository.findAll().stream()
-                .filter(test -> teacherPersonId.equals(test.getAuthorPersonId()))
-                .map(Test::getId)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        for (Integer subjectId : teacherSubjectIds(teacherPersonId)) {
-            teacherLectures(subjectId, teacherPersonId).forEach(lecture -> {
-                lectureTestLinkService.findTestIdsByLectureId(lecture.getId()).forEach(ids::add);
-                testAssignmentRepository.findByCourseLectureId(lecture.getId())
-                        .stream().map(TestAssignment::getTestId).forEach(ids::add);
-                if (lecture.getLinkedTestId() != null) {
-                    ids.add(lecture.getLinkedTestId());
-                }
-            });
-        }
-        return ids;
+        return teacherTestScopeService.teacherTestIds(teacherPersonId);
     }
 
     private List<CourseTemplate> teacherTemplates(Integer subjectId, Integer teacherPersonId) {
@@ -902,14 +913,21 @@ public class ResultRestController {
                                         List<ResultItemResponse> results) {
     }
 
-    public record ResultItemResponse(String questionText,
+    public record ResultItemResponse(Long responseId,
+                                     int questionType,
+                                     String questionText,
                                      String givenAnswer,
                                      @JsonInclude(JsonInclude.Include.NON_NULL) String correctAnswer,
                                      boolean correct,
                                      BigDecimal questionPoints,
                                      BigDecimal awardedPoints,
                                      String gradingStatus,
-                                     @JsonInclude(JsonInclude.Include.NON_NULL) String gradingNote) {
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String gradingNote,
+                                     String reviewStatus,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String gradedBy,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String aiFeedback,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) String teacherComment,
+                                     @JsonInclude(JsonInclude.Include.NON_NULL) BigDecimal aiConfidence) {
     }
 
     private record ResultAttemptAggregate(Integer attemptId,

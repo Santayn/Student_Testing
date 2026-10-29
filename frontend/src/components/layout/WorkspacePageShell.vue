@@ -76,6 +76,8 @@ defineProps({
   padding: 0 0 var(--st-space-section);
 
   display: grid;
+  /* Колонка не шире экрана: широкие таблицы прокручиваются внутри карточек, а не растягивают страницу. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
 
   color: var(--st-text);

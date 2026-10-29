@@ -12,4 +12,6 @@ public interface LectureTestLinkRepository extends JpaRepository<LectureTestLink
     void deleteByTestId(Integer testId);
 
     boolean existsByCourseLectureIdAndTestId(Integer courseLectureId, Integer testId);
+
+    void deleteByCourseLectureId(Integer courseLectureId);
 }

@@ -87,6 +87,18 @@
 			<artifactId>xmlbeans</artifactId>
 			<version>5.1.1</version>
 		</dependency>
+		<!-- PDFBox: текст из PDF и рендер страниц сканов для распознавания, PDF-копия презентации -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.3</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

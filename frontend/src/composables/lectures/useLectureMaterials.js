@@ -42,10 +42,24 @@ export function useLectureMaterials({
     return Number(unref(lectureId) ?? 0)
   }
 
+  // Сканы, распознанные в редакторе текста, ждут сохранения лекции вместе с остальными файлами.
+  // Выбор файлов в блоке материалов заменяет только «свои» файлы и не сбрасывает сканы.
+  const scanFiles = new WeakSet()
+
   function setPendingFiles(files) {
-    pendingFiles.value = Array.isArray(files)
+    const selected = Array.isArray(files)
       ? files
       : Array.from(files ?? [])
+    pendingFiles.value = [
+      ...pendingFiles.value.filter((file) => scanFiles.has(file)),
+      ...selected,
+    ]
+  }
+
+  function addScanFiles(files) {
+    const added = Array.from(files ?? []).filter((file) => !pendingFiles.value.includes(file))
+    added.forEach((file) => scanFiles.add(file))
+    pendingFiles.value = [...pendingFiles.value, ...added]
   }
 
   function removePendingFile(index) {
@@ -186,6 +200,7 @@ export function useLectureMaterials({
     deletingMaterialId,
     materialDeleteError: deleteError,
     setPendingFiles,
+    addScanFiles,
     removePendingFile,
     requestDeleteMaterial,
     closeMaterialDeleteDialog: closeDeleteDialog,

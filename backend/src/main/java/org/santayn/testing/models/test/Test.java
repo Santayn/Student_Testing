@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalTime;
 
@@ -41,4 +42,9 @@ public class Test {
 
     @Column(name = "`AuthorPersonId`")
     private Integer authorPersonId;
+
+    /** Показывать студенту комментарий ИИ к свободным ответам («чего не хватило»). На контрольных выключают. */
+    @ColumnDefault("true")
+    @Column(name = "`ShowAiFeedback`", nullable = false)
+    private boolean showAiFeedback = true;
 }

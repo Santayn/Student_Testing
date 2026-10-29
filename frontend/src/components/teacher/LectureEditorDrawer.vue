@@ -8,9 +8,11 @@ import {
   UiDrawer,
   UiEmptyState,
   UiInput,
+  UiSelect,
   UiTextarea,
 } from '@/components/ui'
 
+import LectureBodyEditor from '@/components/teacher/LectureBodyEditor.vue'
 import LectureMaterialsManager from '@/components/teacher/LectureMaterialsManager.vue'
 
 import {
@@ -32,11 +34,14 @@ defineProps({
   formError: { type: String, default: '' },
   formFieldErrors: { type: Object, default: () => ({}) },
   availableTests: { type: Array, default: () => [] },
+  // Версии курса предмета: [{ value, label }], первая — «Без версии» (value 0).
+  courseVersionOptions: { type: Array, default: () => [] },
   materials: { type: Array, default: () => [] },
   pendingFiles: { type: Array, default: () => [] },
   fileInputKey: { type: Number, default: 0 },
   loadingMaterials: { type: Boolean, default: false },
   deletingMaterialId: { type: [Number, String], default: null },
+  savedBody: { type: String, default: '' },
 })
 
 const emit = defineEmits([
@@ -47,6 +52,8 @@ const emit = defineEmits([
   'remove-pending-file',
   'download-material',
   'request-delete-material',
+  'materials-changed',
+  'attach-scans',
   'close',
   'save',
 ])
@@ -112,7 +119,26 @@ defineExpose({
             v-model="form.publicVisible"
             label="Публиковать лекцию для студентов"
           />
+
+          <UiSelect
+            v-if="courseVersionOptions.length > 1"
+            v-model="form.courseVersionId"
+            label="Версия курса"
+            :options="courseVersionOptions"
+            hint="Группа, которой администратор выдал версию в учебной нагрузке, видит только лекции этой версии (если ей не назначены отдельные лекции)."
+          />
         </section>
+
+        <LectureBodyEditor
+          v-model="form.body"
+          :lecture-id="form.id"
+          :saved-body="savedBody"
+          :disabled="saving"
+          :error="apiFieldError({ fieldErrors: formFieldErrors }, 'body')"
+          @update:model-value="emit('field-change', 'body')"
+          @materials-changed="emit('materials-changed')"
+          @attach-scans="emit('attach-scans', $event)"
+        />
 
         <section class="teacher-lecture-form-section">
           <div class="teacher-lecture-form-section__heading">
