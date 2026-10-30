@@ -1,6 +1,8 @@
 <script setup>
 import { computed } from 'vue'
 import Button from 'primevue/button'
+import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { glassClasses, isGlassSurface, isShinePreset, isShineIntensity } from '@/config/glassPresets'
 
 const props = defineProps({
   variant: {
@@ -24,7 +26,18 @@ const props = defineProps({
   rounded: { type: Boolean, default: false },
   to: { type: [String, Object], default: null },
   href: { type: String, default: '' },
+  surface: { type: String, default: 'default', validator: isGlassSurface },
+  shine: { type: String, default: 'none', validator: isShinePreset },
+  shineIntensity: { type: String, default: 'normal', validator: isShineIntensity },
+  motion: {
+    type: String,
+    default: 'default',
+    validator: (value) => isMotionPresetFor('button', value),
+  },
 })
+
+const motionClass = computed(() => motionClassFor('button', props.motion))
+const glassClass = computed(() => glassClasses(props.surface, props.shine, props.shineIntensity))
 
 const emit = defineEmits(['click'])
 const isDisabled = computed(() => props.disabled || props.loading)
@@ -59,6 +72,8 @@ function onClick(event) {
     :class="[
       `st-ui-link-button--${variant}`,
       `st-ui-link-button--${size}`,
+      motionClass,
+      glassClass,
       {
         'st-ui-link-button--block': block,
       },
@@ -79,6 +94,8 @@ function onClick(event) {
     :class="[
       `st-ui-link-button--${variant}`,
       `st-ui-link-button--${size}`,
+      motionClass,
+      glassClass,
       {
         'st-ui-link-button--block': block,
       },
@@ -97,6 +114,8 @@ function onClick(event) {
     :class="[
       `st-ui-link-button--${variant}`,
       `st-ui-link-button--${size}`,
+      motionClass,
+      glassClass,
       {
         'st-ui-link-button--block': block,
       },
@@ -114,6 +133,8 @@ function onClick(event) {
     :class="[
       `st-ui-button--${variant}`,
       `st-ui-button--${size}`,
+      motionClass,
+      glassClass,
       { 'st-ui-button--block': block },
     ]"
     :type="type"

@@ -36,6 +36,23 @@ html[data-theme='light'] {
   --st-motion-slow: 240ms;
   --st-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --st-ease-emphasized: var(--st-ease-standard);
+  --st-motion-press-scale: 0.96;
+  --st-motion-lift-distance: -3px;
+  --st-motion-hover-scale: 1.015;
+  --st-motion-hover-lift: -2px;
+  --st-motion-hover-shadow: 0 4px 14px color-mix(in srgb, var(--st-primary) 10%, transparent);
+
+  /* Adaptive Glass — opt-in surface and fixed diagonal shine. */
+  --st-glass-bg: rgb(255 255 255 / 66%);
+  --st-glass-frosted-bg: rgb(255 255 255 / 82%);
+  --st-glass-border: rgb(255 255 255 / 80%);
+  --st-glass-edge: rgb(255 255 255 / 52%);
+  --st-glass-blur: 12px;
+  --st-glass-frosted-blur: 18px;
+  --st-glass-shadow: 0 4px 20px rgb(30 58 138 / 7%);
+  --st-glass-shine-soft: rgb(246 197 110 / 23%);
+  --st-glass-shine-core: rgb(255 247 224 / 66%);
+  --st-glass-shine-duration: 760ms;
 
   /* Brand */
   --st-primary: #2563eb;
@@ -169,6 +186,15 @@ html[data-theme='dark'] {
   --st-on-warning: #f2e5cb;
   --st-on-danger: #f5eded;
   --st-on-info: #edf3f7;
+
+  /* Lunar reflections in dark mode; same fixed left-to-right path. */
+  --st-glass-bg: rgb(25 34 48 / 70%);
+  --st-glass-frosted-bg: rgb(25 34 48 / 84%);
+  --st-glass-border: rgb(165 191 229 / 28%);
+  --st-glass-edge: rgb(192 215 247 / 22%);
+  --st-glass-shadow: 0 6px 22px rgb(0 0 0 / 25%);
+  --st-glass-shine-soft: rgb(122 168 234 / 22%);
+  --st-glass-shine-core: rgb(210 229 255 / 66%);
 
   --st-focus-shadow: 0 0 0 3px rgb(74 120 207 / 22%);
   --st-shadow-card: 0 1px 2px rgb(0 0 0 / 30%);

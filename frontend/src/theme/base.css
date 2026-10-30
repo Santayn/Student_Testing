@@ -11,9 +11,19 @@ html[data-theme='dark'] {
 html {
   background: var(--st-page-bg);
   color: var(--st-text);
-  /* Keep the viewport width unchanged when a modal locks page scrolling.
-   * The native document scrollbar remains browser-controlled. */
+  /* The native scrollbar only occupies space when the page actually scrolls.
+   * JS enables a stable gutter on scrollable pages, preserving width on modal lock. */
+  scrollbar-gutter: auto;
+}
+
+html.st-document-scrollable {
   scrollbar-gutter: stable;
+}
+
+/* PrimeVue scroll lock normally targets body; lock the root too so the
+ * document cannot scroll behind a modal's own scrolling content. */
+html:has(body.p-overflow-hidden) {
+  overflow: hidden;
 }
 
 html,

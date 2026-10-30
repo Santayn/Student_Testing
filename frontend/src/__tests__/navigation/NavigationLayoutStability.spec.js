@@ -28,8 +28,10 @@ describe('navigation geometry stays stable', () => {
     expect(group).toContain('v-if="expanded"')
   })
 
-  it('locks the root scrollbar gutter and keeps the More sheet size fixed', () => {
-    expect(base).toMatch(/html\s*\{[^}]*scrollbar-gutter:\s*stable/)
+  it('reserves root scrollbar space only for actually scrolling pages', () => {
+    expect(base).toMatch(/html\s*\{[^}]*scrollbar-gutter:\s*auto/)
+    expect(base).toMatch(/html\.st-document-scrollable\s*\{[^}]*scrollbar-gutter:\s*stable/)
+    expect(base).toMatch(/html:has\(body\.p-overflow-hidden\)\s*\{[^}]*overflow:\s*hidden/)
     expect(sheet).toContain("document.documentElement.classList.add('navigation-sheet-open')")
     expect(sheet).toContain("document.documentElement.classList.remove('navigation-sheet-open')")
     expect(sheet).toMatch(/\.navigation-sheet\s*\{[^}]*height:\s*min\(82dvh, 760px\)/)

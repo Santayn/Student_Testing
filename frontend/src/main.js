@@ -12,10 +12,13 @@ import '@/theme/fonts.css'
 import '@/theme/tokens.css'
 import '@/theme/base.css'
 import '@/theme/foundation.css'
+import '@/theme/motion.css'
+import '@/theme/glass.css'
 import '@/theme/lecture-content.css'
 import 'primeicons/primeicons.css'
 
 import router from './router'
+import { initDocumentScrollbar } from '@/utils/documentScrollbar'
 
 import {
   configureHttpAuth,
@@ -153,6 +156,7 @@ async function bootstrap() {
   routerReady = true
 
   app.mount('#app')
+  initDocumentScrollbar()
 }
 
 bootstrap().catch((error) => {

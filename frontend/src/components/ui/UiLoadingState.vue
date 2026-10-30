@@ -1,4 +1,5 @@
 <script setup>
+import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
 defineProps({
   label: {
     type: String,
@@ -8,15 +9,21 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  motion: {
+    type: String,
+    default: 'default',
+    validator: (value) => isMotionPresetFor('loading', value),
+  },
 })
 </script>
 
 <template>
   <div
-    class="st-ui-loading st-motion-state-reveal"
-    :class="{
-      'st-ui-loading--compact': compact,
-    }"
+    class="st-ui-loading"
+    :class="[
+      { 'st-ui-loading--compact': compact, 'st-motion-state-reveal': motion === 'default' },
+      motionClassFor('loading', motion),
+    ]"
     role="status"
     aria-live="polite"
     aria-busy="true"

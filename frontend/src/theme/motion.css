@@ -1,0 +1,399 @@
+/* Motion API for the public Ui* components.
+ * Opt-in classes only: existing components retain their pre-existing motions.
+ * Imported after foundation.css to override PrimeVue's scoped transitions.
+ */
+@layer components {
+  /* Interaction: the pointer/focus remains on the original DOM element. */
+  .st-ui-button.p-button.st-motion-button--press,
+  .st-ui-link-button.st-motion-button--press,
+  .st-ui-button.p-button.st-motion-button--lift,
+  .st-ui-link-button.st-motion-button--lift {
+    transition:
+      color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard),
+      transform var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-button.p-button.st-motion-button--press:not(:disabled):active,
+  .st-ui-link-button.st-motion-button--press:not([aria-disabled='true']):active {
+    transform: scale(var(--st-motion-press-scale));
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .st-ui-button.p-button.st-motion-button--lift:not(:disabled):hover,
+    .st-ui-link-button.st-motion-button--lift:not([aria-disabled='true']):hover,
+    .st-ui-card.p-card.st-motion-card--lift:hover {
+      transform: translateY(var(--st-motion-lift-distance));
+      box-shadow: var(--st-shadow-elevated);
+    }
+  }
+
+  .st-ui-card.p-card.st-motion-card--lift {
+    transition:
+      transform var(--st-motion-normal) var(--st-ease-standard),
+      box-shadow var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .st-ui-button.p-button.st-motion-button--pulse:not(:disabled):active,
+  .st-ui-link-button.st-motion-button--pulse:not([aria-disabled='true']):active {
+    animation: st-motion-press-pulse var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  @keyframes st-motion-press-pulse {
+    50% { transform: scale(1.035); }
+  }
+
+  /* Explicit opt-in hover and keyboard-focus presets. The default styling
+   * remains untouched. No hover-only behavior on coarse/touch pointers. */
+  .st-ui-button.p-button.st-motion-button--hover,
+  .st-ui-link-button.st-motion-button--hover,
+  .st-ui-button.p-button.st-motion-button--focused,
+  .st-ui-link-button.st-motion-button--focused {
+    transition:
+      transform var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      border-color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-card.p-card.st-motion-card--hover,
+  .st-ui-card.p-card.st-motion-card--focused {
+    transition:
+      transform var(--st-motion-normal) var(--st-ease-standard),
+      box-shadow var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .st-ui-button.p-button.st-motion-button--hover:not(:disabled):hover,
+    .st-ui-link-button.st-motion-button--hover:not([aria-disabled='true']):hover {
+      transform: scale(var(--st-motion-hover-scale));
+      box-shadow: var(--st-motion-hover-shadow);
+    }
+    .st-ui-card.p-card.st-motion-card--hover:hover {
+      transform: translateY(var(--st-motion-hover-lift));
+      box-shadow: var(--st-motion-hover-shadow);
+    }
+    .st-ui-control.p-select.st-motion-select--hover:not(.p-disabled):hover {
+      box-shadow: var(--st-motion-hover-shadow);
+    }
+  }
+
+  .st-ui-button.p-button.st-motion-button--focused:focus-visible,
+  .st-ui-link-button.st-motion-button--focused:focus-visible,
+  .st-ui-card.p-card.st-motion-card--focused:focus-within,
+  .st-ui-control.p-select.st-motion-select--focused:focus-within {
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  /* An alert's motion prop controls *initial entry only*.
+   * Use UiMotion when the parent controls both enter and leave. */
+  .st-ui-alert.p-message.st-motion-alert--none {
+    animation: none;
+  }
+
+  .st-ui-alert.p-message.st-motion-alert--fade {
+    animation: st-motion-alert-fade var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  .st-ui-alert.p-message.st-motion-alert--fade-slide {
+    animation: st-motion-alert-fade-slide var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  .st-ui-alert.p-message.st-motion-alert--pulse {
+    animation: st-motion-alert-pulse var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  @keyframes st-motion-alert-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes st-motion-alert-fade-slide {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes st-motion-alert-pulse {
+    50% { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent); }
+  }
+
+  /* Select motion is a subtle focus treatment, not motion of the overlay's
+   * anchor position: moving a Select would misalign its popup. */
+  .st-ui-control.p-select.st-motion-select--focus,
+  .st-ui-control.p-select.st-motion-select--hover,
+  .st-ui-control.p-select.st-motion-select--focused {
+    transition:
+      border-color var(--st-motion-fast) var(--st-ease-standard),
+      background-color var(--st-motion-fast) var(--st-ease-standard),
+      box-shadow var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .st-ui-control.p-select.st-motion-select--focus:focus-within {
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  /* PrimeVue Dialog owns teleport, mask, focus, and its transition lifecycle.
+   * Scope visual variants to the dialog element, never the whole overlay. */
+  .st-ui-dialog.p-dialog.st-motion-dialog--none.p-dialog-enter-active,
+  .st-ui-dialog.p-dialog.st-motion-dialog--none.p-dialog-leave-active {
+    transition: none;
+    animation: none;
+  }
+
+  .st-ui-dialog.p-dialog.st-motion-dialog--none.p-dialog-enter-from,
+  .st-ui-dialog.p-dialog.st-motion-dialog--none.p-dialog-leave-to {
+    opacity: 1;
+    transform: none;
+  }
+
+  .st-ui-dialog.p-dialog.st-motion-dialog--fade.p-dialog-enter-active,
+  .st-ui-dialog.p-dialog.st-motion-dialog--fade.p-dialog-leave-active {
+    transition: opacity var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .st-ui-dialog.p-dialog.st-motion-dialog--fade.p-dialog-enter-from,
+  .st-ui-dialog.p-dialog.st-motion-dialog--fade.p-dialog-leave-to {
+    opacity: 0;
+    transform: none;
+  }
+
+  .st-ui-dialog.p-dialog.st-motion-dialog--fade-slide.p-dialog-enter-from,
+  .st-ui-dialog.p-dialog.st-motion-dialog--fade-slide.p-dialog-leave-to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .st-ui-dialog.p-dialog.st-motion-dialog--scale-fade.p-dialog-enter-active,
+  .st-ui-dialog.p-dialog.st-motion-dialog--scale-fade.p-dialog-leave-active {
+    transition:
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      transform var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .st-ui-dialog.p-dialog.st-motion-dialog--scale-fade.p-dialog-enter-from,
+  .st-ui-dialog.p-dialog.st-motion-dialog--scale-fade.p-dialog-leave-to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  /* Explicit opt-out affects only decorative animation, not focus indication. */
+  .st-ui-button.p-button.st-motion-button--none,
+  .st-ui-link-button.st-motion-button--none,
+  .st-ui-card.p-card.st-motion-card--none,
+  .st-ui-control.p-select.st-motion-select--none {
+    transition: none;
+    animation: none;
+  }
+
+  /* UiMotion: conditional enter/leave controlled by :show, not by a remount
+   * of the surrounding view. */
+  .st-motion-fade-enter-active,
+  .st-motion-fade-leave-active {
+    transition: opacity var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .st-motion-fade-enter-from,
+  .st-motion-fade-leave-to {
+    opacity: 0;
+  }
+
+  .st-motion-fade-slide-enter-active,
+  .st-motion-fade-slide-leave-active,
+  .st-motion-scale-fade-enter-active,
+  .st-motion-scale-fade-leave-active {
+    transition:
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      transform var(--st-motion-normal) var(--st-ease-standard);
+  }
+
+  .st-motion-fade-slide-enter-from,
+  .st-motion-fade-slide-leave-to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .st-motion-scale-fade-enter-from,
+  .st-motion-scale-fade-leave-to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  .st-ui-motion--expand {
+    display: grid;
+    grid-template-rows: 1fr;
+  }
+
+  .st-ui-motion--expand > .st-ui-motion__inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .st-motion-expand-enter-active,
+  .st-motion-expand-leave-active {
+    transition:
+      grid-template-rows var(--st-motion-slow) var(--st-ease-standard),
+      opacity var(--st-motion-slow) var(--st-ease-standard);
+  }
+
+  .st-motion-expand-enter-from,
+  .st-motion-expand-leave-to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  /* Complex component motion is opt-in. Rows are NEVER translated or
+   * remounted on sorting, paging, filtering or reactive data updates. */
+  .st-ui-table-scroll.st-motion-table--row-highlight .st-ui-table.p-datatable .p-datatable-tbody > tr,
+  .st-ui-table-scroll.st-motion-table--focused .st-ui-table.p-datatable .p-datatable-tbody > tr {
+    transition: background-color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-table-scroll.st-motion-table--focused .st-ui-table.p-datatable .p-datatable-tbody > tr:focus-within {
+    background: color-mix(in srgb, var(--st-primary-soft) 42%, var(--st-surface));
+  }
+
+  .st-ui-table-scroll.st-motion-table--none .st-ui-table.p-datatable .p-datatable-tbody > tr {
+    transition: none;
+  }
+
+  /* Field validation: animate just the helper/error message, never the
+   * control or its layout position. Labels still show semantic error colors. */
+  .st-ui-field.st-motion-field--error-reveal .st-ui-field__message--error {
+    animation: st-motion-field-error-in var(--st-motion-fast) var(--st-ease-standard) both;
+  }
+
+  .st-ui-field.st-motion-field--focused:focus-within .st-ui-field__label {
+    color: var(--st-primary);
+    transition: color var(--st-motion-fast) var(--st-ease-standard);
+  }
+
+  .st-ui-field.st-motion-field--none .st-ui-field__message {
+    animation: none;
+    transition: none;
+  }
+
+  @keyframes st-motion-field-error-in {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .st-ui-loading.st-motion-loading--fade {
+    animation: st-motion-loading-fade var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  .st-ui-loading.st-motion-loading--soft-pulse {
+    animation: st-motion-loading-pulse 1.8s var(--st-ease-standard) infinite;
+  }
+
+  .st-ui-loading.st-motion-loading--none {
+    animation: none;
+  }
+
+  @keyframes st-motion-loading-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes st-motion-loading-pulse {
+    50% { border-color: color-mix(in srgb, var(--st-primary) 26%, var(--st-border)); }
+  }
+
+  /* PrimeVue Toast owns toast ordering, timing and removal. Only the newly
+   * inserted toast message is animated: never its position container. */
+  .st-ui-toast-host.st-motion-toast--fade .p-toast-message {
+    animation: st-motion-toast-fade var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  .st-ui-toast-host.st-motion-toast--fade-slide .p-toast-message {
+    animation: st-motion-toast-fade-slide var(--st-motion-normal) var(--st-ease-standard) both;
+  }
+
+  .st-ui-toast-host.st-motion-toast--none .p-toast-message {
+    animation: none;
+  }
+
+  @keyframes st-motion-toast-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes st-motion-toast-fade-slide {
+    from { opacity: 0; transform: translateY(-7px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* UiDisclosure uses v-show so its contents and input state survive collapse.
+   * Only the inner grid row animates; no page-level scroll manipulation. */
+  .st-ui-disclosure {
+    min-width: 0;
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius-card);
+    background: var(--st-surface);
+  }
+
+  .st-ui-disclosure__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: var(--st-text);
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .st-ui-disclosure__trigger:focus-visible {
+    outline: none;
+    box-shadow: var(--st-focus-shadow);
+  }
+
+  .st-ui-disclosure__trigger:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+  }
+
+  .st-ui-disclosure__title { min-width: 0; font-weight: var(--st-font-weight-bold); }
+  .st-ui-disclosure__chevron {
+    flex: 0 0 auto;
+    transition: transform var(--st-motion-fast) var(--st-ease-standard);
+  }
+  .st-ui-disclosure__chevron--expanded { transform: rotate(180deg); }
+  .st-ui-disclosure__inner { padding: 0 14px 14px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .st-ui-button.p-button[class*='st-motion-button--'],
+    .st-ui-link-button[class*='st-motion-button--'],
+    .st-ui-card.p-card[class*='st-motion-card--'],
+    .st-ui-alert.p-message[class*='st-motion-alert--'],
+    .st-ui-control.p-select[class*='st-motion-select--'],
+    .st-ui-dialog.p-dialog[class*='st-motion-dialog--'],
+    .st-ui-table-scroll[class*='st-motion-table--'] .p-datatable-tbody > tr,
+    .st-ui-field[class*='st-motion-field--'] .st-ui-field__message,
+    .st-ui-field[class*='st-motion-field--'] .st-ui-field__label,
+    .st-ui-loading[class*='st-motion-loading--'],
+    .st-ui-toast-host[class*='st-motion-toast--'] .p-toast-message,
+    .st-motion-fade-enter-active,
+    .st-motion-fade-leave-active,
+    .st-motion-fade-slide-enter-active,
+    .st-motion-fade-slide-leave-active,
+    .st-motion-scale-fade-enter-active,
+    .st-motion-scale-fade-leave-active,
+    .st-motion-expand-enter-active,
+    .st-motion-expand-leave-active {
+      transition: none !important;
+      animation: none !important;
+      transform: none !important;
+    }
+
+    /* Leave the expanded chevron's static angle visible; remove only its movement. */
+    .st-ui-disclosure__chevron {
+      transition: none !important;
+    }
+  }
+}

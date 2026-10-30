@@ -1,0 +1,152 @@
+/* Adaptive Glass: an opt-in material, independent of the Motion API.
+ * Sweep uses a fixed diagonal gradient, never pointer coordinates.
+ * Loaded after foundation/motion so existing PrimeVue variant backgrounds
+ * cannot cover the glass. No JavaScript animation loop is required.
+ */
+@layer components {
+  .st-ui-card.p-card.st-glass-surface,
+  .st-ui-button.p-button.st-glass-surface,
+  .st-ui-link-button.st-glass-surface,
+  .st-ui-dialog.p-dialog.st-glass-surface,
+  .st-ui-control.p-select.st-glass-surface {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--st-glass-bg);
+    border: 1px solid var(--st-glass-border);
+    box-shadow: var(--st-glass-shadow), inset 0 1px var(--st-glass-edge);
+    -webkit-backdrop-filter: blur(var(--st-glass-blur)) saturate(1.13);
+    backdrop-filter: blur(var(--st-glass-blur)) saturate(1.13);
+  }
+
+  .st-ui-card.p-card.st-glass-surface--frosted,
+  .st-ui-button.p-button.st-glass-surface--frosted,
+  .st-ui-link-button.st-glass-surface--frosted,
+  .st-ui-dialog.p-dialog.st-glass-surface--frosted,
+  .st-ui-control.p-select.st-glass-surface--frosted {
+    background: var(--st-glass-frosted-bg);
+    -webkit-backdrop-filter: blur(var(--st-glass-frosted-blur)) saturate(1.08);
+    backdrop-filter: blur(var(--st-glass-frosted-blur)) saturate(1.08);
+  }
+
+  /* Keep a single foreground color per glass button variant across states.
+   * Otherwise foundation.css may restore --st-on-primary (white) on hover
+   * while the surface stays translucent, making the label unreadable. */
+  .st-ui-button.p-button.st-glass-surface,
+  .st-ui-link-button.st-glass-surface {
+    --st-glass-button-text-color: var(--st-text);
+    color: var(--st-glass-button-text-color);
+  }
+  .st-ui-button--primary.p-button.st-glass-surface,
+  .st-ui-link-button--primary.st-glass-surface {
+    --st-glass-button-text-color: var(--st-primary-soft-text);
+  }
+  .st-ui-button--danger.p-button.st-glass-surface,
+  .st-ui-link-button--danger.st-glass-surface {
+    --st-glass-button-text-color: var(--st-danger-text);
+  }
+  .st-ui-button--success.p-button.st-glass-surface,
+  .st-ui-link-button--success.st-glass-surface {
+    --st-glass-button-text-color: var(--st-success-text);
+  }
+
+  /* Match (and override) the more specific variant :hover rules in
+   * foundation.css. Also preserve the chosen foreground on focus and press.
+   * Hover animations and the sweep pseudo-element remain unchanged. */
+  .st-ui-button.p-button.st-glass-surface:not(:disabled):is(:hover, :focus-visible, :active),
+  .st-ui-link-button.st-glass-surface:not([aria-disabled='true']):is(:hover, :focus-visible, :active) {
+    color: var(--st-glass-button-text-color);
+  }
+
+  .st-ui-button.p-button.st-glass-surface:not(:disabled):hover,
+  .st-ui-link-button.st-glass-surface:not([aria-disabled='true']):hover {
+    background: var(--st-glass-bg);
+    border-color: var(--st-glass-border);
+  }
+  .st-ui-button.p-button.st-glass-surface--frosted:not(:disabled):hover,
+  .st-ui-link-button.st-glass-surface--frosted:not([aria-disabled='true']):hover {
+    background: var(--st-glass-frosted-bg);
+  }
+
+  /* The overlay is clipped to the surface, but never intercepts interaction.
+   * Its gradient is diagonally oriented; the entire overlay moves at a fixed
+   * pace along the horizontal axis. There is no cursor tracking. */
+  .st-glass-surface.st-glass-shine--sweep::before {
+    content: '';
+    position: absolute;
+    inset: -25% -100%;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: var(--st-glass-shine-opacity, 0.65);
+    background: linear-gradient(
+      110deg,
+      transparent 43%,
+      var(--st-glass-shine-soft) 47%,
+      var(--st-glass-shine-core) 50%,
+      var(--st-glass-shine-soft) 53%,
+      transparent 57%
+    );
+    transform: translate3d(-60%, 0, 0);
+  }
+
+  .st-glass-shine--subtle { --st-glass-shine-opacity: 0.35; }
+  .st-glass-shine--normal { --st-glass-shine-opacity: 0.65; }
+  .st-glass-shine--strong { --st-glass-shine-opacity: 0.93; }
+
+  /* Keep text and other content above the reflection stripe. */
+  .st-glass-surface > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .st-ui-card.p-card.st-glass-shine--sweep:hover::before,
+    .st-ui-button.p-button.st-glass-shine--sweep:not(:disabled):hover::before,
+    .st-ui-link-button.st-glass-shine--sweep:not([aria-disabled='true']):hover::before {
+      animation: st-glass-sweep var(--st-glass-shine-duration) var(--st-ease-standard) 1 both;
+    }
+  }
+
+  /* Keyboard focus is an alternative trigger, never a cursor-position input. */
+  .st-ui-button.p-button.st-glass-shine--sweep:focus-visible::before,
+  .st-ui-link-button.st-glass-shine--sweep:focus-visible::before {
+    animation: st-glass-sweep var(--st-glass-shine-duration) var(--st-ease-standard) 1 both;
+  }
+
+  @keyframes st-glass-sweep {
+    from { transform: translate3d(-60%, 0, 0); }
+    to { transform: translate3d(60%, 0, 0); }
+  }
+
+  /* Keep a solid readable fallback when transparency cannot be rendered or
+   * the user has opted out of translucent window effects. */
+  @supports not (backdrop-filter: blur(1px)) {
+    .st-glass-surface.st-ui-card.p-card,
+    .st-glass-surface.st-ui-button.p-button,
+    .st-glass-surface.st-ui-link-button,
+    .st-glass-surface.st-ui-dialog.p-dialog,
+    .st-glass-surface.st-ui-control.p-select {
+      background: var(--st-surface);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .st-glass-surface.st-ui-card.p-card,
+    .st-glass-surface.st-ui-button.p-button,
+    .st-glass-surface.st-ui-link-button,
+    .st-glass-surface.st-ui-dialog.p-dialog,
+    .st-glass-surface.st-ui-control.p-select {
+      background: var(--st-surface);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .st-glass-surface.st-glass-shine--sweep::before {
+      animation: none !important;
+      opacity: 0;
+    }
+  }
+}

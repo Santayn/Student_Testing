@@ -26,7 +26,7 @@ describe('motion stage 3 state reveal contract', () => {
 
   it('applies reveal to loading, validation errors and alerts', () => {
     expect(loading).toContain(
-      'class="st-ui-loading st-motion-state-reveal"'
+      "'st-motion-state-reveal': motion === 'default'"
     )
     expect(foundation).toMatch(
       /\.st-ui-field__message--error\s*\{[\s\S]*?animation:[\s\S]*?st-motion-state-reveal/

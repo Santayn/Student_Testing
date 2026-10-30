@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
+import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
 
 const props = defineProps({
   columns: { type: Array, required: true },
@@ -16,6 +17,11 @@ const props = defineProps({
   pageSizeOptions: { type: Array, default: () => [10, 20, 50] },
   striped: { type: Boolean, default: false },
   ariaLabel: { type: String, default: 'Таблица данных' },
+  motion: {
+    type: String,
+    default: 'default',
+    validator: (value) => isMotionPresetFor('table', value),
+  },
 })
 
 const emit = defineEmits(['sort-change', 'row-click'])
@@ -85,6 +91,7 @@ function sortIcon(column) {
 <template>
   <div
     class="st-ui-table-scroll"
+    :class="motionClassFor('table', motion)"
     role="region"
     :aria-label="ariaLabel"
     tabindex="0"

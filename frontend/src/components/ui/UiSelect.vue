@@ -2,6 +2,8 @@
 import { computed, useId } from 'vue'
 import Select from 'primevue/select'
 import UiField from './UiField.vue'
+import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { glassClasses, isGlassSurface } from '@/config/glassPresets'
 
 defineOptions({ inheritAttrs: false })
 const props = defineProps({
@@ -19,12 +21,21 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   filter: { type: Boolean, default: false },
   clearable: { type: Boolean, default: false },
+  surface: { type: String, default: 'default', validator: isGlassSurface },
+  motion: {
+    type: String,
+    default: 'default',
+    validator: (value) => isMotionPresetFor('select', value),
+  },
   size: {
     type: String,
     default: 'md',
     validator: (value) => ['sm', 'md', 'lg'].includes(value),
   },
 })
+
+const motionClass = computed(() => motionClassFor('select', props.motion))
+const glassClass = computed(() => glassClasses(props.surface, 'none', 'normal'))
 
 const emit = defineEmits(['update:modelValue', 'change', 'blur', 'focus'])
 const generatedId = `ui-select-${useId()}`
@@ -62,6 +73,8 @@ const normalizedOptions = computed(() => props.options.map((option, index) => ({
       class="st-ui-control"
       :class="[
         `st-ui-control--${size}`,
+        motionClass,
+        glassClass,
         { 'st-ui-control--invalid': error },
       ]"
       :placeholder="placeholder"

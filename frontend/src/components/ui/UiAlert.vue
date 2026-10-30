@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import Message from 'primevue/message'
+import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
 
 const props = defineProps({
   variant: {
@@ -11,9 +12,15 @@ const props = defineProps({
   title: { type: String, default: '' },
   message: { type: String, default: '' },
   closable: { type: Boolean, default: false },
+  motion: {
+    type: String,
+    default: 'default',
+    validator: (value) => isMotionPresetFor('alert', value),
+  },
 })
 
 const emit = defineEmits(['close'])
+const motionClass = computed(() => motionClassFor('alert', props.motion))
 const severity = computed(() => {
   if (props.variant === 'warning') return 'warn'
   if (props.variant === 'danger') return 'error'
@@ -24,7 +31,7 @@ const severity = computed(() => {
 <template>
   <Message
     class="st-ui-alert"
-    :class="`st-ui-alert--${variant}`"
+    :class="[`st-ui-alert--${variant}`, motionClass]"
     :severity="severity"
     :closable="closable"
     @close="emit('close')"

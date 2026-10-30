@@ -1,5 +1,11 @@
 export const devRoutes = [
   {
+    path: '/motion-preview',
+    name: 'motion-preview',
+    component: () => import('@/views/dev/MotionPreviewView.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/responsive-layout-preview',
     name: 'responsive-layout-preview',
 
