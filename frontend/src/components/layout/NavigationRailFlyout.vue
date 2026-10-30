@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { navigationMotionClass, navigationTransitionName } from '@/config/motionPresets'
 
 defineOptions({ name: 'NavigationRailFlyout' })
 
@@ -20,12 +21,13 @@ defineExpose({
 
 <template>
   <Teleport to="body">
-    <Transition name="rail-flyout">
+    <Transition :name="navigationTransitionName('flyout')">
       <nav
         v-if="section"
         id="navigation-rail-flyout"
         ref="panel"
         class="navigation-rail-flyout st-scrollbar st-scrollbar--shell"
+        :class="navigationMotionClass('flyout')"
         :style="position"
         :aria-label="section.label"
       >
@@ -36,7 +38,7 @@ defineExpose({
             :key="item.key"
             :to="item.route"
             class="navigation-rail-flyout__link"
-            :class="{ 'navigation-rail-flyout__link--active': item.key === activeKey }"
+            :class="{ [navigationMotionClass('item')]: true, 'navigation-rail-flyout__link--active': item.key === activeKey }"
             :aria-current="item.key === activeKey ? 'page' : undefined"
             @click="emit('navigate')"
           >
@@ -89,7 +91,6 @@ defineExpose({
   font-size: var(--st-font-sm);
   line-height: var(--st-line-normal);
   overflow-wrap: anywhere;
-  transition: background-color var(--st-motion-fast) var(--st-ease-standard);
 }
 .navigation-rail-flyout__link i { flex: none; color: var(--st-shell-muted); }
 .navigation-rail-flyout__link:hover,
@@ -97,10 +98,4 @@ defineExpose({
 .navigation-rail-flyout__link:focus-visible { outline: 2px solid var(--st-primary); outline-offset: 2px; }
 .navigation-rail-flyout__link--active { background: var(--st-shell-active); border-color: var(--st-primary); font-weight: var(--st-font-weight-semibold); }
 .navigation-rail-flyout__link--active i { color: var(--st-primary); }
-.rail-flyout-enter-active { transition: opacity var(--st-motion-normal) var(--st-ease-standard), transform var(--st-motion-normal) var(--st-ease-standard); }
-.rail-flyout-leave-active { pointer-events: none; transition: opacity var(--st-motion-fast) var(--st-ease-standard), transform var(--st-motion-fast) var(--st-ease-standard); }
-.rail-flyout-enter-from, .rail-flyout-leave-to { opacity: 0; transform: translateX(-8px); }
-@media (prefers-reduced-motion: reduce) {
-  .rail-flyout-enter-active, .rail-flyout-leave-active, .navigation-rail-flyout__link { transition: none; }
-}
 </style>

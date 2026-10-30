@@ -2,7 +2,7 @@
 import { computed, useId } from 'vue'
 import Select from 'primevue/select'
 import UiField from './UiField.vue'
-import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { isMotionPresetFor, motionClassFor, standardMotionFor } from '@/config/motionPresets'
 import { glassClasses, isGlassSurface } from '@/config/glassPresets'
 
 defineOptions({ inheritAttrs: false })
@@ -24,7 +24,7 @@ const props = defineProps({
   surface: { type: String, default: 'default', validator: isGlassSurface },
   motion: {
     type: String,
-    default: 'default',
+    default: standardMotionFor('select'),
     validator: (value) => isMotionPresetFor('select', value),
   },
   size: {

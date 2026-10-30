@@ -1,5 +1,5 @@
 <script setup>
-import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { isMotionPresetFor, motionClassFor, standardMotionFor } from '@/config/motionPresets'
 defineProps({
   id: { type: String, required: true },
   label: { type: String, default: '' },
@@ -8,7 +8,7 @@ defineProps({
   required: { type: Boolean, default: false },
   motion: {
     type: String,
-    default: 'default',
+    default: standardMotionFor('field'),
     validator: (value) => isMotionPresetFor('field', value),
   },
 })

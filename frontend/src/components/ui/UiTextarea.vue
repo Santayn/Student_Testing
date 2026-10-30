@@ -2,7 +2,7 @@
 import { computed, useId } from 'vue'
 import Textarea from 'primevue/textarea'
 import UiField from './UiField.vue'
-import { isMotionPresetFor } from '@/config/motionPresets'
+import { isMotionPresetFor, standardMotionFor } from '@/config/motionPresets'
 
 defineOptions({ inheritAttrs: false })
 const props = defineProps({
@@ -13,7 +13,7 @@ const props = defineProps({
   error: { type: String, default: '' },
   motion: {
     type: String,
-    default: 'default',
+    default: standardMotionFor('field'),
     validator: (value) => isMotionPresetFor('field', value),
   },
   required: { type: Boolean, default: false },

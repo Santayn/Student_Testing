@@ -41,6 +41,11 @@ html[data-theme='light'] {
   --st-motion-hover-scale: 1.015;
   --st-motion-hover-lift: -2px;
   --st-motion-hover-shadow: 0 4px 14px color-mix(in srgb, var(--st-primary) 10%, transparent);
+  /* Navigation-only motion geometry; timings reuse the shared --st-motion-* scale. */
+  --st-motion-nav-surface-distance: 10px;
+  --st-motion-nav-flyout-distance: 8px;
+  --st-motion-nav-sheet-distance: 20px;
+  --st-motion-nav-icon-scale: 1.075;
 
   /* Adaptive Glass — opt-in surface and fixed diagonal shine. */
   --st-glass-bg: rgb(255 255 255 / 66%);

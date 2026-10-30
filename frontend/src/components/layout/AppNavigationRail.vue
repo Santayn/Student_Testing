@@ -7,6 +7,7 @@ import { getActiveNavigationKey, getWorkspaceNavigationNodes } from '@/navigatio
 import { NAVIGATION_GROUP_ICONS } from '@/navigation/presentationNavigation'
 import { getRailFlyoutLayout } from '@/navigation/railFlyout'
 import NavigationRailFlyout from './NavigationRailFlyout.vue'
+import { navigationMotionClass } from '@/config/motionPresets'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -110,6 +111,7 @@ onBeforeUnmount(disconnectListeners)
     <div class="app-navigation-rail__toolbar">
       <button
         class="app-navigation-rail__collapse"
+        :class="navigationMotionClass('item')"
         type="button"
         aria-label="Скрыть панель навигации"
         title="Скрыть панель навигации"
@@ -129,6 +131,7 @@ onBeforeUnmount(disconnectListeners)
           :class="{
             'app-navigation-rail__item--active': groupIsActive(node),
             'app-navigation-rail__item--open': openGroupKey === node.key,
+            [navigationMotionClass('item')]: true,
           }"
           :aria-label="node.label"
           :title="node.label"
@@ -142,7 +145,8 @@ onBeforeUnmount(disconnectListeners)
         <RouterLink
           v-else
           class="app-navigation-rail__item"
-          :class="{ 'app-navigation-rail__item--active': activeKey === node.key }"
+          :class="{ 'app-navigation-rail__item--active': activeKey === node.key,
+            [navigationMotionClass('item')]: true }"
           :to="node.route"
           :title="node.label"
           :aria-current="activeKey === node.key ? 'page' : undefined"
@@ -235,7 +239,6 @@ onBeforeUnmount(disconnectListeners)
   background: transparent;
   cursor: pointer;
   overflow-wrap: anywhere;
-  transition: background-color var(--st-motion-normal) var(--st-ease-standard);
 }
 .app-navigation-rail__item > i { font-size: 20px; color: var(--st-shell-muted); }
 .app-navigation-rail__item--active { background: var(--st-shell-active); font-weight: var(--st-font-weight-semibold); }

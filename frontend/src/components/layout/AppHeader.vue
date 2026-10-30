@@ -8,6 +8,7 @@ import { hasWorkspaceAccess } from '@/utils/accountAccess'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { WORKSPACE_ROLE_LABELS } from '@/utils/workspaceRole'
+import { navigationMotionClass } from '@/config/motionPresets'
 
 const route = useRoute()
 const router = useRouter()
@@ -140,7 +141,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="app-header">
+  <header class="app-header" :class="navigationMotionClass('header')">
     <div class="app-header__inner">
       <div class="app-header__top">
         <RouterLink
@@ -671,10 +672,6 @@ onBeforeUnmount(() => {
 
     opacity: 0;
 
-    transition:
-      max-height var(--st-motion-slow) var(--st-ease-emphasized),
-      opacity var(--st-motion-normal) var(--st-ease-standard),
-      padding var(--st-motion-slow) var(--st-ease-emphasized);
   }
 
   .app-header__content--open {

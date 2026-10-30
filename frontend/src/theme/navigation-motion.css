@@ -1,0 +1,114 @@
+/* Navigation motion — shared presets from config/motionPresets.js.
+ * Deliberately separate from Ui* animations: navigation owns state, routing,
+ * focus and scroll while this sheet controls only visual transitions.
+ */
+
+/* Shared interactive feedback; never replace visible keyboard focus. */
+.st-nav-motion--item-highlight {
+  transition:
+    background-color var(--st-motion-fast) var(--st-ease-standard),
+    border-color var(--st-motion-fast) var(--st-ease-standard),
+    box-shadow var(--st-motion-fast) var(--st-ease-standard);
+}
+.st-nav-motion--item-highlight > i:first-child {
+  transition: transform var(--st-motion-fast) var(--st-ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-nav-motion--item-highlight:hover > i:first-child {
+    transform: scale(var(--st-motion-nav-icon-scale));
+  }
+}
+
+/* Desktop sidebar and tablet rail enter/leave; the shell keeps responsibility
+ * for positioning the leaving element outside the flex flow. */
+.st-nav-surface-enter-active,
+.st-nav-surface-leave-active {
+  transition:
+    opacity var(--st-motion-normal) var(--st-ease-standard),
+    transform var(--st-motion-normal) var(--st-ease-standard);
+}
+.st-nav-surface-enter-from,
+.st-nav-surface-leave-to {
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--st-motion-nav-surface-distance)));
+}
+
+/* Expand real content height without an arbitrary max-height cap. */
+.navigation-group__items {
+  grid-template-rows: 1fr;
+}
+.st-nav-disclosure-enter-active,
+.st-nav-disclosure-leave-active {
+  transition:
+    grid-template-rows var(--st-motion-slow) var(--st-ease-standard),
+    opacity var(--st-motion-normal) var(--st-ease-standard);
+}
+.st-nav-disclosure-enter-from,
+.st-nav-disclosure-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.navigation-group__chevron {
+  transition: transform var(--st-motion-normal) var(--st-ease-standard);
+}
+
+/* Tablet's teleported flyout must not shift or resize the active route. */
+.st-nav-flyout-enter-active {
+  transition:
+    opacity var(--st-motion-normal) var(--st-ease-standard),
+    transform var(--st-motion-normal) var(--st-ease-standard);
+}
+.st-nav-flyout-leave-active {
+  pointer-events: none;
+  transition:
+    opacity var(--st-motion-fast) var(--st-ease-standard),
+    transform var(--st-motion-fast) var(--st-ease-standard);
+}
+.st-nav-flyout-enter-from,
+.st-nav-flyout-leave-to {
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--st-motion-nav-flyout-distance)));
+}
+
+/* Mobile navigation remains fixed; the scroll controller only toggles the
+ * existing hidden class. Motion never changes routes or scroll thresholds. */
+.st-nav-motion--bottom-slide {
+  transition: transform var(--st-motion-slow) var(--st-ease-standard);
+}
+
+/* Header expands only its account controls; workspace links remain elsewhere. */
+@media (max-width: 820px) {
+  .st-nav-motion--header-expand .app-header__content {
+    transition:
+      max-height var(--st-motion-slow) var(--st-ease-emphasized),
+      opacity var(--st-motion-normal) var(--st-ease-standard),
+      padding var(--st-motion-slow) var(--st-ease-emphasized);
+  }
+}
+
+/* The bottom sheet is mounted on demand. Keep its existing accessibility,
+ * scroll lock and focus trap; only animate the sheet's entrance. */
+.st-nav-motion--sheet-slide-up {
+  animation: st-nav-sheet-enter var(--st-motion-slow) var(--st-ease-standard) both;
+}
+@keyframes st-nav-sheet-enter {
+  from { transform: translateY(var(--st-motion-nav-sheet-distance)); opacity: 0.65; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-nav-motion--item-highlight,
+  .st-nav-motion--item-highlight > i:first-child,
+  .st-nav-surface-enter-active,
+  .st-nav-surface-leave-active,
+  .st-nav-disclosure-enter-active,
+  .st-nav-disclosure-leave-active,
+  .navigation-group__chevron,
+  .st-nav-flyout-enter-active,
+  .st-nav-flyout-leave-active,
+  .st-nav-motion--bottom-slide,
+  .st-nav-motion--header-expand .app-header__content {
+    transition: none;
+  }
+  .st-nav-motion--sheet-slide-up { animation: none; }
+}

@@ -1,4 +1,6 @@
 <script setup>
+import { navigationMotionClass } from '@/config/motionPresets'
+
 defineOptions({ name: 'NavigationRootLink' })
 
 defineProps({
@@ -13,6 +15,7 @@ const emit = defineEmits(['navigate'])
     class="navigation-root-link"
     :class="{
       'navigation-root-link--active': item.key === activeKey,
+      [navigationMotionClass('item')]: true,
     }"
     :to="item.route"
     :aria-current="item.key === activeKey ? 'page' : undefined"
@@ -36,7 +39,6 @@ const emit = defineEmits(['navigate'])
   font-size: 13px;
   font-weight: var(--st-font-weight-semibold);
   color: var(--st-shell-text);
-  transition: background-color var(--st-motion-fast) var(--st-ease-standard);
 }
 .navigation-root-link__icon {
   width: 20px;

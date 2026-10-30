@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useNavigationGroups } from '@/composables/navigation/useNavigationGroups'
 import NavigationDisclosureGroup from './NavigationDisclosureGroup.vue'
 import NavigationRootLink from './NavigationRootLink.vue'
+import { navigationMotionClass } from '@/config/motionPresets'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -79,6 +80,7 @@ onBeforeUnmount(() => {
       <section
         ref="sheet"
         class="navigation-sheet"
+        :class="navigationMotionClass('sheet')"
         role="dialog"
         aria-modal="true"
         aria-label="Все разделы приложения"
@@ -117,14 +119,12 @@ onBeforeUnmount(() => {
 .navigation-sheet-backdrop { position: fixed; inset: 0; z-index: 500; display: flex; align-items: flex-end; justify-content: center; background: var(--st-overlay-backdrop); }
 /* Keep the dialog geometry fixed while groups expand. Scrolling belongs
  * to the navigation list, not the sheet/backdrop or the underlying page. */
-.navigation-sheet { width: min(100%, 520px); height: min(82dvh, 760px); min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); border-radius: 20px 20px 0 0; background: var(--st-shell-bg); color: var(--st-shell-text); box-shadow: 0 -12px 38px rgba(0,0,0,.18); animation: navigation-sheet-enter var(--st-motion-slow) var(--st-ease-standard); }
+.navigation-sheet { width: min(100%, 520px); height: min(82dvh, 760px); min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); border-radius: 20px 20px 0 0; background: var(--st-shell-bg); color: var(--st-shell-text); box-shadow: 0 -12px 38px rgba(0,0,0,.18); }
 .navigation-sheet__heading { flex: 0 0 auto; background: var(--st-shell-bg); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--st-shell-border); }
 .navigation-sheet__heading button { width: 42px; height: 42px; background: transparent; border: 0; border-radius: 8px; color: inherit; cursor: pointer; }
 .navigation-sheet__heading button:hover, .navigation-sheet__heading button:focus-visible { background: var(--st-shell-hover); }
 .navigation-sheet__heading button:focus-visible { outline: 2px solid var(--st-primary); }
 .navigation-sheet__body { flex: 1 1 auto; min-height: 0; padding: 12px 16px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-@keyframes navigation-sheet-enter { from { transform: translateY(20px); opacity: .65; } to { transform: translateY(0); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .navigation-sheet { animation: none; } }
 </style>
 <style>
 html.navigation-sheet-open,

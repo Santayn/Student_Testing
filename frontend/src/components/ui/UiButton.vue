@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import Button from 'primevue/button'
-import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { isMotionPresetFor, motionClassFor, standardMotionFor } from '@/config/motionPresets'
 import { glassClasses, isGlassSurface, isShinePreset, isShineIntensity } from '@/config/glassPresets'
 
 const props = defineProps({
@@ -31,7 +31,7 @@ const props = defineProps({
   shineIntensity: { type: String, default: 'normal', validator: isShineIntensity },
   motion: {
     type: String,
-    default: 'default',
+    default: standardMotionFor('button'),
     validator: (value) => isMotionPresetFor('button', value),
   },
 })

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import Message from 'primevue/message'
-import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { isMotionPresetFor, motionClassFor, standardMotionFor } from '@/config/motionPresets'
 
 const props = defineProps({
   variant: {
@@ -14,7 +14,7 @@ const props = defineProps({
   closable: { type: Boolean, default: false },
   motion: {
     type: String,
-    default: 'default',
+    default: standardMotionFor('alert'),
     validator: (value) => isMotionPresetFor('alert', value),
   },
 })

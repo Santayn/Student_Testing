@@ -51,11 +51,28 @@ folder.
 - PrimeVue owns portal, focus trap, keyboard and overlay mechanics; Tailwind and
   `--st-*` tokens are used for content layout and project styling.
 
-## Motion API (opt-in)
+## Motion API (standard foundation presets + optional overrides)
 
-Motion is configured on individual components. Existing components preserve their
-current appearance and transition behaviour unless a `motion` prop is supplied.
-No application-wide animation setting, Pinia state, or new runtime dependency is required.
+Foundation components now use subtle default interactions from the centralized
+`STANDARD_MOTION_PRESETS` map in `config/motionPresets.js`. No separate Pinia
+store or dependency is required. **Material styling is unchanged**: glass and
+shine continue to require explicit props.
+
+| Component | Automatic preset | Behaviour |
+| --- | --- | --- |
+| `UiButton` | `press` | Small scale feedback on actual press (including RouterLink) |
+| `UiCard` | `focused` | Focus-within shadow; static cards do not jump on hover |
+| `UiAlert` | `fade` | Entry only; use `UiMotion` for exit transitions |
+| `UiDialog` | `scale-fade` | Dialog surface only; PrimeVue retains modal/focus lifecycle |
+| `UiSelect` | `focus` | Focus shadow without moving the overlay anchor |
+| `UiField`, `UiInput`, `UiTextarea` | `focused` | Subtle label color transition while editing |
+
+The supplied `motion` prop always takes precedence. `motion="default"` explicitly
+restores the old appearance/transition behaviour (no Motion API class), while
+`motion="none"` removes decorative Motion API transitions. Neither hides
+focus indication or validation messages. The more complex table, loading, toast
+and disclosure components keep their existing defaults until a later rollout.
+
 
 | Component | Allowed `motion` values |
 | --- | --- |

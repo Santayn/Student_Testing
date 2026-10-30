@@ -63,8 +63,10 @@ describe('Motion API registry', () => {
 })
 
 describe('Ui* motion prop integration', () => {
-  it('preserves existing default behavior and exposes an opt-in button class', async () => {
+  it('applies standard button motion by default while retaining explicit overrides', async () => {
     const wrapper = mountUi(UiButton, { label: 'Сохранить' })
+    expect(wrapper.classes()).toContain('st-motion-button--press')
+    await wrapper.setProps({ motion: 'default' })
     expect(wrapper.classes()).not.toContain('st-motion-button--press')
     await wrapper.setProps({ motion: 'press' })
     expect(wrapper.classes()).toContain('st-motion-button--press')

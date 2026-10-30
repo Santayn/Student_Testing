@@ -14,7 +14,7 @@ import {
   UiSelect,
   useUiToast,
 } from '@/components/ui'
-import { MOTION_PRESETS } from '@/config/motionPresets'
+import { MOTION_PRESETS, STANDARD_MOTION_PRESETS } from '@/config/motionPresets'
 import { SURFACE_PRESETS, SHINE_PRESETS, SHINE_INTENSITIES } from '@/config/glassPresets'
 import { useMotionPreferences } from '@/composables/motion/useMotionPreferences'
 
@@ -55,8 +55,8 @@ function optionsFor(surface) {
   <section class="motion-preview">
     <h1>Motion API — проверка пресетов</h1>
     <p>
-      Настройки действуют только для этого экрана. Ранее созданные интерфейсы
-      не анимируются автоматически.
+      Базовые компоненты получили стандартные эффекты из Motion API.
+      Примеры ниже позволяют сравнить автоматический эффект с отключённым.
     </p>
     <UiAlert
       variant="info"
@@ -107,6 +107,36 @@ function optionsFor(surface) {
           :shine-intensity="shineIntensity"
           motion="press"
         />
+      </div>
+    </UiCard>
+
+    <UiCard
+      title="Стандартные эффекты — этап 14"
+      description="Карта находится в config/motionPresets.js; стекло по умолчанию не включается."
+      compact
+    >
+      <div class="motion-preview__defaults">
+        <div>
+          <strong>Кнопка: {{ STANDARD_MOTION_PRESETS.button }}</strong>
+          <div class="motion-preview__inline">
+            <UiButton label="Стандартная" variant="primary" />
+            <UiButton label="Без Motion API" variant="secondary" motion="none" />
+          </div>
+        </div>
+        <div>
+          <strong>Карточка: {{ STANDARD_MOTION_PRESETS.card }}</strong>
+          <UiCard title="Рабочая карточка">
+            <UiSelect
+              v-model="selectedExample"
+              label="Сфокусируй поле"
+              :options="[{ label: 'Первый', value: 'one' }, { label: 'Второй', value: 'two' }]"
+            />
+          </UiCard>
+        </div>
+        <div>
+          <strong>Уведомление: {{ STANDARD_MOTION_PRESETS.alert }}</strong>
+          <UiAlert message="Встроенный эффект появления" variant="success" />
+        </div>
       </div>
     </UiCard>
 
@@ -264,6 +294,25 @@ function optionsFor(surface) {
   display: grid;
   align-content: start;
   gap: 12px;
+}
+
+.motion-preview__defaults {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.motion-preview__defaults > div {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.motion-preview__inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .motion-preview__sample {

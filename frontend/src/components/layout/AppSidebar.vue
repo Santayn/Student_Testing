@@ -7,6 +7,7 @@ import { useNavigationUiStore } from '@/stores/navigationUi'
 import { useNavigationGroups } from '@/composables/navigation/useNavigationGroups'
 import NavigationDisclosureGroup from './NavigationDisclosureGroup.vue'
 import NavigationRootLink from './NavigationRootLink.vue'
+import { navigationMotionClass } from '@/config/motionPresets'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -36,6 +37,7 @@ function hideSidebar() {
       <span class="app-sidebar__heading">Разделы</span>
       <button
         class="app-sidebar__collapse"
+        :class="navigationMotionClass('item')"
         type="button"
         aria-label="Скрыть боковую панель"
         title="Скрыть боковую панель"

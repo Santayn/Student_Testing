@@ -15,6 +15,7 @@ import { useLayoutStore } from '@/stores/layout'
 import { useNavigationUiStore } from '@/stores/navigationUi'
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
+import { navigationMotionClass, navigationTransitionName } from '@/config/motionPresets'
 
 import {
   provideBreadcrumbContext,
@@ -121,13 +122,13 @@ watch(
         'app-body--compact-navigation': showSidebar && navigationMode === 'compact' && !immersiveNavigation,
       }"
     >
-      <Transition name="app-navigation-surface">
+      <Transition :name="navigationTransitionName('surface')">
         <AppSidebar
           v-if="wideNavigationShown"
           @hide="focusReopenControl"
         />
       </Transition>
-      <Transition name="app-navigation-surface">
+      <Transition :name="navigationTransitionName('surface')">
         <AppNavigationRail
           v-if="mediumNavigationShown"
           @hide="focusReopenControl"
@@ -146,6 +147,7 @@ watch(
           <button
             ref="revealButton"
             class="app-navigation-reveal"
+            :class="navigationMotionClass('item')"
             type="button"
             :aria-label="navigationMode === 'wide' ? 'Показать боковую панель' : 'Показать панель навигации'"
             :title="navigationMode === 'wide' ? 'Показать боковую панель' : 'Показать панель навигации'"
@@ -282,7 +284,6 @@ body {
   border-radius: var(--st-radius-control);
   box-shadow: var(--st-shadow-card);
   cursor: pointer;
-  transition: background-color var(--st-motion-fast) var(--st-ease-standard);
 }
 .app-navigation-reveal:hover { background: var(--st-shell-hover); }
 .app-navigation-reveal:focus-visible {
@@ -290,20 +291,9 @@ body {
   outline-offset: 2px;
 }
 
-.app-navigation-surface-enter-active,
-.app-navigation-surface-leave-active {
-  transition:
-    opacity var(--st-motion-normal) var(--st-ease-standard),
-    transform var(--st-motion-normal) var(--st-ease-standard);
-}
-.app-navigation-surface-enter-from,
-.app-navigation-surface-leave-to {
-  opacity: 0;
-  transform: translateX(-10px);
-}
 /* Override the sticky positioning of the two navigation surfaces only
  * during their leave transition, so main content can fill the freed width. */
-.app-body > .app-navigation-surface-leave-active {
+.app-body > .st-nav-surface-leave-active {
   position: absolute !important;
   pointer-events: none;
   z-index: 20;
@@ -316,11 +306,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .app-route-content {
     animation: none;
-  }
-  .app-navigation-reveal,
-  .app-navigation-surface-enter-active,
-  .app-navigation-surface-leave-active {
-    transition: none;
   }
 }
 

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import Dialog from 'primevue/dialog'
-import { isMotionPresetFor, motionClassFor } from '@/config/motionPresets'
+import { isMotionPresetFor, motionClassFor, standardMotionFor } from '@/config/motionPresets'
 import { glassClasses, isGlassSurface } from '@/config/glassPresets'
 
 const props = defineProps({
@@ -18,7 +18,7 @@ const props = defineProps({
   surface: { type: String, default: 'default', validator: isGlassSurface },
   motion: {
     type: String,
-    default: 'default',
+    default: standardMotionFor('dialog'),
     validator: (value) => isMotionPresetFor('dialog', value),
   },
   breakpoints: {
