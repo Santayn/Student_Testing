@@ -65,6 +65,12 @@
 | `APP_AI_IMAGE_GENERATION_ENABLED` | `true` |
 | `APP_AI_IMAGE_SEARCH_ENABLED` | `true` |
 | `APP_AI_STORAGE_DIR` | `uploads/ai` |
+| `APP_AI_ENGINE_GRADING`, `APP_AI_ENGINE_CRITERIA`, `APP_AI_ENGINE_LECTURE_SCAN` | `api` |
+| `APP_AI_LOCAL_BASE_URL` | пусто (Compose: `http://local-ai:8000`) |
+| `APP_AI_LOCAL_TIMEOUT_SECONDS` | `30` |
+| `APP_AI_LOCAL_LLM_BASE_URL` | пусто |
+| `APP_AI_LOCAL_CRITERIA_MODEL` | `st-criteria` |
+| `APP_AI_LOCAL_LLM_TIMEOUT_SECONDS` | `120` |
 
 ## Frontend build/dev
 

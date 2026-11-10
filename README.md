@@ -138,6 +138,24 @@ APP_AI_PRESENTATION_MAX_SOURCE_CHARS=20000
 | Yandex AI Studio (альтернатива) | `APP_AI_API_KEY` + `APP_AI_FOLDER_ID` | Yandex Cloud |
 | GigaChat (альтернатива) | `APP_AI_API_KEY` (ключ авторизации) | developers.sber.ru |
 
+### Собственные модели (без ключа)
+
+Проверку ответов, подсказку критериев и скан лекции можно выполнять своими моделями на сервере (только процессор, до ~1,5 ГБ памяти). Движок для каждой функции выбирает администратор в «Система → Настройки ИИ».
+
+1. Положите файлы моделей (выдаёт руководитель или обучите сами — [ml/README.md](ml/README.md)) в `local-ai/models/{grader,layout,criteria}`.
+2. `docker compose up -d --build` — сервис `local-ai` поднимается вместе со стеком.
+3. Для подсказки критериев добавьте в `.env` `APP_AI_LOCAL_LLM_BASE_URL=http://ollama:11434`, затем:
+
+```bash
+docker compose --profile local-llm up -d
+```
+
+```bash
+docker exec student-test-ollama ollama create st-criteria -f /models/criteria/Modelfile
+```
+
+Подробно: [ИИ → Собственные модели](docs/technical/details/ai.md#собственные-модели).
+
 Мобильному приложению ключи не нужны — оно ходит в ИИ только через бэкенд. Все переменные: [переменные окружения](docs/deployment/details/environment-variables.md). Сценарии ручной проверки: [тест-кейсы ИИ](docs/testing/details/ai-test-cases.md).
 
 ## Мобильное приложение
