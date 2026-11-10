@@ -45,7 +45,13 @@ public class AiJobService {
     /** Записывает уже выполненный синхронный вызов — для учёта расхода. */
     @Transactional
     public AiJob recordCompleted(String type, Integer ownerPersonId, Long targetId, AiChatClient.AiChatResult usage) {
+        return recordCompleted(type, ownerPersonId, targetId, usage, null);
+    }
+
+    public AiJob recordCompleted(String type, Integer ownerPersonId, Long targetId, AiChatClient.AiChatResult usage,
+                                 String engine) {
         AiJob job = new AiJob();
+        job.setEngine(engine);
         job.setType(type);
         job.setOwnerPersonId(ownerPersonId);
         job.setTargetId(targetId);
@@ -173,6 +179,9 @@ public class AiJobService {
         job.setOutputTokens(job.getOutputTokens() + usage.outputTokens());
         job.setOcrPages(job.getOcrPages() + usage.ocrPages());
         job.setImagesGenerated(job.getImagesGenerated() + usage.images());
+        if (usage.engine() != null) {
+            job.setEngine(usage.engine());
+        }
     }
 
     static String truncate(String value, int max) {
@@ -183,8 +192,13 @@ public class AiJobService {
     }
 
     /** Расход, накопленный с прошлого сохранения. */
-    public record Usage(long inputTokens, long outputTokens, int ocrPages, int images) {
+    /** engine — чем выполнена задача ({@code api}/{@code local}), null — не менять. */
+    public record Usage(long inputTokens, long outputTokens, int ocrPages, int images, String engine) {
         public static final Usage NONE = new Usage(0, 0, 0, 0);
+
+        public Usage(long inputTokens, long outputTokens, int ocrPages, int images) {
+            this(inputTokens, outputTokens, ocrPages, images, null);
+        }
     }
 
     public record AiJobResponse(Long id,

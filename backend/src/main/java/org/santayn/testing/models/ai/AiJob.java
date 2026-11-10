@@ -82,4 +82,8 @@ public class AiJob {
 
     @Column(name = "`FinishedAtUtc`")
     private Instant finishedAtUtc;
+
+    /** Чем выполнена задача: {@link AiEngine#API} (по умолчанию, в том числе для старых записей) или {@link AiEngine#LOCAL}. */
+    @Column(name = "`Engine`", length = 20)
+    private String engine;
 }

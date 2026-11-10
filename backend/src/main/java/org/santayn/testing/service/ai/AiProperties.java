@@ -49,6 +49,8 @@ public class AiProperties {
     private Ocr ocr = new Ocr();
     private Images images = new Images();
     private Presentation presentation = new Presentation();
+    private Local local = new Local();
+    private Engines engines = new Engines();
     private GigaChat gigachat = new GigaChat();
     private Worker worker = new Worker();
     private Storage storage = new Storage();
@@ -104,6 +106,28 @@ public class AiProperties {
         private boolean generationEnabled = true;
         private boolean searchEnabled = true;
         private String size = "1024x1024";
+    }
+
+    /** Сервис собственных моделей (local-ai): проверка ответов, разметка сканов; LLM критериев — через Ollama. */
+    @Getter
+    @Setter
+    public static class Local {
+        /** Адрес сервиса local-ai; пусто — собственные модели не подключены. */
+        private String baseUrl = "";
+        private int timeoutSeconds = 30;
+        /** Ollama с дообученной моделью подсказки критериев (OpenAI-совместимый /v1); пусто — не подключена. */
+        private String llmBaseUrl = "";
+        private String criteriaModel = "st-criteria";
+        private int llmTimeoutSeconds = 120;
+    }
+
+    /** Движок по умолчанию для каждой функции (api | local), пока администратор не выбрал другой. */
+    @Getter
+    @Setter
+    public static class Engines {
+        private String grading = "api";
+        private String criteria = "api";
+        private String lectureScan = "api";
     }
 
     @Getter

@@ -95,16 +95,20 @@ public class AiRestController {
     /** Что из ИИ доступно — клиенты показывают только работающие кнопки. Расход — в отчёте администратора. */
     @GetMapping("/status")
     public AiStatusResponse status() {
-        boolean enabled = properties.textEnabled();
+        boolean api = properties.textEnabled();
+        boolean grading = gradingService.isAiGradingAvailable();
+        boolean criteria = gradingService.isCriteriaSuggestionAvailable();
+        boolean lectureScan = lectureScanService.isAvailable();
         return new AiStatusResponse(
-                enabled,
+                api || grading || criteria || lectureScan,
                 properties.normalizedProvider(),
-                gradingService.isAiGradingAvailable(),
-                lectureScanService.isAvailable(),
+                grading,
+                lectureScan,
                 ocrService.engine(),
-                enabled,
+                api,
                 imageClient.isAvailable(),
-                imageSearchService.isAvailable()
+                imageSearchService.isAvailable(),
+                criteria
         );
     }
 
@@ -239,7 +243,8 @@ public class AiRestController {
                                    String ocrEngine,
                                    boolean presentation,
                                    boolean imageGeneration,
-                                   boolean imageSearch) {
+                                   boolean imageSearch,
+                                   boolean criteria) {
     }
 
     public record CriteriaSuggestionRequest(@NotBlank @Size(max = 2000) String question,

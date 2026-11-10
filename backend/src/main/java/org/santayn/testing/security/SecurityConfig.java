@@ -88,6 +88,10 @@ public class SecurityConfig {
             "ROLE_ADMIN", "ADMIN", "ai.usage.read", "AI.USAGE.READ"
     };
 
+    private static final String[] AI_SETTINGS_AUTHORITIES = {
+            "ROLE_ADMIN", "ADMIN", "ai.settings.manage", "AI.SETTINGS.MANAGE"
+    };
+
     private static final String[] AI_AUTHORITIES = {
             "ROLE_ADMIN", "ADMIN", "ROLE_TEACHER", "TEACHER",
             "courses.manage", "COURSES.MANAGE", "questions.manage", "QUESTIONS.MANAGE"
@@ -149,6 +153,8 @@ public class SecurityConfig {
                                 .hasAnyAuthority(STRICT_ADMIN_AUTHORITIES)
                                 .requestMatchers("/api/v1/admin/ai-usage", "/api/v1/admin/ai-usage/**")
                                 .hasAnyAuthority(AI_USAGE_AUTHORITIES)
+                                .requestMatchers("/api/v1/admin/ai-settings", "/api/v1/admin/ai-settings/**")
+                                .hasAnyAuthority(AI_SETTINGS_AUTHORITIES)
                                 .requestMatchers("/api/v1/roles/**").hasAnyAuthority(ADMIN_AUTHORITIES)
                                 .requestMatchers("/api/v1/tests/attempts/**", "/api/v1/tests/responses/**")
                                 .hasAnyAuthority(ADMIN_AUTHORITIES)

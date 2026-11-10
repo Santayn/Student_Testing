@@ -108,4 +108,18 @@ class AiJsonAndVerdictTests {
         assertThat(LectureTextExportService.isTextExportOf("Индексы: B-дерево", "scan.pdf")).isFalse();
         assertThat(LectureTextExportService.isTextExportOf(null, "Лекция.pdf")).isTrue();
     }
+
+    @Test
+    void criteriaPointsAlwaysSumToQuestionPoints() {
+        assertThat(TextAnswerGradingService.distributePoints(
+                List.of(BigDecimal.ONE, BigDecimal.ONE), new BigDecimal("3")))
+                .extracting(BigDecimal::intValue).containsExactlyInAnyOrder(2, 1);
+        assertThat(TextAnswerGradingService.distributePoints(
+                List.of(new BigDecimal("2"), BigDecimal.ONE, BigDecimal.ONE), new BigDecimal("4")))
+                .extracting(BigDecimal::intValue).containsExactly(2, 1, 1);
+        List<BigDecimal> halves = TextAnswerGradingService.distributePoints(
+                List.of(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE), BigDecimal.ONE);
+        assertThat(halves.stream().reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("1");
+        assertThat(halves).allMatch(value -> value.signum() > 0);
+    }
 }

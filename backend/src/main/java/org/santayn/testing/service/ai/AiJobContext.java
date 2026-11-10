@@ -10,4 +10,8 @@ public interface AiJobContext {
     void addOcrPages(int pages);
 
     void addGeneratedImages(int images);
+
+    /** Задача выполнена движком engine ({@code api}/{@code local}) — для отчёта о расходе. */
+    default void useEngine(String engine) {
+    }
 }
