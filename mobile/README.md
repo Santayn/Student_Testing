@@ -74,6 +74,8 @@ docker compose up -d
 2. Для запуска на iPhone укажите свой Team ID в `iosApp/Configuration/Config.xcconfig` (`TEAM_ID=`).
 3. Нажмите Run. Gradle-фреймворк `Shared` соберётся сам на шаге «Compile Kotlin Framework».
 
+Подробно для тестера (требования, симулятор, адрес сервера, что проверить): [docs/testing/details/ios-build.md](../docs/testing/details/ios-build.md).
+
 Адрес сервера задаётся на экране входа (иконка сервера справа вверху): укажите IP компьютера, где запущен Docker.
 В `Info.plist` для локальной разработки разрешён HTTP (ATS) — для production с HTTPS эти исключения нужно убрать.
 
