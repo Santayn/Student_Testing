@@ -893,6 +893,7 @@ onBeforeUnmount(() => {
               <UiTag
                 v-if="detail.reviewPending"
                 variant="info"
+                icon="pi pi-spin pi-spinner"
                 value="Проверяется"
               />
             </div>

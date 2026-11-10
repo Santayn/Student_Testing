@@ -277,7 +277,6 @@ fun ResultsScreen(role: WorkspaceRole, navigator: AppNavigator) {
                             enabled = f.testId != null, placeholder = "Все группы")
                         SelectField("Студент", f.students, f.studentId, vm::selectStudent, allowClear = true,
                             enabled = f.groupId != null, placeholder = "Все студенты")
-                        Spacer(Modifier.size(4.dp))
                         BusyButton(
                             "Показать результаты",
                             onClick = vm::loadResults,
@@ -359,11 +358,11 @@ private fun SummaryCard(data: ResultDataDto, teacherMode: Boolean, testSelected:
 @Composable
 private fun ReviewDetails(item: ResultItemDto, teacherMode: Boolean) {
     val status = item.reviewStatus
-    val showStatus = if (teacherMode) status != null && status != "none" else item.reviewPending
-    if (showStatus) {
+    if (teacherMode && status != null && status != "none") {
         StatusChip(
-            if (teacherMode) ReviewStatus.title(status) else "Ответ ещё проверяется",
+            ReviewStatus.title(status),
             if (status == ReviewStatus.NEEDS_TEACHER) Tone.WARNING else Tone.INFO,
+            busy = status == ReviewStatus.AI_PENDING,
         )
     }
     item.teacherComment?.takeIf { it.isNotBlank() }?.let { Banner(it, Tone.PRIMARY, title = "Комментарий преподавателя") }
@@ -395,6 +394,8 @@ private fun AttemptCard(attempt: ResultAttemptDto, showStudent: Boolean) {
             StatusChip(
                 "${formatNumber(summary.score)} / ${formatNumber(summary.maxScore)} (${formatNumber(summary.percent)}%)",
                 when {
+                    // Пока часть ответов проверяется, итог не окончательный — без «красной» оценки.
+                    summary.pending > 0 -> Tone.NEUTRAL
                     summary.percent >= 80 -> Tone.SUCCESS
                     summary.percent >= 50 -> Tone.WARNING
                     else -> Tone.DANGER
@@ -403,6 +404,7 @@ private fun AttemptCard(attempt: ResultAttemptDto, showStudent: Boolean) {
             if (summary.correct > 0) StatusChip("Верно: ${summary.correct}", Tone.SUCCESS)
             if (summary.partial > 0) StatusChip("Частично: ${summary.partial}", Tone.WARNING)
             if (summary.incorrect > 0) StatusChip("Неверно: ${summary.incorrect}", Tone.DANGER)
+            if (summary.pending > 0) StatusChip("На проверке: ${summary.pending}", Tone.INFO)
         }
         AnimatedVisibility(expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -412,14 +414,19 @@ private fun AttemptCard(attempt: ResultAttemptDto, showStudent: Boolean) {
                     val score = item.score()
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Вопрос ${index + 1}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                        StatusChip(
-                            "${status.label} · ${formatNumber(score.awarded)}/${formatNumber(score.maximum)}",
-                            when (status) {
-                                GradingStatus.CORRECT -> Tone.SUCCESS
-                                GradingStatus.PARTIAL -> Tone.WARNING
-                                GradingStatus.INCORRECT -> Tone.DANGER
-                            },
-                        )
+                        if (status == GradingStatus.PENDING) {
+                            val byAi = item.reviewStatus == ReviewStatus.AI_PENDING
+                            StatusChip(if (byAi) "Проверяет ИИ" else "У преподавателя", Tone.INFO, busy = byAi)
+                        } else {
+                            StatusChip(
+                                "${status.label} · ${formatNumber(score.awarded)}/${formatNumber(score.maximum)}",
+                                when (status) {
+                                    GradingStatus.CORRECT -> Tone.SUCCESS
+                                    GradingStatus.PARTIAL -> Tone.WARNING
+                                    else -> Tone.DANGER
+                                },
+                            )
+                        }
                     }
                     Text(item.questionText.orEmpty(), style = MaterialTheme.typography.bodyLarge)
                     AnswerView(item.givenAnswer, item.correctAnswer)

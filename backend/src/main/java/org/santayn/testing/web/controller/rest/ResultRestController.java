@@ -372,20 +372,23 @@ public class ResultRestController {
                         assignment.getTestId(),
                         id -> testRepository.findById(id).map(Test::isShowAiFeedback).orElse(false)
                 );
+                // Пока ответ проверяют, студент не видит предварительных баллов и комментария ИИ:
+                // они могут измениться и только сбивают с толку.
+                boolean hiddenFromStudent = !teacherMode && isReviewPending(response);
                 results.add(new ResultItemResponse(
                         response.getId(),
                         question.getType(),
                         question.getQuestion(),
                         givenAnswerDisplay(response, question),
                         teacherMode ? correctAnswerDisplay(question) : null,
-                        Boolean.TRUE.equals(response.getCorrect()),
+                        !hiddenFromStudent && Boolean.TRUE.equals(response.getCorrect()),
                         question.getPoints(),
-                        response.getAwardedPoints(),
-                        gradingStatus(response, question),
+                        hiddenFromStudent ? null : response.getAwardedPoints(),
+                        hiddenFromStudent ? "pending" : gradingStatus(response, question),
                         gradingNote(response, question, teacherMode),
                         ResponseReview.name(response.reviewStatusOrNone()),
                         ResponseReview.gradedByName(response.getGradedBy()),
-                        showAiFeedback ? response.getAiFeedback() : null,
+                        showAiFeedback && !hiddenFromStudent ? response.getAiFeedback() : null,
                         response.getTeacherComment(),
                         teacherMode ? response.getAiConfidence() : null
                 ));
@@ -472,6 +475,11 @@ public class ResultRestController {
         return new ResultStatsResponse(total, right, percent);
     }
 
+    private static boolean isReviewPending(QuestionResponse response) {
+        int status = response.reviewStatusOrNone();
+        return status == ResponseReview.AI_PENDING || status == ResponseReview.NEEDS_TEACHER;
+    }
+
     private String gradingStatus(QuestionResponse response, Question question) {
         if (Boolean.TRUE.equals(response.getCorrect())) {
             return "correct";
@@ -488,10 +496,8 @@ public class ResultRestController {
             return teacherMode && requiresTextAnswerTeacherReview(response, question) ? TEXT_ANSWER_REVIEW_NOTE : null;
         }
         return switch (response.getReviewStatus()) {
-            case ResponseReview.AI_PENDING -> "Ответ проверяется ИИ — баллы пока предварительные.";
-            case ResponseReview.NEEDS_TEACHER -> teacherMode
-                    ? "Нужна проверка преподавателя."
-                    : "Ответ проверит преподаватель — баллы могут измениться.";
+            case ResponseReview.AI_PENDING -> teacherMode ? "Ответ проверяется ИИ — баллы пока предварительные." : null;
+            case ResponseReview.NEEDS_TEACHER -> teacherMode ? "Нужна проверка преподавателя." : null;
             case ResponseReview.AI_GRADED -> teacherMode ? "Оценено ИИ." : null;
             default -> null;
         };

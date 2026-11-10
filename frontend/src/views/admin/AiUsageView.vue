@@ -40,6 +40,7 @@ const usageFields = [
 ]
 
 const sections = computed(() => [
+  { key: 'engine', title: 'По движкам', nameLabel: 'Движок', rows: report.value?.byEngine ?? [], rowKey: (row) => row.engine, name: (row) => row.title, empty: 'За период ИИ не использовался.' },
   { key: 'type', title: 'По задачам', nameLabel: 'Задача', rows: report.value?.byType ?? [], rowKey: (row) => row.type, name: (row) => row.title, empty: 'За период ИИ не использовался.' },
   { key: 'user', title: 'По преподавателям', nameLabel: 'Преподаватель', rows: report.value?.byUser ?? [], rowKey: (row) => `u${row.personId}`, name: (row) => row.name, empty: 'Нет данных.' },
   { key: 'group', title: 'По группам', nameLabel: 'Группа', rows: report.value?.byGroup ?? [], rowKey: (row) => `g${row.groupId}`, name: (row) => row.name, empty: 'Нет проверенных ответов.' },

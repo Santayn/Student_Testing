@@ -173,4 +173,19 @@ export const adminRoutes = [
       'admin-ai-usage'
     ),
   },
+
+  {
+    path: '/admin/ai-settings',
+    name: 'admin-ai-settings',
+
+    component: () =>
+      import(
+        '@/views/admin/AiSettingsView.vue'
+      ),
+
+    meta: navigationMeta(
+      NAV_KEYS.ADMIN_AI_SETTINGS,
+      'admin-ai-settings'
+    ),
+  },
 ]

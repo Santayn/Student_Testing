@@ -6,6 +6,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.santayn.testing.models.ai.AiEngine;
+import org.santayn.testing.models.ai.AiFeature;
 import org.santayn.testing.models.ai.AiJob;
 import org.santayn.testing.models.ai.AiJobType;
 import org.santayn.testing.models.lecture.Lecture;
@@ -30,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +75,8 @@ public class LectureScanService implements AiJobHandler {
     private final AiFileStorage fileStorage;
     private final LectureRepository lectureRepository;
     private final LectureMaterialService lectureMaterialService;
+    private final AiEngineService engineService;
+    private final LocalAiClient localAiClient;
 
     public LectureScanService(AiProperties properties,
                               AiProviderEndpoints endpoints,
@@ -81,7 +86,9 @@ public class LectureScanService implements AiJobHandler {
                               AiJobService jobService,
                               AiFileStorage fileStorage,
                               LectureRepository lectureRepository,
-                              LectureMaterialService lectureMaterialService) {
+                              LectureMaterialService lectureMaterialService,
+                              AiEngineService engineService,
+                              LocalAiClient localAiClient) {
         this.properties = properties;
         this.endpoints = endpoints;
         this.ocrService = ocrService;
@@ -91,9 +98,15 @@ public class LectureScanService implements AiJobHandler {
         this.fileStorage = fileStorage;
         this.lectureRepository = lectureRepository;
         this.lectureMaterialService = lectureMaterialService;
+        this.engineService = engineService;
+        this.localAiClient = localAiClient;
     }
 
     public boolean isAvailable() {
+        if (engineService.isLocal(AiFeature.LECTURE_SCAN)) {
+            // Своя модель распознаёт и размечает страницы сама (Tesseract внутри local-ai).
+            return engineService.isLocalConfigured(AiFeature.LECTURE_SCAN);
+        }
         return properties.textEnabled() && ocrService.isAvailable();
     }
 
@@ -105,8 +118,14 @@ public class LectureScanService implements AiJobHandler {
      */
     @Transactional
     public AiJob enqueue(Integer ownerPersonId, Integer lectureId, List<MultipartFile> files, boolean attachOriginals) {
-        endpoints.requireConfigured();
-        usageService.requireTokenBudget();
+        if (engineService.isLocal(AiFeature.LECTURE_SCAN)) {
+            if (!engineService.isLocalConfigured(AiFeature.LECTURE_SCAN)) {
+                throw new AiUnavailableException("Собственная модель разметки сканов не подключена.", false);
+            }
+        } else {
+            endpoints.requireConfigured();
+            usageService.requireTokenBudget();
+        }
         List<MultipartFile> uploads = files == null
                 ? List.of()
                 : files.stream().filter(file -> file != null && !file.isEmpty()).toList();
@@ -166,6 +185,9 @@ public class LectureScanService implements AiJobHandler {
     @Override
     public Object handle(AiJob job, AiJobContext context) throws Exception {
         JsonNode input = jobService.readInput(job);
+        if (engineService.isLocal(AiFeature.LECTURE_SCAN)) {
+            return handleLocally(input, context);
+        }
         List<String> pageTexts = recognizePages(input.path("files"), context);
         String recognized = String.join("\n\n", pageTexts).trim();
         if (recognized.isEmpty()) {
@@ -199,6 +221,59 @@ public class LectureScanService implements AiJobHandler {
         resultJson.put("pages", pageTexts.size());
         resultJson.put("ocrEngine", ocrService.engine());
         return resultJson;
+    }
+
+    /** Своя модель: все страницы картинками в local-ai, обратно — готовый Markdown. Токены не расходуются. */
+    private Object handleLocally(JsonNode input, AiJobContext context) throws IOException {
+        context.useEngine(AiEngine.LOCAL);
+        context.progress("Готовлю страницы");
+        List<String> pages = new ArrayList<>();
+        for (JsonNode file : input.path("files")) {
+            Path path = fileStorage.resolve(file.path("path").asText());
+            if ("pdf".equals(file.path("kind").asText())) {
+                for (byte[] jpeg : pdfPageImages(path)) {
+                    pages.add(Base64.getEncoder().encodeToString(jpeg));
+                }
+            } else {
+                pages.add(Base64.getEncoder().encodeToString(normalizeImage(path)));
+            }
+        }
+        context.progress("Распознаю и размечаю страницы: " + pages.size());
+        JsonNode result = localAiClient.post("/v1/scan", Map.of("pages", pages), localScanTimeout(pages.size()));
+        context.addOcrPages(pages.size());
+        String markdown = result.path("markdown").asText("").trim();
+        if (markdown.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "На сканах не найден текст. Проверьте, что страницы сняты чётко и целиком."
+            );
+        }
+        fileStorage.deleteRecursively(fileStorage.resolve(input.path("batch").asText()));
+        Map<String, Object> resultJson = new LinkedHashMap<>();
+        resultJson.put("markdown", markdown);
+        resultJson.put("pages", pages.size());
+        resultJson.put("ocrEngine", "tesseract");
+        resultJson.put("engine", result.path("engine").asText(AiEngine.LOCAL));
+        return resultJson;
+    }
+
+    /** Распознавание на процессоре — несколько секунд на страницу. */
+    static java.time.Duration localScanTimeout(int pages) {
+        return java.time.Duration.ofSeconds(60L + 20L * pages);
+    }
+
+    private List<byte[]> pdfPageImages(Path path) throws IOException {
+        List<byte[]> pages = new ArrayList<>();
+        try (PDDocument document = Loader.loadPDF(path.toFile())) {
+            int pageCount = document.getNumberOfPages();
+            if (pageCount > MAX_PDF_PAGES) {
+                throw new IllegalArgumentException("В PDF больше " + MAX_PDF_PAGES + " страниц — разделите его на части.");
+            }
+            PDFRenderer renderer = new PDFRenderer(document);
+            for (int page = 0; page < pageCount; page++) {
+                pages.add(toJpeg(renderer.renderImageWithDPI(page, 200, ImageType.RGB)));
+            }
+        }
+        return pages;
     }
 
     @Override

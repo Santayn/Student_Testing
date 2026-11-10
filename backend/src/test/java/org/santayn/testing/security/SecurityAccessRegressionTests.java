@@ -70,6 +70,24 @@ class SecurityAccessRegressionTests {
     }
 
     @Test
+    void aiEngineSettingsAreAvailableOnlyToAdmins() throws Exception {
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-settings").with(user("teacher").roles("TEACHER")))
+                .andExpect(status().isForbidden());
+        assertStudentForbidden(HttpMethod.GET, "/api/v1/admin/ai-settings");
+        mockMvc.perform(request(HttpMethod.PUT, "/api/v1/admin/ai-settings/grading")
+                        .with(user("teacher").roles("TEACHER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"engine\":\"api\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-settings").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].feature").value("grading"));
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-settings")
+                        .with(user("operator").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ai.settings.manage"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void aiUsageIsVisibleOnlyToAdminsAndAuditors() throws Exception {
         mockMvc.perform(request(HttpMethod.GET, "/api/v1/admin/ai-usage").with(user("teacher").roles("TEACHER")))
                 .andExpect(status().isForbidden());

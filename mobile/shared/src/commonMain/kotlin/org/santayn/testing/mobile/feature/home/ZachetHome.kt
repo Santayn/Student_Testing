@@ -204,13 +204,11 @@ private fun LastAttemptCard(last: LastAttempt?, navigator: AppNavigator) {
                 "Начни с первого предмета",
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 19.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold),
             )
-            Spacer(Modifier.height(4.dp))
             Text(
                 "Открой предмет, посмотри лекцию и пройди тест",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(14.dp))
             BusyButton("Мои предметы", onClick = { navigator.openTab(SubjectsRoute) }, accent = true, modifier = Modifier.fillMaxWidth())
         }
         return

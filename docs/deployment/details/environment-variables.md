@@ -84,6 +84,24 @@
 | `APP_AI_IMAGE_SEARCH_ENABLED` | `true` | поиск в Wikimedia Commons и Openverse |
 | `APP_AI_PRESENTATION_MAX_SOURCE_CHARS` | `60000` | сколько символов текста лекции и материалов уходит модели для плана презентации; для бесплатного Groq — `20000` |
 
+### Собственные модели
+
+| Переменная | Default | Назначение |
+|---|---|---|
+| `APP_AI_ENGINE_GRADING` | `api` | движок проверки ответов, пока он не выбран в «Настройках ИИ»: `api` или `local` |
+| `APP_AI_ENGINE_CRITERIA` | `api` | то же для подсказки критериев |
+| `APP_AI_ENGINE_LECTURE_SCAN` | `api` | то же для скана лекции |
+| `APP_AI_LOCAL_BASE_URL` | `http://local-ai:8000` в Compose | адрес сервиса `local-ai`; пусто — своих моделей нет |
+| `APP_AI_LOCAL_TIMEOUT_SECONDS` | `30` | timeout проверки ответа |
+| `APP_AI_LOCAL_LLM_BASE_URL` | пусто | адрес Ollama с моделью критериев, в Compose `http://ollama:11434` |
+| `APP_AI_LOCAL_CRITERIA_MODEL` | `st-criteria` | имя модели критериев в Ollama |
+| `APP_AI_LOCAL_LLM_TIMEOUT_SECONDS` | `120` | timeout подсказки критериев |
+| `LOCAL_AI_MODELS_DIR` | `./local-ai/models` | каталог с файлами моделей (монтируется в `local-ai` и `ollama`) |
+| `LOCAL_AI_THREADS` | `2` | потоки процессора на запрос |
+| `LOCAL_AI_MEMORY_LIMIT` | `1g` | лимит памяти `local-ai` |
+| `OLLAMA_MEMORY_LIMIT` | `2g` | лимит памяти `ollama` |
+| `OLLAMA_KEEP_ALIVE` | `10m` | сколько модель критериев держится в памяти после запроса |
+
 Рекомендуемая настройка (Groq) и какие ключи где нужны — в [README → ИИ: ключи API](../../../README.md#ии-ключи-api). Ключ хранится только в локальном `.env`.
 
 Compose хранит файлы задач ИИ в volume `ai-files` (`APP_AI_STORAGE_DIR=/app/uploads/ai`). Подробно: [ИИ](../../technical/details/ai.md).

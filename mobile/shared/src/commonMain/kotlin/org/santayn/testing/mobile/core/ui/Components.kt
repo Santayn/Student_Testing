@@ -439,13 +439,16 @@ fun AppCard(
             shape = tokens.cardShape,
             colors = colors,
             border = border,
-        ) { Column(Modifier.padding(16.dp), content = content) }
+        ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(CARD_GAP), content = content) }
     } else {
         Card(modifier = cardModifier, shape = tokens.cardShape, colors = colors, border = border) {
-            Column(Modifier.padding(16.dp), content = content)
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(CARD_GAP), content = content)
         }
     }
 }
+
+/** Промежуток между элементами карточки: кнопки, чипы и вложенные блоки не слипаются. */
+private val CARD_GAP = 10.dp
 
 /** Карточка-ссылка: иконка, заголовок, описание, стрелка. */
 @Composable
@@ -536,7 +539,7 @@ fun InfoRow(label: String, value: String?, modifier: Modifier = Modifier) {
 enum class Tone { NEUTRAL, PRIMARY, SUCCESS, WARNING, DANGER, INFO }
 
 @Composable
-fun StatusChip(text: String, tone: Tone = Tone.NEUTRAL, modifier: Modifier = Modifier) {
+fun StatusChip(text: String, tone: Tone = Tone.NEUTRAL, modifier: Modifier = Modifier, busy: Boolean = false) {
     val s = AppTheme.status
     val (bg, fg) = when (tone) {
         Tone.NEUTRAL -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
@@ -547,12 +550,15 @@ fun StatusChip(text: String, tone: Tone = Tone.NEUTRAL, modifier: Modifier = Mod
         Tone.INFO -> s.infoSoft to s.infoText
     }
     Surface(color = bg, contentColor = fg, shape = Design.tokens.chipShape, modifier = modifier) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            maxLines = 1,
-        )
+        ) {
+            // Идёт работа (например, ИИ проверяет ответ) — крутящийся индикатор перед текстом.
+            if (busy) CircularProgressIndicator(Modifier.size(12.dp), color = fg, strokeWidth = 2.dp)
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
     }
 }
 

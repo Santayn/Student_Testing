@@ -37,7 +37,7 @@ val viewModelModule = module {
     viewModel { (subjectId: Int, role: WorkspaceRole) -> SubjectDetailsViewModel(subjectId, role, get(), get()) }
     viewModel { (subjectId: Int) -> SubjectLecturesViewModel(subjectId, get()) }
     viewModel { (lectureId: Int) -> LectureViewModel(lectureId, get(), get()) }
-    viewModel { (testId: Int, assignmentId: Int) -> TestViewModel(testId, assignmentId, get(), get(), get()) }
+    viewModel { (testId: Int, assignmentId: Int) -> TestViewModel(testId, assignmentId, get(), get(), get(), get()) }
     viewModel { (role: WorkspaceRole) -> ResultsViewModel(role, get(), get(), get()) }
 
     // Преподаватель

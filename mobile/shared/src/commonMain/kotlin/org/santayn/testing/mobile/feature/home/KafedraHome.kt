@@ -209,12 +209,10 @@ private fun LastAttemptCard(last: LastAttempt?, navigator: AppNavigator) {
     if (last == null) {
         AppCard(modifier = modifier) {
             Text("С ЧЕГО НАЧАТЬ", style = KafedraType.overline.copy(fontSize = 12.sp), color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
             Text(
                 "Откройте предмет и пройдите первый тест",
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 24.sp),
             )
-            Spacer(Modifier.height(14.dp))
             BusyButton("Мои предметы", onClick = { navigator.openTab(SubjectsRoute) }, modifier = Modifier.fillMaxWidth())
         }
         return
@@ -226,14 +224,12 @@ private fun LastAttemptCard(last: LastAttempt?, navigator: AppNavigator) {
             style = KafedraType.overline.copy(fontSize = 12.sp),
             color = MaterialTheme.colorScheme.primary,
         )
-        Spacer(Modifier.height(8.dp))
         Text(
             last.testName,
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 24.sp),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.height(6.dp))
         // Строка с процентом и полоса — одно сообщение для TalkBack.
         Column(Modifier.clearAndSetSemantics { contentDescription = "${formatNumber(last.percent)} процентов верно" }) {
             Text(

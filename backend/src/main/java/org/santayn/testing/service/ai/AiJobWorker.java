@@ -168,6 +168,7 @@ public class AiJobWorker {
         private long outputTokens;
         private int ocrPages;
         private int images;
+        private String engine;
 
         private Context(Long jobId) {
             this.jobId = jobId;
@@ -196,8 +197,13 @@ public class AiJobWorker {
             images += count;
         }
 
+        @Override
+        public synchronized void useEngine(String value) {
+            engine = value;
+        }
+
         synchronized AiJobService.Usage drain() {
-            AiJobService.Usage usage = new AiJobService.Usage(inputTokens, outputTokens, ocrPages, images);
+            AiJobService.Usage usage = new AiJobService.Usage(inputTokens, outputTokens, ocrPages, images, engine);
             inputTokens = 0;
             outputTokens = 0;
             ocrPages = 0;

@@ -792,6 +792,8 @@ data class AiStatusDto(
     val presentation: Boolean = false,
     val imageGeneration: Boolean = false,
     val imageSearch: Boolean = false,
+    /** Подсказка критериев (может работать на своей модели без внешнего API); null — старый сервер. */
+    val criteria: Boolean? = null,
 )
 
 @Serializable

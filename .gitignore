@@ -55,3 +55,7 @@ frontend/dist/
 frontend/.env*
 backend/.env*
 !.env.example
+
+### Собственные модели ИИ (файлы моделей не храним в git) ###
+/local-ai/models/*
+!/local-ai/models/README.md

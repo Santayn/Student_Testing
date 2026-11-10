@@ -1,5 +1,6 @@
 package org.santayn.testing.service.ai;
 
+import org.santayn.testing.models.ai.AiEngine;
 import org.santayn.testing.models.ai.AiJob;
 import org.santayn.testing.models.ai.AiJobStatus;
 import org.santayn.testing.models.ai.AiJobType;
@@ -92,6 +93,7 @@ public class AiUsageReportService {
         List<AiJob> jobs = jobRepository.findByCreatedAtUtcGreaterThanEqualAndCreatedAtUtcLessThan(since, until);
 
         Map<String, Row> byType = new LinkedHashMap<>();
+        Map<String, Row> byEngine = new LinkedHashMap<>();
         Map<Integer, Row> byUser = new HashMap<>();
         Map<Integer, Row> byGroup = new HashMap<>();
         Row total = new Row();
@@ -100,6 +102,8 @@ public class AiUsageReportService {
         for (AiJob job : jobs) {
             total.add(job);
             byType.computeIfAbsent(job.getType(), key -> new Row()).add(job);
+            String engine = AiEngine.LOCAL.equals(job.getEngine()) ? AiEngine.LOCAL : AiEngine.API;
+            byEngine.computeIfAbsent(engine, key -> new Row()).add(job);
             if (AiJobType.TEXT_GRADING.equals(job.getType())) {
                 GradingOwner owner = attribution.grading(job.getTargetId());
                 byUser.computeIfAbsent(owner.teacherPersonId(), key -> new Row()).add(job);
@@ -124,6 +128,10 @@ public class AiUsageReportService {
                 .sorted(Comparator.comparingLong((GroupUsage usage) -> usage.usage().tokens()).reversed())
                 .toList();
 
+        List<EngineUsage> engines = byEngine.entrySet().stream()
+                .map(entry -> new EngineUsage(entry.getKey(), AiEngine.title(entry.getKey()), entry.getValue().usage()))
+                .toList();
+
         Instant monthStart = AiUsageService.startOfMonth();
         return new Report(
                 start,
@@ -134,7 +142,8 @@ public class AiUsageReportService {
                 jobRepository.sumTokensSince(monthStart),
                 types,
                 users,
-                groups
+                groups,
+                engines
         );
     }
 
@@ -233,6 +242,10 @@ public class AiUsageReportService {
     public record GroupUsage(Integer groupId, String name, Usage usage) {
     }
 
+    /** api — внешний API (токены), local — собственные модели (без токенов). */
+    public record EngineUsage(String engine, String title, Usage usage) {
+    }
+
     public record Report(LocalDate from,
                          LocalDate to,
                          String provider,
@@ -241,7 +254,8 @@ public class AiUsageReportService {
                          long monthTokens,
                          List<TypeUsage> byType,
                          List<UserUsage> byUser,
-                         List<GroupUsage> byGroup) {
+                         List<GroupUsage> byGroup,
+                         List<EngineUsage> byEngine) {
     }
 
 }

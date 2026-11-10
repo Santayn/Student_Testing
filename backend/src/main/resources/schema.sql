@@ -360,3 +360,12 @@ ALTER TABLE "QuestionResponses"
 CREATE INDEX IF NOT EXISTS "IX_QuestionResponses_ReviewStatus"
     ON "QuestionResponses" ("ReviewStatus")
     WHERE "ReviewStatus" IN (1, 2, 3);
+ALTER TABLE "AiJobs"
+    ADD COLUMN IF NOT EXISTS "Engine" varchar(20);
+
+CREATE TABLE IF NOT EXISTS "AiEngineSettings" (
+    "Feature" varchar(40) PRIMARY KEY,
+    "Engine" varchar(20) NOT NULL,
+    "UpdatedAtUtc" timestamptz NOT NULL DEFAULT now(),
+    "UpdatedByPersonId" integer REFERENCES "People" ("Id") ON DELETE SET NULL
+    );

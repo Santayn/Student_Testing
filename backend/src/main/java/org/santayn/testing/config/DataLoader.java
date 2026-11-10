@@ -106,6 +106,7 @@ public class DataLoader implements CommandLineRunner {
         createPermissionIfNotExists("tests.take", "Take assigned tests");
         createPermissionIfNotExists("lectures.read", "Read assigned lectures");
         createPermissionIfNotExists("ai.usage.read", "View AI usage reports");
+        createPermissionIfNotExists("ai.settings.manage", "Choose AI engines (external API or own models)");
 
         createTeachingLoadTypeIfNotExists("Lecture", "Lecture classes");
         createTeachingLoadTypeIfNotExists("Practice", "Practice classes");
@@ -124,7 +125,8 @@ public class DataLoader implements CommandLineRunner {
                 "questions.manage",
                 "tests.take",
                 "lectures.read",
-                "ai.usage.read"
+                "ai.usage.read",
+                "ai.settings.manage"
         );
         assignPermissions("TEACHER",
                 "people.read",

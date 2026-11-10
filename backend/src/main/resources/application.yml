@@ -64,6 +64,16 @@ app:
       search-enabled: ${APP_AI_IMAGE_SEARCH_ENABLED:true}
     presentation:
       max-source-chars: ${APP_AI_PRESENTATION_MAX_SOURCE_CHARS:60000}
+    local:
+      base-url: ${APP_AI_LOCAL_BASE_URL:}
+      timeout-seconds: ${APP_AI_LOCAL_TIMEOUT_SECONDS:30}
+      llm-base-url: ${APP_AI_LOCAL_LLM_BASE_URL:}
+      criteria-model: ${APP_AI_LOCAL_CRITERIA_MODEL:st-criteria}
+      llm-timeout-seconds: ${APP_AI_LOCAL_LLM_TIMEOUT_SECONDS:120}
+    engines:
+      grading: ${APP_AI_ENGINE_GRADING:api}
+      criteria: ${APP_AI_ENGINE_CRITERIA:api}
+      lecture-scan: ${APP_AI_ENGINE_LECTURE_SCAN:api}
     storage:
       dir: ${APP_AI_STORAGE_DIR:uploads/ai}
 springdoc:

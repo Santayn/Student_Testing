@@ -60,6 +60,13 @@ services:
       APP_AI_IMAGE_GENERATION_ENABLED: ${APP_AI_IMAGE_GENERATION_ENABLED:-true}
       APP_AI_IMAGE_SEARCH_ENABLED: ${APP_AI_IMAGE_SEARCH_ENABLED:-true}
       APP_AI_PRESENTATION_MAX_SOURCE_CHARS: ${APP_AI_PRESENTATION_MAX_SOURCE_CHARS:-60000}
+      # Собственные модели: сервис local-ai (проверка ответов, разметка сканов) и Ollama (подсказка критериев).
+      APP_AI_LOCAL_BASE_URL: ${APP_AI_LOCAL_BASE_URL:-http://local-ai:8000}
+      APP_AI_LOCAL_LLM_BASE_URL: ${APP_AI_LOCAL_LLM_BASE_URL:-}
+      APP_AI_LOCAL_CRITERIA_MODEL: ${APP_AI_LOCAL_CRITERIA_MODEL:-st-criteria}
+      APP_AI_ENGINE_GRADING: ${APP_AI_ENGINE_GRADING:-api}
+      APP_AI_ENGINE_CRITERIA: ${APP_AI_ENGINE_CRITERIA:-api}
+      APP_AI_ENGINE_LECTURE_SCAN: ${APP_AI_ENGINE_LECTURE_SCAN:-api}
       APP_AI_STORAGE_DIR: /app/uploads/ai
       SERVER_PORT: 8080
       APP_STORAGE_LECTURE_MATERIALS_DIR: /app/uploads/lecture-materials
@@ -71,6 +78,36 @@ services:
     volumes:
       - lecture-uploads:/app/uploads/lecture-materials
       - ai-files:/app/uploads/ai
+    restart: unless-stopped
+
+  # Собственные модели ИИ на процессоре. Без файлов моделей сервис работает, но функции «своё» недоступны.
+  local-ai:
+    build:
+      context: ./local-ai
+      dockerfile: Dockerfile
+    image: student-test-local-ai:latest
+    container_name: student-test-local-ai
+    environment:
+      LOCAL_AI_THREADS: ${LOCAL_AI_THREADS:-2}
+    volumes:
+      - ${LOCAL_AI_MODELS_DIR:-./local-ai/models}:/models:ro
+    mem_limit: ${LOCAL_AI_MEMORY_LIMIT:-1g}
+    restart: unless-stopped
+
+  # Дообученная LLM подсказки критериев. Запуск: docker compose --profile local-llm up -d
+  # и APP_AI_LOCAL_LLM_BASE_URL=http://ollama:11434 в .env.
+  ollama:
+    image: ollama/ollama:0.12.0
+    container_name: student-test-ollama
+    profiles: ["local-llm"]
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-10m}
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama-data:/root/.ollama
+      - ${LOCAL_AI_MODELS_DIR:-./local-ai/models}:/models:ro
+    mem_limit: ${OLLAMA_MEMORY_LIMIT:-2g}
     restart: unless-stopped
 
   frontend:
@@ -101,3 +138,4 @@ volumes:
   postgres-data:
   lecture-uploads:
   ai-files:
+  ollama-data:
