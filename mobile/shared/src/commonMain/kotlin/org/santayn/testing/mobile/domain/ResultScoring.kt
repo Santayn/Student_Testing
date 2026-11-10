@@ -14,6 +14,9 @@ enum class GradingStatus(val label: String) {
     CORRECT("Верно"),
     PARTIAL("Частично верно"),
     INCORRECT("Неверно"),
+
+    /** Ответ ещё проверяют ИИ или преподаватель: баллов пока нет. */
+    PENDING("На проверке"),
 }
 
 private fun Double?.nonNegative(): Double? = this?.let { max(0.0, it) }
@@ -21,6 +24,7 @@ private fun round2(value: Double) = round(value * 100) / 100
 
 fun ResultItemDto.gradingStatusNormalized(): GradingStatus {
     when (gradingStatus?.trim()?.lowercase()) {
+        "pending" -> return GradingStatus.PENDING
         "correct" -> return GradingStatus.CORRECT
         "partial" -> return GradingStatus.PARTIAL
         "incorrect" -> return GradingStatus.INCORRECT
@@ -40,8 +44,12 @@ fun ResultItemDto.score(): ItemScore {
     val explicitMax = questionPoints.nonNegative()
     val maximum = if (explicitMax != null && explicitMax > 0) explicitMax else 1.0
     val explicitAwarded = awardedPoints.nonNegative()
-    val awarded = explicitAwarded?.let { min(it, maximum) }
-        ?: if (gradingStatusNormalized() == GradingStatus.CORRECT) maximum else 0.0
+    val awarded = when {
+        gradingStatusNormalized() == GradingStatus.PENDING -> 0.0
+        explicitAwarded != null -> min(explicitAwarded, maximum)
+        gradingStatusNormalized() == GradingStatus.CORRECT -> maximum
+        else -> 0.0
+    }
     return ItemScore(round2(awarded), round2(maximum), explicitMax != null || explicitAwarded != null)
 }
 
@@ -52,6 +60,7 @@ data class AttemptScore(
     val correct: Int,
     val partial: Int,
     val incorrect: Int,
+    val pending: Int = 0,
 )
 
 fun ResultAttemptDto.scoreSummary(): AttemptScore {
@@ -77,6 +86,7 @@ fun ResultAttemptDto.scoreSummary(): AttemptScore {
         correct = counts[GradingStatus.CORRECT] ?: 0,
         partial = counts[GradingStatus.PARTIAL] ?: 0,
         incorrect = counts[GradingStatus.INCORRECT] ?: 0,
+        pending = counts[GradingStatus.PENDING] ?: 0,
     )
 }
 

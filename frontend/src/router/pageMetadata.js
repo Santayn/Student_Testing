@@ -29,6 +29,7 @@ const PAGE_TITLES = Object.freeze({
   'admin-teaching': 'Учебная нагрузка',
   'admin-database-backups': 'Резервные копии',
   'admin-ai-usage': 'Расход ИИ',
+  'admin-ai-settings': 'Настройки ИИ',
 
   about: 'О приложении',
   login: 'Вход',

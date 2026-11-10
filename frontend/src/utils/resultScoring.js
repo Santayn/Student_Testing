@@ -2,6 +2,8 @@ const KNOWN_GRADING_STATUSES = new Set([
   'correct',
   'partial',
   'incorrect',
+  // Ответ ещё проверяют ИИ или преподаватель: баллов пока нет.
+  'pending',
 ])
 
 function finiteNumber(value) {
@@ -99,6 +101,9 @@ export function gradingStatusLabel(result) {
     case 'partial':
       return 'Частично верно'
 
+    case 'pending':
+      return 'На проверке'
+
     default:
       return 'Неверно'
   }
@@ -123,7 +128,9 @@ export function resultItemScore(result) {
 
   let awarded
 
-  if (explicitAwarded !== null) {
+  if (normalizeGradingStatus(result) === 'pending') {
+    awarded = 0
+  } else if (explicitAwarded !== null) {
     awarded = clamp(
       explicitAwarded,
       0,

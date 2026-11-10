@@ -31,7 +31,7 @@ const { aiStatus } = useAiStatus()
 const suggesting = ref(false)
 const suggestionError = ref('')
 
-const canSuggest = computed(() => Boolean(aiStatus.value?.enabled))
+const canSuggest = computed(() => Boolean(aiStatus.value?.criteria ?? aiStatus.value?.enabled))
 const hasSource = computed(() =>
   Boolean(String(props.question ?? '').trim() && String(props.correctAnswer ?? '').trim())
 )

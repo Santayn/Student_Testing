@@ -219,9 +219,7 @@ private fun HeroCard(role: WorkspaceRole, data: StudentHome?, navigator: AppNavi
                         style = MaterialTheme.typography.labelLarge,
                         color = AppTheme.status.primarySoftText,
                     )
-                    Spacer(Modifier.size(6.dp))
                     Text(last.testName, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.size(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "${formatNumber(last.percent)} % верно",
@@ -233,32 +231,26 @@ private fun HeroCard(role: WorkspaceRole, data: StudentHome?, navigator: AppNavi
                     }
                 } else {
                     Text("С чего начать", style = MaterialTheme.typography.labelLarge, color = AppTheme.status.primarySoftText)
-                    Spacer(Modifier.size(6.dp))
                     Text("Откройте предмет, посмотрите лекцию и пройдите тест", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.size(12.dp))
                     BusyButton("Мои предметы", onClick = { navigator.openTab(SubjectsRoute) }, modifier = Modifier.fillMaxWidth())
                 }
             }
             WorkspaceRole.TEACHER -> {
                 Text("Учебный контент", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.size(4.dp))
                 Text(
                     "Темы, вопросы, лекции и тесты ваших предметов",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.size(12.dp))
                 BusyButton("Открыть", onClick = { navigator.openTab(TeacherContentRoute) }, modifier = Modifier.fillMaxWidth())
             }
             WorkspaceRole.ADMIN -> {
                 Text("Академическая структура", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.size(4.dp))
                 Text(
                     "Факультеты, группы, предметы и учебная нагрузка",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.size(12.dp))
                 BusyButton("Открыть", onClick = { navigator.openTab(AdminStructureRoute) }, modifier = Modifier.fillMaxWidth())
             }
         }

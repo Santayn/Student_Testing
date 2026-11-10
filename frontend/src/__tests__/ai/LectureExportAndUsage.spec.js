@@ -59,6 +59,16 @@ describe('lecture text export and AI usage api', () => {
     })
   })
 
+  it('reads and switches AI engines for admins', async () => {
+    http.put.mockResolvedValue({ data: [] })
+
+    await aiApi.getEngineSettings()
+    await aiApi.setEngine('grading', 'local')
+
+    expect(http.get).toHaveBeenCalledWith('/admin/ai-settings', {})
+    expect(http.put).toHaveBeenCalledWith('/admin/ai-settings/grading', { engine: 'local' })
+  })
+
   it('reads utf-8 file names from content-disposition', () => {
     const response = {
       headers: {

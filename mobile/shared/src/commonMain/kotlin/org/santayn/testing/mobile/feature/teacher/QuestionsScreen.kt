@@ -539,7 +539,7 @@ private fun QuestionEditor(form: QuestionForm, state: QuestionsUiState, vm: Ques
                     singleLine = false, minLines = 3, maxLength = 4000,
                 )
                 val aiStatus by vm.ai.status.collectAsState()
-                if (aiStatus?.enabled == true) {
+                if ((aiStatus?.criteria ?: aiStatus?.enabled) == true) {
                     AppOutlinedButton(
                         if (state.suggestingCriteria) "ИИ составляет критерии…" else "Предложить критерии",
                         onClick = vm::suggestCriteria,

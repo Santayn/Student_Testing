@@ -70,6 +70,15 @@ export const aiApi = {
     return http.post('/ai/images/generate', data)
   },
 
+  /** Движки функций ИИ (внешний API или своя модель) — администраторам (право ai.settings.manage). */
+  getEngineSettings(config = {}) {
+    return http.get('/admin/ai-settings', config)
+  },
+
+  setEngine(feature, engine) {
+    return http.put(`/admin/ai-settings/${feature}`, { engine })
+  },
+
   /** Расход ИИ — только администраторам (право ai.usage.read). */
   getUsageReport(params = {}, config = {}) {
     return http.get('/admin/ai-usage', { ...config, params })

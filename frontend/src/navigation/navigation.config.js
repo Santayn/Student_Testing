@@ -22,6 +22,7 @@ export const NAV_KEYS = Object.freeze({
   ADMIN_TEACHING: 'admin-teaching',
   ADMIN_DATABASE_BACKUPS: 'admin-database-backups',
   ADMIN_AI_USAGE: 'admin-ai-usage',
+  ADMIN_AI_SETTINGS: 'admin-ai-settings',
 })
 
 export const NAVIGATION_DESTINATIONS = Object.freeze({
@@ -171,6 +172,13 @@ export const NAVIGATION_DESTINATIONS = Object.freeze({
     icon: 'pi pi-chart-line',
     routeName: 'admin-ai-usage',
   },
+
+  [NAV_KEYS.ADMIN_AI_SETTINGS]: {
+    key: NAV_KEYS.ADMIN_AI_SETTINGS,
+    label: 'Настройки ИИ',
+    icon: 'pi pi-sliders-h',
+    routeName: 'admin-ai-settings',
+  },
 })
 
 /*
@@ -295,6 +303,7 @@ export const WORKSPACE_NAVIGATION = Object.freeze({
       items: [
         NAV_KEYS.ADMIN_DATABASE_BACKUPS,
         NAV_KEYS.ADMIN_AI_USAGE,
+        NAV_KEYS.ADMIN_AI_SETTINGS,
       ],
     },
     {
@@ -528,5 +537,9 @@ export const BREADCRUMB_CONFIG = Object.freeze({
 
   'admin-ai-usage': [
     { destination: NAV_KEYS.ADMIN_AI_USAGE },
+  ],
+
+  'admin-ai-settings': [
+    { destination: NAV_KEYS.ADMIN_AI_SETTINGS },
   ],
 })

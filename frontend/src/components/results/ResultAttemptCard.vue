@@ -146,7 +146,15 @@ function reviewLabel(row) {
     return TEACHER_REVIEW_LABELS[row?.reviewStatus] ?? ''
   }
 
-  return row?.reviewPending ? 'Ответ ещё проверяется' : ''
+  if (row?.reviewStatus === 'ai_pending') {
+    return 'Проверяет ИИ'
+  }
+
+  return row?.reviewStatus === 'needs_teacher' ? 'У преподавателя' : ''
+}
+
+function reviewIcon(row) {
+  return row?.reviewStatus === 'ai_pending' ? 'pi pi-spin pi-spinner' : ''
 }
 
 function formatDateTime(value) {
@@ -214,6 +222,7 @@ function formatDateTime(value) {
               <UiTag
                 v-if="reviewLabel(row)"
                 variant="info"
+                :icon="reviewIcon(row)"
                 :value="reviewLabel(row)"
               />
               <UiTag

@@ -1,5 +1,13 @@
 package org.santayn.testing.mobile.feature.tests
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import org.santayn.testing.mobile.data.api.ResultsApi
+import org.santayn.testing.mobile.data.model.ResultItemDto
+import org.santayn.testing.mobile.data.model.ReviewStatus
+import org.santayn.testing.mobile.domain.GradingStatus
+import org.santayn.testing.mobile.domain.gradingStatusNormalized
+import org.santayn.testing.mobile.domain.score
 import org.santayn.testing.mobile.core.ui.design.Design
 import org.santayn.testing.mobile.core.ui.design.AnswerStyle
 import org.santayn.testing.mobile.core.ui.AnswerOptionCard
@@ -144,6 +152,7 @@ class TestViewModel(
     private val learning: LearningApi,
     private val drafts: AttemptDraftStore,
     private val cache: ContextCache,
+    private val results: ResultsApi,
 ) : BaseViewModel() {
 
     private val _state = MutableStateFlow<LoadState<TestSession>>(LoadState.Loading)
@@ -152,6 +161,10 @@ class TestViewModel(
     val answers = _answers.asStateFlow()
     private val _submit = MutableStateFlow<SubmitState>(SubmitState.Idle)
     val submit = _submit.asStateFlow()
+
+    /** Свежее состояние ответов сданной попытки: обновляется, пока ИИ проверяет свободные ответы. */
+    private val _review = MutableStateFlow<List<ResultItemDto>?>(null)
+    val review = _review.asStateFlow()
 
     private var saveJob: Job? = null
 
@@ -237,6 +250,23 @@ class TestViewModel(
             drafts.clear(testId, assignmentId)
             cache.invalidate()
             _submit.value = SubmitState.Done(result)
+            if (result.pendingReviewCount > 0) watchReview(result.attemptId)
+        }
+    }
+
+    /** Опрашивает результат, пока ИИ не закончит проверку (не дольше двух минут). */
+    private fun watchReview(attemptId: Int) {
+        viewModelScope.launch {
+            repeat(REVIEW_POLLS) {
+                delay(REVIEW_POLL_MS)
+                val attempt = runCatching {
+                    results.getStudentData(testId = testId).attempts.firstOrNull { it.attemptId == attemptId }
+                }.getOrNull()
+                if (attempt != null) {
+                    _review.value = attempt.results
+                    if (attempt.results.none { it.reviewStatus == ReviewStatus.AI_PENDING }) return@launch
+                }
+            }
         }
     }
 
@@ -249,6 +279,8 @@ class TestViewModel(
 
     private companion object {
         const val DRAFT_DEBOUNCE_MS = 250L
+        const val REVIEW_POLL_MS = 2_000L
+        const val REVIEW_POLLS = 60
     }
 }
 
@@ -261,6 +293,7 @@ fun TestScreen(route: TestRoute, navigator: AppNavigator) {
     val state by vm.state.collectAsState()
     val answers by vm.answers.collectAsState()
     val submit by vm.submit.collectAsState()
+    val review by vm.review.collectAsState()
     var confirm by rememberSaveable { mutableStateOf(false) }
     // Тест проходится по одному вопросу на экран; номер текущего переживает поворот экрана.
     var current by rememberSaveable(route.testId, route.assignmentId) { mutableIntStateOf(0) }
@@ -275,6 +308,7 @@ fun TestScreen(route: TestRoute, navigator: AppNavigator) {
         TestResultScreen(
             title = title,
             result = done.result,
+            review = review,
             onResults = { navigator.replace(ResultsRoute) },
             onBack = {
                 if (route.lectureId != null) navigator.replace(LectureRoute(route.lectureId, route.subjectId)) else navigator.back()
@@ -556,13 +590,11 @@ internal fun QuestionCard(
         }
         AnswerStyle.LIST -> AppCard {
             header()
-            Spacer(Modifier.size(4.dp))
             Text(
                 question.displayText,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() },
             )
-            Spacer(Modifier.size(4.dp))
             when (type) {
                 QuestionType.SINGLE -> Column(Modifier.selectableGroup()) {
                     options.forEach { option ->
@@ -636,51 +668,73 @@ private fun spokenQuestion(
 private fun TestResultScreen(
     title: String,
     result: SubmitAttemptResponse,
+    review: List<ResultItemDto>?,
     onResults: () -> Unit,
     onBack: () -> Unit,
 ) {
+    // Ответы сдачи и их свежее состояние идут в одном порядке (ответы сохраняются по порядку вопросов).
+    val live = review?.takeIf { it.size == result.details.size }
+    val aiChecking = if (live != null) live.any { it.reviewStatus == ReviewStatus.AI_PENDING } else result.pendingReviewCount > 0
+    val teacherPending = live?.count { it.reviewStatus == ReviewStatus.NEEDS_TEACHER } ?: 0
+    val shown = if (live == null) result else result.copy(
+        correctCount = live.count { it.correct },
+        score = live.sumOf { it.awardedPoints ?: 0.0 },
+        pendingReviewCount = live.count { it.reviewPending },
+    )
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets(0, 0, 0, 0)) { _ ->
         LazyColumn(
             contentPadding = PaddingValues(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         ) {
-            item { ResultHero(title = title, result = result, onBack = onBack) }
-            if (result.pendingReviewCount > 0) {
+            item { ResultHero(title = title, result = shown, onBack = onBack) }
+            if (aiChecking) {
                 item {
-                    Banner(
-                        "Ответов на проверке: ${result.pendingReviewCount}. Свободные ответы проверяются по смыслу — " +
-                            "итоговый балл может измениться, он появится в «Результатах».",
-                        Tone.INFO,
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                    )
+                    AppCard(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Text("ИИ проверяет свободные ответы", style = MaterialTheme.typography.titleSmall)
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                }
+            } else if (teacherPending > 0) {
+                item {
+                    Banner("Ответов у преподавателя: $teacherPending", Tone.INFO, modifier = Modifier.padding(horizontal = 20.dp))
                 }
             }
             if (result.details.isNotEmpty()) {
                 item { SectionTitle("Разбор ответов", modifier = Modifier.padding(horizontal = 20.dp)) }
             }
             itemsIndexed(result.details) { index, detail ->
+                val item = live?.get(index)
+                val reviewStatus = item?.reviewStatus ?: if (detail.pendingReview) ReviewStatus.AI_PENDING else null
+                val pending = reviewStatus == ReviewStatus.AI_PENDING || reviewStatus == ReviewStatus.NEEDS_TEACHER
+                val correct = item?.correct ?: detail.correct
                 AppCard(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.semantics(mergeDescendants = true) { heading() },
                     ) {
-                        Icon(
-                            if (detail.correct) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                            contentDescription = if (detail.correct) "Верно" else "Неверно",
-                            tint = if (detail.correct) AppTheme.status.successText else AppTheme.status.dangerText,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Вопрос ${index + 1} · " + if (detail.correct) "верно" else "неверно",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (detail.correct) AppTheme.status.successText else AppTheme.status.dangerText,
-                        )
+                        Text("Вопрос ${index + 1}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                        when {
+                            reviewStatus == ReviewStatus.AI_PENDING -> StatusChip("Проверяет ИИ", Tone.INFO, busy = true)
+                            pending -> StatusChip("У преподавателя", Tone.INFO)
+                            item != null -> {
+                                val status = item.gradingStatusNormalized()
+                                val score = item.score()
+                                StatusChip(
+                                    "${status.label} · ${formatNumber(score.awarded)}/${formatNumber(score.maximum)}",
+                                    when (status) {
+                                        GradingStatus.CORRECT -> Tone.SUCCESS
+                                        GradingStatus.PARTIAL -> Tone.WARNING
+                                        else -> Tone.DANGER
+                                    },
+                                )
+                            }
+                            else -> StatusChip(if (correct) "Верно" else "Неверно", if (correct) Tone.SUCCESS else Tone.DANGER)
+                        }
                     }
-                    Spacer(Modifier.size(4.dp))
                     Text(detail.questionText.orEmpty(), style = MaterialTheme.typography.titleSmall)
                     AnswerView(detail.givenAnswer, detail.correctAnswer)
-                    if (detail.pendingReview) StatusChip("Проверяется", Tone.INFO)
+                    item?.aiFeedback?.takeIf { it.isNotBlank() && !pending }?.let { Banner(it, Tone.INFO, title = "Комментарий ИИ") }
                 }
             }
             item {

@@ -172,6 +172,7 @@ describe('workspace navigation config', () => {
     ).toEqual([
       NAV_KEYS.ADMIN_DATABASE_BACKUPS,
       NAV_KEYS.ADMIN_AI_USAGE,
+      NAV_KEYS.ADMIN_AI_SETTINGS,
     ])
   })
 
