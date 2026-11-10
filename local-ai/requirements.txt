@@ -1,0 +1,6 @@
+# Те же версии, что в окружении обучения (ml/requirements.txt), — модель гарантированно открывается.
+fastapi==0.162.2
+uvicorn==0.54.0
+onnxruntime==1.31.1
+tokenizers==0.23.3
+numpy==2.5.4
