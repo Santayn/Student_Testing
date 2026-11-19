@@ -30,6 +30,9 @@ app:
     provider: none
     storage:
       dir: target/test-ai
+    images:
+      # Тесты не ходят в настоящие банки изображений.
+      search-enabled: false
     worker:
       # Тесты запускают очередь явно через AiJobWorker.runReadyJobsNow().
       enabled: false

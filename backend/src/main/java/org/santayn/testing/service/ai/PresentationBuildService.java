@@ -7,45 +7,60 @@ import org.santayn.testing.models.ai.AiJobType;
 import org.santayn.testing.models.lecture.LectureMaterial;
 import org.santayn.testing.repository.LectureRepository;
 import org.santayn.testing.service.LectureMaterialService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 /**
  * Сборка презентации по утверждённому плану: картинки (найденные, сгенерированные или из
  * материалов лекции) скачиваются, PPTX и PDF сохраняются в материалы лекции — их сразу видят
- * студенты и мобильное приложение (в том числе без сети).
+ * студенты и мобильное приложение (в том числе без сети). Если на слайде предложен поиск картинки,
+ * а преподаватель её не выбрал, берётся первая подходящая находка в банке изображений.
  */
 @Service
 public class PresentationBuildService implements AiJobHandler {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(PresentationBuildService.class);
     private static final String PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
     private final AiJobService jobService;
     private final AiFileStorage fileStorage;
     private final RemoteImageFetcher imageFetcher;
+    private final ImageSearchService imageSearchService;
     private final LectureRepository lectureRepository;
     private final LectureMaterialService lectureMaterialService;
 
     public PresentationBuildService(AiJobService jobService,
                                     AiFileStorage fileStorage,
                                     RemoteImageFetcher imageFetcher,
+                                    ImageSearchService imageSearchService,
                                     LectureRepository lectureRepository,
                                     LectureMaterialService lectureMaterialService) {
         this.jobService = jobService;
         this.fileStorage = fileStorage;
         this.imageFetcher = imageFetcher;
+        this.imageSearchService = imageSearchService;
         this.lectureRepository = lectureRepository;
         this.lectureMaterialService = lectureMaterialService;
     }
 
     @Transactional
     public AiJob enqueue(Integer ownerPersonId, Integer lectureId, JsonNode outline, boolean withPdf) {
+        return enqueue(ownerPersonId, lectureId, outline, withPdf, true);
+    }
+
+    /** @param autoImages подобрать картинки слайдам, где предложен поиск, но картинка не выбрана */
+    @Transactional
+    public AiJob enqueue(Integer ownerPersonId, Integer lectureId, JsonNode outline, boolean withPdf,
+                         boolean autoImages) {
         if (!lectureRepository.existsById(lectureId)) {
             throw new IllegalArgumentException("Lecture not found: " + lectureId);
         }
@@ -58,6 +73,7 @@ public class PresentationBuildService implements AiJobHandler {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("outline", outline);
         input.put("withPdf", withPdf);
+        input.put("autoImages", autoImages);
         return jobService.enqueue(AiJobType.PRESENTATION_BUILD, ownerPersonId, lectureId.longValue(), input);
     }
 
@@ -77,16 +93,23 @@ public class PresentationBuildService implements AiJobHandler {
         JsonNode outline = input.path("outline");
         Integer lectureId = job.getTargetId().intValue();
 
+        boolean autoImages = input.path("autoImages").asBoolean(true) && imageSearchService.isAvailable();
         Map<Integer, PptxPresentationBuilder.SlideImage> images = new HashMap<>();
         int index = 0;
         for (JsonNode slide : outline.path("slides")) {
-            JsonNode selected = slide.path("image").path("selected");
+            JsonNode image = slide.path("image");
+            JsonNode selected = image.path("selected");
+            PptxPresentationBuilder.SlideImage loaded = null;
             if (selected.isObject()) {
                 context.progress("Загружаю картинку для слайда " + (index + 1));
-                PptxPresentationBuilder.SlideImage image = loadImage(selected, lectureId, job.getOwnerPersonId());
-                if (image != null) {
-                    images.put(index, image);
-                }
+                loaded = loadImage(selected, lectureId, job.getOwnerPersonId());
+            } else if (autoImages && "search".equals(image.path("mode").asText())
+                    && !image.path("query").asText("").isBlank()) {
+                context.progress("Подбираю картинку для слайда " + (index + 1));
+                loaded = findImage(image.path("query").asText());
+            }
+            if (loaded != null) {
+                images.put(index, loaded);
             }
             index++;
         }
@@ -106,6 +129,29 @@ public class PresentationBuildService implements AiJobHandler {
             result.put("pdfFileName", pdf.getFileName());
         }
         return result;
+    }
+
+    /** Первая картинка из банка, которую удалось скачать; при любой неудаче слайд остаётся без картинки. */
+    private PptxPresentationBuilder.SlideImage findImage(String query) {
+        List<ImageSearchService.FoundImage> found;
+        try {
+            found = imageSearchService.search(query, 12).images();
+        } catch (RuntimeException searchFailed) {
+            LOGGER.info("Картинка для запроса «{}» не найдена: {}", query, searchFailed.getMessage());
+            return null;
+        }
+        for (ImageSearchService.FoundImage candidate : found) {
+            if (!ImageSearchService.matchesQuery(candidate, query)) {
+                continue; // на абстрактные запросы банки находят случайные фото — такие не берём
+            }
+            try {
+                RemoteImageFetcher.Image image = imageFetcher.fetch(candidate.imageUrl());
+                return new PptxPresentationBuilder.SlideImage(image.content(), candidate.attribution());
+            } catch (RuntimeException fetchFailed) {
+                LOGGER.info("Не удалось скачать {}: {}", candidate.imageUrl(), fetchFailed.getMessage());
+            }
+        }
+        return null;
     }
 
     private PptxPresentationBuilder.SlideImage loadImage(JsonNode selected, Integer lectureId, Integer ownerPersonId) throws Exception {

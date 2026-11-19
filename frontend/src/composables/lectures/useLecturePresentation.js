@@ -22,6 +22,7 @@ export const SLIDE_LAYOUT_OPTIONS = Object.freeze([
   { value: 'process', label: 'Шаги процесса' },
   { value: 'section', label: 'Титул раздела' },
   { value: 'quote', label: 'Определение или цитата' },
+  { value: 'table', label: 'Таблица' },
 ])
 
 export const SLIDE_IMAGE_OPTIONS = Object.freeze([
@@ -31,7 +32,31 @@ export const SLIDE_IMAGE_OPTIONS = Object.freeze([
   { value: 'material', label: 'Из материалов лекции' },
 ])
 
+export const TEXT_AMOUNT_OPTIONS = Object.freeze([
+  { value: 'short', label: 'Кратко' },
+  { value: 'medium', label: 'Средне' },
+  { value: 'detailed', label: 'Подробно' },
+])
+
+export const IMAGE_AMOUNT_OPTIONS = Object.freeze([
+  { value: 'none', label: 'Без картинок' },
+  { value: 'some', label: 'Немного' },
+  { value: 'many', label: 'Много' },
+])
+
 const IMAGE_FILE = /\.(png|jpe?g)$/i
+const STOP_WORDS = new Set(['with', 'from', 'into', 'that', 'this', 'their', 'about', 'using', 'used', 'based', 'image', 'photo'])
+
+/** Похожа ли находка на запрос: в её названии не меньше половины значимых слов запроса (как на сервере). */
+export function matchesQuery(result, query) {
+  const title = String(result?.title ?? '').toLowerCase()
+  const words = String(query ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 4 && !STOP_WORDS.has(word))
+  const matched = words.filter((word) => title.includes(word.slice(0, 5))).length
+  return matched > 0 && 2 * matched >= words.length
+}
+// Сколько поисков картинок идёт одновременно при автоподборе.
+const AUTO_PICK_PARALLEL = 3
 
 let slideKey = 0
 
@@ -46,6 +71,21 @@ function joinLines(values) {
   return Array.isArray(values) ? values.join('\n') : ''
 }
 
+/** Таблица в редакторе: строка на строку таблицы, столбцы через «|», первая строка — заголовки. */
+function tableToText(table) {
+  const columns = table?.columns ?? []
+  if (!columns.length) return ''
+  return [columns, ...(table.rows ?? [])].map((row) => row.join(' | ')).join('\n')
+}
+
+function tableFromText(text) {
+  const [columns = [], ...rows] = String(text ?? '').split('\n')
+    .map((line) => line.trim().replace(/^\|/, '').replace(/\|$/, ''))
+    .filter(Boolean)
+    .map((line) => line.split('|').map((cell) => cell.trim()))
+  return { columns, rows: rows.map((row) => columns.map((_, index) => row[index] ?? '')) }
+}
+
 function slideToForm(slide = {}) {
   return reactive({
     key: ++slideKey,
@@ -57,6 +97,7 @@ function slideToForm(slide = {}) {
     rightTitle: slide.right?.title || '',
     rightText: joinLines(slide.right?.bullets),
     stepsText: joinLines(slide.steps),
+    tableText: tableToText(slide.table),
     notes: slide.notes || '',
     image: {
       mode: slide.image?.mode || 'none',
@@ -93,6 +134,7 @@ function slideFromForm(slide) {
     left: { title: slide.leftTitle.trim(), bullets: lines(slide.leftText) },
     right: { title: slide.rightTitle.trim(), bullets: lines(slide.rightText) },
     steps: lines(slide.stepsText),
+    table: tableFromText(slide.tableText),
     notes: slide.notes.trim(),
     image,
   }
@@ -119,6 +161,8 @@ export function useLecturePresentation(lectureId) {
 
   const settings = reactive({
     slideCount: 10,
+    textAmount: 'medium',
+    imageAmount: 'some',
     instructions: '',
     withPdf: true,
   })
@@ -170,6 +214,8 @@ export function useLecturePresentation(lectureId) {
     const done = await outlineJob.track(
       aiApi.createPresentationOutline(lectureId.value, {
         slideCount: Number(settings.slideCount) || 10,
+        textAmount: settings.textAmount,
+        imageAmount: settings.imageAmount,
         instructions: settings.instructions.trim() || null,
       })
     )
@@ -182,6 +228,25 @@ export function useLecturePresentation(lectureId) {
     outline.title = done.result.title || lecture.value?.title || ''
     outline.subtitle = done.result.subtitle || ''
     outline.slides = (done.result.slides ?? []).map(slideToForm)
+    await autoPickImages()
+  }
+
+  /** Подбирает первую найденную картинку слайдам, где ИИ предложил поиск; её можно заменить. */
+  async function autoPickImages() {
+    const queue = outline.slides.filter((slide) => (
+      slide.image.mode === 'search' && slide.image.query.trim() && !slide.image.selected
+    ))
+    const worker = async () => {
+      for (let slide = queue.shift(); slide; slide = queue.shift()) {
+        await searchImages(slide)
+        // На абстрактные запросы банки находят случайные фото: берём только похожую находку.
+        const first = slide.image.results.find((result) => matchesQuery(result, slide.image.query))
+        if (first && !slide.image.selected && slide.image.mode === 'search') {
+          selectFound(slide, first)
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: AUTO_PICK_PARALLEL }, worker))
   }
 
   function addSlide(index = outline.slides.length) {
@@ -230,6 +295,10 @@ export function useLecturePresentation(lectureId) {
         try {
           const preview = await aiApi.previewImage(result.imageUrl)
           result.previewUrl = remember(URL.createObjectURL(preview.data))
+          // Картинка могла быть выбрана (автоподбором) раньше, чем загрузилось её превью.
+          if (slide.image.selected?.url === result.imageUrl && !slide.image.previewUrl) {
+            slide.image.previewUrl = result.previewUrl
+          }
         } catch {
           result.failed = true
         }

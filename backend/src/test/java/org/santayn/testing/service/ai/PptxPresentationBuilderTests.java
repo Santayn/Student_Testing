@@ -61,6 +61,33 @@ class PptxPresentationBuilderTests {
     }
 
     @Test
+    void tableSlideIsARealTable() throws Exception {
+        JsonNode outline = new ObjectMapper().readTree("""
+                {"title": "Трансляторы", "slides": [
+                  {"layout": "table", "title": "Обзор решений",
+                   "table": {"columns": ["Решение", "Представление"],
+                             "rows": [["Roslyn", "дерево, CIL"], ["LLVM", "LLVM IR"]]}}]}
+                """);
+
+        PptxPresentationBuilder.Result result = PptxPresentationBuilder.build(outline, Map.of(), true);
+
+        try (XMLSlideShow show = new XMLSlideShow(new ByteArrayInputStream(result.pptx()))) {
+            org.apache.poi.xslf.usermodel.XSLFTable table = show.getSlides().get(1).getShapes().stream()
+                    .filter(org.apache.poi.xslf.usermodel.XSLFTable.class::isInstance)
+                    .map(org.apache.poi.xslf.usermodel.XSLFTable.class::cast)
+                    .findFirst().orElseThrow();
+            assertThat(table.getNumberOfRows()).isEqualTo(3);
+            assertThat(table.getNumberOfColumns()).isEqualTo(2);
+            assertThat(table.getCell(2, 1).getText()).isEqualTo("LLVM IR");
+            // сетка столбцов обязательна, иначе PowerPoint не открывает файл
+            assertThat(table.getCTTable().getTblGrid().sizeOfGridColArray()).isEqualTo(2);
+            assertThat(((org.openxmlformats.schemas.drawingml.x2006.main.CTTableCell) table.getCell(0, 0).getXmlObject())
+                    .getTxBody().getBodyPr()).isNotNull();
+        }
+        assertThat(result.pdf()).isNotEmpty();
+    }
+
+    @Test
     void shrinksLongTitles() {
         assertThat(PptxPresentationBuilder.fitSize("Коротко", 30, 20, 70)).isEqualTo(30);
         assertThat(PptxPresentationBuilder.fitSize("Очень ".repeat(40), 30, 20, 70)).isEqualTo(20);

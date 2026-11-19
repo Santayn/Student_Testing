@@ -172,7 +172,9 @@ public class AiRestController {
                 accessService.currentUser(authentication).personId(),
                 lectureId,
                 request.slideCount() == null ? 10 : request.slideCount(),
-                request.instructions()
+                request.instructions(),
+                request.textAmount(),
+                request.imageAmount()
         ));
     }
 
@@ -185,7 +187,8 @@ public class AiRestController {
                 accessService.currentUser(authentication).personId(),
                 lectureId,
                 request.outline(),
-                request.withPdf() == null || request.withPdf()
+                request.withPdf() == null || request.withPdf(),
+                request.autoImages() == null || request.autoImages()
         ));
     }
 
@@ -255,10 +258,14 @@ public class AiRestController {
     public record CriteriaSuggestionResponse(String criteria) {
     }
 
-    public record OutlineRequest(Integer slideCount, @Size(max = 1000) String instructions) {
+    /** textAmount: short | medium | detailed; imageAmount: none | some | many. */
+    public record OutlineRequest(Integer slideCount,
+                                 @Size(max = 1000) String instructions,
+                                 @Size(max = 20) String textAmount,
+                                 @Size(max = 20) String imageAmount) {
     }
 
-    public record BuildRequest(@NotNull JsonNode outline, Boolean withPdf) {
+    public record BuildRequest(@NotNull JsonNode outline, Boolean withPdf, Boolean autoImages) {
     }
 
     public record GenerateImageRequest(@NotBlank @Size(max = 1000) String prompt, Integer lectureId) {

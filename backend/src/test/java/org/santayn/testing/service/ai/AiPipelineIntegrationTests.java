@@ -253,6 +253,39 @@ class AiPipelineIntegrationTests {
     }
 
     @Test
+    void englishOutlineIsTranslatedAndSettingsReachThePrompt() {
+        Lecture lecture = new Lecture();
+        lecture.setTitle("Спецификация ПО");
+        lecture.setContentFolderKey("ai-test-" + System.nanoTime());
+        lecture.setBody("Спецификация ПО при использовании UML объединяет несколько моделей. ".repeat(12));
+        lecture = lectureRepository.saveAndFlush(lecture);
+        SERVER.respond(request -> LoopbackAiServer.Response.ok(LoopbackAiServer.chat(
+                SERVER.requests().size() <= 1
+                        ? """
+                        {"title": "Seed Informatics Lecture", "slides": [
+                          {"layout": "bullets", "title": "UML Models", "bullets": ["Usage model", "Logical model"],
+                           "image": {"mode": "search", "query": "uml diagram"}}]}
+                        """
+                        : """
+                        {"title": "Спецификация ПО", "slides": [
+                          {"layout": "bullets", "title": "Модели UML", "bullets": ["Модель использования", "Логическая модель"],
+                           "image": {"mode": "search", "query": "uml diagram"}}]}
+                        """
+        )));
+
+        AiJob job = outlineService.enqueue(null, lecture.getId(), 6, null, "short", "none");
+        worker.runReadyJobsNow();
+        JsonNode outline = jobService.readResult(jobService.get(job.getId()));
+
+        assertThat(SERVER.requests()).hasSize(2);
+        assertThat(SERVER.requests().get(0).body()).contains("кратко").contains("не нужны");
+        assertThat(SERVER.requests().get(1).body()).contains("Переведи").contains("Seed Informatics");
+        assertThat(outline.path("title").asText()).isEqualTo("Спецификация ПО");
+        assertThat(outline.path("slides").get(0).path("title").asText()).isEqualTo("Модели UML");
+        assertThat(outline.path("slides").get(0).path("image").path("mode").asText()).isEqualTo("none");
+    }
+
+    @Test
     void oversizedRequestFailsAtOnceWithoutRetries() {
         Lecture lecture = new Lecture();
         lecture.setTitle("Сети");

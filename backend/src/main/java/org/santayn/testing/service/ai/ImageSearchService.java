@@ -57,6 +57,29 @@ public class ImageSearchService {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Похожа ли находка на то, что искали: в названии файла есть не меньше половины значимых слов
+     * запроса (сравнение по первым 5 буквам, чтобы «diagrams» совпадало с «diagram»). Нужна для
+     * автоподбора картинок — при ручном выборе преподаватель видит все находки.
+     */
+    public static boolean matchesQuery(FoundImage image, String query) {
+        String title = image.title() == null ? "" : image.title().toLowerCase(java.util.Locale.ROOT);
+        int words = 0;
+        int matched = 0;
+        for (String word : query.toLowerCase(java.util.Locale.ROOT).split("[^\\p{L}\\p{N}]+")) {
+            if (word.length() >= 4 && !STOP_WORDS.contains(word)) {
+                words++;
+                if (title.contains(word.substring(0, Math.min(word.length(), 5)))) {
+                    matched++;
+                }
+            }
+        }
+        return matched > 0 && 2 * matched >= words;
+    }
+
+    private static final java.util.Set<String> STOP_WORDS = java.util.Set.of(
+            "with", "from", "into", "that", "this", "their", "about", "using", "used", "based", "image", "photo");
+
     public boolean isAvailable() {
         return properties.getImages().isSearchEnabled();
     }
@@ -124,7 +147,8 @@ public class ImageSearchService {
     List<FoundImage> wikimedia(String query, int limit) throws Exception {
         String url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search"
                 + "&gsrnamespace=6&gsrlimit=" + limit
-                + "&gsrsearch=" + encode(query + " filetype:bitmap")
+                // drawing — схемы и диаграммы в SVG: для технических тем это самые подходящие находки
+                + "&gsrsearch=" + encode(query + " filetype:bitmap|drawing")
                 + "&prop=imageinfo&iiprop=url%7Cextmetadata%7Cmime&iiurlwidth=1280"
                 + "&iiextmetadatafilter=Artist%7CLicenseShortName%7CLicenseUrl";
         JsonNode pages = get(url).path("query").path("pages");
@@ -133,7 +157,10 @@ public class ImageSearchService {
             JsonNode info = page.path("imageinfo").path(0);
             String mime = info.path("mime").asText("");
             String imageUrl = info.path("thumburl").asText(info.path("url").asText(""));
-            if (!(mime.equals("image/jpeg") || mime.equals("image/png")) || !RemoteImageFetcher.isAllowed(imageUrl)) {
+            // SVG берётся только как PNG-миниатюра, которую рендерит сама Wikimedia
+            boolean svgThumbnail = mime.equals("image/svg+xml") && info.hasNonNull("thumburl");
+            if (!(mime.equals("image/jpeg") || mime.equals("image/png") || svgThumbnail)
+                    || !RemoteImageFetcher.isAllowed(imageUrl)) {
                 return;
             }
             JsonNode metadata = info.path("extmetadata");
