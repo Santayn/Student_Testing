@@ -10,6 +10,7 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.sl.usermodel.ShapeType;
+import org.apache.poi.sl.usermodel.TableCell;
 import org.apache.poi.sl.usermodel.TextParagraph;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFAutoShape;
@@ -17,6 +18,8 @@ import org.apache.poi.xslf.usermodel.XSLFNotes;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
 import org.apache.poi.xslf.usermodel.XSLFPictureShape;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
+import org.apache.poi.xslf.usermodel.XSLFTable;
+import org.apache.poi.xslf.usermodel.XSLFTableCell;
 import org.apache.poi.xslf.usermodel.XSLFTextBox;
 import org.apache.poi.xslf.usermodel.XSLFTextParagraph;
 import org.apache.poi.xslf.usermodel.XSLFTextRun;
@@ -128,6 +131,12 @@ public class PptxPresentationBuilder {
                 process(target, strings(slide.path("steps")));
                 footer(target);
             }
+            case "table" -> {
+                target = newSlide(Color.WHITE);
+                header(target, title);
+                table(target, slide.path("table"));
+                footer(target);
+            }
             default -> {
                 target = newSlide(Color.WHITE);
                 header(target, title);
@@ -204,6 +213,57 @@ public class PptxPresentationBuilder {
                 connector.setFillColor(ACCENT);
                 connector.setLineColor(null);
             }
+        }
+    }
+
+    /** Таблица: строка заголовков на синем, строки данных через одну на светлом фоне. */
+    private void table(XSLFSlide slide, JsonNode table) {
+        List<String> columns = strings(table.path("columns"));
+        if (columns.isEmpty()) {
+            return;
+        }
+        List<List<String>> rows = new ArrayList<>();
+        table.path("rows").forEach(row -> {
+            List<String> cells = new ArrayList<>();
+            for (int i = 0; i < columns.size(); i++) {
+                cells.add(row.path(i).asText("").trim());
+            }
+            rows.add(cells);
+        });
+        int fontSize = rows.size() <= 4 ? 16 : rows.size() <= 6 ? 14 : 12;
+        double width = WIDTH - 2 * MARGIN;
+        // createTable(строк, столбцов) заполняет и сетку столбцов (tblGrid): без неё PowerPoint
+        // считает файл повреждённым.
+        XSLFTable shape = slide.createTable(rows.size() + 1, columns.size());
+        fillTableRow(shape, 0, columns, PRIMARY, Color.WHITE, true, fontSize);
+        for (int i = 0; i < rows.size(); i++) {
+            fillTableRow(shape, i + 1, rows.get(i), i % 2 == 0 ? SOFT : Color.WHITE, TEXT, false, fontSize);
+        }
+        for (int i = 0; i < columns.size(); i++) {
+            shape.setColumnWidth(i, width / columns.size());
+        }
+        shape.setAnchor(new Rectangle2D.Double(MARGIN, 136, width, 40.0 * (rows.size() + 1)));
+    }
+
+    private static void fillTableRow(XSLFTable table, int rowIndex, List<String> cells, Color fill, Color color,
+                                     boolean bold, int fontSize) {
+        for (int column = 0; column < cells.size(); column++) {
+            XSLFTableCell cell = table.getCell(rowIndex, column);
+            cell.clearText();
+            // a:bodyPr в тексте ячейки обязателен по схеме: POI его не создаёт, а PowerPoint без него
+            // объявляет файл повреждённым
+            var body = ((org.openxmlformats.schemas.drawingml.x2006.main.CTTableCell) cell.getXmlObject()).getTxBody();
+            if (body.getBodyPr() == null) {
+                body.addNewBodyPr();
+            }
+            cell.setFillColor(fill);
+            cell.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+            cell.setInsets(new org.apache.poi.sl.usermodel.Insets2D(4, 8, 4, 8));
+            for (TableCell.BorderEdge edge : TableCell.BorderEdge.values()) {
+                cell.setBorderColor(edge, new Color(0xD5DDF0));
+                cell.setBorderWidth(edge, 1.0);
+            }
+            run(cell.addNewTextParagraph(), cells.get(column), fontSize, color, bold);
         }
     }
 
