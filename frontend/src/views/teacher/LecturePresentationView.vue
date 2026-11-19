@@ -24,8 +24,10 @@ import TeacherPageShell from '@/components/teacher/TeacherPageShell.vue'
 import { useAiStatus } from '@/composables/ai/useAiStatus'
 import { useUnsavedNavigationGuard } from '@/composables/shared/useUnsavedNavigationGuard'
 import {
+  IMAGE_AMOUNT_OPTIONS,
   SLIDE_IMAGE_OPTIONS,
   SLIDE_LAYOUT_OPTIONS,
+  TEXT_AMOUNT_OPTIONS,
   useLecturePresentation,
 } from '@/composables/lectures/useLecturePresentation'
 
@@ -71,6 +73,13 @@ const imageModeOptions = computed(() => SLIDE_IMAGE_OPTIONS.filter((option) => {
   if (option.value === 'material') return imageMaterials.value.length > 0
   return true
 }))
+
+// Без поиска и генерации картинок выбирать их количество незачем.
+const imageAmountOptions = computed(() => (
+  aiStatus.value?.imageSearch === false && !aiStatus.value?.imageGeneration
+    ? IMAGE_AMOUNT_OPTIONS.filter((option) => option.value === 'none')
+    : IMAGE_AMOUNT_OPTIONS
+))
 
 const materialOptions = computed(() => imageMaterials.value.map((material) => ({
   value: material.id,
@@ -126,6 +135,16 @@ onMounted(load)
               min="5"
               max="20"
               step="1"
+            />
+            <UiSelect
+              v-model="settings.textAmount"
+              label="Объём текста"
+              :options="TEXT_AMOUNT_OPTIONS"
+            />
+            <UiSelect
+              v-model="settings.imageAmount"
+              label="Картинки"
+              :options="imageAmountOptions"
             />
           </div>
           <UiTextarea
@@ -247,6 +266,15 @@ onMounted(load)
               v-if="slide.layout === 'process'"
               v-model="slide.stepsText"
               label="Шаги — по одному на строку"
+              :rows="4"
+              auto-resize
+            />
+
+            <UiTextarea
+              v-if="slide.layout === 'table'"
+              v-model="slide.tableText"
+              label="Таблица"
+              placeholder="Столбец | Столбец"
               :rows="4"
               auto-resize
             />
